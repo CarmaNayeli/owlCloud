@@ -417,26 +417,56 @@
     });
 
     // Look for elements containing dice notation patterns
-    console.log('\nSearching for elements with dice notation (e.g., "1d20", "2d6+3")...');
+    console.log('\nSearching for elements with dice notation (e.g., "1d20 [ 6 ]", "2d6+3")...');
     const allElements = document.querySelectorAll('*');
-    const dicePattern = /\d+d\d+/i;
+    const dicePattern = /\d+d\d+\s*\[/i; // DiceCloud format: 1d20 [ 6 ]
     const elementsWithDice = [];
 
     allElements.forEach(el => {
-      if (el.textContent?.match(dicePattern) && el.children.length === 0) {
+      const text = el.textContent || '';
+      if (text.match(dicePattern)) {
         elementsWithDice.push({
           tag: el.tagName,
           classes: el.className,
           id: el.id,
-          text: el.textContent?.substring(0, 50),
-          parent: el.parentElement?.className
+          text: text.substring(0, 100),
+          parent: el.parentElement?.className,
+          childCount: el.children.length,
+          element: el // Store reference for inspection
         });
       }
     });
 
     if (elementsWithDice.length > 0) {
-      console.log('Found elements with dice notation:');
-      console.table(elementsWithDice.slice(0, 10));
+      console.log(`Found ${elementsWithDice.length} elements with dice notation:`);
+      console.table(elementsWithDice.slice(0, 20));
+      console.log('\n📋 Full element details (expand to inspect):');
+      elementsWithDice.slice(0, 5).forEach((item, i) => {
+        console.log(`\n[${i}] Element:`, item.element);
+        console.log(`[${i}] Full text (first 200 chars):\n`, item.element.textContent.substring(0, 200));
+        console.log(`[${i}] Parent chain:`, getParentChain(item.element));
+      });
+    } else {
+      console.log('❌ No elements with dice notation found!');
+      console.log('This might mean:');
+      console.log('1. No rolls have been made yet - try making a roll');
+      console.log('2. Rolls appear in a different format');
+      console.log('3. Rolls are in a shadow DOM or iframe');
+    }
+
+    // Helper to show parent chain
+    function getParentChain(el) {
+      const chain = [];
+      let current = el;
+      for (let i = 0; i < 5 && current; i++) {
+        chain.push({
+          tag: current.tagName,
+          class: current.className,
+          id: current.id
+        });
+        current = current.parentElement;
+      }
+      return chain;
     }
 
     console.log('\n=== END DEBUG ===');
@@ -450,23 +480,19 @@
    * Observes the DiceCloud roll log and sends rolls to Roll20
    */
   function observeRollLog() {
-    // Find the roll log container - DiceCloud typically uses a sidebar for rolls
+    // Find the roll log container - DiceCloud uses .card-raised-background
     const findRollLog = () => {
-      // Try multiple selectors for the roll log
+      // DiceCloud v2+ roll log structure
       const selectors = [
-        '.dice-stream',
-        '[class*="dice"]',
-        '[class*="roll"]',
-        '[class*="log"]',
-        '.sidebar-right',
-        'aside',
-        '[role="complementary"]'
+        '.card-raised-background', // Primary roll log container
+        '.character-log',          // Alternative log container
+        '[class*="log"]'           // Fallback
       ];
 
       for (const selector of selectors) {
         const element = document.querySelector(selector);
         if (element) {
-          console.log('Roll log detection: Found potential roll log using selector:', selector);
+          console.log('✓ Roll log detection: Found roll log using selector:', selector);
           console.log('Roll log element:', element);
           return element;
         }
@@ -476,31 +502,32 @@
 
     const rollLog = findRollLog();
     if (!rollLog) {
-      console.log('Roll log not found, will retry in 2 seconds...');
-      console.log('Run window.debugDiceCloudRolls() in console for detailed debug info');
+      console.log('⏳ Roll log not found, will retry in 2 seconds...');
+      console.log('💡 Run window.debugDiceCloudRolls() in console for detailed debug info');
       setTimeout(observeRollLog, 2000);
       return;
     }
 
-    console.log('✓ Observing DiceCloud roll log for new rolls');
-    console.log('Roll log element classes:', rollLog.className);
-    console.log('Roll log element ID:', rollLog.id);
+    console.log('✅ Observing DiceCloud roll log for new rolls');
+    console.log('📋 Roll log classes:', rollLog.className);
+    console.log('🎲 Ready to detect rolls!');
 
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         mutation.addedNodes.forEach((node) => {
           if (node.nodeType === Node.ELEMENT_NODE) {
-            console.log('New element added to roll log:', node);
-            console.log('Element classes:', node.className);
-            console.log('Element text:', node.textContent?.substring(0, 100));
+            // Check if this is a log-entry (individual roll)
+            if (node.className && node.className.includes('log-entry')) {
+              console.log('🎲 New roll detected:', node);
 
-            // Try to parse the roll from the added node
-            const rollData = parseRollFromElement(node);
-            if (rollData) {
-              console.log('✓ Detected roll:', rollData);
-              sendRollToRoll20(rollData);
-            } else {
-              console.log('✗ Could not parse roll from element');
+              // Try to parse the roll from the added node
+              const rollData = parseRollFromElement(node);
+              if (rollData) {
+                console.log('✅ Successfully parsed roll:', rollData);
+                sendRollToRoll20(rollData);
+              } else {
+                console.log('⚠️  Could not parse roll data from element');
+              }
             }
           }
         });
@@ -512,7 +539,7 @@
       subtree: true
     });
 
-    console.log('TIP: Make a test roll to see if it gets detected');
+    console.log('💡 TIP: Make a test roll to see if it gets detected');
   }
 
   // Expose debug function globally for console access
@@ -520,25 +547,62 @@
 
   /**
    * Parses roll data from a DOM element
+   * DiceCloud v2 format:
+   * <div class="log-entry">
+   *   <h4 class="content-name">Strength check</h4>
+   *   <div class="content-value"><p>1d20 [ 6 ] + 0 = <strong>6</strong></p></div>
+   * </div>
    */
   function parseRollFromElement(element) {
-    // Look for roll data in the element
-    const text = element.textContent || element.innerText;
+    try {
+      // Extract roll name from .content-name
+      const nameElement = element.querySelector('.content-name');
+      if (!nameElement) {
+        console.log('⚠️  No .content-name found');
+        return null;
+      }
 
-    // Try to extract roll information
-    // DiceCloud roll format varies, so we'll look for common patterns
-    const rollMatch = text.match(/(\w+).*?(\d+d\d+(?:[+\-]\d+)?)/i);
+      const name = nameElement.textContent.trim();
 
-    if (rollMatch) {
+      // Extract formula and result from .content-value
+      const valueElement = element.querySelector('.content-value');
+      if (!valueElement) {
+        console.log('⚠️  No .content-value found');
+        return null;
+      }
+
+      const valueText = valueElement.textContent.trim();
+
+      // Parse DiceCloud format: "1d20 [ 6 ] + 0 = 6"
+      // Extract the dice formula before the equals sign
+      const formulaMatch = valueText.match(/^(.+?)\s*=\s*(.+)$/);
+
+      if (!formulaMatch) {
+        console.log('⚠️  Could not parse formula from:', valueText);
+        return null;
+      }
+
+      // Clean up the formula - remove the [ actual roll ] part for Roll20
+      // "1d20 [ 6 ] + 0" -> "1d20+0"
+      let formula = formulaMatch[1].replace(/\s*\[\s*\d+\s*\]\s*/g, '').trim();
+
+      // Remove extra spaces
+      formula = formula.replace(/\s+/g, '');
+
+      const result = formulaMatch[2].trim();
+
+      console.log(`📊 Parsed: name="${name}", formula="${formula}", result="${result}"`);
+
       return {
-        name: rollMatch[1],
-        formula: rollMatch[2],
-        result: element.querySelector('[class*="result"]')?.textContent || '',
+        name: name,
+        formula: formula,
+        result: result,
         timestamp: Date.now()
       };
+    } catch (error) {
+      console.error('❌ Error parsing roll element:', error);
+      return null;
     }
-
-    return null;
   }
 
   /**
