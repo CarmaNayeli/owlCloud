@@ -8,7 +8,24 @@
 
   console.log('Dice Cloud to Roll20 Importer: Roll20 content script loaded');
 
-  let characterDataToImport = null;
+  /**
+   * Finds the character sheet iframe
+   */
+  function getCharacterSheetFrame() {
+    // Roll20 character sheets are often in iframes
+    const iframes = document.querySelectorAll('iframe');
+    for (const iframe of iframes) {
+      try {
+        if (iframe.contentDocument && iframe.contentDocument.querySelector('.charsheet')) {
+          console.log('Found character sheet iframe');
+          return iframe.contentDocument;
+        }
+      } catch (e) {
+        // Cross-origin iframe, skip
+      }
+    }
+    return document; // Fall back to main document
+  }
 
   /**
    * Imports character data into Roll20
@@ -21,52 +38,79 @@
 
     try {
       console.log('Importing character data:', characterData);
+      const doc = getCharacterSheetFrame();
 
-      // Roll20 uses input fields and contenteditable elements
-      // This is a generic approach - may need adjustment based on Roll20's actual structure
+      let successCount = 0;
+      let failCount = 0;
 
       // Import character name
-      setFieldValue('character_name', characterData.name);
+      if (setFieldValue(doc, 'character_name', characterData.name)) successCount++; else failCount++;
 
-      // Import attributes
+      // Import ability scores
       if (characterData.attributes) {
-        Object.entries(characterData.attributes).forEach(([attr, value]) => {
-          const attrName = attr.toLowerCase().replace('ability', '');
-          setFieldValue(`${attrName}_base`, value);
-          setFieldValue(`strength_base`, characterData.attributes.strength || 10);
-          setFieldValue(`dexterity_base`, characterData.attributes.dexterity || 10);
-          setFieldValue(`constitution_base`, characterData.attributes.constitution || 10);
-          setFieldValue(`intelligence_base`, characterData.attributes.intelligence || 10);
-          setFieldValue(`wisdom_base`, characterData.attributes.wisdom || 10);
-          setFieldValue(`charisma_base`, characterData.attributes.charisma || 10);
+        const abilityMap = {
+          strength: 'strength',
+          dexterity: 'dexterity',
+          constitution: 'constitution',
+          intelligence: 'intelligence',
+          wisdom: 'wisdom',
+          charisma: 'charisma'
+        };
+
+        Object.entries(abilityMap).forEach(([key, roll20Name]) => {
+          if (characterData.attributes[key]) {
+            if (setFieldValue(doc, roll20Name, characterData.attributes[key])) {
+              successCount++;
+            } else {
+              failCount++;
+            }
+          }
         });
       }
 
       // Import HP
       if (characterData.hitPoints) {
-        setFieldValue('hp', characterData.hitPoints.current);
-        setFieldValue('hp_max', characterData.hitPoints.max);
+        if (setFieldValue(doc, 'hp', characterData.hitPoints.current)) successCount++; else failCount++;
+        if (setFieldValue(doc, 'hp_max', characterData.hitPoints.max)) successCount++; else failCount++;
       }
 
       // Import AC
       if (characterData.armorClass) {
-        setFieldValue('ac', characterData.armorClass);
+        if (setFieldValue(doc, 'ac', characterData.armorClass)) successCount++; else failCount++;
       }
 
       // Import class and level
       if (characterData.class) {
-        setFieldValue('class', characterData.class);
+        if (setFieldValue(doc, 'class', characterData.class)) successCount++; else failCount++;
       }
       if (characterData.level) {
-        setFieldValue('level', characterData.level);
+        if (setFieldValue(doc, 'level', characterData.level)) successCount++; else failCount++;
+        if (setFieldValue(doc, 'base_level', characterData.level)) successCount++;
       }
 
       // Import race
       if (characterData.race) {
-        setFieldValue('race', characterData.race);
+        if (setFieldValue(doc, 'race', characterData.race)) successCount++; else failCount++;
       }
 
-      showNotification(`Successfully imported ${characterData.name}!`, 'success');
+      // Import proficiency bonus
+      if (characterData.proficiencyBonus) {
+        if (setFieldValue(doc, 'pb', characterData.proficiencyBonus)) successCount++; else failCount++;
+        if (setFieldValue(doc, 'proficiency', characterData.proficiencyBonus)) successCount++;
+      }
+
+      // Import speed
+      if (characterData.speed) {
+        if (setFieldValue(doc, 'speed', characterData.speed)) successCount++; else failCount++;
+      }
+
+      console.log(`Import complete: ${successCount} fields set, ${failCount} fields not found`);
+
+      if (successCount > 0) {
+        showNotification(`Imported ${characterData.name}! (${successCount} fields populated)`, 'success');
+      } else {
+        showNotification(`Could not populate fields. Check console for details.`, 'error');
+      }
 
     } catch (error) {
       console.error('Error importing character data:', error);
@@ -78,37 +122,69 @@
    * Sets a field value in Roll20
    * Handles both input fields and contenteditable elements
    */
-  function setFieldValue(fieldName, value) {
-    // Try common Roll20 field selectors
+  function setFieldValue(doc, fieldName, value) {
+    if (!value) return false;
+
+    // Try various Roll20 field naming conventions
     const selectors = [
-      `input[name="${fieldName}"]`,
+      // Standard attribute names
       `input[name="attr_${fieldName}"]`,
-      `textarea[name="${fieldName}"]`,
       `textarea[name="attr_${fieldName}"]`,
-      `[data-field="${fieldName}"]`,
-      `[name*="${fieldName}"]`
+      // Base attribute names (for ability scores)
+      `input[name="attr_${fieldName}_base"]`,
+      // Without attr_ prefix
+      `input[name="${fieldName}"]`,
+      `textarea[name="${fieldName}"]`,
+      // Data attributes
+      `[data-attribute="${fieldName}"]`,
+      `[data-attr="${fieldName}"]`,
+      // Wildcard search
+      `input[name*="${fieldName}"]`,
+      `textarea[name*="${fieldName}"]`
     ];
 
     for (const selector of selectors) {
-      const elements = document.querySelectorAll(selector);
+      const elements = doc.querySelectorAll(selector);
       if (elements.length > 0) {
+        let updated = false;
         elements.forEach(element => {
           if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
             element.value = value;
             element.dispatchEvent(new Event('input', { bubbles: true }));
             element.dispatchEvent(new Event('change', { bubbles: true }));
+            element.dispatchEvent(new Event('blur', { bubbles: true }));
+            updated = true;
           } else if (element.isContentEditable) {
             element.textContent = value;
             element.dispatchEvent(new Event('input', { bubbles: true }));
+            element.dispatchEvent(new Event('blur', { bubbles: true }));
+            updated = true;
           }
         });
-        console.log(`Set ${fieldName} to ${value}`);
-        return true;
+        if (updated) {
+          console.log(`✓ Set ${fieldName} to ${value} using selector: ${selector}`);
+          return true;
+        }
       }
     }
 
-    console.warn(`Could not find field: ${fieldName}`);
+    console.warn(`✗ Could not find field: ${fieldName}`);
     return false;
+  }
+
+  /**
+   * Debug: Lists all input fields on the page
+   */
+  function debugListFields() {
+    const doc = getCharacterSheetFrame();
+    const inputs = doc.querySelectorAll('input, textarea');
+    console.log('=== Available Roll20 Fields ===');
+    inputs.forEach(input => {
+      if (input.name) {
+        console.log(`Field: ${input.name}, Type: ${input.type}, Value: ${input.value}`);
+      }
+    });
+    console.log('=== End of Fields ===');
   }
 
   /**
@@ -184,6 +260,13 @@
           showNotification('No character data found. Export from Dice Cloud first.', 'error');
         }
       });
+    });
+
+    // Add debug button (Shift + Click to list fields)
+    button.addEventListener('click', (e) => {
+      if (e.shiftKey) {
+        debugListFields();
+      }
     });
 
     document.body.appendChild(button);
