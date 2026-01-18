@@ -137,18 +137,33 @@
     });
 
     // Parse properties for classes, race, features, spells, etc.
+    // Track unique classes to avoid duplicates
+    const uniqueClasses = new Set();
+
     properties.forEach(prop => {
       switch (prop.type) {
         case 'class':
-        case 'classLevel':
-          if (prop.name) {
+          // Only add class name once, even if there are multiple classLevel entries
+          if (prop.name && !uniqueClasses.has(prop.name)) {
+            uniqueClasses.add(prop.name);
             if (characterData.class) {
               characterData.class += ` / ${prop.name}`;
             } else {
               characterData.class = prop.name;
             }
-            if (prop.level) {
-              characterData.level += prop.level;
+          }
+          break;
+
+        case 'classLevel':
+          // Count each classLevel entry as 1 level
+          characterData.level += 1;
+          // Also add the class name if not already added
+          if (prop.name && !uniqueClasses.has(prop.name)) {
+            uniqueClasses.add(prop.name);
+            if (characterData.class) {
+              characterData.class += ` / ${prop.name}`;
+            } else {
+              characterData.class = prop.name;
             }
           }
           break;
