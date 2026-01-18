@@ -3,7 +3,7 @@
  * Handles data storage, API authentication, and communication between Dice Cloud and Roll20
  */
 
-console.log('Dice Cloud to Roll20 Importer: Background service worker initialized');
+console.log('RollCloud: Background service worker initialized');
 
 const API_BASE = 'https://dicecloud.com/api';
 

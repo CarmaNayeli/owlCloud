@@ -1,6 +1,6 @@
-# Dice Cloud to Roll20 Importer
+# RollCloud: Dice Cloud Integration for Roll20
 
-A browser extension that seamlessly imports your D&D character data from Dice Cloud into Roll20 using the official DiceCloud REST API, and forwards dice rolls from DiceCloud to Roll20's chat in real-time.
+A powerful browser extension that seamlessly integrates Dice Cloud with Roll20. Import your D&D character data using the official DiceCloud REST API, forward dice rolls in real-time, track roll statistics, and enhance your tabletop gaming experience with advanced features like advantage/disadvantage controls and animated roll notifications.
 
 ## Features
 

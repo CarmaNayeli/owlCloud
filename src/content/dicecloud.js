@@ -6,7 +6,7 @@
 (function() {
   'use strict';
 
-  console.log('Dice Cloud to Roll20 Importer: Content script loaded');
+  console.log('RollCloud: DiceCloud content script loaded');
 
   // DiceCloud API endpoint
   const API_BASE = 'https://dicecloud.com/api';
