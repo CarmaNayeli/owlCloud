@@ -183,6 +183,40 @@
       characterData.otherVariables.hero_points = variables.heroPoints.value || 0;
     }
 
+    // Extract ALL remaining variables (catch-all for anything we haven't specifically extracted)
+    const knownVars = new Set([
+      ...STANDARD_VARS.abilities,
+      ...STANDARD_VARS.abilityMods,
+      ...STANDARD_VARS.saves,
+      ...STANDARD_VARS.skills,
+      'armorClass', 'hitPoints', 'speed', 'initiative', 'proficiencyBonus', 'heroPoints',
+      '_id', '_creatureId' // Skip internal MongoDB fields
+    ]);
+
+    // Also skip kingdom/army vars we already extracted
+    kingdomSkills.forEach(skill => {
+      knownVars.add(`kingdom${skill.charAt(0).toUpperCase() + skill.slice(1)}`);
+      knownVars.add(`kingdom${skill.charAt(0).toUpperCase() + skill.slice(1)}ProficiencyTotal`);
+    });
+    kingdomCoreStats.forEach(stat => {
+      knownVars.add(`kingdom${stat.charAt(0).toUpperCase() + stat.slice(1)}`);
+    });
+    armySkills.forEach(skill => {
+      knownVars.add(`army${skill.charAt(0).toUpperCase() + skill.slice(1)}`);
+    });
+
+    // Extract everything else
+    Object.keys(variables).forEach(varName => {
+      if (!knownVars.has(varName) && !varName.startsWith('_')) {
+        const value = variables[varName]?.value;
+        if (value !== undefined && value !== null) {
+          characterData.otherVariables[varName] = value;
+        }
+      }
+    });
+
+    console.log(`Extracted ${Object.keys(characterData.otherVariables).length} additional variables`);
+
     // Parse properties for classes, race, features, spells, etc.
     // Track unique classes to avoid duplicates
     const uniqueClasses = new Set();
@@ -362,12 +396,13 @@
       border: none;
       padding: 12px 24px;
       border-radius: 4px;
-      cursor: pointer;
+      cursor: move;
       font-size: 14px;
       font-weight: bold;
       box-shadow: 0 2px 8px rgba(0,0,0,0.3);
       z-index: 10000;
       transition: background 0.3s;
+      user-select: none;
     `;
     button.addEventListener('mouseenter', () => {
       button.style.background = '#c0392b';
@@ -386,6 +421,7 @@
     });
 
     document.body.appendChild(button);
+    makeDraggable(button);
 
     // Add debug button
     const debugButton = document.createElement('button');
@@ -400,7 +436,7 @@
       border: none;
       padding: 10px 20px;
       border-radius: 4px;
-      cursor: pointer;
+      cursor: move;
       font-size: 12px;
       font-weight: bold;
       box-shadow: 0 2px 8px rgba(0,0,0,0.3);
@@ -419,6 +455,7 @@
     });
 
     document.body.appendChild(debugButton);
+    makeDraggable(debugButton);
   }
 
   // Listen for messages from the popup or background script
@@ -653,29 +690,805 @@
   }
 
   /**
-   * Sends roll data to all Roll20 tabs
+   * Draggable Element System
+   */
+  const dragState = {
+    positions: {},
+    isDragging: false,
+    currentElement: null,
+    startX: 0,
+    startY: 0,
+    elementX: 0,
+    elementY: 0
+  };
+
+  // Load saved positions from storage
+  chrome.storage.local.get(['panelPositions'], (result) => {
+    if (result.panelPositions) {
+      dragState.positions = result.panelPositions;
+    }
+  });
+
+  function savePositions() {
+    chrome.storage.local.set({ panelPositions: dragState.positions });
+  }
+
+  function makeDraggable(element, handleSelector) {
+    const elementId = element.id;
+    let hasMoved = false;
+    let clickTimeout = null;
+
+    // Restore saved position
+    if (dragState.positions[elementId]) {
+      const pos = dragState.positions[elementId];
+      element.style.left = pos.x + 'px';
+      element.style.top = pos.y + 'px';
+      element.style.right = 'auto';
+      element.style.bottom = 'auto';
+    }
+
+    const handle = handleSelector ? element.querySelector(handleSelector) : element;
+    if (!handle) return;
+
+    handle.addEventListener('mousedown', (e) => {
+      // Don't drag if clicking toggle button
+      if (e.target.classList.contains('history-toggle') ||
+          e.target.classList.contains('stats-toggle') ||
+          e.target.classList.contains('settings-toggle')) {
+        return;
+      }
+
+      hasMoved = false;
+      dragState.isDragging = false;
+      dragState.currentElement = element;
+      dragState.startX = e.clientX;
+      dragState.startY = e.clientY;
+
+      // Get current position
+      const rect = element.getBoundingClientRect();
+      dragState.elementX = rect.left;
+      dragState.elementY = rect.top;
+
+      // Wait a bit before starting drag (prevents accidental drags on click)
+      clickTimeout = setTimeout(() => {
+        if (dragState.currentElement === element) {
+          dragState.isDragging = true;
+          element.style.transition = 'none';
+          element.style.opacity = '0.8';
+          handle.style.cursor = 'grabbing';
+        }
+      }, 100);
+
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (dragState.currentElement !== element) return;
+
+      const dx = e.clientX - dragState.startX;
+      const dy = e.clientY - dragState.startY;
+
+      // Check if we've moved enough to count as dragging
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+        hasMoved = true;
+
+        if (dragState.isDragging) {
+          const newX = dragState.elementX + dx;
+          const newY = dragState.elementY + dy;
+
+          // Keep element on screen
+          const maxX = window.innerWidth - element.offsetWidth;
+          const maxY = window.innerHeight - element.offsetHeight;
+
+          const clampedX = Math.max(0, Math.min(newX, maxX));
+          const clampedY = Math.max(0, Math.min(newY, maxY));
+
+          element.style.left = clampedX + 'px';
+          element.style.top = clampedY + 'px';
+          element.style.right = 'auto';
+          element.style.bottom = 'auto';
+        }
+      }
+
+      e.preventDefault();
+    });
+
+    document.addEventListener('mouseup', (e) => {
+      if (dragState.currentElement !== element) return;
+
+      clearTimeout(clickTimeout);
+
+      const wasDragging = dragState.isDragging && hasMoved;
+
+      dragState.isDragging = false;
+      dragState.currentElement = null;
+
+      element.style.transition = '';
+      element.style.opacity = '1';
+      handle.style.cursor = 'move';
+
+      // Save position if we actually dragged
+      if (wasDragging) {
+        const rect = element.getBoundingClientRect();
+        dragState.positions[elementId] = {
+          x: rect.left,
+          y: rect.top
+        };
+        savePositions();
+      }
+    });
+  }
+
+  /**
+   * Roll Statistics and History Tracking
+   */
+  const rollStats = {
+    history: [],
+    settings: {
+      enabled: true,
+      showNotifications: true,
+      showHistory: true,
+      maxHistorySize: 20
+    },
+    stats: {
+      totalRolls: 0,
+      averageRoll: 0,
+      highestRoll: 0,
+      lowestRoll: Infinity,
+      criticalSuccesses: 0,
+      criticalFailures: 0
+    }
+  };
+
+  // Load settings from storage
+  chrome.storage.local.get(['rollSettings'], (result) => {
+    if (result.rollSettings) {
+      Object.assign(rollStats.settings, result.rollSettings);
+    }
+  });
+
+  function saveSettings() {
+    chrome.storage.local.set({ rollSettings: rollStats.settings });
+  }
+
+  function detectAdvantageDisadvantage(rollData) {
+    const name = rollData.name.toLowerCase();
+    if (name.includes('advantage') || name.includes('adv')) {
+      return 'advantage';
+    } else if (name.includes('disadvantage') || name.includes('dis')) {
+      return 'disadvantage';
+    }
+    return 'normal';
+  }
+
+  function detectCritical(rollData) {
+    const result = parseInt(rollData.result);
+    const formula = rollData.formula.toLowerCase();
+
+    // Check for d20 rolls
+    if (formula.includes('d20') || formula.includes('1d20')) {
+      if (result === 20) return 'critical-success';
+      if (result === 1) return 'critical-failure';
+    }
+    return null;
+  }
+
+  function updateRollStatistics(rollData) {
+    const result = parseInt(rollData.result);
+    if (isNaN(result)) return;
+
+    rollStats.stats.totalRolls++;
+    rollStats.stats.highestRoll = Math.max(rollStats.stats.highestRoll, result);
+    rollStats.stats.lowestRoll = Math.min(rollStats.stats.lowestRoll, result);
+
+    // Update average (running average)
+    rollStats.stats.averageRoll =
+      (rollStats.stats.averageRoll * (rollStats.stats.totalRolls - 1) + result) /
+      rollStats.stats.totalRolls;
+
+    const critical = detectCritical(rollData);
+    if (critical === 'critical-success') rollStats.stats.criticalSuccesses++;
+    if (critical === 'critical-failure') rollStats.stats.criticalFailures++;
+  }
+
+  function addToRollHistory(rollData) {
+    const advantageType = detectAdvantageDisadvantage(rollData);
+    const criticalType = detectCritical(rollData);
+
+    rollStats.history.unshift({
+      ...rollData,
+      advantageType,
+      criticalType,
+      timestamp: Date.now()
+    });
+
+    // Trim history
+    if (rollStats.history.length > rollStats.settings.maxHistorySize) {
+      rollStats.history = rollStats.history.slice(0, rollStats.settings.maxHistorySize);
+    }
+
+    updateRollStatistics(rollData);
+    updateRollHistoryPanel();
+    updateStatsPanel();
+  }
+
+  /**
+   * Animated Roll Notification
+   */
+  function showRollNotification(rollData) {
+    if (!rollStats.settings.showNotifications) return;
+
+    const critical = detectCritical(rollData);
+    const advantage = detectAdvantageDisadvantage(rollData);
+
+    let bgGradient = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+    let icon = '🎲';
+
+    if (critical === 'critical-success') {
+      bgGradient = 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)';
+      icon = '⭐';
+    } else if (critical === 'critical-failure') {
+      bgGradient = 'linear-gradient(135deg, #4e54c8 0%, #8f94fb 100%)';
+      icon = '💀';
+    }
+
+    const notification = document.createElement('div');
+    notification.className = 'dc-roll-notification';
+    notification.innerHTML = `
+      <div class="notification-icon">${icon}</div>
+      <div class="notification-content">
+        <div class="notification-title">${rollData.name}</div>
+        <div class="notification-formula">${rollData.formula} = <strong>${rollData.result}</strong></div>
+        <div class="notification-status">
+          ${critical ? `<span class="critical-badge">${critical.toUpperCase().replace('-', ' ')}</span>` : ''}
+          ${advantage !== 'normal' ? `<span class="advantage-badge">${advantage.toUpperCase()}</span>` : ''}
+          <span>Sent to Roll20! 🚀</span>
+        </div>
+      </div>
+    `;
+
+    notification.style.cssText = `
+      position: fixed;
+      top: 80px;
+      right: -450px;
+      background: ${bgGradient};
+      color: white;
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+      z-index: 100001;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      min-width: 350px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      transition: right 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+      animation: pulse-glow 2s infinite;
+    `;
+
+    addNotificationStyles();
+    document.body.appendChild(notification);
+
+    // Slide in
+    setTimeout(() => {
+      notification.style.right = '20px';
+    }, 10);
+
+    // Slide out
+    setTimeout(() => {
+      notification.style.right = '-450px';
+      notification.style.opacity = '0';
+      setTimeout(() => notification.remove(), 500);
+    }, 4000);
+  }
+
+  function addNotificationStyles() {
+    if (document.querySelector('.dc-roll-notification-styles')) return;
+
+    const style = document.createElement('style');
+    style.className = 'dc-roll-notification-styles';
+    style.textContent = `
+      .dc-roll-notification .notification-icon {
+        font-size: 40px;
+        animation: roll-bounce 0.8s ease-in-out infinite alternate;
+      }
+
+      .dc-roll-notification .notification-title {
+        font-weight: bold;
+        font-size: 15px;
+        margin-bottom: 6px;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      }
+
+      .dc-roll-notification .notification-formula {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 8px;
+        font-family: 'Courier New', monospace;
+      }
+
+      .dc-roll-notification .notification-status {
+        font-size: 12px;
+        opacity: 0.95;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .dc-roll-notification .critical-badge,
+      .dc-roll-notification .advantage-badge {
+        background: rgba(255,255,255,0.3);
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-size: 10px;
+        font-weight: bold;
+        letter-spacing: 0.5px;
+      }
+
+      @keyframes roll-bounce {
+        0% { transform: rotate(-5deg) scale(1); }
+        100% { transform: rotate(5deg) scale(1.15); }
+      }
+
+      @keyframes pulse-glow {
+        0%, 100% { box-shadow: 0 12px 32px rgba(0,0,0,0.4); }
+        50% { box-shadow: 0 12px 48px rgba(255,255,255,0.3), 0 0 32px rgba(255,255,255,0.2); }
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+
+  /**
+   * Roll History Panel
+   */
+  function createRollHistoryPanel() {
+    if (document.getElementById('dc-roll-history')) return;
+
+    const panel = document.createElement('div');
+    panel.id = 'dc-roll-history';
+    panel.innerHTML = `
+      <div class="history-header">
+        <span class="history-title">🎲 Roll History</span>
+        <button class="history-toggle">−</button>
+      </div>
+      <div class="history-content">
+        <div class="history-list"></div>
+      </div>
+    `;
+
+    panel.style.cssText = `
+      position: fixed;
+      bottom: 180px;
+      right: 20px;
+      background: rgba(20, 20, 30, 0.98);
+      backdrop-filter: blur(12px);
+      color: white;
+      border-radius: 16px;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+      z-index: 10000;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      width: 380px;
+      max-height: 500px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      display: ${rollStats.settings.showHistory ? 'block' : 'none'};
+    `;
+
+    addHistoryStyles();
+    document.body.appendChild(panel);
+
+    // Make draggable
+    makeDraggable(panel, '.history-header');
+
+    // Toggle functionality
+    let isCollapsed = false;
+    panel.querySelector('.history-header').addEventListener('click', (e) => {
+      // Only toggle if not dragging
+      if (e.target === panel.querySelector('.history-toggle')) {
+        const content = panel.querySelector('.history-content');
+        const toggle = panel.querySelector('.history-toggle');
+
+        if (isCollapsed) {
+          content.style.display = 'block';
+          toggle.textContent = '−';
+        } else {
+          content.style.display = 'none';
+          toggle.textContent = '+';
+        }
+
+        isCollapsed = !isCollapsed;
+      }
+    });
+  }
+
+  function addHistoryStyles() {
+    if (document.querySelector('.dc-roll-history-styles')) return;
+
+    const style = document.createElement('style');
+    style.className = 'dc-roll-history-styles';
+    style.textContent = `
+      #dc-roll-history .history-header {
+        padding: 16px 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        border-radius: 16px 16px 0 0;
+      }
+
+      #dc-roll-history .history-title {
+        font-weight: bold;
+        font-size: 16px;
+      }
+
+      #dc-roll-history .history-toggle {
+        background: rgba(255,255,255,0.2);
+        border: none;
+        color: white;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        transition: background 0.2s;
+      }
+
+      #dc-roll-history .history-toggle:hover {
+        background: rgba(255,255,255,0.3);
+      }
+
+      #dc-roll-history .history-content {
+        max-height: 440px;
+        overflow-y: auto;
+        padding: 12px;
+      }
+
+      #dc-roll-history .history-content::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      #dc-roll-history .history-content::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 4px;
+      }
+
+      #dc-roll-history .history-content::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 4px;
+      }
+
+      #dc-roll-history .history-item {
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+        padding: 12px 14px;
+        border-radius: 12px;
+        margin-bottom: 8px;
+        animation: slide-in-history 0.4s ease-out;
+        border-left: 4px solid #667eea;
+        transition: all 0.2s;
+      }
+
+      #dc-roll-history .history-item:hover {
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%);
+        transform: translateX(-4px);
+      }
+
+      #dc-roll-history .history-item.critical-success {
+        border-left-color: #f5576c;
+        background: linear-gradient(135deg, rgba(245, 87, 108, 0.2) 0%, rgba(240, 147, 251, 0.1) 100%);
+      }
+
+      #dc-roll-history .history-item.critical-failure {
+        border-left-color: #4e54c8;
+        background: linear-gradient(135deg, rgba(78, 84, 200, 0.2) 0%, rgba(143, 148, 251, 0.1) 100%);
+      }
+
+      #dc-roll-history .history-item-header {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 6px;
+        align-items: center;
+      }
+
+      #dc-roll-history .history-name {
+        font-weight: 600;
+        font-size: 14px;
+      }
+
+      #dc-roll-history .history-time {
+        font-size: 11px;
+        opacity: 0.6;
+      }
+
+      #dc-roll-history .history-formula {
+        font-size: 13px;
+        opacity: 0.95;
+        font-family: 'Courier New', monospace;
+        margin-bottom: 4px;
+      }
+
+      #dc-roll-history .history-badges {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      #dc-roll-history .history-badge {
+        background: rgba(255,255,255,0.15);
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 10px;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      @keyframes slide-in-history {
+        from {
+          opacity: 0;
+          transform: translateX(30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+
+  function updateRollHistoryPanel() {
+    const panel = document.getElementById('dc-roll-history');
+    if (!panel) return;
+
+    const list = panel.querySelector('.history-list');
+    if (!list) return;
+
+    list.innerHTML = rollStats.history.map((roll, index) => {
+      const timeAgo = getTimeAgo(roll.timestamp);
+      const criticalClass = roll.criticalType ? roll.criticalType : '';
+
+      let badges = '';
+      if (roll.criticalType) {
+        badges += `<span class="history-badge">${roll.criticalType.replace('-', ' ')}</span>`;
+      }
+      if (roll.advantageType && roll.advantageType !== 'normal') {
+        badges += `<span class="history-badge">${roll.advantageType}</span>`;
+      }
+
+      return `
+        <div class="history-item ${criticalClass}" style="animation-delay: ${index * 0.03}s">
+          <div class="history-item-header">
+            <span class="history-name">${roll.name}</span>
+            <span class="history-time">${timeAgo}</span>
+          </div>
+          <div class="history-formula">${roll.formula} = <strong>${roll.result}</strong></div>
+          ${badges ? `<div class="history-badges">${badges}</div>` : ''}
+        </div>
+      `;
+    }).join('');
+  }
+
+  function getTimeAgo(timestamp) {
+    const seconds = Math.floor((Date.now() - timestamp) / 1000);
+    if (seconds < 60) return 'just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    return `${Math.floor(seconds / 86400)}d ago`;
+  }
+
+  /**
+   * Roll Statistics Panel
+   */
+  function createStatsPanel() {
+    if (document.getElementById('dc-roll-stats')) return;
+
+    const panel = document.createElement('div');
+    panel.id = 'dc-roll-stats';
+    panel.innerHTML = `
+      <div class="stats-header">
+        <span class="stats-title">📊 Statistics</span>
+        <button class="stats-toggle">−</button>
+      </div>
+      <div class="stats-content">
+        <div class="stat-item">
+          <span class="stat-label">Total Rolls</span>
+          <span class="stat-value" id="stat-total">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Average</span>
+          <span class="stat-value" id="stat-average">0.0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Highest</span>
+          <span class="stat-value" id="stat-highest">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Lowest</span>
+          <span class="stat-value" id="stat-lowest">∞</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">⭐ Critical Hits</span>
+          <span class="stat-value" id="stat-crits">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">💀 Critical Fails</span>
+          <span class="stat-value" id="stat-fails">0</span>
+        </div>
+      </div>
+    `;
+
+    panel.style.cssText = `
+      position: fixed;
+      bottom: 690px;
+      right: 20px;
+      background: rgba(20, 20, 30, 0.98);
+      backdrop-filter: blur(12px);
+      color: white;
+      border-radius: 16px;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+      z-index: 10000;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      width: 380px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      display: ${rollStats.settings.showHistory ? 'block' : 'none'};
+    `;
+
+    addStatsStyles();
+    document.body.appendChild(panel);
+
+    // Make draggable
+    makeDraggable(panel, '.stats-header');
+
+    // Toggle functionality
+    let isCollapsed = false;
+    panel.querySelector('.stats-header').addEventListener('click', (e) => {
+      // Only toggle if clicking the toggle button
+      if (e.target === panel.querySelector('.stats-toggle')) {
+        const content = panel.querySelector('.stats-content');
+        const toggle = panel.querySelector('.stats-toggle');
+
+        if (isCollapsed) {
+          content.style.display = 'grid';
+          toggle.textContent = '−';
+        } else {
+          content.style.display = 'none';
+          toggle.textContent = '+';
+        }
+
+        isCollapsed = !isCollapsed;
+      }
+    });
+  }
+
+  function addStatsStyles() {
+    if (document.querySelector('.dc-roll-stats-styles')) return;
+
+    const style = document.createElement('style');
+    style.className = 'dc-roll-stats-styles';
+    style.textContent = `
+      #dc-roll-stats .stats-header {
+        padding: 16px 20px;
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        border-radius: 16px 16px 0 0;
+      }
+
+      #dc-roll-stats .stats-title {
+        font-weight: bold;
+        font-size: 16px;
+      }
+
+      #dc-roll-stats .stats-toggle {
+        background: rgba(255,255,255,0.2);
+        border: none;
+        color: white;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        transition: background 0.2s;
+      }
+
+      #dc-roll-stats .stats-toggle:hover {
+        background: rgba(255,255,255,0.3);
+      }
+
+      #dc-roll-stats .stats-content {
+        padding: 16px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      #dc-roll-stats .stat-item {
+        background: rgba(255,255,255,0.05);
+        padding: 12px;
+        border-radius: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      #dc-roll-stats .stat-label {
+        font-size: 12px;
+        opacity: 0.7;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      #dc-roll-stats .stat-value {
+        font-size: 24px;
+        font-weight: bold;
+        color: #667eea;
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+
+  function updateStatsPanel() {
+    document.getElementById('stat-total')?.setAttribute('data-value', rollStats.stats.totalRolls);
+    document.getElementById('stat-total')?.textContent = rollStats.stats.totalRolls.toString();
+    document.getElementById('stat-average')?.textContent = rollStats.stats.averageRoll.toFixed(1);
+    document.getElementById('stat-highest')?.textContent = rollStats.stats.highestRoll.toString();
+    document.getElementById('stat-lowest')?.textContent =
+      rollStats.stats.lowestRoll === Infinity ? '∞' : rollStats.stats.lowestRoll.toString();
+    document.getElementById('stat-crits')?.textContent = rollStats.stats.criticalSuccesses.toString();
+    document.getElementById('stat-fails')?.textContent = rollStats.stats.criticalFailures.toString();
+  }
+
+  /**
+   * Sends roll data to all Roll20 tabs with visual feedback
    */
   function sendRollToRoll20(rollData) {
+    if (!rollStats.settings.enabled) return;
+
+    // Add visual feedback and tracking
+    showRollNotification(rollData);
+    addToRollHistory(rollData);
+
+    // Send to Roll20
     chrome.runtime.sendMessage({
       action: 'sendRollToRoll20',
       roll: rollData
     }, (response) => {
       if (chrome.runtime.lastError) {
         console.error('Error sending roll to Roll20:', chrome.runtime.lastError);
+        showNotification('Failed to send roll to Roll20', 'error');
       } else {
         console.log('Roll sent to Roll20:', response);
       }
     });
   }
 
-  // Initialize the export button when the page loads
+  // Initialize the export button and roll panels when the page loads
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       addExportButton();
       observeRollLog();
+      createRollHistoryPanel();
+      createStatsPanel();
     });
   } else {
     addExportButton();
     observeRollLog();
+    createRollHistoryPanel();
+    createStatsPanel();
   }
 })();
