@@ -6,7 +6,8 @@
 (function() {
   'use strict';
 
-  console.log('RollCloud: DiceCloud content script loaded');
+  console.log('🎲 RollCloud: DiceCloud content script loaded');
+  console.log('📍 Current URL:', window.location.href);
 
   // DiceCloud API endpoint
   const API_BASE = 'https://dicecloud.com/api';
@@ -25,61 +26,123 @@
   };
 
   /**
+/**
    * Extracts character ID from the current URL
    */
   function getCharacterIdFromUrl() {
-    const match = window.location.pathname.match(/\/character\/([^/]+)/);
-    return match ? match[1] : null;
-  }
+    const url = window.location.pathname;
+    console.log('🔍 Parsing URL:', url);
+    
+    // Try different patterns
+    const patterns = [
+      /\/character\/([^/]+)/,           // /character/ABC123
+      /\/character\/([^/]+)\/[^/]+/,    // /character/ABC123/CharName
+      /character=([^&]+)/,              // ?character=ABC123
+    ];
 
-  /**
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match) {
+        console.log('✅ Found character ID:', match[1]);
+        return match[1];
+      }
+    }
+
+    console.error('❌ Could not extract character ID from URL');
+    return null;
+  }
+/**
    * Fetches character data from DiceCloud API
    */
   async function fetchCharacterDataFromAPI() {
+    console.log('📡 Starting API fetch...');
+    
     const characterId = getCharacterIdFromUrl();
 
     if (!characterId) {
-      throw new Error('Not on a character page. Navigate to a character sheet first.');
+      const error = 'Not on a character page. Navigate to a character sheet first.';
+      console.error('❌', error);
+      throw new Error(error);
     }
 
+    console.log('🔐 Requesting API token from background...');
+    
     // Get stored API token from background script
     const tokenResponse = await chrome.runtime.sendMessage({ action: 'getApiToken' });
+    console.log('🔑 Token response:', tokenResponse);
 
     if (!tokenResponse.success || !tokenResponse.token) {
-      throw new Error('Not logged in to DiceCloud. Please login via the extension popup.');
+      const error = 'Not logged in to DiceCloud. Please login via the extension popup.';
+      console.error('❌', error);
+      throw new Error(error);
     }
 
-    console.log('Fetching character data for ID:', characterId);
+    console.log('✅ API token obtained');
+    console.log('📡 Fetching character data for ID:', characterId);
+
+    const apiUrl = `${API_BASE}/creature/${characterId}`;
+    console.log('🌐 API URL:', apiUrl);
 
     // Fetch character data from API
-    const response = await fetch(`${API_BASE}/creature/${characterId}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${tokenResponse.token}`,
-        'Content-Type': 'application/json'
-      }
-    });
+    try {
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${tokenResponse.token}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
-    if (!response.ok) {
-      if (response.status === 401) {
-        throw new Error('API token expired. Please login again via the extension popup.');
+      console.log('📨 API Response status:', response.status);
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('API token expired. Please login again via the extension popup.');
+        }
+        const errorText = await response.text();
+        console.error('❌ API Error Response:', errorText);
+        throw new Error(`API request failed: ${response.status} ${response.statusText} - ${errorText}`);
       }
-      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+
+      const data = await response.json();
+      console.log('✅ Received API data:', data);
+      console.log('📊 Data structure:', {
+        hasCreatures: !!data.creatures,
+        creaturesCount: data.creatures?.length,
+        hasVariables: !!data.creatureVariables,
+        variablesCount: data.creatureVariables?.length,
+        hasProperties: !!data.creatureProperties,
+        propertiesCount: data.creatureProperties?.length
+      });
+      console.log('✅ Parsed character data:', characterData);
+      console.log(`📊 Summary: ${characterData.name} - Level ${characterData.level} ${characterData.class}`);
+      
+    return characterData;
+      return parseCharacterData(data);
+    } catch (fetchError) {
+      console.error('❌ Fetch error:', fetchError);
+      throw fetchError;
     }
-
-    const data = await response.json();
-    console.log('Received API data:', data);
-
-    return parseCharacterData(data);
   }
 
-  /**
+/**
    * Parses API response into structured character data
    */
   function parseCharacterData(apiData) {
+    console.log('🔧 Parsing character data...');
+    
+    if (!apiData.creatures || apiData.creatures.length === 0) {
+      console.error('❌ No creatures found in API response');
+      throw new Error('No character data found in API response');
+    }
+
     const creature = apiData.creatures[0];
-    const variables = apiData.creatureVariables[0] || {};
+    const variables = apiData.creatureVariables?.[0] || {};
     const properties = apiData.creatureProperties || [];
+
+    console.log('📝 Creature:', creature);
+    console.log('📊 Variables count:', Object.keys(variables).length);
+    console.log('📋 Properties count:', properties.length);
 
     const characterData = {
       name: creature.name || '',
