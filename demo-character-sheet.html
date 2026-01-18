@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>RollCloud Character Sheet Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .demo-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .demo-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+            transition: transform 0.2s;
+        }
+        .demo-button:hover {
+            transform: translateY(-2px);
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+        .feature-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .feature-list li:before {
+            content: "✅ ";
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎲 RollCloud Character Sheet Demo</h1>
+    
+    <div class="demo-section">
+        <h2>🚀 Complete Dice Cloud Integration in Roll20</h2>
+        <p>This custom character sheet overlay brings the full Dice Cloud experience to Roll20 without requiring a Pro subscription!</p>
+        
+        <h3>🎯 Key Features:</h3>
+        <ul class="feature-list">
+            <li>Complete character data display (all Vexus library fields)</li>
+            <li>Real-time roll history with critical detection</li>
+            <li>Roll statistics and analytics</li>
+            <li>Advantage/disadvantage settings</li>
+            <li>Beautiful animated roll notifications</li>
+            <li>Draggable, minimizable interface</li>
+            <li>Works with free Roll20 accounts</li>
+        </ul>
+    </div>
+
+    <div class="demo-section">
+        <h2>🎮 How to Test:</h2>
+        <ol>
+            <li>Install the RollCloud Chrome extension</li>
+            <li>Navigate to Roll20 (app.roll20.net)</li>
+            <li>Click the "📋 Character Sheet" button in the top-right</li>
+            <li>Export character data from Dice Cloud</li>
+            <li>Make some rolls in Dice Cloud to see the magic!</li>
+        </ol>
+        
+        <h3>🎲 Demo Roll Simulation:</h3>
+        <button class="demo-button" onclick="simulateRoll('Attack Roll', '1d20+5', 18)">⚔️ Attack Roll</button>
+        <button class="demo-button" onclick="simulateRoll('Perception Check', '1d20+7', 22)">👁️ Perception</button>
+        <button class="demo-button" onclick="simulateRoll('Fireball', '8d6', 27)">🔥 Fireball</button>
+        <button class="demo-button" onclick="simulateRoll('Critical Hit!', '1d20+8', 20)">⭐ Critical</button>
+        <button class="demo-button" onclick="simulateRoll('Critical Fail!', '1d20+3', 1)">💀 Critical Fail</button>
+    </div>
+
+    <div class="demo-section">
+        <h2>📊 What You Get:</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div>
+                <h3>Character Data:</h3>
+                <ul class="feature-list">
+                    <li>Ability scores & modifiers</li>
+                    <li>All combat stats (AC, HP, speed)</li>
+                    <li>All 18 skills + initiative</li>
+                    <li>All saving throws</li>
+                    <li>Spell slots & resources</li>
+                    <li>Damage multipliers</li>
+                    <li>Additional variables</li>
+                </ul>
+            </div>
+            <div>
+                <h3>Dice Cloud Features:</h3>
+                <ul class="feature-list">
+                    <li>Roll history (last 20 rolls)</li>
+                    <li>Statistics (average, high/low, crits)</li>
+                    <li>Advantage/disadvantage modes</li>
+                    <li>Critical hit/miss detection</li>
+                    <li>Animated notifications</li>
+                    <li>Time-based roll tracking</li>
+                    <li>Beautiful visual feedback</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mock Chrome API for demo
+        if (typeof chrome === 'undefined') {
+            window.chrome = {
+                runtime: {
+                    sendMessage: function(message, callback) {
+                        console.log('Mock Chrome Message:', message);
+                        if (callback) callback({ success: true });
+                    },
+                    onMessage: {
+                        addListener: function(callback) {
+                            console.log('Mock message listener added');
+                        }
+                    },
+                    lastError: null
+                }
+            };
+        }
+
+        function simulateRoll(name, formula, result) {
+            const rollData = {
+                name: name,
+                formula: formula,
+                result: result,
+                timestamp: Date.now()
+            };
+
+            // Simulate the extension receiving a roll
+            if (window.chrome && window.chrome.runtime && window.chrome.runtime.onMessage) {
+                // Trigger the message listener
+                setTimeout(() => {
+                    console.log('🎲 Simulating roll:', rollData);
+                }, 100);
+            }
+
+            // Show demo notification
+            showDemoNotification(rollData);
+        }
+
+        function showDemoNotification(rollData) {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 15px 20px;
+                border-radius: 8px;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+                z-index: 10000;
+                font-family: 'Segoe UI', sans-serif;
+                animation: slideIn 0.3s ease-out;
+            `;
+            
+            notification.innerHTML = `
+                <div style="font-weight: bold; margin-bottom: 5px;">${rollData.name}</div>
+                <div style="font-family: monospace;">${rollData.formula} = <strong>${rollData.result}</strong></div>
+                <div style="font-size: 12px; margin-top: 5px;">🚀 Sent to Roll20!</div>
+            `;
+
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease-out';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+
+        // Add animations
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>
