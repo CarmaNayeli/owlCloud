@@ -396,12 +396,13 @@
       border: none;
       padding: 12px 24px;
       border-radius: 4px;
-      cursor: pointer;
+      cursor: move;
       font-size: 14px;
       font-weight: bold;
       box-shadow: 0 2px 8px rgba(0,0,0,0.3);
       z-index: 10000;
       transition: background 0.3s;
+      user-select: none;
     `;
     button.addEventListener('mouseenter', () => {
       button.style.background = '#c0392b';
@@ -420,6 +421,7 @@
     });
 
     document.body.appendChild(button);
+    makeDraggable(button);
 
     // Add debug button
     const debugButton = document.createElement('button');
@@ -434,7 +436,7 @@
       border: none;
       padding: 10px 20px;
       border-radius: 4px;
-      cursor: pointer;
+      cursor: move;
       font-size: 12px;
       font-weight: bold;
       box-shadow: 0 2px 8px rgba(0,0,0,0.3);
@@ -453,6 +455,7 @@
     });
 
     document.body.appendChild(debugButton);
+    makeDraggable(debugButton);
   }
 
   // Listen for messages from the popup or background script
@@ -684,6 +687,136 @@
       console.error('❌ Error parsing roll element:', error);
       return null;
     }
+  }
+
+  /**
+   * Draggable Element System
+   */
+  const dragState = {
+    positions: {},
+    isDragging: false,
+    currentElement: null,
+    startX: 0,
+    startY: 0,
+    elementX: 0,
+    elementY: 0
+  };
+
+  // Load saved positions from storage
+  chrome.storage.local.get(['panelPositions'], (result) => {
+    if (result.panelPositions) {
+      dragState.positions = result.panelPositions;
+    }
+  });
+
+  function savePositions() {
+    chrome.storage.local.set({ panelPositions: dragState.positions });
+  }
+
+  function makeDraggable(element, handleSelector) {
+    const elementId = element.id;
+    let hasMoved = false;
+    let clickTimeout = null;
+
+    // Restore saved position
+    if (dragState.positions[elementId]) {
+      const pos = dragState.positions[elementId];
+      element.style.left = pos.x + 'px';
+      element.style.top = pos.y + 'px';
+      element.style.right = 'auto';
+      element.style.bottom = 'auto';
+    }
+
+    const handle = handleSelector ? element.querySelector(handleSelector) : element;
+    if (!handle) return;
+
+    handle.addEventListener('mousedown', (e) => {
+      // Don't drag if clicking toggle button
+      if (e.target.classList.contains('history-toggle') ||
+          e.target.classList.contains('stats-toggle') ||
+          e.target.classList.contains('settings-toggle')) {
+        return;
+      }
+
+      hasMoved = false;
+      dragState.isDragging = false;
+      dragState.currentElement = element;
+      dragState.startX = e.clientX;
+      dragState.startY = e.clientY;
+
+      // Get current position
+      const rect = element.getBoundingClientRect();
+      dragState.elementX = rect.left;
+      dragState.elementY = rect.top;
+
+      // Wait a bit before starting drag (prevents accidental drags on click)
+      clickTimeout = setTimeout(() => {
+        if (dragState.currentElement === element) {
+          dragState.isDragging = true;
+          element.style.transition = 'none';
+          element.style.opacity = '0.8';
+          handle.style.cursor = 'grabbing';
+        }
+      }, 100);
+
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (dragState.currentElement !== element) return;
+
+      const dx = e.clientX - dragState.startX;
+      const dy = e.clientY - dragState.startY;
+
+      // Check if we've moved enough to count as dragging
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+        hasMoved = true;
+
+        if (dragState.isDragging) {
+          const newX = dragState.elementX + dx;
+          const newY = dragState.elementY + dy;
+
+          // Keep element on screen
+          const maxX = window.innerWidth - element.offsetWidth;
+          const maxY = window.innerHeight - element.offsetHeight;
+
+          const clampedX = Math.max(0, Math.min(newX, maxX));
+          const clampedY = Math.max(0, Math.min(newY, maxY));
+
+          element.style.left = clampedX + 'px';
+          element.style.top = clampedY + 'px';
+          element.style.right = 'auto';
+          element.style.bottom = 'auto';
+        }
+      }
+
+      e.preventDefault();
+    });
+
+    document.addEventListener('mouseup', (e) => {
+      if (dragState.currentElement !== element) return;
+
+      clearTimeout(clickTimeout);
+
+      const wasDragging = dragState.isDragging && hasMoved;
+
+      dragState.isDragging = false;
+      dragState.currentElement = null;
+
+      element.style.transition = '';
+      element.style.opacity = '1';
+      handle.style.cursor = 'move';
+
+      // Save position if we actually dragged
+      if (wasDragging) {
+        const rect = element.getBoundingClientRect();
+        dragState.positions[elementId] = {
+          x: rect.left,
+          y: rect.top
+        };
+        savePositions();
+      }
+    });
   }
 
   /**
@@ -946,21 +1079,27 @@
     addHistoryStyles();
     document.body.appendChild(panel);
 
+    // Make draggable
+    makeDraggable(panel, '.history-header');
+
     // Toggle functionality
     let isCollapsed = false;
-    panel.querySelector('.history-header').addEventListener('click', () => {
-      const content = panel.querySelector('.history-content');
-      const toggle = panel.querySelector('.history-toggle');
+    panel.querySelector('.history-header').addEventListener('click', (e) => {
+      // Only toggle if not dragging
+      if (e.target === panel.querySelector('.history-toggle')) {
+        const content = panel.querySelector('.history-content');
+        const toggle = panel.querySelector('.history-toggle');
 
-      if (isCollapsed) {
-        content.style.display = 'block';
-        toggle.textContent = '−';
-      } else {
-        content.style.display = 'none';
-        toggle.textContent = '+';
+        if (isCollapsed) {
+          content.style.display = 'block';
+          toggle.textContent = '−';
+        } else {
+          content.style.display = 'none';
+          toggle.textContent = '+';
+        }
+
+        isCollapsed = !isCollapsed;
       }
-
-      isCollapsed = !isCollapsed;
     });
   }
 
@@ -1205,21 +1344,27 @@
     addStatsStyles();
     document.body.appendChild(panel);
 
+    // Make draggable
+    makeDraggable(panel, '.stats-header');
+
     // Toggle functionality
     let isCollapsed = false;
-    panel.querySelector('.stats-header').addEventListener('click', () => {
-      const content = panel.querySelector('.stats-content');
-      const toggle = panel.querySelector('.stats-toggle');
+    panel.querySelector('.stats-header').addEventListener('click', (e) => {
+      // Only toggle if clicking the toggle button
+      if (e.target === panel.querySelector('.stats-toggle')) {
+        const content = panel.querySelector('.stats-content');
+        const toggle = panel.querySelector('.stats-toggle');
 
-      if (isCollapsed) {
-        content.style.display = 'grid';
-        toggle.textContent = '−';
-      } else {
-        content.style.display = 'none';
-        toggle.textContent = '+';
+        if (isCollapsed) {
+          content.style.display = 'grid';
+          toggle.textContent = '−';
+        } else {
+          content.style.display = 'none';
+          toggle.textContent = '+';
+        }
+
+        isCollapsed = !isCollapsed;
       }
-
-      isCollapsed = !isCollapsed;
     });
   }
 
