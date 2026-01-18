@@ -12,19 +12,21 @@
    * Finds the character sheet iframe
    */
   function getCharacterSheetFrame() {
-    // Roll20 character sheets are often in iframes
-    const iframes = document.querySelectorAll('iframe');
-    for (const iframe of iframes) {
+    // Try to find iframe with character sheet
+    const iframes = document.querySelectorAll('iframe.charactersheet');
+    if (iframes.length > 0) {
       try {
-        if (iframe.contentDocument && iframe.contentDocument.querySelector('.charsheet')) {
-          console.log('Found character sheet iframe');
-          return iframe.contentDocument;
-        }
+        const doc = iframes[0].contentDocument || iframes[0].contentWindow.document;
+        console.log('Found charactersheet iframe');
+        return doc;
       } catch (e) {
-        // Cross-origin iframe, skip
+        console.warn('Could not access iframe:', e);
       }
     }
-    return document; // Fall back to main document
+
+    // Fall back to main document
+    console.log('Using main document (no iframe found)');
+    return document;
   }
 
   /**
@@ -43,73 +45,44 @@
       let successCount = 0;
       let failCount = 0;
 
-      // Import character name
-      if (setFieldValue(doc, 'character_name', characterData.name)) successCount++; else failCount++;
+      // D&D 5e OGL sheet field mappings
+      const fieldMappings = {
+        'character_name': characterData.name,
+        'strength': characterData.attributes?.strength,
+        'dexterity': characterData.attributes?.dexterity,
+        'constitution': characterData.attributes?.constitution,
+        'intelligence': characterData.attributes?.intelligence,
+        'wisdom': characterData.attributes?.wisdom,
+        'charisma': characterData.attributes?.charisma,
+        'hp': characterData.hitPoints?.current,
+        'hp_max': characterData.hitPoints?.max,
+        'ac': characterData.armorClass,
+        'speed': characterData.speed,
+        'class': characterData.class,
+        'level': characterData.level,
+        'race': characterData.race,
+        'background': characterData.background,
+        'alignment': characterData.alignment,
+        'proficiency': characterData.proficiencyBonus
+      };
 
-      // Import ability scores
-      if (characterData.attributes) {
-        const abilityMap = {
-          strength: 'strength',
-          dexterity: 'dexterity',
-          constitution: 'constitution',
-          intelligence: 'intelligence',
-          wisdom: 'wisdom',
-          charisma: 'charisma'
-        };
-
-        Object.entries(abilityMap).forEach(([key, roll20Name]) => {
-          if (characterData.attributes[key]) {
-            if (setFieldValue(doc, roll20Name, characterData.attributes[key])) {
-              successCount++;
-            } else {
-              failCount++;
-            }
+      // Try to set each field
+      Object.entries(fieldMappings).forEach(([fieldName, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          if (setFieldValue(doc, fieldName, value)) {
+            successCount++;
+          } else {
+            failCount++;
           }
-        });
-      }
-
-      // Import HP
-      if (characterData.hitPoints) {
-        if (setFieldValue(doc, 'hp', characterData.hitPoints.current)) successCount++; else failCount++;
-        if (setFieldValue(doc, 'hp_max', characterData.hitPoints.max)) successCount++; else failCount++;
-      }
-
-      // Import AC
-      if (characterData.armorClass) {
-        if (setFieldValue(doc, 'ac', characterData.armorClass)) successCount++; else failCount++;
-      }
-
-      // Import class and level
-      if (characterData.class) {
-        if (setFieldValue(doc, 'class', characterData.class)) successCount++; else failCount++;
-      }
-      if (characterData.level) {
-        if (setFieldValue(doc, 'level', characterData.level)) successCount++; else failCount++;
-        if (setFieldValue(doc, 'base_level', characterData.level)) successCount++;
-      }
-
-      // Import race
-      if (characterData.race) {
-        if (setFieldValue(doc, 'race', characterData.race)) successCount++; else failCount++;
-      }
-
-      // Import proficiency bonus
-      if (characterData.proficiencyBonus) {
-        if (setFieldValue(doc, 'pb', characterData.proficiencyBonus)) successCount++; else failCount++;
-        if (setFieldValue(doc, 'proficiency', characterData.proficiencyBonus)) successCount++;
-      }
-
-      // Import speed
-      if (characterData.speed) {
-        if (setFieldValue(doc, 'speed', characterData.speed)) successCount++; else failCount++;
-      }
+        }
+      });
 
       console.log(`Import complete: ${successCount} fields set, ${failCount} fields not found`);
 
       if (successCount > 0) {
         showNotification(`Imported ${characterData.name}! (${successCount} fields populated)`, 'success');
       } else {
-        showNotification(`Could not populate fields. Check console for details.`, 'error');
+        showNotification(`Could not populate fields. Try debug mode (Shift+Click)`, 'error');
       }
 
     } catch (error) {
@@ -120,51 +93,55 @@
 
   /**
    * Sets a field value in Roll20
-   * Handles both input fields and contenteditable elements
    */
   function setFieldValue(doc, fieldName, value) {
-    if (!value) return false;
+    if (!value && value !== 0) return false;
 
-    // Try various Roll20 field naming conventions
+    // Roll20 D&D 5e OGL sheet uses attr_ prefix
     const selectors = [
-      // Standard attribute names
+      // With attr_ prefix
       `input[name="attr_${fieldName}"]`,
       `textarea[name="attr_${fieldName}"]`,
-      // Base attribute names (for ability scores)
-      `input[name="attr_${fieldName}_base"]`,
-      // Without attr_ prefix
+      `select[name="attr_${fieldName}"]`,
+      // Without prefix
       `input[name="${fieldName}"]`,
       `textarea[name="${fieldName}"]`,
-      // Data attributes
-      `[data-attribute="${fieldName}"]`,
-      `[data-attr="${fieldName}"]`,
-      // Wildcard search
+      `select[name="${fieldName}"]`,
+      // Try with wildcard
       `input[name*="${fieldName}"]`,
       `textarea[name*="${fieldName}"]`
     ];
 
     for (const selector of selectors) {
-      const elements = doc.querySelectorAll(selector);
-      if (elements.length > 0) {
-        let updated = false;
-        elements.forEach(element => {
-          if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
-            element.value = value;
-            element.dispatchEvent(new Event('input', { bubbles: true }));
-            element.dispatchEvent(new Event('change', { bubbles: true }));
-            element.dispatchEvent(new Event('blur', { bubbles: true }));
-            updated = true;
-          } else if (element.isContentEditable) {
-            element.textContent = value;
-            element.dispatchEvent(new Event('input', { bubbles: true }));
-            element.dispatchEvent(new Event('blur', { bubbles: true }));
-            updated = true;
+      try {
+        const elements = doc.querySelectorAll(selector);
+        if (elements.length > 0) {
+          let updated = false;
+          elements.forEach(element => {
+            if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA' || element.tagName === 'SELECT') {
+              element.value = value;
+
+              // Trigger all possible events to make Roll20 recognize the change
+              element.dispatchEvent(new Event('input', { bubbles: true }));
+              element.dispatchEvent(new Event('change', { bubbles: true }));
+              element.dispatchEvent(new Event('blur', { bubbles: true }));
+
+              // Also try triggering on window for sheet workers
+              if (doc.defaultView) {
+                doc.defaultView.dispatchEvent(new Event('change'));
+              }
+
+              updated = true;
+            }
+          });
+
+          if (updated) {
+            console.log(`✓ Set ${fieldName} to ${value} using: ${selector}`);
+            return true;
           }
-        });
-        if (updated) {
-          console.log(`✓ Set ${fieldName} to ${value} using selector: ${selector}`);
-          return true;
         }
+      } catch (e) {
+        // Selector might be invalid, continue
       }
     }
 
@@ -173,18 +150,40 @@
   }
 
   /**
-   * Debug: Lists all input fields on the page
+   * Debug: Lists all input fields
    */
   function debugListFields() {
+    console.log('=== ROLL20 FIELD DEBUG ===');
     const doc = getCharacterSheetFrame();
-    const inputs = doc.querySelectorAll('input, textarea');
-    console.log('=== Available Roll20 Fields ===');
+
+    const inputs = doc.querySelectorAll('input[name], textarea[name], select[name]');
+    console.log(`Found ${inputs.length} named form fields`);
+
+    const attrFields = [];
     inputs.forEach(input => {
-      if (input.name) {
-        console.log(`Field: ${input.name}, Type: ${input.type}, Value: ${input.value}`);
+      if (input.name && input.name.startsWith('attr_')) {
+        attrFields.push({
+          name: input.name,
+          type: input.type || input.tagName.toLowerCase(),
+          value: input.value
+        });
       }
     });
-    console.log('=== End of Fields ===');
+
+    console.log('Character sheet fields (attr_* only):');
+    console.table(attrFields.slice(0, 50)); // Show first 50
+
+    if (attrFields.length === 0) {
+      console.warn('No attr_ fields found! Sheet might be in iframe we cannot access.');
+      console.log('Trying to list ALL iframes:');
+      document.querySelectorAll('iframe').forEach((iframe, i) => {
+        console.log(`Iframe ${i}:`, iframe.className, iframe.src);
+      });
+    }
+
+    console.log('=== END DEBUG ===');
+
+    showNotification(`Found ${attrFields.length} character fields - check console`, 'info');
   }
 
   /**
@@ -221,7 +220,6 @@
    * Adds an import button to the Roll20 UI
    */
   function addImportButton() {
-    // Avoid adding duplicate buttons
     if (document.getElementById('dc-roll20-import-btn')) {
       return;
     }
@@ -245,14 +243,23 @@
       z-index: 100000;
       transition: background 0.3s;
     `;
+
     button.addEventListener('mouseenter', () => {
       button.style.background = '#c0392b';
     });
+
     button.addEventListener('mouseleave', () => {
       button.style.background = '#e74c3c';
     });
-    button.addEventListener('click', () => {
-      // Request character data from background script
+
+    button.addEventListener('click', (e) => {
+      // Debug mode: Shift+Click
+      if (e.shiftKey) {
+        debugListFields();
+        return;
+      }
+
+      // Normal import
       chrome.runtime.sendMessage({ action: 'getCharacterData' }, (response) => {
         if (response && response.data) {
           importCharacterData(response.data);
@@ -260,13 +267,6 @@
           showNotification('No character data found. Export from Dice Cloud first.', 'error');
         }
       });
-    });
-
-    // Add debug button (Shift + Click to list fields)
-    button.addEventListener('click', (e) => {
-      if (e.shiftKey) {
-        debugListFields();
-      }
     });
 
     document.body.appendChild(button);
@@ -285,13 +285,13 @@
     return true;
   });
 
-  // Initialize the import button when the page loads
-  // Roll20 is a complex app, so we wait a bit for it to load
+  // Initialize
   setTimeout(() => {
     addImportButton();
+    console.log('Import button added. Shift+Click for field debug.');
   }, 2000);
 
-  // Also check periodically in case Roll20 reloads content
+  // Re-add button if it disappears
   setInterval(() => {
     if (!document.getElementById('dc-roll20-import-btn')) {
       addImportButton();
