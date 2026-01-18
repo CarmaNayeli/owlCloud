@@ -4,7 +4,20 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-  // DOM Elements
+  // DOM Elements - Sections
+  const loginSection = document.getElementById('loginSection');
+  const mainSection = document.getElementById('mainSection');
+
+  // DOM Elements - Login
+  const loginForm = document.getElementById('loginForm');
+  const usernameInput = document.getElementById('username');
+  const passwordInput = document.getElementById('password');
+  const loginBtn = document.getElementById('loginBtn');
+  const loginError = document.getElementById('loginError');
+
+  // DOM Elements - Main Interface
+  const usernameDisplay = document.getElementById('usernameDisplay');
+  const logoutBtn = document.getElementById('logoutBtn');
   const statusIcon = document.getElementById('statusIcon');
   const statusText = document.getElementById('statusText');
   const characterInfo = document.getElementById('characterInfo');
@@ -16,13 +29,123 @@ document.addEventListener('DOMContentLoaded', () => {
   const importBtn = document.getElementById('importBtn');
   const clearBtn = document.getElementById('clearBtn');
 
-  // Load and display current character data
-  loadCharacterData();
+  // Initialize
+  checkLoginStatus();
 
-  // Event Listeners
+  // Event Listeners - Login
+  loginForm.addEventListener('submit', handleLogin);
+
+  // Event Listeners - Main Interface
+  logoutBtn.addEventListener('click', handleLogout);
   extractBtn.addEventListener('click', handleExtract);
   importBtn.addEventListener('click', handleImport);
   clearBtn.addEventListener('click', handleClear);
+
+  /**
+   * Checks if the user is logged in and shows appropriate section
+   */
+  async function checkLoginStatus() {
+    try {
+      const response = await chrome.runtime.sendMessage({ action: 'checkLoginStatus' });
+
+      if (response.success && response.loggedIn) {
+        showMainSection(response.username);
+        loadCharacterData();
+      } else {
+        showLoginSection();
+      }
+    } catch (error) {
+      console.error('Error checking login status:', error);
+      showLoginSection();
+    }
+  }
+
+  /**
+   * Shows the login section
+   */
+  function showLoginSection() {
+    loginSection.classList.remove('hidden');
+    mainSection.classList.add('hidden');
+  }
+
+  /**
+   * Shows the main section
+   */
+  function showMainSection(username) {
+    loginSection.classList.add('hidden');
+    mainSection.classList.remove('hidden');
+    usernameDisplay.textContent = username || 'User';
+  }
+
+  /**
+   * Handles login form submission
+   */
+  async function handleLogin(event) {
+    event.preventDefault();
+
+    const username = usernameInput.value.trim();
+    const password = passwordInput.value;
+
+    if (!username || !password) {
+      showLoginError('Please enter both username and password');
+      return;
+    }
+
+    try {
+      loginBtn.disabled = true;
+      loginBtn.textContent = '⏳ Logging in...';
+      hideLoginError();
+
+      const response = await chrome.runtime.sendMessage({
+        action: 'loginToDiceCloud',
+        username: username,
+        password: password
+      });
+
+      if (response.success) {
+        loginForm.reset();
+        showMainSection(username);
+        loadCharacterData();
+      } else {
+        showLoginError(response.error || 'Login failed');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      showLoginError('Login failed: ' + error.message);
+    } finally {
+      loginBtn.disabled = false;
+      loginBtn.textContent = '🔐 Login to DiceCloud';
+    }
+  }
+
+  /**
+   * Handles logout
+   */
+  async function handleLogout() {
+    try {
+      await chrome.runtime.sendMessage({ action: 'logout' });
+      showLoginSection();
+      clearCharacterDisplay();
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  }
+
+  /**
+   * Shows login error message
+   */
+  function showLoginError(message) {
+    loginError.textContent = message;
+    loginError.classList.remove('hidden');
+  }
+
+  /**
+   * Hides login error message
+   */
+  function hideLoginError() {
+    loginError.classList.add('hidden');
+    loginError.textContent = '';
+  }
 
   /**
    * Loads character data from storage and updates UI
@@ -93,17 +216,12 @@ document.addEventListener('DOMContentLoaded', () => {
       // Send message to content script to extract data
       const response = await chrome.tabs.sendMessage(tab.id, { action: 'extractCharacter' });
 
-      if (response && response.success && response.data) {
-        // Store the data
-        await chrome.runtime.sendMessage({
-          action: 'storeCharacterData',
-          data: response.data
-        });
-
-        displayCharacterData(response.data);
+      if (response && response.success) {
+        // Reload character data to display
+        await loadCharacterData();
         showSuccess('Character data extracted successfully!');
       } else {
-        showError('Failed to extract character data');
+        showError(response?.error || 'Failed to extract character data');
       }
     } catch (error) {
       console.error('Error extracting character:', error);

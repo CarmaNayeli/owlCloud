@@ -1,9 +1,11 @@
 /**
  * Background Service Worker
- * Handles data storage and communication between Dice Cloud and Roll20
+ * Handles data storage, API authentication, and communication between Dice Cloud and Roll20
  */
 
 console.log('Dice Cloud to Roll20 Importer: Background service worker initialized');
+
+const API_BASE = 'https://dicecloud.com/api';
 
 // Listen for messages from content scripts and popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -30,7 +32,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           console.error('Error retrieving character data:', error);
           sendResponse({ success: false, error: error.message });
         });
-      return true; // Keep channel open for async response
+      return true;
 
     case 'clearCharacterData':
       clearCharacterData()
@@ -41,13 +43,170 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           console.error('Error clearing character data:', error);
           sendResponse({ success: false, error: error.message });
         });
-      return true; // Keep channel open for async response
+      return true;
+
+    case 'loginToDiceCloud':
+      loginToDiceCloud(request.username, request.password)
+        .then((authData) => {
+          sendResponse({ success: true, authData });
+        })
+        .catch((error) => {
+          console.error('Error logging in to DiceCloud:', error);
+          sendResponse({ success: false, error: error.message });
+        });
+      return true;
+
+    case 'getApiToken':
+      getApiToken()
+        .then((token) => {
+          sendResponse({ success: true, token });
+        })
+        .catch((error) => {
+          console.error('Error retrieving API token:', error);
+          sendResponse({ success: false, error: error.message });
+        });
+      return true;
+
+    case 'logout':
+      logout()
+        .then(() => {
+          sendResponse({ success: true });
+        })
+        .catch((error) => {
+          console.error('Error logging out:', error);
+          sendResponse({ success: false, error: error.message });
+        });
+      return true;
+
+    case 'checkLoginStatus':
+      checkLoginStatus()
+        .then((status) => {
+          sendResponse({ success: true, ...status });
+        })
+        .catch((error) => {
+          console.error('Error checking login status:', error);
+          sendResponse({ success: false, error: error.message });
+        });
+      return true;
 
     default:
       console.warn('Unknown action:', request.action);
       sendResponse({ success: false, error: 'Unknown action' });
   }
 });
+
+/**
+ * Logs in to DiceCloud API
+ */
+async function loginToDiceCloud(username, password) {
+  try {
+    const response = await fetch(`${API_BASE}/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        username: username,
+        password: password
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Login failed: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+
+    // Store authentication data
+    await chrome.storage.local.set({
+      diceCloudToken: data.token,
+      diceCloudUserId: data.id,
+      tokenExpires: data.tokenExpires,
+      username: username
+    });
+
+    console.log('Successfully logged in to DiceCloud');
+    return data;
+  } catch (error) {
+    console.error('Failed to login to DiceCloud:', error);
+    throw error;
+  }
+}
+
+/**
+ * Gets the stored API token
+ */
+async function getApiToken() {
+  try {
+    const result = await chrome.storage.local.get(['diceCloudToken', 'tokenExpires']);
+
+    if (!result.diceCloudToken) {
+      return null;
+    }
+
+    // Check if token is expired
+    if (result.tokenExpires) {
+      const expiryDate = new Date(result.tokenExpires);
+      const now = new Date();
+      if (now >= expiryDate) {
+        console.warn('API token has expired');
+        await logout();
+        return null;
+      }
+    }
+
+    return result.diceCloudToken;
+  } catch (error) {
+    console.error('Failed to retrieve API token:', error);
+    throw error;
+  }
+}
+
+/**
+ * Checks if the user is logged in
+ */
+async function checkLoginStatus() {
+  try {
+    const result = await chrome.storage.local.get(['diceCloudToken', 'username', 'tokenExpires']);
+
+    if (!result.diceCloudToken) {
+      return { loggedIn: false };
+    }
+
+    // Check if token is expired
+    if (result.tokenExpires) {
+      const expiryDate = new Date(result.tokenExpires);
+      const now = new Date();
+      if (now >= expiryDate) {
+        await logout();
+        return { loggedIn: false };
+      }
+    }
+
+    return {
+      loggedIn: true,
+      username: result.username,
+      tokenExpires: result.tokenExpires
+    };
+  } catch (error) {
+    console.error('Failed to check login status:', error);
+    throw error;
+  }
+}
+
+/**
+ * Logs out (clears authentication data)
+ */
+async function logout() {
+  try {
+    await chrome.storage.local.remove(['diceCloudToken', 'diceCloudUserId', 'tokenExpires', 'username']);
+    console.log('Logged out successfully');
+  } catch (error) {
+    console.error('Failed to logout:', error);
+    throw error;
+  }
+}
 
 /**
  * Stores character data in chrome.storage
@@ -101,7 +260,6 @@ async function clearCharacterData() {
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'install') {
     console.log('Extension installed');
-    // Open welcome page or setup instructions
   } else if (details.reason === 'update') {
     console.log('Extension updated to version', chrome.runtime.getManifest().version);
   }

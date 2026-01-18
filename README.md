@@ -1,9 +1,12 @@
 # Dice Cloud to Roll20 Importer
 
-A browser extension that seamlessly imports your D&D character data from Dice Cloud into Roll20.
+A browser extension that seamlessly imports your D&D character data from Dice Cloud into Roll20 using the official DiceCloud REST API.
 
 ## Features
 
+- **API-Powered**: Uses DiceCloud's official REST API for reliable, standardized data extraction
+- **Smart Parsing**: Leverages DiceCloud's standardized variable names (strength, dexterity, etc.)
+- **Secure Authentication**: Login with your DiceCloud credentials (stored locally in browser)
 - **One-Click Export**: Extract character data from Dice Cloud with a single click
 - **Easy Import**: Import character data directly into Roll20 character sheets
 - **Data Persistence**: Character data is stored locally between Dice Cloud and Roll20 sessions
@@ -12,22 +15,26 @@ A browser extension that seamlessly imports your D&D character data from Dice Cl
 
 ## What Gets Imported
 
-The extension currently imports the following character data:
+The extension uses DiceCloud's standardized variable names and property types to extract:
 
-- Character Name
-- Race
-- Class & Level
-- Ability Scores (STR, DEX, CON, INT, WIS, CHA)
-- Hit Points (Current & Max)
-- Armor Class
-- Speed
-- Initiative Bonus
-- Proficiency Bonus
-- Skills
-- Features & Traits
-- Spells
-- Inventory
-- Proficiencies
+**Core Stats (from creatureVariables)**:
+- Character Name, Race, Class, Level, Background, Alignment
+- Ability Scores (strength, dexterity, constitution, intelligence, wisdom, charisma)
+- Ability Modifiers (strengthMod, dexterityMod, etc.)
+- Saving Throws (strengthSave, dexteritySave, etc.)
+- All 18 D&D 5e Skills (acrobatics, athletics, etc.)
+- Hit Points (current & max from hitPoints variable)
+- Armor Class (armorClass variable)
+- Speed, Initiative, Proficiency Bonus
+
+**Character Properties (from creatureProperties)**:
+- Classes & Class Levels
+- Race & Racial Traits
+- Background Features
+- Feats & Features
+- Spells (with level, school, components, descriptions)
+- Equipment & Inventory Items
+- Proficiencies (weapons, armor, tools, languages)
 
 ## Installation
 
@@ -59,25 +66,36 @@ Or create simple placeholder icons using an image editor.
 
 ## Usage
 
+### First Time Setup
+
+1. **Login to DiceCloud**
+   - Click the extension icon in your browser toolbar
+   - Enter your DiceCloud username/email and password
+   - Click "Login to DiceCloud"
+   - Your API token will be stored securely in the browser
+
+**Security Note**: Your password is sent directly to DiceCloud's API and is not stored. Only the API token is saved locally.
+
 ### Method 1: Using the Extension Popup
 
-1. **Navigate to Dice Cloud**
-   - Open your character sheet on [Dice Cloud](https://dicecloud.com)
+1. **Extract from Dice Cloud**
+   - Navigate to your character sheet on [Dice Cloud](https://dicecloud.com)
+   - The URL should look like: `https://dicecloud.com/character/[character-id]/Name`
    - Click the extension icon in your browser toolbar
    - Click "Extract from Dice Cloud"
-   - Wait for the success message
+   - Character data is fetched via DiceCloud API and stored locally
 
-2. **Navigate to Roll20**
-   - Open your character sheet on [Roll20](https://app.roll20.net)
+2. **Import to Roll20**
+   - Navigate to your character sheet on [Roll20](https://app.roll20.net)
    - Click the extension icon in your browser toolbar
    - Click "Import to Roll20"
-   - Your character data will be imported!
+   - Your character data will be populated!
 
 ### Method 2: Using Floating Buttons
 
 1. **On Dice Cloud**
    - A floating "Export to Roll20" button appears in the bottom-right corner
-   - Click it to extract your character data
+   - Click it to extract your character data via API
 
 2. **On Roll20**
    - A floating "Import from Dice Cloud" button appears in the bottom-right corner
@@ -85,18 +103,33 @@ Or create simple placeholder icons using an image editor.
 
 ## How It Works
 
-1. **Content Scripts**:
-   - `dicecloud.js` runs on Dice Cloud pages and extracts character data from the DOM
-   - `roll20.js` runs on Roll20 pages and populates character sheet fields
+1. **Authentication** (`background.js`):
+   - Handles login to DiceCloud API (`POST /api/login`)
+   - Stores API bearer token securely in Chrome storage
+   - Manages token expiration and refresh
 
-2. **Background Service Worker**:
-   - `background.js` handles data storage using Chrome's storage API
+2. **Data Extraction** (`dicecloud.js`):
+   - Extracts character ID from URL
+   - Makes API call to `GET /api/creature/:id` with bearer token
+   - Parses response using DiceCloud's standardized variable names
+   - Extracts data from `creatureVariables` (calculated stats) and `creatureProperties` (features, spells, etc.)
+   - No DOM scraping - all data comes from official API
+
+3. **Data Import** (`roll20.js`):
+   - Receives structured character data
+   - Populates Roll20 character sheet fields
+   - Maps DiceCloud properties to Roll20 equivalents
+
+4. **Background Service Worker** (`background.js`):
+   - Handles API authentication and token management
+   - Stores character data using Chrome's storage API
    - Facilitates communication between content scripts
 
-3. **Popup Interface**:
-   - Provides a user-friendly control panel
+5. **Popup Interface**:
+   - Login form for DiceCloud authentication
+   - User-friendly control panel
    - Shows current character data status
-   - Offers manual extract/import controls
+   - Manual extract/import controls
 
 ## Project Structure
 
@@ -142,11 +175,36 @@ rollCloud/
 - **Dice Cloud**: Works with the current Dice Cloud interface
 - **Roll20**: Compatible with standard Roll20 character sheets
 
+## DiceCloud API Integration
+
+This extension follows best practices recommended by DiceCloud developers:
+
+### Standardized Variable Names
+Instead of DOM scraping, the extension uses DiceCloud's standardized variable names:
+- **Abilities**: `strength`, `dexterity`, `constitution`, `intelligence`, `wisdom`, `charisma`
+- **Ability Mods**: `strengthMod`, `dexterityMod`, etc.
+- **Saves**: `strengthSave`, `dexteritySave`, etc.
+- **Skills**: All 18 standard D&D skills (`acrobatics`, `athletics`, `perception`, etc.)
+- **Combat**: `armorClass`, `hitPoints`, `speed`, `initiative`, `proficiencyBonus`
+
+### Property Types
+The extension parses DiceCloud's property types:
+- `class` / `classLevel` - Character classes and levels
+- `race` - Character race
+- `background` - Character background
+- `feature` - Class features, racial traits, feats
+- `spell` - Spell list with all details
+- `item` / `equipment` - Inventory items
+- `proficiency` - Weapon, armor, tool, and language proficiencies
+
+This approach ensures compatibility with DiceCloud's data model and future updates.
+
 ## Known Limitations
 
 - Roll20's character sheet structure varies by game system; the extension targets the default D&D 5E sheet
 - Complex character features may not map perfectly between systems
 - Some custom Dice Cloud fields may not have Roll20 equivalents
+- API token may expire; simply login again if you receive authentication errors
 
 ## Future Enhancements
 
@@ -168,7 +226,9 @@ MIT License - Feel free to use and modify as needed.
 ## Acknowledgments
 
 - [Dice Cloud](https://github.com/ThaumRystra/DiceCloud) by ThaumRystra
+- [DiceCloud REST API Documentation](https://dicecloud.com/api)
 - [Roll20](https://roll20.net) virtual tabletop platform
+- Thanks to the DiceCloud developer for recommending API integration with standardized variable names
 
 ## Support
 

@@ -1,6 +1,6 @@
 /**
  * Dice Cloud Content Script
- * Extracts character data from Dice Cloud character sheets
+ * Extracts character data from Dice Cloud using the REST API
  */
 
 (function() {
@@ -8,105 +8,258 @@
 
   console.log('Dice Cloud to Roll20 Importer: Content script loaded');
 
+  // DiceCloud API endpoint
+  const API_BASE = 'https://dicecloud.com/api';
+
+  // Standardized DiceCloud variable names
+  const STANDARD_VARS = {
+    abilities: ['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma'],
+    abilityMods: ['strengthMod', 'dexterityMod', 'constitutionMod', 'intelligenceMod', 'wisdomMod', 'charismaMod'],
+    saves: ['strengthSave', 'dexteritySave', 'constitutionSave', 'intelligenceSave', 'wisdomSave', 'charismaSave'],
+    skills: [
+      'acrobatics', 'animalHandling', 'arcana', 'athletics', 'deception', 'history',
+      'insight', 'intimidation', 'investigation', 'medicine', 'nature', 'perception',
+      'performance', 'persuasion', 'religion', 'sleightOfHand', 'stealth', 'survival'
+    ],
+    combat: ['armorClass', 'hitPoints', 'speed', 'initiative', 'proficiencyBonus']
+  };
+
   /**
-   * Extracts character data from the current Dice Cloud page
+   * Extracts character ID from the current URL
    */
-  function extractCharacterData() {
+  function getCharacterIdFromUrl() {
+    const match = window.location.pathname.match(/\/character\/([^/]+)/);
+    return match ? match[1] : null;
+  }
+
+  /**
+   * Fetches character data from DiceCloud API
+   */
+  async function fetchCharacterDataFromAPI() {
+    const characterId = getCharacterIdFromUrl();
+
+    if (!characterId) {
+      throw new Error('Not on a character page. Navigate to a character sheet first.');
+    }
+
+    // Get stored API token from background script
+    const tokenResponse = await chrome.runtime.sendMessage({ action: 'getApiToken' });
+
+    if (!tokenResponse.success || !tokenResponse.token) {
+      throw new Error('Not logged in to DiceCloud. Please login via the extension popup.');
+    }
+
+    console.log('Fetching character data for ID:', characterId);
+
+    // Fetch character data from API
+    const response = await fetch(`${API_BASE}/creature/${characterId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${tokenResponse.token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error('API token expired. Please login again via the extension popup.');
+      }
+      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log('Received API data:', data);
+
+    return parseCharacterData(data);
+  }
+
+  /**
+   * Parses API response into structured character data
+   */
+  function parseCharacterData(apiData) {
+    const creature = apiData.creatures[0];
+    const variables = apiData.creatureVariables[0] || {};
+    const properties = apiData.creatureProperties || [];
+
     const characterData = {
-      name: '',
+      name: creature.name || '',
       race: '',
       class: '',
       level: 0,
+      background: '',
+      alignment: creature.alignment || '',
       attributes: {},
+      attributeMods: {},
+      saves: {},
       skills: {},
       features: [],
       spells: [],
       inventory: [],
       proficiencies: [],
-      hitPoints: { current: 0, max: 0 },
-      armorClass: 0,
-      speed: 0,
-      initiativeBonus: 0,
-      proficiencyBonus: 0
+      hitPoints: {
+        current: variables.hitPoints?.value || 0,
+        max: variables.hitPoints?.total || 0
+      },
+      armorClass: variables.armorClass?.value || 10,
+      speed: variables.speed?.value || 30,
+      initiative: variables.initiative?.value || 0,
+      proficiencyBonus: variables.proficiencyBonus?.value || 0
     };
 
-    try {
-      // Extract basic character info
-      const nameElement = document.querySelector('[data-id="name"]') ||
-                         document.querySelector('.character-name') ||
-                         document.querySelector('h1');
-      if (nameElement) {
-        characterData.name = nameElement.textContent.trim();
+    // Extract ability scores
+    STANDARD_VARS.abilities.forEach(ability => {
+      if (variables[ability]) {
+        characterData.attributes[ability] = variables[ability].value || 10;
       }
+    });
 
-      // Extract attributes (STR, DEX, CON, INT, WIS, CHA)
-      const attributeElements = document.querySelectorAll('[data-id*="ability"]');
-      attributeElements.forEach(element => {
-        const attrName = element.getAttribute('data-id');
-        const value = element.textContent.trim();
-        if (attrName && value) {
-          characterData.attributes[attrName] = parseInt(value) || 0;
-        }
-      });
-
-      // Extract HP
-      const hpElement = document.querySelector('[data-id="hitPoints"]');
-      if (hpElement) {
-        const hpText = hpElement.textContent.trim();
-        const hpMatch = hpText.match(/(\d+)\s*\/\s*(\d+)/);
-        if (hpMatch) {
-          characterData.hitPoints.current = parseInt(hpMatch[1]) || 0;
-          characterData.hitPoints.max = parseInt(hpMatch[2]) || 0;
-        }
+    // Extract ability modifiers
+    STANDARD_VARS.abilityMods.forEach(mod => {
+      if (variables[mod]) {
+        const abilityName = mod.replace('Mod', '');
+        characterData.attributeMods[abilityName] = variables[mod].value || 0;
       }
+    });
 
-      // Extract AC
-      const acElement = document.querySelector('[data-id="armorClass"]');
-      if (acElement) {
-        characterData.armorClass = parseInt(acElement.textContent.trim()) || 10;
+    // Extract saves
+    STANDARD_VARS.saves.forEach(save => {
+      if (variables[save]) {
+        const abilityName = save.replace('Save', '');
+        characterData.saves[abilityName] = variables[save].value || 0;
       }
+    });
 
-      console.log('Extracted character data:', characterData);
-      return characterData;
-    } catch (error) {
-      console.error('Error extracting character data:', error);
-      return null;
-    }
+    // Extract skills
+    STANDARD_VARS.skills.forEach(skill => {
+      if (variables[skill]) {
+        characterData.skills[skill] = variables[skill].value || 0;
+      }
+    });
+
+    // Parse properties for classes, race, features, spells, etc.
+    properties.forEach(prop => {
+      switch (prop.type) {
+        case 'class':
+        case 'classLevel':
+          if (prop.name) {
+            if (characterData.class) {
+              characterData.class += ` / ${prop.name}`;
+            } else {
+              characterData.class = prop.name;
+            }
+            if (prop.level) {
+              characterData.level += prop.level;
+            }
+          }
+          break;
+
+        case 'race':
+          if (prop.name) {
+            characterData.race = prop.name;
+          }
+          break;
+
+        case 'background':
+          if (prop.name) {
+            characterData.background = prop.name;
+          }
+          break;
+
+        case 'feature':
+          characterData.features.push({
+            name: prop.name || 'Unnamed Feature',
+            description: prop.description || '',
+            uses: prop.uses
+          });
+          break;
+
+        case 'spell':
+          characterData.spells.push({
+            name: prop.name || 'Unnamed Spell',
+            level: prop.level || 0,
+            school: prop.school || '',
+            castingTime: prop.castingTime || '',
+            range: prop.range || '',
+            components: prop.components || '',
+            duration: prop.duration || '',
+            description: prop.description || '',
+            prepared: prop.prepared || false
+          });
+          break;
+
+        case 'item':
+        case 'equipment':
+          characterData.inventory.push({
+            name: prop.name || 'Unnamed Item',
+            quantity: prop.quantity || 1,
+            weight: prop.weight || 0,
+            description: prop.description || '',
+            equipped: prop.equipped || false
+          });
+          break;
+
+        case 'proficiency':
+          characterData.proficiencies.push({
+            name: prop.name || '',
+            type: prop.proficiencyType || 'other'
+          });
+          break;
+      }
+    });
+
+    console.log('Parsed character data:', characterData);
+    return characterData;
   }
 
   /**
-   * Sends character data to the background script
+   * Extracts character data and sends to background script
    */
-  function sendCharacterData() {
-    const characterData = extractCharacterData();
-    if (characterData && characterData.name) {
-      chrome.runtime.sendMessage({
-        action: 'storeCharacterData',
-        data: characterData
-      }, (response) => {
-        if (chrome.runtime.lastError) {
-          console.error('Error sending character data:', chrome.runtime.lastError);
-        } else {
-          console.log('Character data stored successfully');
-          showNotification('Character data extracted! Navigate to Roll20 to import.');
-        }
-      });
-    } else {
-      console.warn('No valid character data found on this page');
+  async function extractAndStoreCharacterData() {
+    try {
+      showNotification('Extracting character data...', 'info');
+
+      const characterData = await fetchCharacterDataFromAPI();
+
+      if (characterData && characterData.name) {
+        // Send to background script for storage
+        chrome.runtime.sendMessage({
+          action: 'storeCharacterData',
+          data: characterData
+        }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.error('Error storing character data:', chrome.runtime.lastError);
+            showNotification('Error storing character data', 'error');
+          } else {
+            console.log('Character data stored successfully');
+            showNotification(`${characterData.name} extracted! Navigate to Roll20 to import.`, 'success');
+          }
+        });
+      } else {
+        showNotification('Failed to extract character data', 'error');
+      }
+    } catch (error) {
+      console.error('Error extracting character:', error);
+      showNotification(error.message, 'error');
     }
   }
 
   /**
    * Shows a notification to the user
    */
-  function showNotification(message) {
+  function showNotification(message, type = 'info') {
+    const colors = {
+      success: '#4CAF50',
+      error: '#f44336',
+      info: '#2196F3'
+    };
+
     const notification = document.createElement('div');
     notification.textContent = message;
     notification.style.cssText = `
       position: fixed;
       top: 20px;
       right: 20px;
-      background: #4CAF50;
+      background: ${colors[type] || colors.info};
       color: white;
       padding: 16px;
       border-radius: 4px;
@@ -114,6 +267,7 @@
       z-index: 10000;
       font-family: Arial, sans-serif;
       font-size: 14px;
+      max-width: 300px;
     `;
     document.body.appendChild(notification);
     setTimeout(() => notification.remove(), 5000);
@@ -159,7 +313,7 @@
     button.addEventListener('mouseleave', () => {
       button.style.background = '#e74c3c';
     });
-    button.addEventListener('click', sendCharacterData);
+    button.addEventListener('click', extractAndStoreCharacterData);
 
     document.body.appendChild(button);
   }
@@ -167,10 +321,11 @@
   // Listen for messages from the popup or background script
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'extractCharacter') {
-      const data = extractCharacterData();
-      sendResponse({ success: true, data });
+      extractAndStoreCharacterData()
+        .then(() => sendResponse({ success: true }))
+        .catch(error => sendResponse({ success: false, error: error.message }));
+      return true; // Keep channel open for async response
     }
-    return true;
   });
 
   // Initialize the export button when the page loads
