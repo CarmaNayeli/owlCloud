@@ -1698,11 +1698,26 @@
     return true;
   });
 
-  // Initialize
-  setTimeout(() => {
-    createToggleButton();
-    console.log('✅ RollCloud character sheet toggle button added');
-  }, 2000);
+  // Initialize - wait for page to be fully loaded
+  function initializeButton() {
+    if (document.body) {
+      createToggleButton();
+      console.log('✅ RollCloud character sheet toggle button added');
+    } else {
+      console.log('⏳ Waiting for document.body...');
+      setTimeout(initializeButton, 100);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      setTimeout(initializeButton, 1000);
+    });
+  } else {
+    setTimeout(initializeButton, 1000);
+  }
+
+  console.log('✅ RollCloud character sheet overlay script loaded');
 
 })();
    
