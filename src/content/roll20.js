@@ -68,23 +68,116 @@
 
       // D&D 5e OGL sheet field mappings
       const fieldMappings = {
+        // Core character info
         'character_name': characterData.name,
+        'class': characterData.class,
+        'level': characterData.level,
+        'race': characterData.race,
+        'background': characterData.background,
+        'alignment': characterData.alignment,
+
+        // Ability scores
         'strength': characterData.attributes?.strength,
         'dexterity': characterData.attributes?.dexterity,
         'constitution': characterData.attributes?.constitution,
         'intelligence': characterData.attributes?.intelligence,
         'wisdom': characterData.attributes?.wisdom,
         'charisma': characterData.attributes?.charisma,
+
+        // Ability modifiers
+        'strength_mod': characterData.attributeMods?.strength,
+        'dexterity_mod': characterData.attributeMods?.dexterity,
+        'constitution_mod': characterData.attributeMods?.constitution,
+        'intelligence_mod': characterData.attributeMods?.intelligence,
+        'wisdom_mod': characterData.attributeMods?.wisdom,
+        'charisma_mod': characterData.attributeMods?.charisma,
+
+        // Saving throws
+        'strength_save_bonus': characterData.saves?.strength,
+        'dexterity_save_bonus': characterData.saves?.dexterity,
+        'constitution_save_bonus': characterData.saves?.constitution,
+        'intelligence_save_bonus': characterData.saves?.intelligence,
+        'wisdom_save_bonus': characterData.saves?.wisdom,
+        'charisma_save_bonus': characterData.saves?.charisma,
+
+        // Skills
+        'acrobatics_bonus': characterData.skills?.acrobatics,
+        'animal_handling_bonus': characterData.skills?.animalHandling,
+        'arcana_bonus': characterData.skills?.arcana,
+        'athletics_bonus': characterData.skills?.athletics,
+        'deception_bonus': characterData.skills?.deception,
+        'history_bonus': characterData.skills?.history,
+        'insight_bonus': characterData.skills?.insight,
+        'intimidation_bonus': characterData.skills?.intimidation,
+        'investigation_bonus': characterData.skills?.investigation,
+        'medicine_bonus': characterData.skills?.medicine,
+        'nature_bonus': characterData.skills?.nature,
+        'perception_bonus': characterData.skills?.perception,
+        'performance_bonus': characterData.skills?.performance,
+        'persuasion_bonus': characterData.skills?.persuasion,
+        'religion_bonus': characterData.skills?.religion,
+        'sleight_of_hand_bonus': characterData.skills?.sleightOfHand,
+        'stealth_bonus': characterData.skills?.stealth,
+        'survival_bonus': characterData.skills?.survival,
+
+        // Combat stats
         'hp': characterData.hitPoints?.current,
         'hp_max': characterData.hitPoints?.max,
         'ac': characterData.armorClass,
         'speed': characterData.speed,
-        'class': characterData.class,
-        'level': characterData.level,
-        'race': characterData.race,
-        'background': characterData.background,
-        'alignment': characterData.alignment,
-        'proficiency': characterData.proficiencyBonus
+        'initiative_bonus': characterData.initiative,
+        'proficiency': characterData.proficiencyBonus,
+
+        // Kingdom skills (Pathfinder Kingmaker / Kingdom Builder)
+        'kingdom_agriculture': characterData.kingdom?.agriculture,
+        'kingdom_arts': characterData.kingdom?.arts,
+        'kingdom_boating': characterData.kingdom?.boating,
+        'kingdom_defense': characterData.kingdom?.defense,
+        'kingdom_engineering': characterData.kingdom?.engineering,
+        'kingdom_exploration': characterData.kingdom?.exploration,
+        'kingdom_folklore': characterData.kingdom?.folklore,
+        'kingdom_industry': characterData.kingdom?.industry,
+        'kingdom_intrigue': characterData.kingdom?.intrigue,
+        'kingdom_magic': characterData.kingdom?.magic,
+        'kingdom_politics': characterData.kingdom?.politics,
+        'kingdom_scholarship': characterData.kingdom?.scholarship,
+        'kingdom_statecraft': characterData.kingdom?.statecraft,
+        'kingdom_trade': characterData.kingdom?.trade,
+        'kingdom_warfare': characterData.kingdom?.warfare,
+        'kingdom_wilderness': characterData.kingdom?.wilderness,
+
+        // Kingdom proficiency totals
+        'kingdom_agriculture_proficiency_total': characterData.kingdom?.agriculture_proficiency_total,
+        'kingdom_arts_proficiency_total': characterData.kingdom?.arts_proficiency_total,
+        'kingdom_boating_proficiency_total': characterData.kingdom?.boating_proficiency_total,
+        'kingdom_defense_proficiency_total': characterData.kingdom?.defense_proficiency_total,
+        'kingdom_engineering_proficiency_total': characterData.kingdom?.engineering_proficiency_total,
+        'kingdom_exploration_proficiency_total': characterData.kingdom?.exploration_proficiency_total,
+        'kingdom_folklore_proficiency_total': characterData.kingdom?.folklore_proficiency_total,
+        'kingdom_industry_proficiency_total': characterData.kingdom?.industry_proficiency_total,
+        'kingdom_intrigue_proficiency_total': characterData.kingdom?.intrigue_proficiency_total,
+        'kingdom_magic_proficiency_total': characterData.kingdom?.magic_proficiency_total,
+        'kingdom_politics_proficiency_total': characterData.kingdom?.politics_proficiency_total,
+        'kingdom_scholarship_proficiency_total': characterData.kingdom?.scholarship_proficiency_total,
+        'kingdom_statecraft_proficiency_total': characterData.kingdom?.statecraft_proficiency_total,
+        'kingdom_trade_proficiency_total': characterData.kingdom?.trade_proficiency_total,
+        'kingdom_warfare_proficiency_total': characterData.kingdom?.warfare_proficiency_total,
+        'kingdom_wilderness_proficiency_total': characterData.kingdom?.wilderness_proficiency_total,
+
+        // Kingdom core stats
+        'kingdom_culture': characterData.kingdom?.culture,
+        'kingdom_economy': characterData.kingdom?.economy,
+        'kingdom_loyalty': characterData.kingdom?.loyalty,
+        'kingdom_stability': characterData.kingdom?.stability,
+
+        // Army attributes
+        'army_scouting': characterData.army?.scouting,
+        'army_maneuver': characterData.army?.maneuver,
+        'army_morale': characterData.army?.morale,
+        'army_ranged': characterData.army?.ranged,
+
+        // Other variables
+        'hero_points': characterData.otherVariables?.hero_points
       };
 
       // Try to set each field
