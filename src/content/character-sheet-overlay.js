@@ -1873,26 +1873,101 @@
                 }
               }
 
-              // Add event listeners as fallback for all cards
-              document.addEventListener('DOMContentLoaded', function() {
-                console.log('✅ Popup DOM loaded');
+              // Add event listeners for all clickable elements
+              window.addEventListener('load', function() {
+                console.log('✅ Popup window loaded, adding event listeners');
 
                 // Add click listeners to all ability/skill/save cards
                 const cards = document.querySelectorAll('.card');
-                cards.forEach(card => {
-                  const onclick = card.getAttribute('onclick');
-                  if (onclick && !card.hasAttribute('data-listener-added')) {
-                    card.addEventListener('click', function(e) {
-                      // Prevent double firing if onclick also works
-                      if (e.isTrusted) {
-                        eval(onclick);
+                console.log('Found ' + cards.length + ' cards');
+
+                cards.forEach(function(card) {
+                  card.addEventListener('click', function() {
+                    const onclickAttr = this.getAttribute('onclick');
+                    console.log('Card clicked, onclick attr:', onclickAttr);
+
+                    if (onclickAttr) {
+                      // Extract roll parameters from onclick attribute
+                      const match = onclickAttr.match(/roll\\('([^']+)',\\s*'([^']+)'\\)/);
+                      console.log('Regex match result:', match);
+                      if (match) {
+                        const name = match[1];
+                        const formula = match[2];
+                        console.log('Extracted:', name, formula);
+                        roll(name, formula);
+                      } else {
+                        console.error('Failed to match onclick pattern:', onclickAttr);
                       }
-                    });
-                    card.setAttribute('data-listener-added', 'true');
-                  }
+                    } else {
+                      console.error('No onclick attribute found');
+                    }
+                  });
+                  console.log('Added listener to card:', card.querySelector('strong').textContent);
                 });
 
-                console.log('✅ Added event listeners to ' + cards.length + ' cards');
+                // Add click listeners to spell headers
+                const spellHeaders = document.querySelectorAll('.spell-header');
+                console.log('Found ' + spellHeaders.length + ' spell headers');
+
+                spellHeaders.forEach(function(header) {
+                  header.addEventListener('click', function(e) {
+                    console.log('Spell header clicked');
+                    // Don't trigger if clicking the button directly
+                    if (e.target.classList.contains('toggle-btn')) {
+                      console.log('Clicked on button, not header');
+                      return;
+                    }
+
+                    const onclickAttr = this.getAttribute('onclick');
+                    console.log('Header onclick:', onclickAttr);
+                    if (onclickAttr) {
+                      const match = onclickAttr.match(/toggleSpell\\((\\d+)\\)/);
+                      console.log('Toggle match:', match);
+                      if (match) {
+                        toggleSpell(parseInt(match[1]));
+                      }
+                    }
+                  });
+                });
+
+                // Add click listeners to toggle buttons
+                const toggleBtns = document.querySelectorAll('.toggle-btn');
+                console.log('Found ' + toggleBtns.length + ' toggle buttons');
+
+                toggleBtns.forEach(function(btn) {
+                  btn.addEventListener('click', function(e) {
+                    console.log('Toggle button clicked');
+                    e.stopPropagation();
+                    const spellIndex = parseInt(this.id.split('-')[1]);
+                    console.log('Toggling spell index:', spellIndex);
+                    toggleSpell(spellIndex);
+                  });
+                });
+
+                // Add click listeners to roll buttons inside spells
+                const rollBtns = document.querySelectorAll('.roll-btn');
+                console.log('Found ' + rollBtns.length + ' roll buttons');
+
+                rollBtns.forEach(function(btn) {
+                  btn.addEventListener('click', function(e) {
+                    console.log('Roll button clicked');
+                    e.stopPropagation();
+                    const onclickAttr = this.getAttribute('onclick');
+                    console.log('Roll button onclick:', onclickAttr);
+                    if (onclickAttr) {
+                      const match = onclickAttr.match(/roll\\('([^']+)',\\s*'([^']+)'\\)/);
+                      console.log('Roll match:', match);
+                      if (match) {
+                        const name = match[1];
+                        const formula = match[2];
+                        console.log('Spell roll:', name, formula);
+                        roll(name, formula);
+                      }
+                    }
+                  });
+                });
+
+                console.log('✅ All event listeners added successfully');
               });
 
               console.log('✅ Popup JavaScript loaded successfully');
