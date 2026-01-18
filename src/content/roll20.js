@@ -68,23 +68,64 @@
 
       // D&D 5e OGL sheet field mappings
       const fieldMappings = {
-        // Core character attributes
+        // Core character info
         'character_name': characterData.name,
+        'class': characterData.class,
+        'level': characterData.level,
+        'race': characterData.race,
+        'background': characterData.background,
+        'alignment': characterData.alignment,
+
+        // Ability scores
         'strength': characterData.attributes?.strength,
         'dexterity': characterData.attributes?.dexterity,
         'constitution': characterData.attributes?.constitution,
         'intelligence': characterData.attributes?.intelligence,
         'wisdom': characterData.attributes?.wisdom,
         'charisma': characterData.attributes?.charisma,
+
+        // Ability modifiers
+        'strength_mod': characterData.attributeMods?.strength,
+        'dexterity_mod': characterData.attributeMods?.dexterity,
+        'constitution_mod': characterData.attributeMods?.constitution,
+        'intelligence_mod': characterData.attributeMods?.intelligence,
+        'wisdom_mod': characterData.attributeMods?.wisdom,
+        'charisma_mod': characterData.attributeMods?.charisma,
+
+        // Saving throws
+        'strength_save_bonus': characterData.saves?.strength,
+        'dexterity_save_bonus': characterData.saves?.dexterity,
+        'constitution_save_bonus': characterData.saves?.constitution,
+        'intelligence_save_bonus': characterData.saves?.intelligence,
+        'wisdom_save_bonus': characterData.saves?.wisdom,
+        'charisma_save_bonus': characterData.saves?.charisma,
+
+        // Skills
+        'acrobatics_bonus': characterData.skills?.acrobatics,
+        'animal_handling_bonus': characterData.skills?.animalHandling,
+        'arcana_bonus': characterData.skills?.arcana,
+        'athletics_bonus': characterData.skills?.athletics,
+        'deception_bonus': characterData.skills?.deception,
+        'history_bonus': characterData.skills?.history,
+        'insight_bonus': characterData.skills?.insight,
+        'intimidation_bonus': characterData.skills?.intimidation,
+        'investigation_bonus': characterData.skills?.investigation,
+        'medicine_bonus': characterData.skills?.medicine,
+        'nature_bonus': characterData.skills?.nature,
+        'perception_bonus': characterData.skills?.perception,
+        'performance_bonus': characterData.skills?.performance,
+        'persuasion_bonus': characterData.skills?.persuasion,
+        'religion_bonus': characterData.skills?.religion,
+        'sleight_of_hand_bonus': characterData.skills?.sleightOfHand,
+        'stealth_bonus': characterData.skills?.stealth,
+        'survival_bonus': characterData.skills?.survival,
+
+        // Combat stats
         'hp': characterData.hitPoints?.current,
         'hp_max': characterData.hitPoints?.max,
         'ac': characterData.armorClass,
         'speed': characterData.speed,
-        'class': characterData.class,
-        'level': characterData.level,
-        'race': characterData.race,
-        'background': characterData.background,
-        'alignment': characterData.alignment,
+        'initiative_bonus': characterData.initiative,
         'proficiency': characterData.proficiencyBonus,
 
         // Kingdom skills (Pathfinder Kingmaker / Kingdom Builder)
