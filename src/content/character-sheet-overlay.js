@@ -1658,13 +1658,65 @@
               .spell-card {
                 background: #fff3cd;
                 border: 1px solid #f39c12;
-                cursor: pointer;
                 margin-bottom: 10px;
                 padding: 10px;
                 border-radius: 4px;
               }
-              .spell-card:hover {
+              .spell-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                cursor: pointer;
+                padding: 5px 0;
+              }
+              .spell-header:hover {
                 background: #fef5e7;
+              }
+              .spell-name {
+                font-weight: bold;
+                color: #2C3E50;
+              }
+              .spell-level {
+                font-size: 0.9em;
+                color: #666;
+                margin-left: 10px;
+              }
+              .spell-description {
+                margin-top: 10px;
+                padding-top: 10px;
+                border-top: 1px solid #f39c12;
+                display: none;
+                color: #333;
+                line-height: 1.5;
+                max-height: 300px;
+                overflow-y: auto;
+              }
+              .spell-description.expanded {
+                display: block;
+              }
+              .toggle-btn {
+                background: #4ECDC4;
+                color: white;
+                border: none;
+                padding: 3px 8px;
+                border-radius: 3px;
+                cursor: pointer;
+                font-size: 0.85em;
+              }
+              .toggle-btn:hover {
+                background: #44A08D;
+              }
+              .roll-btn {
+                background: #27AE60;
+                color: white;
+                border: none;
+                padding: 5px 10px;
+                border-radius: 4px;
+                cursor: pointer;
+                margin-top: 10px;
+              }
+              .roll-btn:hover {
+                background: #229954;
               }
             </style>
           </head>
@@ -1760,20 +1812,33 @@
               
               <div class="section">
                 <h3>🔮 Spells</h3>
-                ${response.data.spells && response.data.spells.length > 0 ? 
-                  response.data.spells.map(spell => `
-                    <div class="spell-card" onclick="roll('${spell.name}', '${spell.formula || '1d20'}')">
-                      <strong>${spell.name}</strong>
-                      <div>${spell.formula || '1d20'}</div>
-                      <div>${spell.description || ''}</div>
+                ${response.data.spells && response.data.spells.length > 0 ?
+                  response.data.spells.map((spell, index) => `
+                    <div class="spell-card" data-spell-index="${index}">
+                      <div class="spell-header" onclick="toggleSpell(${index})">
+                        <div>
+                          <span class="spell-name">${spell.name}</span>
+                          ${spell.level ? `<span class="spell-level">Level ${spell.level}</span>` : ''}
+                        </div>
+                        <button class="toggle-btn" id="toggle-${index}">▼ Details</button>
+                      </div>
+                      <div class="spell-description" id="spell-desc-${index}">
+                        ${spell.castingTime ? `<div><strong>Casting Time:</strong> ${spell.castingTime}</div>` : ''}
+                        ${spell.range ? `<div><strong>Range:</strong> ${spell.range}</div>` : ''}
+                        ${spell.duration ? `<div><strong>Duration:</strong> ${spell.duration}</div>` : ''}
+                        ${spell.school ? `<div><strong>School:</strong> ${spell.school}</div>` : ''}
+                        ${spell.description ? `<div style="margin-top: 10px;">${spell.description}</div>` : ''}
+                        ${spell.formula ? `<button class="roll-btn" onclick="roll('${spell.name}', '${spell.formula}')">🎲 Roll ${spell.formula}</button>` : ''}
+                      </div>
                     </div>
-                  `).join('') : 
+                  `).join('') :
                   '<div style="text-align: center; color: #666;">No spells available</div>'
                 }
               </div>
             </div>
             
             <script>
+              // Roll function - sends roll to parent window
               function roll(name, formula) {
                 console.log('🎲 Rolling:', name, formula);
                 if (window.opener && !window.opener.closed) {
@@ -1782,13 +1847,55 @@
                     name: name,
                     formula: formula
                   }, '*');
-                  alert('Rolling ' + name + '...');
+
+                  // Show notification
+                  const notification = document.createElement('div');
+                  notification.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #27AE60; color: white; padding: 15px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 10000;';
+                  notification.textContent = '🎲 Rolling ' + name + '...';
+                  document.body.appendChild(notification);
+                  setTimeout(() => notification.remove(), 2000);
                 } else {
                   alert('Parent window not available');
                 }
               }
-              
-              console.log('✅ Popup loaded successfully');
+
+              // Toggle spell description
+              function toggleSpell(index) {
+                const desc = document.getElementById('spell-desc-' + index);
+                const toggle = document.getElementById('toggle-' + index);
+
+                if (desc.classList.contains('expanded')) {
+                  desc.classList.remove('expanded');
+                  toggle.textContent = '▼ Details';
+                } else {
+                  desc.classList.add('expanded');
+                  toggle.textContent = '▲ Hide';
+                }
+              }
+
+              // Add event listeners as fallback for all cards
+              document.addEventListener('DOMContentLoaded', function() {
+                console.log('✅ Popup DOM loaded');
+
+                // Add click listeners to all ability/skill/save cards
+                const cards = document.querySelectorAll('.card');
+                cards.forEach(card => {
+                  const onclick = card.getAttribute('onclick');
+                  if (onclick && !card.hasAttribute('data-listener-added')) {
+                    card.addEventListener('click', function(e) {
+                      // Prevent double firing if onclick also works
+                      if (e.isTrusted) {
+                        eval(onclick);
+                      }
+                    });
+                    card.setAttribute('data-listener-added', 'true');
+                  }
+                });
+
+                console.log('✅ Added event listeners to ' + cards.length + ' cards');
+              });
+
+              console.log('✅ Popup JavaScript loaded successfully');
             </script>
           </body>
           </html>
