@@ -22,6 +22,12 @@
       'insight', 'intimidation', 'investigation', 'medicine', 'nature', 'perception',
       'performance', 'persuasion', 'religion', 'sleightOfHand', 'stealth', 'survival'
     ],
+    spellSlots: [
+      'level1SpellSlots', 'level2SpellSlots', 'level3SpellSlots', 'level4SpellSlots', 'level5SpellSlots',
+      'level6SpellSlots', 'level7SpellSlots', 'level8SpellSlots', 'level9SpellSlots',
+      'level1SpellSlotsMax', 'level2SpellSlotsMax', 'level3SpellSlotsMax', 'level4SpellSlotsMax', 'level5SpellSlotsMax',
+      'level6SpellSlotsMax', 'level7SpellSlotsMax', 'level8SpellSlotsMax', 'level9SpellSlotsMax'
+    ],
     combat: ['armorClass', 'hitPoints', 'speed', 'initiative', 'proficiencyBonus']
   };
 
@@ -68,7 +74,13 @@
     console.log('🔐 Requesting API token from background...');
     
     // Get stored API token from background script
-    const tokenResponse = await chrome.runtime.sendMessage({ action: 'getApiToken' });
+    let tokenResponse;
+    try {
+      tokenResponse = await chrome.runtime.sendMessage({ action: 'getApiToken' });
+    } catch (error) {
+      console.error('Extension context error:', error);
+      throw new Error('Extension reloaded. Please refresh the page.');
+    }
     console.log('🔑 Token response:', tokenResponse);
 
     if (!tokenResponse.success || !tokenResponse.token) {
@@ -108,16 +120,13 @@
       console.log('✅ Received API data:', data);
       console.log('📊 Data structure:', {
         hasCreatures: !!data.creatures,
-        creaturesCount: data.creatures?.length,
+        creaturesCount: (data.creatures && data.creatures.length) || 0,
         hasVariables: !!data.creatureVariables,
-        variablesCount: data.creatureVariables?.length,
+        variablesCount: (data.creatureVariables && data.creatureVariables.length) || 0,
         hasProperties: !!data.creatureProperties,
-        propertiesCount: data.creatureProperties?.length
+        propertiesCount: (data.creatureProperties && data.creatureProperties.length) || 0
       });
-      console.log('✅ Parsed character data:', characterData);
-      console.log(`📊 Summary: ${characterData.name} - Level ${characterData.level} ${characterData.class}`);
       
-    return characterData;
       return parseCharacterData(data);
     } catch (fetchError) {
       console.error('❌ Fetch error:', fetchError);
@@ -137,7 +146,7 @@
     }
 
     const creature = apiData.creatures[0];
-    const variables = apiData.creatureVariables?.[0] || {};
+    const variables = (apiData.creatureVariables && apiData.creatureVariables[0]) || {};
     const properties = apiData.creatureProperties || [];
 
     console.log('📝 Creature:', creature);
@@ -154,19 +163,21 @@
       attributes: {},
       attributeMods: {},
       saves: {},
+      savingThrows: {},
       skills: {},
       features: [],
       spells: [],
+      spellSlots: {},
       inventory: [],
       proficiencies: [],
       hitPoints: {
-        current: variables.hitPoints?.value || 0,
-        max: variables.hitPoints?.total || 0
+        current: (variables.hitPoints && variables.hitPoints.value) || 0,
+        max: (variables.hitPoints && variables.hitPoints.total) || 0
       },
-      armorClass: variables.armorClass?.value || 10,
-      speed: variables.speed?.value || 30,
-      initiative: variables.initiative?.value || 0,
-      proficiencyBonus: variables.proficiencyBonus?.value || 0,
+      armorClass: (variables.armorClass && variables.armorClass.value) || 10,
+      speed: (variables.speed && variables.speed.value) || 30,
+      initiative: (variables.initiative && variables.initiative.value) || 0,
+      proficiencyBonus: (variables.proficiencyBonus && variables.proficiencyBonus.value) || 0,
       kingdom: {},
       army: {},
       otherVariables: {}
@@ -179,11 +190,26 @@
       }
     });
 
-    // Extract ability modifiers
+    // Calculate modifiers from ability scores (standard D&D 5e formula)
+    Object.keys(characterData.attributes).forEach(attr => {
+      const score = characterData.attributes[attr] || 10;
+      characterData.attributeMods[attr] = Math.floor((score - 10) / 2);
+    });
+
+    // Extract ability modifiers from Dice Cloud (but use calculated ones as backup)
     STANDARD_VARS.abilityMods.forEach(mod => {
       if (variables[mod]) {
         const abilityName = mod.replace('Mod', '');
-        characterData.attributeMods[abilityName] = variables[mod].value || 0;
+        const diceCloudMod = variables[mod].value || 0;
+        const calculatedMod = characterData.attributeMods[abilityName] || 0;
+        
+        // Use Dice Cloud modifier if it exists and is different, otherwise use calculated
+        if (diceCloudMod !== 0 && diceCloudMod !== calculatedMod) {
+          characterData.attributeMods[abilityName] = diceCloudMod;
+          console.log(`📊 Using Dice Cloud modifier for ${abilityName}: ${diceCloudMod} (calculated: ${calculatedMod})`);
+        } else {
+          console.log(`📊 Using calculated modifier for ${abilityName}: ${calculatedMod}`);
+        }
       }
     });
 
@@ -192,6 +218,8 @@
       if (variables[save]) {
         const abilityName = save.replace('Save', '');
         characterData.saves[abilityName] = variables[save].value || 0;
+        // Also store in savingThrows for compatibility
+        characterData.savingThrows[abilityName] = variables[save].value || 0;
       }
     });
 
@@ -199,6 +227,14 @@
     STANDARD_VARS.skills.forEach(skill => {
       if (variables[skill]) {
         characterData.skills[skill] = variables[skill].value || 0;
+      }
+    });
+
+    // Extract spell slots
+    STANDARD_VARS.spellSlots.forEach(slot => {
+      if (variables[slot]) {
+        characterData.spellSlots = characterData.spellSlots || {};
+        characterData.spellSlots[slot] = variables[slot].value || 0;
       }
     });
 
@@ -271,7 +307,7 @@
     // Extract everything else
     Object.keys(variables).forEach(varName => {
       if (!knownVars.has(varName) && !varName.startsWith('_')) {
-        const value = variables[varName]?.value;
+        const value = variables[varName] && variables[varName].value;
         if (value !== undefined && value !== null) {
           characterData.otherVariables[varName] = value;
         }
@@ -279,12 +315,44 @@
     });
 
     console.log(`Extracted ${Object.keys(characterData.otherVariables).length} additional variables`);
+    
+    // Debug: Check for race in other variables as fallback
+    console.log('🔍 Checking for race in otherVariables:', Object.keys(characterData.otherVariables).filter(key => key.toLowerCase().includes('race')).map(key => `${key}: ${characterData.otherVariables[key]}`));
 
     // Parse properties for classes, race, features, spells, etc.
     // Track unique classes to avoid duplicates
     const uniqueClasses = new Set();
-
-    properties.forEach(prop => {
+    
+    // Debug: Log all property types to see what's available
+    const propertyTypes = new Set();
+    let raceFound = false;
+    
+    apiData.creatureProperties.forEach(prop => {
+      propertyTypes.add(prop.type);
+      
+      if (prop.type === 'race') {
+        console.log('🔍 Found race property:', prop);
+        if (prop.name) {
+          characterData.race = prop.name;
+          console.log('🔍 Set race to:', prop.name);
+          raceFound = true;
+        }
+      } else if (prop.type === 'species') {
+        console.log('🔍 Found species property:', prop);
+        if (prop.name) {
+          characterData.race = prop.name;
+          console.log('🔍 Set race to (from species):', prop.name);
+          raceFound = true;
+        }
+      } else if (prop.type === 'characterRace') {
+        console.log('🔍 Found characterRace property:', prop);
+        if (prop.name) {
+          characterData.race = prop.name;
+          console.log('🔍 Set race to (from characterRace):', prop.name);
+          raceFound = true;
+        }
+      }
+      
       switch (prop.type) {
         case 'class':
           // Only add class name once, even if there are multiple classLevel entries
@@ -315,6 +383,21 @@
         case 'race':
           if (prop.name) {
             characterData.race = prop.name;
+            console.log('🔍 Found race property:', prop.name);
+          }
+          break;
+          
+        case 'species':
+          if (prop.name) {
+            characterData.race = prop.name;
+            console.log('🔍 Found species property (using as race):', prop.name);
+          }
+          break;
+          
+        case 'characterRace':
+          if (prop.name) {
+            characterData.race = prop.name;
+            console.log('🔍 Found characterRace property:', prop.name);
           }
           break;
 
@@ -333,6 +416,29 @@
           break;
 
         case 'spell':
+          // Extract description from object or string
+          let description = '';
+          if (prop.description) {
+            if (typeof prop.description === 'object' && prop.description.text) {
+              description = prop.description.text;
+            } else if (typeof prop.description === 'object' && prop.description.value) {
+              description = prop.description.value;
+            } else if (typeof prop.description === 'string') {
+              description = prop.description;
+            }
+          }
+          
+          // Also check for summary field
+          if (!description && prop.summary) {
+            if (typeof prop.summary === 'object' && prop.summary.text) {
+              description = prop.summary.text;
+            } else if (typeof prop.summary === 'object' && prop.summary.value) {
+              description = prop.summary.value;
+            } else if (typeof prop.summary === 'string') {
+              description = prop.summary;
+            }
+          }
+          
           characterData.spells.push({
             name: prop.name || 'Unnamed Spell',
             level: prop.level || 0,
@@ -341,7 +447,7 @@
             range: prop.range || '',
             components: prop.components || '',
             duration: prop.duration || '',
-            description: prop.description || '',
+            description: description,
             prepared: prop.prepared || false
           });
           break;
@@ -366,14 +472,372 @@
       }
     });
 
+    // Fallback: Check for race in otherVariables if not found in properties
+    if (!raceFound && !characterData.race) {
+      console.log('🔍 Race not found in properties, checking otherVariables...');
+      const raceVars = Object.keys(characterData.otherVariables).filter(key => 
+        key.toLowerCase().includes('race') || key.toLowerCase().includes('species')
+      );
+      
+      if (raceVars.length > 0) {
+        const raceVar = raceVars[0];
+        const raceValue = characterData.otherVariables[raceVar];
+        
+        // Handle race as object (like spell descriptions)
+        if (typeof raceValue === 'object' && raceValue !== null) {
+          if (raceValue.name) {
+            characterData.race = raceValue.name;
+            console.log(`🔍 Found race object with name: ${raceVar} = ${characterData.race}`);
+          } else if (raceValue.text) {
+            characterData.race = raceValue.text;
+            console.log(`🔍 Found race object with text: ${raceVar} = ${characterData.race}`);
+          } else if (raceValue.value) {
+            characterData.race = raceValue.value;
+            console.log(`🔍 Found race object with value: ${raceVar} = ${characterData.race}`);
+          } else {
+            console.log(`🔍 Race object found but no name/text/value: ${raceVar} =`, raceValue);
+          }
+        } else if (typeof raceValue === 'string') {
+          characterData.race = raceValue;
+          console.log(`🔍 Found race string: ${raceVar} = ${characterData.race}`);
+        } else {
+          console.log(`🔍 Race variable found but invalid type: ${raceVar} =`, raceValue);
+        }
+      } else {
+        console.log('🔍 No race found in otherVariables either');
+      }
+    }
+
     console.log('Parsed character data:', characterData);
     return characterData;
   }
 
   /**
-   * Extracts character data and sends to background script
+   * Extracts character data from the current page
    */
-async function extractAndStoreCharacterData() {
+  async function extractCharacterData() {
+    try {
+      console.log('🚀 Starting character extraction...');
+      
+      // Try API first (this returns parsed data directly)
+      const characterData = await fetchCharacterDataFromAPI();
+      if (characterData) {
+        console.log('✅ Character data extracted via API:', characterData.name);
+        return characterData;
+      }
+      
+      // Fallback to DOM extraction
+      console.log('🔄 API failed, trying DOM extraction...');
+      const domData = extractCharacterDataFromDOM();
+      if (domData) {
+        console.log('✅ Character data extracted via DOM:', domData.name);
+        return domData;
+      }
+      
+      console.error('❌ Both API and DOM extraction failed');
+      return null;
+    } catch (error) {
+      console.error('❌ Error extracting character data:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Handles roll requests from Roll20 character sheet
+   */
+  function handleRollRequest(name, formula) {
+    return new Promise((resolve, reject) => {
+      console.log(`🎲 Handling roll request: ${name} with formula ${formula}`);
+      
+      // Create a mock roll entry to simulate the roll
+      const rollResult = Math.floor(Math.random() * 20) + 1;
+      const totalResult = rollResult + (formula.includes('+') ? parseInt(formula.split('+')[1]) : 0);
+      
+      const rollData = {
+        name: name,
+        formula: formula,
+        result: totalResult.toString(),
+        timestamp: Date.now()
+      };
+      
+      console.log('🎲 Simulated roll:', rollData);
+      
+      // Send the roll to Roll20 (this will trigger the existing roll forwarding)
+      sendRollToRoll20(rollData);
+      
+      // Show a notification in Dice Cloud
+      showNotification(`Rolled ${name}: ${formula} = ${totalResult} 🎲`, 'success');
+      
+      resolve();
+    });
+  }
+
+  /**
+   * Extracts spell descriptions from Dice Cloud DOM
+   */
+  function extractSpellsFromDOM(characterData) {
+    try {
+      console.log('🔍 Extracting spells from DOM...');
+      console.log('🔍 Current hostname:', window.location.hostname);
+      console.log('🔍 Current URL:', window.location.href);
+      
+      // Look for spell sections in Dice Cloud
+      const spellSelectors = [
+        '[class*="spell"]',
+        '[class*="magic"]',
+        '.spell-item',
+        '.spell-card',
+        '[data-spell]',
+        'div:contains("spell")',
+        'li:contains("spell")',
+        // Dice Cloud specific selectors
+        '.v-card', // Vue.js cards
+        '.v-sheet', // Vue.js sheets
+        '[data-v-]', // Vue.js components
+        '.ma-2', // Margin classes
+        '.pa-2', // Padding classes
+        '.text-h6', // Header text
+        '.subtitle-1', // Subtitle text
+        '.caption' // Caption text
+      ];
+      
+      const spellElements = [];
+      spellSelectors.forEach(selector => {
+        try {
+          const elements = document.querySelectorAll(selector);
+          elements.forEach(el => spellElements.push(el));
+        } catch (e) {
+          // Some selectors might not be supported
+        }
+      });
+      
+      console.log(`🔍 Found ${spellElements.length} potential spell elements`);
+      
+      // If we're not in Dice Cloud, try a broader search
+      if (window.location.hostname !== 'dicecloud.com' && !window.location.hostname.includes('dicecloud')) {
+        console.log('🔍 Not in Dice Cloud, trying broader search...');
+        
+        // Look for any text that might contain spell information
+        const allElements = document.querySelectorAll('*');
+        let spellTextElements = [];
+        
+        allElements.forEach(element => {
+          const text = element.textContent || element.innerText || '';
+          if (text.toLowerCase().includes('spell') || 
+              text.toLowerCase().includes('level') && 
+              text.toLowerCase().includes('cantrip') ||
+              text.toLowerCase().includes('casting') ||
+              text.toLowerCase().includes('range') ||
+              text.toLowerCase().includes('duration')) {
+            spellTextElements.push(element);
+          }
+        });
+        
+        console.log(`🔍 Found ${spellTextElements.length} elements with spell-related text`);
+        spellElements.push(...spellTextElements);
+      }
+      
+      // Extract spell data from each element
+      spellElements.forEach((element, index) => {
+        try {
+          const text = element.textContent || element.innerText || '';
+          const lowerText = text.toLowerCase();
+          
+          // Skip if this doesn't look like a spell
+          if (!lowerText.includes('spell') && !lowerText.includes('level') && !lowerText.includes('cantrip')) {
+            return;
+          }
+          
+          // Skip spell slot elements
+          if (lowerText.includes('spell slots') || lowerText.includes('slot') || lowerText.includes('slots')) {
+            console.log(`🔍 Skipping spell slot element: ${text.substring(0, 50)}`);
+            return;
+          }
+          
+          // Skip navigation/menu elements
+          if (lowerText.includes('stats') || lowerText.includes('actions') || lowerText.includes('inventory') || 
+              lowerText.includes('features') || lowerText.includes('journal') || lowerText.includes('build') ||
+              lowerText.includes('hit points') || lowerText.includes('armor class') || lowerText.includes('speed')) {
+            console.log(`🔍 Skipping navigation element: ${text.substring(0, 50)}`);
+            return;
+          }
+          
+          // Skip elements that are too short or don't have meaningful content
+          if (text.length < 20) {
+            return;
+          }
+          
+          // Skip if it looks like a character name or general navigation
+          if (text.includes(characterData.name) || lowerText.includes('grey')) {
+            console.log(`🔍 Skipping character name element: ${text.substring(0, 50)}`);
+            return;
+          }
+          
+          console.log(`🔍 Processing element ${index}:`, text.substring(0, 100));
+          
+          // Try to extract spell name (first line or bold text)
+          let spellName = '';
+          const boldText = element.querySelector('strong, b, [class*="name"], [class*="title"], .text-h6, .subtitle-1');
+          if (boldText) {
+            spellName = boldText.textContent.trim();
+          } else {
+            const lines = text.split('\n').filter(line => line.trim());
+            spellName = lines[0]?.trim() || '';
+          }
+          
+          // Skip if no spell name found or if it's just generic text
+          if (!spellName || spellName.length < 2 || spellName.toLowerCase().includes('level') || spellName.toLowerCase().includes('spell')) {
+            return;
+          }
+          
+          // Skip if it's a known D&D spell name that should have more content
+          const knownSpells = ['detect magic', 'disguise self', 'summon fey', 'fireball', 'magic missile', 'cure wounds'];
+          if (knownSpells.includes(spellName.toLowerCase()) && text.length < 100) {
+            console.log(`🔍 Skipping incomplete spell entry for "${spellName}"`);
+            return;
+          }
+          
+          // Extract level information
+          let spellLevel = 0;
+          const levelMatch = text.match(/level\s*(\d+)|cantrip|(\d+)(?:st|nd|rd|th)\s*level/i);
+          if (levelMatch) {
+            spellLevel = levelMatch[1] ? parseInt(levelMatch[1]) : (levelMatch[2] ? parseInt(levelMatch[2]) : 0);
+          }
+          
+          // Extract description (everything after the first few lines)
+          let description = '';
+          const lines = text.split('\n').filter(line => line.trim());
+          if (lines.length > 2) {
+            // Skip first 1-2 lines (usually name/level info)
+            description = lines.slice(2).join('\n').trim();
+          }
+          
+          // Clean up description - remove any [object Object] text
+          description = description.replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '').replace(/\[object Object\]/g, '').trim();
+          
+          // Only add if we have meaningful content
+          if (description && description.length > 10) {
+            // Check if we already have this spell
+            const existingSpell = characterData.spells.find(s => 
+              s.name.toLowerCase() === spellName.toLowerCase()
+            );
+            
+            if (existingSpell) {
+              // Update existing spell with description
+              existingSpell.description = description;
+              console.log(`✅ Updated description for "${spellName}": "${description.substring(0, 50)}..."`);
+            } else {
+              // Add new spell
+              characterData.spells.push({
+                name: spellName,
+                level: spellLevel,
+                description: description,
+                school: '',
+                castingTime: '',
+                range: '',
+                components: '',
+                duration: '',
+                prepared: false
+              });
+              console.log(`✅ Added new spell "${spellName}" (Level ${spellLevel}): "${description.substring(0, 50)}..."`);
+            }
+          } else {
+            console.log(`🔍 No meaningful description found for "${spellName}"`);
+          }
+        } catch (error) {
+          console.error(`❌ Error processing spell element ${index}:`, error);
+        }
+      });
+      
+      console.log(`✅ Spell extraction complete. Found ${characterData.spells.length} spells with descriptions.`);
+    } catch (error) {
+      console.error('❌ Error extracting spells from DOM:', error);
+    }
+  }
+
+  /**
+   * Extracts character data from DOM elements (fallback method)
+   */
+  function extractCharacterDataFromDOM() {
+    try {
+      console.log('🔍 Extracting character data from DOM...');
+      
+      const characterData = {
+        name: '',
+        level: 1,
+        class: '',
+        race: '',
+        attributes: {},
+        attributeMods: {},
+        skills: {},
+        savingThrows: {},
+        hitPoints: 0,
+        armorClass: 10,
+        speed: 30,
+        proficiencyBonus: 2,
+        initiative: 0,
+        otherVariables: {},
+        features: [],
+        spells: []
+      };
+
+      // Try to find character name
+      const nameElement = document.querySelector('[class*="name"], [class*="character"], h1, h2');
+      if (nameElement) {
+        characterData.name = nameElement.textContent.trim() || 'Unknown Character';
+      }
+
+      // Try to find basic stats from common selectors
+      const statElements = document.querySelectorAll('[class*="stat"], [class*="attribute"], [class*="ability"]');
+      statElements.forEach(element => {
+        const text = element.textContent.trim();
+        if (text.includes('STR') || text.includes('Strength')) {
+          const match = text.match(/(\d+)/);
+          if (match) characterData.attributes.strength = parseInt(match[1]);
+        }
+        if (text.includes('DEX') || text.includes('Dexterity')) {
+          const match = text.match(/(\d+)/);
+          if (match) characterData.attributes.dexterity = parseInt(match[1]);
+        }
+        if (text.includes('CON') || text.includes('Constitution')) {
+          const match = text.match(/(\d+)/);
+          if (match) characterData.attributes.constitution = parseInt(match[1]);
+        }
+        if (text.includes('INT') || text.includes('Intelligence')) {
+          const match = text.match(/(\d+)/);
+          if (match) characterData.attributes.intelligence = parseInt(match[1]);
+        }
+        if (text.includes('WIS') || text.includes('Wisdom')) {
+          const match = text.match(/(\d+)/);
+          if (match) characterData.attributes.wisdom = parseInt(match[1]);
+        }
+        if (text.includes('CHA') || text.includes('Charisma')) {
+          const match = text.match(/(\d+)/);
+          if (match) characterData.attributes.charisma = parseInt(match[1]);
+        }
+      });
+
+      // Calculate modifiers (standard D&D 5e formula)
+      Object.keys(characterData.attributes).forEach(attr => {
+        const score = characterData.attributes[attr] || 10;
+        characterData.attributeMods[attr] = Math.floor((score - 10) / 2);
+      });
+
+      // Extract spells from the page
+      extractSpellsFromDOM(characterData);
+
+      console.log('✅ DOM extraction completed:', characterData);
+      return characterData;
+    } catch (error) {
+      console.error('❌ Error extracting from DOM:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Extracts character data from the current page
+   */
+  async function extractAndStoreCharacterData() {
     try {
       console.log('🚀 Starting character extraction...');
       showNotification('Extracting character data...', 'info');
@@ -382,14 +846,30 @@ async function extractAndStoreCharacterData() {
 
       if (characterData && characterData.name) {
         // Send to background script for storage
-
-            showNotification('Error storing character data', 'error');
-    } else {
-            console.log('✅ Character data stored successfully');
-            showNotification(`${characterData.name} extracted! Navigate to Roll20 to import.`, 'success');
-          }
-        });
-    } else {
+        try {
+          chrome.runtime.sendMessage({
+            action: 'storeCharacterData',
+            data: characterData
+          }, (response) => {
+            if (chrome.runtime.lastError) {
+              console.error('❌ Extension context error:', chrome.runtime.lastError);
+              showNotification('Extension reloaded. Please refresh the page.', 'error');
+              return;
+            }
+            
+            if (response && response.success) {
+              console.log('✅ Character data stored successfully');
+              showNotification(`${characterData.name} extracted! Navigate to Roll20 to import.`, 'success');
+            } else {
+              console.error('❌ Failed to store character data:', response && response.error);
+              showNotification('Failed to store character data', 'error');
+            }
+          });
+        } catch (error) {
+          console.error('❌ Extension context invalidated:', error);
+          showNotification('Extension reloaded. Please refresh the page.', 'error');
+        }
+      } else {
         console.error('❌ No character name found');
         showNotification('Failed to extract character data', 'error');
       }
@@ -434,6 +914,10 @@ async function extractAndStoreCharacterData() {
    * Adds an export button to the Dice Cloud UI
    */
   function addExportButton() {
+    // Export button removed - only sync button needed
+    console.log('📋 Export button disabled - using sync button instead');
+    return;
+    
     // Wait for page to fully load
     if (document.readyState !== 'complete') {
       window.addEventListener('load', addExportButton);
@@ -484,48 +968,55 @@ async function extractAndStoreCharacterData() {
     document.body.appendChild(button);
     makeDraggable(button);
 
-    // Add debug button
-    const debugButton = document.createElement('button');
-    debugButton.id = 'dc-roll20-debug-btn';
-    debugButton.textContent = '🔍 Debug Rolls';
-    debugButton.style.cssText = `
-      position: fixed;
-      bottom: 70px;
-      right: 20px;
-      background: #3498db;
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      border-radius: 4px;
-      cursor: move;
-      font-size: 12px;
-      font-weight: bold;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-      z-index: 10000;
-      transition: background 0.3s;
-    `;
-    debugButton.addEventListener('mouseenter', () => {
-      debugButton.style.background = '#2980b9';
-    });
-    debugButton.addEventListener('mouseleave', () => {
-      debugButton.style.background = '#3498db';
-    });
-    debugButton.addEventListener('click', () => {
-      debugPageStructure();
-      showNotification('Debug info logged to console - Press F12 to view', 'info');
-    });
-
-    document.body.appendChild(debugButton);
-    makeDraggable(debugButton);
+    // Debug button removed - only sync button needed
+    console.log('🔍 Debug button disabled');
   }
 
-  // Listen for messages from the popup or background script
+  /**
+   * Listens for messages from popup and other parts of the extension
+   */
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === 'extractCharacter') {
-      extractAndStoreCharacterData()
-        .then(() => sendResponse({ success: true }))
-        .catch(error => sendResponse({ success: false, error: error.message }));
-      return true; // Keep channel open for async response
+    console.log('DiceCloud received message:', request);
+
+    switch (request.action) {
+      case 'syncCharacter':
+        syncCharacterData()
+          .then(() => {
+            sendResponse({ success: true });
+          })
+          .catch((error) => {
+            console.error('Error syncing character:', error);
+            sendResponse({ success: false, error: error.message });
+          });
+        return true; // Keep channel open for async response
+
+      case 'rollInDiceCloud':
+        // Handle roll request from Roll20 character sheet
+        handleRollRequest(request.roll.name, request.roll.formula)
+          .then(() => {
+            console.log('✅ Roll handled in Dice Cloud');
+            sendResponse({ success: true });
+          })
+          .catch((error) => {
+            console.error('❌ Failed to handle roll in Dice Cloud:', error);
+            sendResponse({ success: false, error: error.message });
+          });
+        return true;
+
+      case 'extractCharacter':
+        extractCharacterData()
+          .then((data) => {
+            sendResponse({ success: true, data });
+          })
+          .catch((error) => {
+            console.error('Error extracting character:', error);
+            sendResponse({ success: false, error: error.message });
+          });
+        return true;
+
+      default:
+        console.warn('Unknown action:', request.action);
+        sendResponse({ success: false, error: 'Unknown action' });
     }
   });
 
@@ -556,7 +1047,7 @@ async function extractAndStoreCharacterData() {
           console.log(`  [${i}] Classes:`, el.className);
           console.log(`  [${i}] ID:`, el.id);
           console.log(`  [${i}] Tag:`, el.tagName);
-          console.log(`  [${i}] Text preview:`, el.textContent?.substring(0, 100));
+          console.log(`  [${i}] Text preview:`, el.textContent && el.textContent.substring(0, 100));
         });
       }
     });
@@ -575,7 +1066,7 @@ async function extractAndStoreCharacterData() {
           classes: el.className,
           id: el.id,
           text: text.substring(0, 100),
-          parent: el.parentElement?.className,
+          parent: el.parentElement && el.parentElement.className,
           childCount: el.children.length,
           element: el // Store reference for inspection
         });
@@ -657,21 +1148,36 @@ async function extractAndStoreCharacterData() {
     console.log('📋 Roll log classes:', rollLog.className);
     console.log('🎲 Ready to detect rolls!');
 
+    // Track when we start observing to ignore existing nodes
+    const observerStartTime = Date.now();
+
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         mutation.addedNodes.forEach((node) => {
           if (node.nodeType === Node.ELEMENT_NODE) {
             // Check if this is a log-entry (individual roll)
             if (node.className && node.className.includes('log-entry')) {
-              console.log('🎲 New roll detected:', node);
+              // Only process rolls that were added after we started observing
+              // This prevents processing existing rolls on page load/reload
+              const nodeTimestamp = node.getAttribute('data-timestamp') || 
+                                 node.querySelector('[data-timestamp]')?.getAttribute('data-timestamp');
+              
+              // Only process if we can find a valid timestamp
+              if (nodeTimestamp && parseInt(nodeTimestamp) > observerStartTime) {
+                console.log('🎲 New roll detected:', node);
 
-              // Try to parse the roll from the added node
-              const rollData = parseRollFromElement(node);
-              if (rollData) {
-                console.log('✅ Successfully parsed roll:', rollData);
-                sendRollToRoll20(rollData);
+                // Try to parse the roll from the added node
+                const rollData = parseRollFromElement(node);
+                if (rollData) {
+                  console.log('✅ Successfully parsed roll:', rollData);
+                  sendRollToRoll20(rollData);
+                } else {
+                  console.log('⚠️  Could not parse roll data from element');
+                }
+              } else if (!nodeTimestamp) {
+                console.log('🔄 Ignoring node without timestamp (likely existing content)');
               } else {
-                console.log('⚠️  Could not parse roll data from element');
+                console.log('🔄 Ignoring existing roll entry (added before observer started)');
               }
             }
           }
@@ -700,35 +1206,35 @@ async function extractAndStoreCharacterData() {
    */
   function parseRollFromElement(element) {
     try {
-      // Extract roll name from .content-name
-      const nameElement = element.querySelector('.content-name');
-      if (!nameElement) {
-        console.log('⚠️  No .content-name found');
+      // Extract roll name from the text content
+      const fullText = element.textContent || element.innerText || '';
+      console.log('🔍 Full roll text:', fullText);
+      
+      // Extract the roll name (first line before the formula)
+      const lines = fullText.split('\n').filter(line => line.trim());
+      const name = lines[0]?.trim() || 'Unknown Roll';
+      
+      // Find the formula line (contains dice notation)
+      const formulaLine = lines.find(line => line.includes('d20') || line.includes('d6') || line.includes('d8') || line.includes('d10') || line.includes('d12') || line.includes('d4'));
+      
+      if (!formulaLine) {
+        console.log('⚠️  No dice formula found in roll text');
         return null;
       }
 
-      const name = nameElement.textContent.trim();
+      console.log('📊 Formula line:', formulaLine);
 
-      // Extract formula and result from .content-value
-      const valueElement = element.querySelector('.content-value');
-      if (!valueElement) {
-        console.log('⚠️  No .content-value found');
-        return null;
-      }
-
-      const valueText = valueElement.textContent.trim();
-
-      // Parse DiceCloud format: "1d20 [ 6 ] + 0 = 6"
-      // Extract the dice formula before the equals sign
-      const formulaMatch = valueText.match(/^(.+?)\s*=\s*(.+)$/);
+      // Parse DiceCloud format: "Strength check\n1d20 [ 17 ] + 0 = 17"
+      // Extract the formula and result
+      const formulaMatch = formulaLine.match(/^(.+?)\s*=\s*(.+)$/);
 
       if (!formulaMatch) {
-        console.log('⚠️  Could not parse formula from:', valueText);
+        console.log('⚠️  Could not parse formula from:', formulaLine);
         return null;
       }
 
       // Clean up the formula - remove the [ actual roll ] part for Roll20
-      // "1d20 [ 6 ] + 0" -> "1d20+0"
+      // "1d20 [ 17 ] + 0" -> "1d20+0"
       let formula = formulaMatch[1].replace(/\s*\[\s*\d+\s*\]\s*/g, '').trim();
 
       // Remove extra spaces
@@ -1507,14 +2013,28 @@ async function extractAndStoreCharacterData() {
   }
 
   function updateStatsPanel() {
-    document.getElementById('stat-total')?.setAttribute('data-value', rollStats.stats.totalRolls);
-    document.getElementById('stat-total')?.textContent = rollStats.stats.totalRolls.toString();
-    document.getElementById('stat-average')?.textContent = rollStats.stats.averageRoll.toFixed(1);
-    document.getElementById('stat-highest')?.textContent = rollStats.stats.highestRoll.toString();
-    document.getElementById('stat-lowest')?.textContent =
-      rollStats.stats.lowestRoll === Infinity ? '∞' : rollStats.stats.lowestRoll.toString();
-    document.getElementById('stat-crits')?.textContent = rollStats.stats.criticalSuccesses.toString();
-    document.getElementById('stat-fails')?.textContent = rollStats.stats.criticalFailures.toString();
+    // Check if stats panel exists before trying to update it
+    const statsPanel = document.getElementById('dc-roll-stats');
+    if (!statsPanel) return;
+
+    const statTotal = document.getElementById('stat-total');
+    const statAverage = document.getElementById('stat-average');
+    const statHighest = document.getElementById('stat-highest');
+    const statLowest = document.getElementById('stat-lowest');
+    const statCrits = document.getElementById('stat-crits');
+    const statFails = document.getElementById('stat-fails');
+
+    if (statTotal) {
+      statTotal.setAttribute('data-value', rollStats.stats.totalRolls);
+      statTotal.textContent = rollStats.stats.totalRolls.toString();
+    }
+    if (statAverage) statAverage.textContent = rollStats.stats.averageRoll.toFixed(1);
+    if (statHighest) statHighest.textContent = rollStats.stats.highestRoll.toString();
+    if (statLowest) {
+      statLowest.textContent = rollStats.stats.lowestRoll === Infinity ? '∞' : rollStats.stats.lowestRoll.toString();
+    }
+    if (statCrits) statCrits.textContent = rollStats.stats.criticalSuccesses.toString();
+    if (statFails) statFails.textContent = rollStats.stats.criticalFailures.toString();
   }
 
   /**
@@ -1782,7 +2302,12 @@ async function extractAndStoreCharacterData() {
    * Sends roll data to all Roll20 tabs with visual feedback
    */
   function sendRollToRoll20(rollData) {
-    if (!rollStats.settings.enabled) return;
+    console.log('🚀 sendRollToRoll20 called with:', rollData);
+    
+    if (!rollStats.settings.enabled) {
+      console.log('⚠️ Roll forwarding disabled in settings');
+      return;
+    }
 
     // Apply advantage/disadvantage to the formula
     const modifiedRoll = {
@@ -1800,36 +2325,147 @@ async function extractAndStoreCharacterData() {
     addToRollHistory(modifiedRoll);
 
     // Send to Roll20
-    chrome.runtime.sendMessage({
-      action: 'sendRollToRoll20',
-      roll: modifiedRoll
-    }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.error('Error sending roll to Roll20:', chrome.runtime.lastError);
-        showNotification('Failed to send roll to Roll20', 'error');
-      } else {
-        console.log('Roll sent to Roll20:', response);
-      }
+    console.log('📡 Sending roll to Roll20...');
+    try {
+      chrome.runtime.sendMessage({
+        action: 'sendRollToRoll20',
+        roll: modifiedRoll
+      }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.error('❌ Chrome runtime error:', chrome.runtime.lastError);
+          showNotification('Roll20 not available. Is Roll20 open?', 'warning');
+          return;
+        }
+        
+        if (response && response.success) {
+          console.log('✅ Roll sent to Roll20:', response);
+          showNotification(`${modifiedRoll.name} roll sent to Roll20! 🎲`, 'success');
+        } else {
+          console.error('❌ Failed to send roll to Roll20:', response?.error);
+          showNotification('Roll20 not available. Is Roll20 open?', 'warning');
+        }
+      });
+    } catch (error) {
+      console.error('Extension context invalidated:', error);
+      showNotification('Extension reloaded. Please refresh the page.', 'error');
+    }
+  }
+
+  /**
+   * Creates the sync button for character data
+   */
+  function addSyncButton() {
+    // Check if button already exists
+    if (document.getElementById('dc-sync-btn')) return;
+
+    const button = document.createElement('button');
+    button.id = 'dc-sync-btn';
+    button.innerHTML = '🔄 Sync to RollCloud';
+    button.style.cssText = `
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      background: linear-gradient(135deg, #4ECDC4 0%, #44A08D 100%);
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+      z-index: 10000;
+      box-shadow: 0 4px 15px rgba(78, 205, 196, 0.2);
+      transition: transform 0.2s, box-shadow 0.2s;
+    `;
+
+    button.addEventListener('mouseenter', () => {
+      button.style.transform = 'translateY(-2px)';
+      button.style.boxShadow = '0 6px 20px rgba(78, 205, 196, 0.3)';
     });
+
+    button.addEventListener('mouseleave', () => {
+      button.style.transform = 'translateY(0)';
+      button.style.boxShadow = '0 4px 15px rgba(78, 205, 196, 0.2)';
+    });
+
+    button.addEventListener('click', () => {
+      syncCharacterData();
+    });
+
+    document.body.appendChild(button);
+    console.log('✅ Sync button added to Dice Cloud');
+  }
+
+  /**
+   * Syncs character data to extension storage
+   */
+  function syncCharacterData() {
+    console.log('🔄 Starting character data sync...');
+    
+    const button = document.getElementById('dc-sync-btn');
+    if (button) {
+      button.innerHTML = '⏳ Syncing...';
+      button.disabled = true;
+    }
+
+    // Start character extraction
+    extractCharacterData()
+      .then(characterData => {
+        if (characterData) {
+          // Store in extension storage
+          chrome.runtime.sendMessage({
+            action: 'storeCharacterData',
+            data: characterData
+          }, (response) => {
+            if (chrome.runtime.lastError) {
+              console.error('❌ Extension context error:', chrome.runtime.lastError);
+              showNotification('Extension context error. Please refresh the page.', 'error');
+              if (button) {
+                button.innerHTML = '🔄 Sync to RollCloud';
+                button.disabled = false;
+              }
+            } else {
+              console.log('✅ Character data synced to extension:', characterData.name);
+              showNotification(`✅ ${characterData.name} synced to RollCloud! 🎲`, 'success');
+              if (button) {
+                button.innerHTML = '✅ Synced!';
+                button.disabled = false;
+                setTimeout(() => {
+                  button.innerHTML = '🔄 Sync to RollCloud';
+                }, 2000);
+              }
+            }
+          });
+        } else {
+          console.error('❌ No character data found to sync');
+          showNotification('No character data found. Make sure you have a character open.', 'error');
+          if (button) {
+            button.innerHTML = '🔄 Sync to RollCloud';
+            button.disabled = false;
+          }
+        }
+      })
+      .catch(error => {
+        console.error('❌ Error during character extraction:', error);
+        showNotification('Failed to extract character data. Please try again.', 'error');
+        if (button) {
+          button.innerHTML = '🔄 Sync to RollCloud';
+          button.disabled = false;
+        }
+      });
   }
 
   // Initialize
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-      console.log('📄 DOM loaded, adding button...');
-      addExportButton();
+      console.log('📄 DOM loaded, adding buttons...');
+      addSyncButton();
       observeRollLog();
-      createRollHistoryPanel();
-      createStatsPanel();
-      createSettingsPanel();
     });
   } else {
-    console.log('📄 Page already loaded, adding button...');
-    addExportButton();
+    console.log('📄 Page already loaded, adding buttons...');
+    addSyncButton();
     observeRollLog();
-    createRollHistoryPanel();
-    createStatsPanel();
-    createSettingsPanel();
   }
 
   console.log('✅ DiceCloud script initialization complete');
