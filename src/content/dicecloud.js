@@ -103,7 +103,10 @@
       armorClass: variables.armorClass?.value || 10,
       speed: variables.speed?.value || 30,
       initiative: variables.initiative?.value || 0,
-      proficiencyBonus: variables.proficiencyBonus?.value || 0
+      proficiencyBonus: variables.proficiencyBonus?.value || 0,
+      kingdom: {},
+      army: {},
+      otherVariables: {}
     };
 
     // Extract ability scores
@@ -135,6 +138,50 @@
         characterData.skills[skill] = variables[skill].value || 0;
       }
     });
+
+    // Extract ALL kingdom attributes (Pathfinder Kingmaker / Kingdom Builder)
+    const kingdomSkills = [
+      'agriculture', 'arts', 'boating', 'defense', 'engineering', 'exploration',
+      'folklore', 'industry', 'intrigue', 'magic', 'politics', 'scholarship',
+      'statecraft', 'trade', 'warfare', 'wilderness'
+    ];
+
+    kingdomSkills.forEach(skill => {
+      // Base skill value (e.g., kingdomAgriculture)
+      const skillVar = `kingdom${skill.charAt(0).toUpperCase() + skill.slice(1)}`;
+      if (variables[skillVar]) {
+        characterData.kingdom[skill] = variables[skillVar].value || 0;
+      }
+
+      // Proficiency total (e.g., kingdomAgricultureProficiencyTotal)
+      const profVar = `${skillVar}ProficiencyTotal`;
+      if (variables[profVar]) {
+        characterData.kingdom[`${skill}_proficiency_total`] = variables[profVar].value || 0;
+      }
+    });
+
+    // Extract economy/culture/loyalty/stability (kingdom core stats)
+    const kingdomCoreStats = ['culture', 'economy', 'loyalty', 'stability'];
+    kingdomCoreStats.forEach(stat => {
+      const statVar = `kingdom${stat.charAt(0).toUpperCase() + stat.slice(1)}`;
+      if (variables[statVar]) {
+        characterData.kingdom[stat] = variables[statVar].value || 0;
+      }
+    });
+
+    // Extract army attributes
+    const armySkills = ['scouting', 'maneuver', 'morale', 'ranged'];
+    armySkills.forEach(skill => {
+      const skillVar = `army${skill.charAt(0).toUpperCase() + skill.slice(1)}`;
+      if (variables[skillVar]) {
+        characterData.army[skill] = variables[skillVar].value || 0;
+      }
+    });
+
+    // Extract other useful variables
+    if (variables.heroPoints) {
+      characterData.otherVariables.hero_points = variables.heroPoints.value || 0;
+    }
 
     // Parse properties for classes, race, features, spells, etc.
     // Track unique classes to avoid duplicates
