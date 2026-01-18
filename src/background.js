@@ -89,6 +89,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         });
       return true;
 
+    case 'sendRollToRoll20':
+      // Forward roll from DiceCloud to all Roll20 tabs
+      sendRollToAllRoll20Tabs(request.roll)
+        .then(() => {
+          sendResponse({ success: true });
+        })
+        .catch((error) => {
+          console.error('Error sending roll to Roll20:', error);
+          sendResponse({ success: false, error: error.message });
+        });
+      return true;
+
     default:
       console.warn('Unknown action:', request.action);
       sendResponse({ success: false, error: 'Unknown action' });
@@ -250,6 +262,35 @@ async function clearCharacterData() {
     console.log('Character data cleared successfully');
   } catch (error) {
     console.error('Failed to clear character data:', error);
+    throw error;
+  }
+}
+
+/**
+ * Sends a roll to all open Roll20 tabs
+ */
+async function sendRollToAllRoll20Tabs(rollData) {
+  try {
+    // Query all tabs for Roll20
+    const tabs = await chrome.tabs.query({ url: '*://app.roll20.net/*' });
+
+    if (tabs.length === 0) {
+      console.warn('No Roll20 tabs found');
+      return;
+    }
+
+    // Send roll to each Roll20 tab
+    const promises = tabs.map(tab => {
+      return chrome.tabs.sendMessage(tab.id, {
+        action: 'postRollToChat',
+        roll: rollData
+      });
+    });
+
+    await Promise.all(promises);
+    console.log(`Roll sent to ${tabs.length} Roll20 tab(s)`);
+  } catch (error) {
+    console.error('Failed to send roll to Roll20 tabs:', error);
     throw error;
   }
 }

@@ -293,6 +293,87 @@
     document.body.appendChild(button);
   }
 
+  /**
+   * Posts a message to Roll20 chat (similar to Beyond20)
+   */
+  function postChatMessage(message, characterName = null) {
+    const chat = document.getElementById("textchat-input");
+    const txt = chat?.querySelector("textarea");
+    const btn = chat?.querySelector("button");
+    const speakingAs = document.getElementById("speakingas");
+
+    if (!chat || !txt || !btn || !speakingAs) {
+      console.error('Error: Unable to post message to chat. Chat elements not found.');
+      return false;
+    }
+
+    // Set speaking as character if specified
+    let setSpeakingAs = true;
+    const oldAs = speakingAs.value;
+
+    if (characterName) {
+      characterName = characterName.toLowerCase().trim();
+      for (let i = 0; i < speakingAs.children.length; i++) {
+        if (speakingAs.children[i].text.toLowerCase().trim() === characterName) {
+          speakingAs.children[i].selected = true;
+          setSpeakingAs = false;
+          break;
+        }
+      }
+    }
+
+    if (setSpeakingAs) {
+      speakingAs.children[0].selected = true;
+    }
+
+    // Set message and send
+    const oldText = txt.value;
+    txt.value = message;
+    btn.click();
+    txt.value = oldText;
+    speakingAs.value = oldAs;
+
+    return true;
+  }
+
+  /**
+   * Formats a roll from DiceCloud into Roll20 template syntax
+   */
+  function formatRollForRoll20(rollData) {
+    // Extract character name from stored data if available
+    let characterName = '';
+    chrome.runtime.sendMessage({ action: 'getCharacterData' }, (response) => {
+      if (response && response.data) {
+        characterName = response.data.name;
+      }
+    });
+
+    // Format roll using Roll20's simple template
+    // &{template:simple} {{rname=Attack}} {{mod=+5}} {{r1=[[1d20+5]]}} {{charname=Bob}}
+    const rollFormula = `[[${rollData.formula}]]`;
+
+    const message = `&{template:simple} {{rname=${rollData.name}}} {{r1=${rollFormula}}} {{normal=1}}` +
+      (characterName ? ` {{charname=${characterName}}}` : '');
+
+    return message;
+  }
+
+  /**
+   * Handles a roll from DiceCloud
+   */
+  function handleDiceCloudRoll(rollData) {
+    console.log('Received roll from DiceCloud:', rollData);
+
+    const message = formatRollForRoll20(rollData);
+    const success = postChatMessage(message);
+
+    if (success) {
+      showNotification(`Rolled ${rollData.name}: ${rollData.formula}`, 'success');
+    } else {
+      showNotification('Failed to post roll to chat', 'error');
+    }
+  }
+
   // Listen for messages from the popup or background script
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'importCharacter') {
@@ -301,6 +382,14 @@
         sendResponse({ success: true });
       } else {
         sendResponse({ success: false, error: 'No character data provided' });
+      }
+    } else if (request.action === 'postRollToChat') {
+      // Handle roll from DiceCloud
+      if (request.roll) {
+        handleDiceCloudRoll(request.roll);
+        sendResponse({ success: true });
+      } else {
+        sendResponse({ success: false, error: 'No roll data provided' });
       }
     }
     return true;

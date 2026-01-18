@@ -343,10 +343,107 @@
     }
   });
 
+  /**
+   * Observes the DiceCloud roll log and sends rolls to Roll20
+   */
+  function observeRollLog() {
+    // Find the roll log container - DiceCloud typically uses a sidebar for rolls
+    const findRollLog = () => {
+      // Try multiple selectors for the roll log
+      const selectors = [
+        '.dice-stream',
+        '[class*="roll"]',
+        '[class*="log"]',
+        '.sidebar-right'
+      ];
+
+      for (const selector of selectors) {
+        const element = document.querySelector(selector);
+        if (element) {
+          console.log('Found potential roll log:', selector);
+          return element;
+        }
+      }
+      return null;
+    };
+
+    const rollLog = findRollLog();
+    if (!rollLog) {
+      console.log('Roll log not found, will retry...');
+      setTimeout(observeRollLog, 2000);
+      return;
+    }
+
+    console.log('Observing DiceCloud roll log for new rolls');
+
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            // Try to parse the roll from the added node
+            const rollData = parseRollFromElement(node);
+            if (rollData) {
+              console.log('Detected roll:', rollData);
+              sendRollToRoll20(rollData);
+            }
+          }
+        });
+      });
+    });
+
+    observer.observe(rollLog, {
+      childList: true,
+      subtree: true
+    });
+  }
+
+  /**
+   * Parses roll data from a DOM element
+   */
+  function parseRollFromElement(element) {
+    // Look for roll data in the element
+    const text = element.textContent || element.innerText;
+
+    // Try to extract roll information
+    // DiceCloud roll format varies, so we'll look for common patterns
+    const rollMatch = text.match(/(\w+).*?(\d+d\d+(?:[+\-]\d+)?)/i);
+
+    if (rollMatch) {
+      return {
+        name: rollMatch[1],
+        formula: rollMatch[2],
+        result: element.querySelector('[class*="result"]')?.textContent || '',
+        timestamp: Date.now()
+      };
+    }
+
+    return null;
+  }
+
+  /**
+   * Sends roll data to all Roll20 tabs
+   */
+  function sendRollToRoll20(rollData) {
+    chrome.runtime.sendMessage({
+      action: 'sendRollToRoll20',
+      roll: rollData
+    }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.error('Error sending roll to Roll20:', chrome.runtime.lastError);
+      } else {
+        console.log('Roll sent to Roll20:', response);
+      }
+    });
+  }
+
   // Initialize the export button when the page loads
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', addExportButton);
+    document.addEventListener('DOMContentLoaded', () => {
+      addExportButton();
+      observeRollLog();
+    });
   } else {
     addExportButton();
+    observeRollLog();
   }
 })();
