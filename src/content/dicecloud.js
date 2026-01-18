@@ -328,9 +328,50 @@
     button.addEventListener('mouseleave', () => {
       button.style.background = '#e74c3c';
     });
-    button.addEventListener('click', extractAndStoreCharacterData);
+    button.addEventListener('click', (e) => {
+      // Shift+Click for debug mode
+      if (e.shiftKey) {
+        debugPageStructure();
+        showNotification('Debug info logged to console (F12)', 'info');
+      } else {
+        extractAndStoreCharacterData();
+      }
+    });
 
     document.body.appendChild(button);
+
+    // Add debug button
+    const debugButton = document.createElement('button');
+    debugButton.id = 'dc-roll20-debug-btn';
+    debugButton.textContent = '🔍 Debug Rolls';
+    debugButton.style.cssText = `
+      position: fixed;
+      bottom: 70px;
+      right: 20px;
+      background: #3498db;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: bold;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      z-index: 10000;
+      transition: background 0.3s;
+    `;
+    debugButton.addEventListener('mouseenter', () => {
+      debugButton.style.background = '#2980b9';
+    });
+    debugButton.addEventListener('mouseleave', () => {
+      debugButton.style.background = '#3498db';
+    });
+    debugButton.addEventListener('click', () => {
+      debugPageStructure();
+      showNotification('Debug info logged to console - Press F12 to view', 'info');
+    });
+
+    document.body.appendChild(debugButton);
   }
 
   // Listen for messages from the popup or background script
@@ -344,6 +385,68 @@
   });
 
   /**
+   * Debug: Analyzes the page structure to find roll-related elements
+   */
+  function debugPageStructure() {
+    console.log('=== DICECLOUD ROLL LOG DEBUG ===');
+
+    // Find all elements that might be the roll log
+    const potentialSelectors = [
+      '.dice-stream',
+      '[class*="dice"]',
+      '[class*="roll"]',
+      '[class*="log"]',
+      '[class*="sidebar"]',
+      '[class*="right"]',
+      'aside',
+      '[role="complementary"]'
+    ];
+
+    console.log('Searching for roll log container...');
+    potentialSelectors.forEach(selector => {
+      const elements = document.querySelectorAll(selector);
+      if (elements.length > 0) {
+        console.log(`Found ${elements.length} element(s) matching "${selector}":`);
+        elements.forEach((el, i) => {
+          console.log(`  [${i}] Classes:`, el.className);
+          console.log(`  [${i}] ID:`, el.id);
+          console.log(`  [${i}] Tag:`, el.tagName);
+          console.log(`  [${i}] Text preview:`, el.textContent?.substring(0, 100));
+        });
+      }
+    });
+
+    // Look for elements containing dice notation patterns
+    console.log('\nSearching for elements with dice notation (e.g., "1d20", "2d6+3")...');
+    const allElements = document.querySelectorAll('*');
+    const dicePattern = /\d+d\d+/i;
+    const elementsWithDice = [];
+
+    allElements.forEach(el => {
+      if (el.textContent?.match(dicePattern) && el.children.length === 0) {
+        elementsWithDice.push({
+          tag: el.tagName,
+          classes: el.className,
+          id: el.id,
+          text: el.textContent?.substring(0, 50),
+          parent: el.parentElement?.className
+        });
+      }
+    });
+
+    if (elementsWithDice.length > 0) {
+      console.log('Found elements with dice notation:');
+      console.table(elementsWithDice.slice(0, 10));
+    }
+
+    console.log('\n=== END DEBUG ===');
+    console.log('Instructions:');
+    console.log('1. Make a test roll in DiceCloud');
+    console.log('2. Run debugPageStructure() again to see the new elements');
+    console.log('3. Right-click on the roll in the page and select "Inspect" to see its HTML structure');
+  }
+
+  /**
    * Observes the DiceCloud roll log and sends rolls to Roll20
    */
   function observeRollLog() {
@@ -352,15 +455,19 @@
       // Try multiple selectors for the roll log
       const selectors = [
         '.dice-stream',
+        '[class*="dice"]',
         '[class*="roll"]',
         '[class*="log"]',
-        '.sidebar-right'
+        '.sidebar-right',
+        'aside',
+        '[role="complementary"]'
       ];
 
       for (const selector of selectors) {
         const element = document.querySelector(selector);
         if (element) {
-          console.log('Found potential roll log:', selector);
+          console.log('Roll log detection: Found potential roll log using selector:', selector);
+          console.log('Roll log element:', element);
           return element;
         }
       }
@@ -369,22 +476,31 @@
 
     const rollLog = findRollLog();
     if (!rollLog) {
-      console.log('Roll log not found, will retry...');
+      console.log('Roll log not found, will retry in 2 seconds...');
+      console.log('Run window.debugDiceCloudRolls() in console for detailed debug info');
       setTimeout(observeRollLog, 2000);
       return;
     }
 
-    console.log('Observing DiceCloud roll log for new rolls');
+    console.log('✓ Observing DiceCloud roll log for new rolls');
+    console.log('Roll log element classes:', rollLog.className);
+    console.log('Roll log element ID:', rollLog.id);
 
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         mutation.addedNodes.forEach((node) => {
           if (node.nodeType === Node.ELEMENT_NODE) {
+            console.log('New element added to roll log:', node);
+            console.log('Element classes:', node.className);
+            console.log('Element text:', node.textContent?.substring(0, 100));
+
             // Try to parse the roll from the added node
             const rollData = parseRollFromElement(node);
             if (rollData) {
-              console.log('Detected roll:', rollData);
+              console.log('✓ Detected roll:', rollData);
               sendRollToRoll20(rollData);
+            } else {
+              console.log('✗ Could not parse roll from element');
             }
           }
         });
@@ -395,7 +511,12 @@
       childList: true,
       subtree: true
     });
+
+    console.log('TIP: Make a test roll to see if it gets detected');
   }
+
+  // Expose debug function globally for console access
+  window.debugDiceCloudRolls = debugPageStructure;
 
   /**
    * Parses roll data from a DOM element

@@ -1,16 +1,27 @@
 # Dice Cloud to Roll20 Importer
 
-A browser extension that seamlessly imports your D&D character data from Dice Cloud into Roll20 using the official DiceCloud REST API.
+A browser extension that seamlessly imports your D&D character data from Dice Cloud into Roll20 using the official DiceCloud REST API, and forwards dice rolls from DiceCloud to Roll20's chat in real-time.
 
 ## Features
 
+### Character Import
 - **API-Powered**: Uses DiceCloud's official REST API for reliable, standardized data extraction
 - **Smart Parsing**: Leverages DiceCloud's standardized variable names (strength, dexterity, etc.)
 - **Secure Authentication**: Login with your DiceCloud credentials (stored locally in browser)
 - **One-Click Export**: Extract character data from Dice Cloud with a single click
 - **Easy Import**: Import character data directly into Roll20 character sheets
 - **Data Persistence**: Character data is stored locally between Dice Cloud and Roll20 sessions
+
+### Dice Roll Integration (NEW!)
+- **Real-Time Roll Forwarding**: Automatically sends dice rolls from DiceCloud to Roll20's chat
+- **Beyond20-Style Integration**: Works like D&D Beyond's integration - roll on DiceCloud, see results in Roll20
+- **Roll20 Templates**: Uses Roll20's native roll templates for familiar formatting
+- **Multi-Tab Support**: Sends rolls to all open Roll20 tabs simultaneously
+- **Character Attribution**: Rolls appear under your character's name in Roll20
+
+### User Experience
 - **User-Friendly Interface**: Clean popup UI and floating action buttons on both platforms
+- **Debug Tools**: Built-in debugging for troubleshooting roll detection
 - **Cross-Platform**: Works on Chrome, Edge, and other Chromium-based browsers
 
 ## What Gets Imported
@@ -96,12 +107,36 @@ Or create simple placeholder icons using an image editor.
 1. **On Dice Cloud**
    - A floating "Export to Roll20" button appears in the bottom-right corner
    - Click it to extract your character data via API
+   - **Shift+Click** for debug mode (see Troubleshooting below)
 
 2. **On Roll20**
    - A floating "Import from Dice Cloud" button appears in the bottom-right corner
    - Click it to import your character data
+   - **Shift+Click** for field debug mode
+
+### Dice Roll Forwarding
+
+Once you have both DiceCloud and Roll20 tabs open:
+
+1. **Setup** (one-time):
+   - Import your character data to Roll20 (using Method 1 or 2 above)
+   - Ensure the character name matches between DiceCloud and Roll20
+
+2. **Rolling Dice**:
+   - Make any roll on your DiceCloud character sheet (ability check, attack, spell, etc.)
+   - The roll automatically appears in Roll20's chat
+   - Rolls use Roll20's native template formatting
+   - Your character's name appears as the speaker
+
+3. **Multiple Tables**:
+   - Open multiple Roll20 tabs if you're playing in multiple games
+   - Rolls are sent to ALL open Roll20 tabs simultaneously
+
+**Note**: Roll detection is currently in beta. If rolls aren't being detected, see the Troubleshooting section below.
 
 ## How It Works
+
+### Character Data Import
 
 1. **Authentication** (`background.js`):
    - Handles login to DiceCloud API (`POST /api/login`)
@@ -120,16 +155,45 @@ Or create simple placeholder icons using an image editor.
    - Populates Roll20 character sheet fields
    - Maps DiceCloud properties to Roll20 equivalents
 
-4. **Background Service Worker** (`background.js`):
-   - Handles API authentication and token management
-   - Stores character data using Chrome's storage API
-   - Facilitates communication between content scripts
+### Dice Roll Forwarding
 
-5. **Popup Interface**:
-   - Login form for DiceCloud authentication
-   - User-friendly control panel
-   - Shows current character data status
-   - Manual extract/import controls
+1. **Roll Detection** (`dicecloud.js`):
+   - Uses MutationObserver to watch DiceCloud's roll log for new rolls
+   - Parses roll data (name, formula, result) from DOM elements
+   - Sends roll data to background script
+
+2. **Message Passing** (`background.js`):
+   - Receives roll data from DiceCloud tab
+   - Queries all open Roll20 tabs
+   - Forwards roll to each Roll20 tab
+
+3. **Roll Posting** (`roll20.js`):
+   - Receives roll data from background script
+   - Formats roll using Roll20's template syntax (`&{template:simple}`)
+   - Simulates user input to post roll to chat (no API subscription needed!)
+   - Sets character as speaker using stored character data
+
+### Communication Architecture
+
+```
+DiceCloud Tab                Background Script              Roll20 Tab(s)
+     │                              │                             │
+     ├─► Detect Roll                │                             │
+     ├─► Parse Roll Data            │                             │
+     ├─────────────────────────────►│                             │
+     │   {name, formula, result}    │                             │
+     │                              ├────────────────────────────►│
+     │                              │  Forward to all R20 tabs   │
+     │                              │                             ├─► Format Roll
+     │                              │                             ├─► Post to Chat
+     │                              │                             └─► Show Result
+```
+
+### Popup Interface
+- Login form for DiceCloud authentication
+- User-friendly control panel
+- Shows current character data status
+- Manual extract/import controls
 
 ## Project Structure
 
@@ -137,16 +201,17 @@ Or create simple placeholder icons using an image editor.
 rollCloud/
 ├── manifest.json           # Extension configuration
 ├── src/
-│   ├── background.js      # Service worker for data handling
+│   ├── background.js      # Service worker for data handling & message passing
 │   ├── content/
-│   │   ├── dicecloud.js   # Dice Cloud data extraction
-│   │   └── roll20.js      # Roll20 data import
+│   │   ├── dicecloud.js   # DiceCloud data extraction & roll detection
+│   │   └── roll20.js      # Roll20 data import & roll posting
 │   └── popup/
 │       ├── popup.html     # Popup UI
 │       ├── popup.css      # Popup styles
 │       └── popup.js       # Popup logic
 ├── icons/                 # Extension icons (add your own)
-└── README.md             # This file
+├── README.md              # This file
+└── DEBUGGING_ROLLS.md     # Roll detection debugging guide
 ```
 
 ## Development
@@ -199,21 +264,80 @@ The extension parses DiceCloud's property types:
 
 This approach ensures compatibility with DiceCloud's data model and future updates.
 
+## Troubleshooting
+
+### Roll Detection Issues
+
+If dice rolls aren't being forwarded from DiceCloud to Roll20:
+
+1. **Use Debug Mode**:
+   - On DiceCloud, click the blue **"🔍 Debug Rolls"** button (bottom-right)
+   - Or **Shift+Click** the "Export to Roll20" button
+   - Open browser console (`F12`) to see debug output
+
+2. **Check Console**:
+   - Look for "✓ Observing DiceCloud roll log for new rolls" = Working!
+   - Look for "Roll log not found, will retry..." = Selectors need updating
+
+3. **Make a Test Roll**:
+   - Roll any dice on DiceCloud
+   - Check console for "✓ Detected roll" or "✗ Could not parse roll"
+   - The debug output will show what elements were found
+
+4. **Inspect Roll Elements**:
+   - Right-click on a roll result in DiceCloud
+   - Select "Inspect" to see the HTML structure
+   - Compare with what the extension is looking for
+
+5. **Update Selectors** (Advanced):
+   - See `DEBUGGING_ROLLS.md` for detailed instructions
+   - Update selectors in `src/content/dicecloud.js`
+   - Reload extension and test again
+
+### Character Import Issues
+
+- **"Not logged in to DiceCloud"**: Click extension icon and login again
+- **"API token expired"**: Your session expired; login again via the popup
+- **"Not on a character page"**: Navigate to a DiceCloud character sheet
+- **Fields not populating in Roll20**: Try Shift+Click for field debug mode
+
+### Roll20 Chat Issues
+
+- **Rolls not appearing**: Ensure Roll20 tab is open and chat is visible
+- **Wrong character speaking**: Re-import character data to update name
+- **Template errors**: Using a custom Roll20 sheet? May need template customization
+
 ## Known Limitations
 
+### Character Import
 - Roll20's character sheet structure varies by game system; the extension targets the default D&D 5E sheet
 - Complex character features may not map perfectly between systems
 - Some custom Dice Cloud fields may not have Roll20 equivalents
 - API token may expire; simply login again if you receive authentication errors
 
+### Dice Roll Forwarding
+- Roll detection depends on DiceCloud's DOM structure, which may change with updates
+- Only works with open browser tabs (DiceCloud and Roll20 must both be open)
+- Requires character name to match between systems for proper attribution
+- May need selector updates if DiceCloud's UI changes
+
 ## Future Enhancements
 
+### Planned
+- [ ] Improved roll detection (more robust parsing)
+- [ ] Support for advantage/disadvantage rolls
+- [ ] Critical hit detection and highlighting
+- [ ] Roll type detection (attack, skill check, save, etc.)
+- [ ] Custom roll formatting options
+
+### Under Consideration
 - [ ] Firefox support (Manifest V2 compatibility)
 - [ ] Support for different Roll20 character sheet templates
 - [ ] Bi-directional sync (Roll20 → Dice Cloud)
 - [ ] Multiple character profiles
 - [ ] Custom field mapping
 - [ ] Import/export character data as JSON
+- [ ] Roll history and statistics
 
 ## Contributing
 
@@ -228,6 +352,7 @@ MIT License - Feel free to use and modify as needed.
 - [Dice Cloud](https://github.com/ThaumRystra/DiceCloud) by ThaumRystra
 - [DiceCloud REST API Documentation](https://dicecloud.com/api)
 - [Roll20](https://roll20.net) virtual tabletop platform
+- [Beyond20](https://github.com/kakaroto/Beyond20) by kakaroto - inspiration for roll forwarding architecture
 - Thanks to the DiceCloud developer for recommending API integration with standardized variable names
 
 ## Support
