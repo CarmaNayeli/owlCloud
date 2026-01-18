@@ -89,6 +89,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         });
       return true;
 
+    case 'rollInDiceCloudAndForward':
+      rollInDiceCloudAndForward(request.roll)
+        .then(() => {
+          sendResponse({ success: true });
+        })
+        .catch((error) => {
+          console.error('Error rolling in Dice Cloud and forwarding:', error);
+          sendResponse({ success: false, error: error.message });
+        });
+      return true;
+
     case 'sendRollToRoll20':
       // Forward roll from DiceCloud to all Roll20 tabs
       sendRollToAllRoll20Tabs(request.roll)
@@ -262,6 +273,37 @@ async function clearCharacterData() {
     console.log('Character data cleared successfully');
   } catch (error) {
     console.error('Failed to clear character data:', error);
+    throw error;
+  }
+}
+
+/**
+ * Rolls in Dice Cloud and forwards to Roll20
+ */
+async function rollInDiceCloudAndForward(rollData) {
+  try {
+    // Find Dice Cloud tab
+    const diceCloudTabs = await chrome.tabs.query({ url: '*://dicecloud.com/*' });
+    
+    if (diceCloudTabs.length === 0) {
+      throw new Error('No Dice Cloud tab found. Please open Dice Cloud first.');
+    }
+
+    // Send roll request to Dice Cloud
+    const diceCloudTab = diceCloudTabs[0];
+    const response = await chrome.tabs.sendMessage(diceCloudTab.id, {
+      action: 'rollInDiceCloud',
+      roll: rollData
+    });
+
+    if (!response || !response.success) {
+      throw new Error('Failed to roll in Dice Cloud');
+    }
+
+    console.log(' Roll initiated in Dice Cloud, will be forwarded automatically');
+    return response;
+  } catch (error) {
+    console.error('Failed to roll in Dice Cloud:', error);
     throw error;
   }
 }
