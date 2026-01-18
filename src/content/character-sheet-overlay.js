@@ -1843,7 +1843,8 @@
     button.style.cssText = `
       position: fixed;
       top: 20px;
-      right: 20px;
+      left: 50%;
+      transform: translateX(-50%);
       background: linear-gradient(135deg, #4ECDC4 0%, #44A08D 100%);
       color: white;
       border: none;
@@ -1860,12 +1861,12 @@
 
     // Hover effects
     button.addEventListener('mouseenter', () => {
-      button.style.transform = 'translateY(-2px)';
+      button.style.transform = 'translateX(-50%) translateY(-2px)';
       button.style.boxShadow = '0 6px 20px rgba(78, 205, 196, 0.3)';
     });
 
     button.addEventListener('mouseleave', () => {
-      button.style.transform = 'translateY(0)';
+      button.style.transform = 'translateX(-50%) translateY(0)';
       button.style.boxShadow = '0 4px 15px rgba(78, 205, 196, 0.2)';
     });
 
