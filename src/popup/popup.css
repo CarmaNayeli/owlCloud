@@ -258,5 +258,52 @@ footer {
 }
 
 .btn-link:hover {
+  color: #5a67d8;
+}
+
+/* Instructions Styles */
+.instructions {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+  margin-top: 20px;
+  border: 1px solid #e9ecef;
+}
+
+.instructions h3 {
+  margin: 0 0 15px 0;
+  color: #333;
+  font-size: 16px;
+}
+
+.instructions ol {
+  margin: 0 0 15px 0;
+  padding-left: 20px;
+}
+
+.instructions li {
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+.workflow-note {
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 6px;
+  padding: 12px;
+  margin-top: 10px;
+}
+
+.workflow-note p {
+  margin: 5px 0;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.workflow-note strong {
+  color: #856404;
+}
+
+.btn-link:hover {
   color: #5568d3;
 }

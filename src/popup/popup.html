@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dice Cloud to Roll20</title>
+  <title>RollCloud</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
   <div class="container">
     <header>
-      <h1>Dice Cloud → Roll20</h1>
-      <p class="subtitle">Character Import Tool</p>
+      <h1>🎲 RollCloud</h1>
+      <p class="subtitle">Dice Cloud → Roll20 Bridge</p>
     </header>
 
     <main>
@@ -50,12 +50,12 @@
         <div id="status" class="status-section">
           <div class="status-indicator">
             <span id="statusIcon">⏳</span>
-            <span id="statusText">No character data loaded</span>
+            <span id="statusText">No character data synced</span>
           </div>
         </div>
 
         <div id="characterInfo" class="character-info hidden">
-          <h3>Current Character</h3>
+          <h3>Synced Character</h3>
           <div class="info-row">
             <span class="label">Name:</span>
             <span id="charName">-</span>
@@ -75,31 +75,37 @@
         </div>
 
         <div class="actions">
-          <button id="extractBtn" class="btn btn-primary">
-            📋 Extract from Dice Cloud
+          <button id="syncBtn" class="btn btn-primary">
+            🔄 Sync from Dice Cloud
           </button>
-          <button id="importBtn" class="btn btn-secondary" disabled>
-            ⬆️ Import to Roll20
+          <button id="showSheetBtn" class="btn btn-secondary">
+            📋 Show Character Sheet
           </button>
-          <button id="clearBtn" class="btn btn-danger" disabled>
+          <button id="clearBtn" class="btn btn-danger">
             🗑️ Clear Data
           </button>
         </div>
 
         <div class="instructions">
-          <h3>How to Use</h3>
+          <h3>🎲 How to Use RollCloud</h3>
           <ol>
-            <li>Navigate to your character sheet on <strong>Dice Cloud</strong></li>
-            <li>Click "Extract from Dice Cloud" or use the floating button</li>
-            <li>Navigate to your character sheet on <strong>Roll20</strong></li>
-            <li>Click "Import to Roll20" or use the floating button</li>
+            <li><strong>Open Dice Cloud</strong> → Navigate to your character sheet</li>
+            <li><strong>Click "🔄 Sync from Dice Cloud"</strong> → Capture character data</li>
+            <li><strong>Keep Dice Cloud open</strong> → This is where rolls will happen!</li>
+            <li><strong>Open Roll20</strong> → Character sheet will auto-load with synced data</li>
+            <li><strong>Click "📋 Show Character Sheet"</strong> → Display the overlay</li>
+            <li><strong>Click any ability card</strong> → Roll happens in Dice Cloud, announced in Roll20!</li>
           </ol>
+          <div class="workflow-note">
+            <p><strong>⚠️ Important:</strong> Keep both Dice Cloud and Roll20 open for rolls to work!</p>
+            <p><strong>🔄 Workflow:</strong> Roll in Dice Cloud → Forward to Roll20 chat</p>
+          </div>
         </div>
       </div>
     </main>
 
     <footer>
-      <p class="version">v1.0.0 - API Integration</p>
+      <p class="version">v2.0.0 - Sync & Roll System</p>
     </footer>
   </div>
 

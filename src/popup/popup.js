@@ -25,8 +25,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const charLevel = document.getElementById('charLevel');
   const charClass = document.getElementById('charClass');
   const charRace = document.getElementById('charRace');
-  const extractBtn = document.getElementById('extractBtn');
-  const importBtn = document.getElementById('importBtn');
+  const syncBtn = document.getElementById('syncBtn');
+  const showSheetBtn = document.getElementById('showSheetBtn');
   const clearBtn = document.getElementById('clearBtn');
 
   // Initialize
@@ -37,8 +37,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Event Listeners - Main Interface
   logoutBtn.addEventListener('click', handleLogout);
-  extractBtn.addEventListener('click', handleExtract);
-  importBtn.addEventListener('click', handleImport);
+  syncBtn.addEventListener('click', handleSync);
+  showSheetBtn.addEventListener('click', handleShowSheet);
   clearBtn.addEventListener('click', handleClear);
 
   /**
@@ -169,13 +169,13 @@ document.addEventListener('DOMContentLoaded', () => {
    */
   function displayCharacterData(data) {
     statusIcon.textContent = '✅';
-    statusText.textContent = 'Character data loaded';
+    statusText.textContent = 'Character data synced';
     characterInfo.classList.remove('hidden');
     charName.textContent = data.name || '-';
     charLevel.textContent = data.level || '-';
     charClass.textContent = data.class || '-';
     charRace.textContent = data.race || '-';
-    importBtn.disabled = false;
+    showSheetBtn.disabled = false;
     clearBtn.disabled = false;
   }
 
@@ -184,24 +184,25 @@ document.addEventListener('DOMContentLoaded', () => {
    */
   function clearCharacterDisplay() {
     statusIcon.textContent = '⏳';
-    statusText.textContent = 'No character data loaded';
+    statusText.textContent = 'No character data synced';
     characterInfo.classList.add('hidden');
     charName.textContent = '-';
     charLevel.textContent = '-';
     charClass.textContent = '-';
     charRace.textContent = '-';
-    importBtn.disabled = true;
-    clearBtn.disabled = true;
+    showSheetBtn.disabled = true;
+    clearBtn.disabled = false;
   }
 
   /**
-   * Handles extract button click
+   * Handles sync button click
    */
-  async function handleExtract() {
+  async function handleSync() {
     try {
-      extractBtn.disabled = true;
+      syncBtn.disabled = true;
+      syncBtn.textContent = '⏳ Syncing...';
       statusIcon.textContent = '⏳';
-      statusText.textContent = 'Extracting data...';
+      statusText.textContent = 'Syncing from Dice Cloud...';
 
       // Get current tab
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -209,66 +210,63 @@ document.addEventListener('DOMContentLoaded', () => {
       // Check if we're on Dice Cloud
       if (!tab.url || !(tab.url.includes('dicecloud.com'))) {
         showError('Please navigate to a Dice Cloud character sheet first');
-        extractBtn.disabled = false;
+        syncBtn.disabled = false;
+        syncBtn.textContent = '🔄 Sync from Dice Cloud';
         return;
       }
 
-      // Send message to content script to extract data
-      const response = await chrome.tabs.sendMessage(tab.id, { action: 'extractCharacter' });
+      // Send message to content script to sync data
+      const response = await chrome.tabs.sendMessage(tab.id, { action: 'syncCharacter' });
 
       if (response && response.success) {
         // Reload character data to display
         await loadCharacterData();
-        showSuccess('Character data extracted successfully!');
+        showSuccess('Character synced successfully!');
       } else {
-        showError(response?.error || 'Failed to extract character data');
+        showError(response?.error || 'Failed to sync character data');
       }
     } catch (error) {
-      console.error('Error extracting character:', error);
+      console.error('Error syncing character:', error);
       showError('Error: ' + error.message);
     } finally {
-      extractBtn.disabled = false;
+      syncBtn.disabled = false;
+      syncBtn.textContent = '🔄 Sync from Dice Cloud';
     }
   }
 
   /**
-   * Handles import button click
+   * Handles show sheet button click
    */
-  async function handleImport() {
+  async function handleShowSheet() {
     try {
-      importBtn.disabled = true;
-      statusIcon.textContent = '⏳';
-      statusText.textContent = 'Importing data...';
+      showSheetBtn.disabled = true;
+      showSheetBtn.textContent = '⏳ Opening...';
 
       // Get current tab
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
       // Check if we're on Roll20
       if (!tab.url || !tab.url.includes('roll20.net')) {
-        showError('Please navigate to a Roll20 character sheet first');
-        importBtn.disabled = false;
+        showError('Please navigate to Roll20 first');
+        showSheetBtn.disabled = false;
+        showSheetBtn.textContent = '📋 Show Character Sheet';
         return;
       }
 
-      // Get character data
-      const response = await chrome.runtime.sendMessage({ action: 'getCharacterData' });
+      // Send message to Roll20 content script to show sheet
+      const response = await chrome.tabs.sendMessage(tab.id, { action: 'showCharacterSheet' });
 
-      if (response.success && response.data) {
-        // Send data to Roll20 content script
-        await chrome.tabs.sendMessage(tab.id, {
-          action: 'importCharacter',
-          data: response.data
-        });
-
-        showSuccess('Character imported to Roll20!');
+      if (response && response.success) {
+        showSuccess('Character sheet opened!');
       } else {
-        showError('No character data available. Extract from Dice Cloud first.');
+        showError('Failed to open character sheet');
       }
     } catch (error) {
-      console.error('Error importing character:', error);
+      console.error('Error showing character sheet:', error);
       showError('Error: ' + error.message);
     } finally {
-      importBtn.disabled = false;
+      showSheetBtn.disabled = false;
+      showSheetBtn.textContent = '📋 Show Character Sheet';
     }
   }
 
