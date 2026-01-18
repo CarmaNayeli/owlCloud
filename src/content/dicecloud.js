@@ -828,7 +828,8 @@
       enabled: true,
       showNotifications: true,
       showHistory: true,
-      maxHistorySize: 20
+      maxHistorySize: 20,
+      advantageMode: 'normal' // 'normal', 'advantage', 'disadvantage'
     },
     stats: {
       totalRolls: 0,
@@ -845,6 +846,8 @@
     if (result.rollSettings) {
       Object.assign(rollStats.settings, result.rollSettings);
     }
+    // Update settings panel if it exists
+    updateSettingsPanel();
   });
 
   function saveSettings() {
@@ -1454,19 +1457,291 @@
   }
 
   /**
+   * Roll Settings Panel
+   */
+  function createSettingsPanel() {
+    if (document.getElementById('dc-roll-settings')) return;
+
+    const panel = document.createElement('div');
+    panel.id = 'dc-roll-settings';
+    panel.innerHTML = `
+      <div class="settings-header">
+        <span class="settings-title">⚙️ Roll Settings</span>
+        <button class="settings-toggle">−</button>
+      </div>
+      <div class="settings-content">
+        <div class="setting-group">
+          <label class="setting-label">Roll Mode</label>
+          <div class="toggle-buttons">
+            <button class="toggle-btn ${rollStats.settings.advantageMode === 'normal' ? 'active' : ''}" data-mode="normal">
+              Normal
+            </button>
+            <button class="toggle-btn ${rollStats.settings.advantageMode === 'advantage' ? 'active' : ''}" data-mode="advantage">
+              Advantage
+            </button>
+            <button class="toggle-btn ${rollStats.settings.advantageMode === 'disadvantage' ? 'active' : ''}" data-mode="disadvantage">
+              Disadvantage
+            </button>
+          </div>
+          <div class="setting-description">
+            <span id="mode-description">
+              ${rollStats.settings.advantageMode === 'advantage' ? '🎲 Rolling with advantage (2d20kh1)' :
+                rollStats.settings.advantageMode === 'disadvantage' ? '🎲 Rolling with disadvantage (2d20kl1)' :
+                '🎲 Rolling normally (1d20)'}
+            </span>
+          </div>
+        </div>
+      </div>
+    `;
+
+    panel.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(20, 20, 30, 0.98);
+      backdrop-filter: blur(12px);
+      color: white;
+      border-radius: 16px;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+      z-index: 10001;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      width: 380px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    `;
+
+    addSettingsStyles();
+    document.body.appendChild(panel);
+
+    // Make draggable
+    makeDraggable(panel, '.settings-header');
+
+    // Toggle functionality
+    let isCollapsed = false;
+    panel.querySelector('.settings-header').addEventListener('click', (e) => {
+      if (e.target === panel.querySelector('.settings-toggle')) {
+        const content = panel.querySelector('.settings-content');
+        const toggle = panel.querySelector('.settings-toggle');
+
+        if (isCollapsed) {
+          content.style.display = 'block';
+          toggle.textContent = '−';
+        } else {
+          content.style.display = 'none';
+          toggle.textContent = '+';
+        }
+
+        isCollapsed = !isCollapsed;
+      }
+    });
+
+    // Advantage/Disadvantage toggle buttons
+    panel.querySelectorAll('.toggle-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const mode = btn.getAttribute('data-mode');
+        rollStats.settings.advantageMode = mode;
+
+        // Update active state
+        panel.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        // Update description
+        const description = panel.querySelector('#mode-description');
+        if (mode === 'advantage') {
+          description.textContent = '🎲 Rolling with advantage (2d20kh1)';
+        } else if (mode === 'disadvantage') {
+          description.textContent = '🎲 Rolling with disadvantage (2d20kl1)';
+        } else {
+          description.textContent = '🎲 Rolling normally (1d20)';
+        }
+
+        // Save to storage
+        chrome.storage.local.set({ rollSettings: rollStats.settings });
+        console.log('Roll mode changed to:', mode);
+        showNotification(`Roll mode: ${mode.charAt(0).toUpperCase() + mode.slice(1)}`, 'info');
+      });
+    });
+  }
+
+  function addSettingsStyles() {
+    if (document.querySelector('.dc-roll-settings-styles')) return;
+
+    const style = document.createElement('style');
+    style.className = 'dc-roll-settings-styles';
+    style.textContent = `
+      #dc-roll-settings .settings-header {
+        padding: 16px 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        border-radius: 16px 16px 0 0;
+      }
+
+      #dc-roll-settings .settings-title {
+        font-weight: bold;
+        font-size: 16px;
+      }
+
+      #dc-roll-settings .settings-toggle {
+        background: rgba(255,255,255,0.2);
+        border: none;
+        color: white;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        transition: background 0.2s;
+      }
+
+      #dc-roll-settings .settings-toggle:hover {
+        background: rgba(255,255,255,0.3);
+      }
+
+      #dc-roll-settings .settings-content {
+        padding: 20px;
+      }
+
+      #dc-roll-settings .setting-group {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      #dc-roll-settings .setting-label {
+        font-size: 14px;
+        font-weight: 600;
+        opacity: 0.9;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      #dc-roll-settings .toggle-buttons {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 8px;
+      }
+
+      #dc-roll-settings .toggle-btn {
+        background: rgba(255,255,255,0.08);
+        border: 2px solid rgba(255,255,255,0.15);
+        color: white;
+        padding: 12px 16px;
+        border-radius: 10px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+        transition: all 0.2s;
+        text-align: center;
+      }
+
+      #dc-roll-settings .toggle-btn:hover {
+        background: rgba(255,255,255,0.15);
+        border-color: rgba(255,255,255,0.3);
+        transform: translateY(-2px);
+      }
+
+      #dc-roll-settings .toggle-btn.active {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-color: #667eea;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+      }
+
+      #dc-roll-settings .setting-description {
+        background: rgba(255,255,255,0.05);
+        padding: 12px;
+        border-radius: 8px;
+        font-size: 12px;
+        opacity: 0.8;
+        text-align: center;
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+
+  function updateSettingsPanel() {
+    const panel = document.getElementById('dc-roll-settings');
+    if (!panel) return;
+
+    // Update active state on toggle buttons
+    panel.querySelectorAll('.toggle-btn').forEach(btn => {
+      const mode = btn.getAttribute('data-mode');
+      if (mode === rollStats.settings.advantageMode) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+
+    // Update description
+    const description = panel.querySelector('#mode-description');
+    if (description) {
+      if (rollStats.settings.advantageMode === 'advantage') {
+        description.textContent = '🎲 Rolling with advantage (2d20kh1)';
+      } else if (rollStats.settings.advantageMode === 'disadvantage') {
+        description.textContent = '🎲 Rolling with disadvantage (2d20kl1)';
+      } else {
+        description.textContent = '🎲 Rolling normally (1d20)';
+      }
+    }
+  }
+
+  /**
+   * Transforms a roll formula based on advantage mode
+   */
+  function applyAdvantageMode(formula, mode) {
+    if (mode === 'normal') return formula;
+
+    // Transform d20 rolls to advantage/disadvantage
+    // 1d20 -> 2d20kh1 (advantage) or 2d20kl1 (disadvantage)
+    const d20Regex = /(\d*)d20\b/gi;
+
+    return formula.replace(d20Regex, (match, count) => {
+      const diceCount = count ? parseInt(count) : 1;
+
+      if (mode === 'advantage') {
+        // Roll twice as many dice, keep highest
+        return `${diceCount * 2}d20kh${diceCount}`;
+      } else if (mode === 'disadvantage') {
+        // Roll twice as many dice, keep lowest
+        return `${diceCount * 2}d20kl${diceCount}`;
+      }
+
+      return match;
+    });
+  }
+
+  /**
    * Sends roll data to all Roll20 tabs with visual feedback
    */
   function sendRollToRoll20(rollData) {
     if (!rollStats.settings.enabled) return;
 
+    // Apply advantage/disadvantage to the formula
+    const modifiedRoll = {
+      ...rollData,
+      formula: applyAdvantageMode(rollData.formula, rollStats.settings.advantageMode)
+    };
+
+    // Log if formula was modified
+    if (modifiedRoll.formula !== rollData.formula) {
+      console.log(`Formula modified: ${rollData.formula} -> ${modifiedRoll.formula} (${rollStats.settings.advantageMode})`);
+    }
+
     // Add visual feedback and tracking
-    showRollNotification(rollData);
-    addToRollHistory(rollData);
+    showRollNotification(modifiedRoll);
+    addToRollHistory(modifiedRoll);
 
     // Send to Roll20
     chrome.runtime.sendMessage({
       action: 'sendRollToRoll20',
-      roll: rollData
+      roll: modifiedRoll
     }, (response) => {
       if (chrome.runtime.lastError) {
         console.error('Error sending roll to Roll20:', chrome.runtime.lastError);
@@ -1484,11 +1759,13 @@
       observeRollLog();
       createRollHistoryPanel();
       createStatsPanel();
+      createSettingsPanel();
     });
   } else {
     addExportButton();
     observeRollLog();
     createRollHistoryPanel();
     createStatsPanel();
+    createSettingsPanel();
   }
 })();
