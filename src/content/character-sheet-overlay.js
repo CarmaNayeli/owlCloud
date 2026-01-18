@@ -1596,12 +1596,6 @@
   }
 
   /**
-   * Dummy variable to mark start of section to remove
-   */
-    });
-  }
-
-  /**
    * Hides the overlay
    */
   function hideOverlay() {
