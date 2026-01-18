@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dice Cloud to Roll20</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Dice Cloud → Roll20</h1>
+      <p class="subtitle">Character Import Tool</p>
+    </header>
+
+    <main>
+      <!-- Login Form (shown when not authenticated) -->
+      <div id="loginSection" class="hidden">
+        <div class="login-box">
+          <h3>Login to DiceCloud</h3>
+          <p class="help-text">Enter your DiceCloud credentials to access character data via API</p>
+
+          <form id="loginForm">
+            <div class="form-group">
+              <label for="username">Username or Email</label>
+              <input type="text" id="username" name="username" required autocomplete="username">
+            </div>
+
+            <div class="form-group">
+              <label for="password">Password</label>
+              <input type="password" id="password" name="password" required autocomplete="current-password">
+            </div>
+
+            <button type="submit" class="btn btn-primary" id="loginBtn">
+              🔐 Login to DiceCloud
+            </button>
+          </form>
+
+          <div id="loginError" class="error-message hidden"></div>
+        </div>
+      </div>
+
+      <!-- Main Interface (shown when authenticated) -->
+      <div id="mainSection" class="hidden">
+        <div class="user-info">
+          <span>Logged in as: <strong id="usernameDisplay">-</strong></span>
+          <button id="logoutBtn" class="btn-link">Logout</button>
+        </div>
+
+        <div id="status" class="status-section">
+          <div class="status-indicator">
+            <span id="statusIcon">⏳</span>
+            <span id="statusText">No character data loaded</span>
+          </div>
+        </div>
+
+        <div id="characterInfo" class="character-info hidden">
+          <h3>Current Character</h3>
+          <div class="info-row">
+            <span class="label">Name:</span>
+            <span id="charName">-</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Level:</span>
+            <span id="charLevel">-</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Class:</span>
+            <span id="charClass">-</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Race:</span>
+            <span id="charRace">-</span>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="extractBtn" class="btn btn-primary">
+            📋 Extract from Dice Cloud
+          </button>
+          <button id="importBtn" class="btn btn-secondary" disabled>
+            ⬆️ Import to Roll20
+          </button>
+          <button id="clearBtn" class="btn btn-danger" disabled>
+            🗑️ Clear Data
+          </button>
+        </div>
+
+        <div class="instructions">
+          <h3>How to Use</h3>
+          <ol>
+            <li>Navigate to your character sheet on <strong>Dice Cloud</strong></li>
+            <li>Click "Extract from Dice Cloud" or use the floating button</li>
+            <li>Navigate to your character sheet on <strong>Roll20</strong></li>
+            <li>Click "Import to Roll20" or use the floating button</li>
+          </ol>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      <p class="version">v1.0.0 - API Integration</p>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
