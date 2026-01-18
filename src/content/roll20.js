@@ -6,7 +6,7 @@
 (function() {
   'use strict';
 
-  console.log('Dice Cloud to Roll20 Importer: Roll20 content script loaded');
+  console.log('RollCloud: Roll20 content script loaded');
 
   /**
    * Finds the character sheet iframe
