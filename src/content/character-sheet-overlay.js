@@ -1827,18 +1827,70 @@
   });
 
   // Listen for messages from background script
+  /**
+   * Creates the toggle button for opening the character sheet
+   */
+  function createToggleButton() {
+    // Check if button already exists
+    if (document.getElementById('rollcloud-sheet-toggle')) {
+      console.log('⚠️ Character sheet button already exists');
+      return;
+    }
+
+    const button = document.createElement('button');
+    button.id = 'rollcloud-sheet-toggle';
+    button.innerHTML = '📋 Character Sheet';
+    button.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: linear-gradient(135deg, #4ECDC4 0%, #44A08D 100%);
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+      box-shadow: 0 4px 15px rgba(78, 205, 196, 0.2);
+      z-index: 999998;
+      transition: transform 0.2s, box-shadow 0.2s;
+      user-select: none;
+    `;
+
+    // Hover effects
+    button.addEventListener('mouseenter', () => {
+      button.style.transform = 'translateY(-2px)';
+      button.style.boxShadow = '0 6px 20px rgba(78, 205, 196, 0.3)';
+    });
+
+    button.addEventListener('mouseleave', () => {
+      button.style.transform = 'translateY(0)';
+      button.style.boxShadow = '0 4px 15px rgba(78, 205, 196, 0.2)';
+    });
+
+    // Click to open popup
+    button.addEventListener('click', () => {
+      showOverlay();
+    });
+
+    document.body.appendChild(button);
+    console.log('✅ Character sheet button created');
+  }
+
+  // Listen for messages from background script
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'postRollToChat') {
       // Handle roll from DiceCloud
       if (request.roll) {
         console.log('🎲 Received roll in overlay:', request.roll);
-        
+
         // Add to history and update stats
         addToRollHistory(request.roll);
-        
+
         // Show notification
-        showRollNotification(request.roll);
-        
+        showNotification(`Roll received: ${request.roll.name || 'dice roll'}`, 'success');
+
         // Update overlay if visible
         if (overlayVisible) {
           updateRollHistoryDisplay();
