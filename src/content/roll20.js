@@ -12,20 +12,41 @@
    * Finds the character sheet iframe
    */
   function getCharacterSheetFrame() {
-    // Try to find iframe with character sheet
-    const iframes = document.querySelectorAll('iframe.charactersheet');
-    if (iframes.length > 0) {
+    // Try multiple strategies to find the character sheet iframe
+    let targetIframe = null;
+
+    // Strategy 1: Look for iframe with title containing "Character sheet"
+    const allIframes = document.querySelectorAll('iframe');
+    for (const iframe of allIframes) {
+      if (iframe.title && iframe.title.toLowerCase().includes('character sheet')) {
+        targetIframe = iframe;
+        console.log('Found character sheet iframe by title:', iframe.title);
+        break;
+      }
+    }
+
+    // Strategy 2: Look for iframe with class="charactersheet"
+    if (!targetIframe) {
+      const classIframes = document.querySelectorAll('iframe.charactersheet');
+      if (classIframes.length > 0) {
+        targetIframe = classIframes[0];
+        console.log('Found character sheet iframe by class');
+      }
+    }
+
+    // Try to access the iframe document
+    if (targetIframe) {
       try {
-        const doc = iframes[0].contentDocument || iframes[0].contentWindow.document;
-        console.log('Found charactersheet iframe');
+        const doc = targetIframe.contentDocument || targetIframe.contentWindow.document;
+        console.log('Successfully accessed iframe document');
         return doc;
       } catch (e) {
-        console.warn('Could not access iframe:', e);
+        console.warn('Could not access iframe (cross-origin restriction):', e);
       }
     }
 
     // Fall back to main document
-    console.log('Using main document (no iframe found)');
+    console.log('Using main document (no accessible iframe found)');
     return document;
   }
 
