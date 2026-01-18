@@ -373,31 +373,29 @@
   /**
    * Extracts character data and sends to background script
    */
-  async function extractAndStoreCharacterData() {
+async function extractAndStoreCharacterData() {
     try {
+      console.log('🚀 Starting character extraction...');
       showNotification('Extracting character data...', 'info');
 
       const characterData = await fetchCharacterDataFromAPI();
 
       if (characterData && characterData.name) {
         // Send to background script for storage
-        chrome.runtime.sendMessage({
-          action: 'storeCharacterData',
-          data: characterData
-        }, (response) => {
-          if (chrome.runtime.lastError) {
-            console.error('Error storing character data:', chrome.runtime.lastError);
+
             showNotification('Error storing character data', 'error');
-          } else {
-            console.log('Character data stored successfully');
+    } else {
+            console.log('✅ Character data stored successfully');
             showNotification(`${characterData.name} extracted! Navigate to Roll20 to import.`, 'success');
           }
         });
-      } else {
+    } else {
+        console.error('❌ No character name found');
         showNotification('Failed to extract character data', 'error');
       }
     } catch (error) {
-      console.error('Error extracting character:', error);
+      console.error('❌ Error extracting character:', error);
+      console.error('Stack trace:', error.stack);
       showNotification(error.message, 'error');
     }
   }
@@ -1815,9 +1813,10 @@
     });
   }
 
-  // Initialize the export button and roll panels when the page loads
+  // Initialize
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
+      console.log('📄 DOM loaded, adding button...');
       addExportButton();
       observeRollLog();
       createRollHistoryPanel();
@@ -1825,10 +1824,13 @@
       createSettingsPanel();
     });
   } else {
+    console.log('📄 Page already loaded, adding button...');
     addExportButton();
     observeRollLog();
     createRollHistoryPanel();
     createStatsPanel();
     createSettingsPanel();
   }
+
+  console.log('✅ DiceCloud script initialization complete');
 })();
