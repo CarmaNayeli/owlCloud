@@ -100,7 +100,7 @@ function buildChrome() {
  * Build Firefox package
  */
 function buildFirefox() {
-  console.log('📦 Building Firefox package (Manifest V3)...');
+  console.log('📦 Building Firefox package (Manifest V2)...');
 
   // Copy included files
   INCLUDE.forEach(item => {
@@ -117,22 +117,10 @@ function buildFirefox() {
     }
   });
 
-  // Read and modify manifest for Firefox
-  const manifestPath = path.join(ROOT, 'manifest.json');
-  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-
-  // Firefox MV3 uses "scripts" instead of "service_worker" for background
-  if (manifest.background && manifest.background.service_worker) {
-    const scriptPath = manifest.background.service_worker;
-    manifest.background = {
-      scripts: ['src/common/browser-polyfill.js', scriptPath]
-    };
-  }
-
-  // Write modified manifest
-  fs.writeFileSync(
-    path.join(BUILD_FIREFOX, 'manifest.json'),
-    JSON.stringify(manifest, null, 2)
+  // Copy Firefox-specific manifest (Manifest V2)
+  fs.copyFileSync(
+    path.join(ROOT, 'manifest_firefox.json'),
+    path.join(BUILD_FIREFOX, 'manifest.json')
   );
 
   console.log('   ✅ Firefox package built to dist/firefox/');
@@ -174,7 +162,7 @@ function showSummary() {
   console.log('\n✨ Build complete!\n');
   console.log('📂 Output:');
   console.log('   Chrome (MV3):  dist/chrome/');
-  console.log('   Firefox (MV3): dist/firefox/');
+  console.log('   Firefox (MV2): dist/firefox/');
 
   if (fs.existsSync(path.join(DIST, 'rollcloud-chrome.zip'))) {
     console.log('\n📦 Zip files:');
@@ -183,8 +171,8 @@ function showSummary() {
   }
 
   console.log('\n🚀 Next steps:');
-  console.log('   Chrome:  Load dist/chrome/ or upload rollcloud-chrome.zip');
-  console.log('   Firefox: Load dist/firefox/ or upload rollcloud-firefox.zip');
+  console.log('   Chrome:  chrome://extensions/ → Load unpacked → dist/chrome/');
+  console.log('   Firefox: about:debugging → Load Temporary Add-on → dist/firefox/manifest.json');
 }
 
 // Run build
