@@ -7,7 +7,9 @@
     "gecko": {
       "id": "rollcloud@carmanayeli.github.io",
       "strict_min_version": "109.0",
-      "data_collection_permissions": false
+      "data_collection_permissions": {
+        "required": false
+      }
     }
   },
   "permissions": [
