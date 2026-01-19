@@ -1556,7 +1556,66 @@ function resolveVariablesInFormula(formula) {
     }
   }
 
-  // Pattern 2: Find variables/expressions in curly braces like {variableName} or {ceilproficiencyBonus/2}
+  // Pattern 2: Handle math functions like ceil{expression}, floor{expression}, etc.
+  const mathFuncPattern = /(ceil|floor|round|abs)\{([^}]+)\}/gi;
+
+  while ((match = mathFuncPattern.exec(resolvedFormula)) !== null) {
+    const funcName = match[1].toLowerCase();
+    const expression = match[2];
+    const fullMatch = match[0]; // e.g., "ceil{proficiencyBonus/2}"
+
+    // Replace variables in the expression
+    let evalExpression = expression;
+    for (const varName in characterData.otherVariables) {
+      if (evalExpression.includes(varName)) {
+        const variableValue = characterData.otherVariables[varName];
+        let value = null;
+
+        if (typeof variableValue === 'number') {
+          value = variableValue;
+        } else if (typeof variableValue === 'object' && variableValue.value !== undefined) {
+          value = variableValue.value;
+        }
+
+        if (value !== null && typeof value === 'number') {
+          evalExpression = evalExpression.replace(new RegExp(varName, 'g'), value);
+        }
+      }
+    }
+
+    // Evaluate the expression with the appropriate math function
+    try {
+      if (/^[\d\s+\-*/().]+$/.test(evalExpression)) {
+        const evalResult = eval(evalExpression);
+        let result;
+
+        switch (funcName) {
+          case 'ceil':
+            result = Math.ceil(evalResult);
+            break;
+          case 'floor':
+            result = Math.floor(evalResult);
+            break;
+          case 'round':
+            result = Math.round(evalResult);
+            break;
+          case 'abs':
+            result = Math.abs(evalResult);
+            break;
+          default:
+            result = evalResult;
+        }
+
+        resolvedFormula = resolvedFormula.replace(fullMatch, result);
+        variablesResolved.push(`${funcName}{${expression}}=${result}`);
+        console.log(`✅ Resolved math function: ${funcName}{${expression}} = ${result}`);
+      }
+    } catch (e) {
+      console.log(`⚠️ Failed to evaluate ${funcName}{${expression}}`, e);
+    }
+  }
+
+  // Pattern 3: Find variables/expressions in curly braces like {variableName} or {proficiencyBonus/2}
   const bracesPattern = /\{([^}]+)\}/g;
 
   while ((match = bracesPattern.exec(resolvedFormula)) !== null) {
