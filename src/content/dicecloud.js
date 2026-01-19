@@ -649,11 +649,31 @@
               }
             }
 
+            // Handle attackRoll - extract formula if it's an object
+            let attackRoll = '';
+            if (prop.attackRoll) {
+              if (typeof prop.attackRoll === 'string') {
+                attackRoll = prop.attackRoll;
+              } else if (typeof prop.attackRoll === 'object') {
+                attackRoll = prop.attackRoll.formula || prop.attackRoll.text || prop.attackRoll.value || '';
+              }
+            }
+
+            // Handle damage - extract formula if it's an object
+            let damage = '';
+            if (prop.damage) {
+              if (typeof prop.damage === 'string') {
+                damage = prop.damage;
+              } else if (typeof prop.damage === 'object') {
+                damage = prop.damage.formula || prop.damage.text || prop.damage.value || '';
+              }
+            }
+
             const action = {
               name: prop.name,
               actionType: prop.actionType || 'other',
-              attackRoll: prop.attackRoll || '',
-              damage: prop.damage || '',
+              attackRoll: attackRoll,
+              damage: damage,
               damageType: prop.damageType || '',
               description: description,
               uses: prop.uses || null,
@@ -661,7 +681,7 @@
             };
 
             characterData.actions.push(action);
-            console.log(`⚔️ Added action: ${action.name} (${action.actionType})`);
+            console.log(`⚔️ Added action: ${action.name} (attack: ${attackRoll}, damage: ${damage})`);
           }
           break;
       }
