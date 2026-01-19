@@ -362,33 +362,42 @@
     // Debug: Log all property types to see what's available
     const propertyTypes = new Set();
     let raceFound = false;
-    
+    let racePropertyId = null;
+    let raceName = null;
+
+    // First pass: find the race property and process all properties
     apiData.creatureProperties.forEach(prop => {
       propertyTypes.add(prop.type);
-      
+
       if (prop.type === 'race') {
         console.log('🔍 Found race property:', prop);
         if (prop.name) {
+          raceName = prop.name;
+          racePropertyId = prop._id;
           characterData.race = prop.name;
-          console.log('🔍 Set race to:', prop.name);
+          console.log('🔍 Set race to:', prop.name, '(ID:', prop._id, ')');
           raceFound = true;
         }
       } else if (prop.type === 'species') {
         console.log('🔍 Found species property:', prop);
         if (prop.name) {
+          raceName = prop.name;
+          racePropertyId = prop._id;
           characterData.race = prop.name;
-          console.log('🔍 Set race to (from species):', prop.name);
+          console.log('🔍 Set race to (from species):', prop.name, '(ID:', prop._id, ')');
           raceFound = true;
         }
       } else if (prop.type === 'characterRace') {
         console.log('🔍 Found characterRace property:', prop);
         if (prop.name) {
+          raceName = prop.name;
+          racePropertyId = prop._id;
           characterData.race = prop.name;
-          console.log('🔍 Set race to (from characterRace):', prop.name);
+          console.log('🔍 Set race to (from characterRace):', prop.name, '(ID:', prop._id, ')');
           raceFound = true;
         }
       }
-      
+
       switch (prop.type) {
         case 'class':
           // Only add class name once, even if there are multiple classLevel entries
@@ -734,6 +743,30 @@
           break;
       }
     });
+
+    // Second pass: look for subrace as a child of the race property
+    if (racePropertyId && raceName) {
+      console.log('🔍 Looking for subrace children of race property ID:', racePropertyId);
+      const subraceProps = apiData.creatureProperties.filter(prop => {
+        const isChild = prop.parent && prop.parent.id === racePropertyId;
+        const hasSubraceTag = prop.tags && Array.isArray(prop.tags) && prop.tags.some(tag =>
+          tag.toLowerCase().includes('subrace')
+        );
+        if (isChild) {
+          console.log('🔍 Found child of race:', prop.name, 'with tags:', prop.tags, 'hasSubraceTag:', hasSubraceTag);
+        }
+        return isChild && hasSubraceTag;
+      });
+
+      if (subraceProps.length > 0) {
+        const subraceProp = subraceProps[0];
+        console.log('🔍 Found subrace child property:', subraceProp.name, 'with tags:', subraceProp.tags);
+        characterData.race = `${subraceProp.name} ${raceName}`;
+        console.log('🔍 Combined race with subrace:', characterData.race);
+      } else {
+        console.log('🔍 No subrace children found for race');
+      }
+    }
 
     // Fallback: Check for race in otherVariables if not found in properties
     if (!raceFound && !characterData.race) {
