@@ -1582,14 +1582,20 @@
           return;
         }
 
-        // Wait for popup to load, then send data via postMessage
-        popupWindow.addEventListener('load', () => {
-          popupWindow.postMessage({
-            action: 'initCharacterSheet',
-            data: response.data
-          }, '*');
-          console.log('✅ Character data sent to popup via postMessage');
-        });
+        // Listen for popup ready message
+        const messageHandler = (event) => {
+          if (event.data && event.data.action === 'popupReady') {
+            console.log('✅ Popup is ready, sending character data...');
+            popupWindow.postMessage({
+              action: 'initCharacterSheet',
+              data: response.data
+            }, '*');
+            console.log('✅ Character data sent to popup via postMessage');
+            // Clean up listener
+            window.removeEventListener('message', messageHandler);
+          }
+        };
+        window.addEventListener('message', messageHandler);
 
         overlayVisible = true;
         showNotification('Character sheet opened! 🎲', 'success');

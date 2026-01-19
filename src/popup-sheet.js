@@ -10,6 +10,14 @@ window.addEventListener('message', (event) => {
   }
 });
 
+// Tell parent window we're ready
+if (window.opener && !window.opener.closed) {
+  console.log('✅ Sending ready message to parent window...');
+  window.opener.postMessage({ action: 'popupReady' }, '*');
+} else {
+  console.error('❌ No parent window available');
+}
+
 console.log('✅ Waiting for character data via postMessage...');
 
 function buildSheet(data) {
