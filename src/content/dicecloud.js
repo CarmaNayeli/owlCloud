@@ -738,44 +738,91 @@
     // Fallback: Check for race in otherVariables if not found in properties
     if (!raceFound && !characterData.race) {
       console.log('🔍 Race not found in properties, checking otherVariables...');
-      const raceVars = Object.keys(characterData.otherVariables).filter(key => 
+      const raceVars = Object.keys(characterData.otherVariables).filter(key =>
         key.toLowerCase().includes('race') || key.toLowerCase().includes('species')
       );
-      
+
       if (raceVars.length > 0) {
-        const raceVar = raceVars[0];
-        const raceValue = characterData.otherVariables[raceVar];
-        
-        // Handle race as object (like spell descriptions)
-        if (typeof raceValue === 'object' && raceValue !== null) {
-          if (raceValue.name) {
-            characterData.race = raceValue.name;
-            console.log(`🔍 Found race object with name: ${raceVar} = ${characterData.race}`);
-          } else if (raceValue.text) {
-            characterData.race = raceValue.text;
-            console.log(`🔍 Found race object with text: ${raceVar} = ${characterData.race}`);
-          } else if (raceValue.value) {
-            characterData.race = raceValue.value;
-            console.log(`🔍 Found race object with value: ${raceVar} = ${characterData.race}`);
-          } else {
-            // If object has no standard properties, try to extract something useful
-            if (raceValue.variableName) {
-              characterData.race = raceValue.variableName;
-              console.log(`🔍 Found race object with variableName: ${raceVar} = ${characterData.race}`);
-            } else {
-              // Last resort: convert object to string and try to extract meaningful info
-              const raceStr = JSON.stringify(raceValue);
-              console.log(`🔍 Race object found but no name/text/value/variableName: ${raceVar} =`, raceValue);
-              console.log(`🔍 Race object stringified:`, raceStr);
-              // Store the whole object so popup can handle it
-              characterData.race = raceValue;
+        // Helper function to extract race name from variable name
+        // e.g., "elfRace" -> "Elf", "humanRace" -> "Human"
+        const extractRaceFromVarName = (varName) => {
+          const raceName = varName.replace(/race$/i, '').replace(/^race$/i, '');
+          if (raceName && raceName !== varName.toLowerCase()) {
+            // Capitalize first letter
+            return raceName.charAt(0).toUpperCase() + raceName.slice(1);
+          }
+          return null;
+        };
+
+        // Try to find the best race information
+        // Priority: 1) subRace with name, 2) race with name, 3) specific race variable (e.g., elfRace)
+        let raceName = null;
+        let suberaceName = null;
+
+        // Check for subRace first
+        const subRaceVar = raceVars.find(key => key.toLowerCase() === 'subrace');
+        if (subRaceVar) {
+          const subRaceValue = characterData.otherVariables[subRaceVar];
+          if (typeof subRaceValue === 'object' && subRaceValue !== null) {
+            if (subRaceValue.name) {
+              suberaceName = subRaceValue.name;
+              console.log(`🔍 Found subrace name: ${suberaceName}`);
+            } else if (subRaceValue.text) {
+              suberaceName = subRaceValue.text;
+              console.log(`🔍 Found subrace text: ${suberaceName}`);
+            }
+          } else if (typeof subRaceValue === 'string') {
+            suberaceName = subRaceValue;
+            console.log(`🔍 Found subrace string: ${suberaceName}`);
+          }
+        }
+
+        // Check for race variable
+        const raceVar = raceVars.find(key => key.toLowerCase() === 'race');
+        if (raceVar) {
+          const raceValue = characterData.otherVariables[raceVar];
+          if (typeof raceValue === 'object' && raceValue !== null) {
+            if (raceValue.name) {
+              raceName = raceValue.name;
+              console.log(`🔍 Found race name: ${raceName}`);
+            } else if (raceValue.text) {
+              raceName = raceValue.text;
+              console.log(`🔍 Found race text: ${raceName}`);
+            }
+          } else if (typeof raceValue === 'string') {
+            raceName = raceValue;
+            console.log(`🔍 Found race string: ${raceName}`);
+          }
+        }
+
+        // If we didn't find race/subrace with names, look for specific race variables (e.g., elfRace, humanRace)
+        if (!raceName) {
+          for (const varName of raceVars) {
+            const varValue = characterData.otherVariables[varName];
+            // Check if this is a specific race variable (e.g., elfRace = true)
+            if (typeof varValue === 'object' && varValue !== null && varValue.value === true) {
+              const extracted = extractRaceFromVarName(varName);
+              if (extracted) {
+                raceName = extracted;
+                console.log(`🔍 Extracted race from variable name: ${varName} -> ${raceName}`);
+                break;
+              }
             }
           }
-        } else if (typeof raceValue === 'string') {
-          characterData.race = raceValue;
-          console.log(`🔍 Found race string: ${raceVar} = ${characterData.race}`);
+        }
+
+        // Combine race and subrace if we have both
+        if (raceName && suberaceName) {
+          characterData.race = `${suberaceName} ${raceName}`;
+          console.log(`🔍 Combined race and subrace: ${characterData.race}`);
+        } else if (suberaceName) {
+          characterData.race = suberaceName;
+          console.log(`🔍 Using subrace as race: ${characterData.race}`);
+        } else if (raceName) {
+          characterData.race = raceName;
+          console.log(`🔍 Using race: ${characterData.race}`);
         } else {
-          console.log(`🔍 Race variable found but invalid type: ${raceVar} =`, raceValue);
+          console.log('🔍 Could not determine race from variables:', raceVars);
         }
       } else {
         console.log('🔍 No race found in otherVariables either');
