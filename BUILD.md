@@ -2,6 +2,36 @@
 
 This extension supports both Chrome and Firefox through a unified codebase with browser-specific manifests.
 
+## Quick Start - Automated Build (Recommended)
+
+The easiest way to build for both browsers is using the automated build script:
+
+```bash
+# Build packages for both Chrome and Firefox
+npm run build
+```
+
+This creates:
+- `dist/chrome/` - Chrome package (Manifest V3)
+- `dist/firefox/` - Firefox package (Manifest V2)
+- `dist/rollcloud-chrome.zip` - Ready to upload to Chrome Web Store
+- `dist/rollcloud-firefox.zip` - Ready to upload to Firefox Add-ons
+
+### Installing the Built Packages
+
+**Chrome:**
+1. Open `chrome://extensions/`
+2. Enable "Developer mode"
+3. Click "Load unpacked"
+4. Select `dist/chrome/` directory
+
+**Firefox:**
+1. Open `about:debugging#/runtime/this-firefox`
+2. Click "Load Temporary Add-on"
+3. Select any file in `dist/firefox/` directory
+
+---
+
 ## Architecture
 
 The extension uses a **browser API polyfill** (`src/common/browser-polyfill.js`) that provides a unified API across browsers. This allows the same code to run on both Chrome and Firefox without modifications.
@@ -11,28 +41,30 @@ The extension uses a **browser API polyfill** (`src/common/browser-polyfill.js`)
 - **`manifest.json`** - Chrome Manifest V3 (default)
 - **`manifest-firefox.json`** - Firefox Manifest V2
 - **`src/common/browser-polyfill.js`** - Browser compatibility layer
+- **`build.js`** - Automated build script
 
-## Building for Chrome
+---
 
-### Requirements
-- Chrome 88+ (Manifest V3 support)
+## Manual Build (Alternative)
 
-### Installation
+If you prefer to build manually without the build script:
+
+### Building for Chrome
+
+**Requirements:** Chrome 88+ (Manifest V3 support)
+
 1. Open Chrome and navigate to `chrome://extensions/`
 2. Enable "Developer mode" (toggle in top right)
 3. Click "Load unpacked"
-4. Select the `/home/user/rollCloud` directory
+4. Select the root directory (contains `manifest.json`)
 5. The extension will use `manifest.json` (Manifest V3)
 
-## Building for Firefox
+### Building for Firefox
 
-### Requirements
-- Firefox 109+ (Manifest V2 required - MV3 not fully supported)
+**Requirements:** Firefox 109+ (Manifest V2 required - MV3 not fully supported)
 
-### Installation
 1. **Rename manifests**:
    ```bash
-   cd /home/user/rollCloud
    mv manifest.json manifest-chrome.json
    mv manifest-firefox.json manifest.json
    ```
@@ -41,9 +73,11 @@ The extension uses a **browser API polyfill** (`src/common/browser-polyfill.js`)
 
 3. Click "Load Temporary Add-on"
 
-4. Select the `manifest.json` file in `/home/user/rollCloud`
+4. Select the `manifest.json` file
 
 5. The extension will load with Firefox-compatible Manifest V2
+
+**Important:** Remember to swap the manifests back when switching to Chrome!
 
 ### For Production (Firefox)
 
