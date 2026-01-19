@@ -186,6 +186,55 @@
     .spell-slot-card.empty .spell-slot-count {
       color: #95a5a6;
     }
+    .action-card {
+      background: #ffe5e5;
+      border: 1px solid #e74c3c;
+      margin-bottom: 10px;
+      padding: 10px;
+      border-radius: 4px;
+    }
+    .action-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px;
+    }
+    .action-name {
+      font-weight: bold;
+      font-size: 1.1em;
+    }
+    .action-buttons {
+      display: flex;
+      gap: 8px;
+    }
+    .attack-btn {
+      background: #e74c3c;
+      color: white;
+      border: none;
+      padding: 5px 12px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 0.9em;
+      font-weight: bold;
+    }
+    .attack-btn:hover {
+      background: #c0392b;
+      transform: translateY(-1px);
+    }
+    .damage-btn {
+      background: #e67e22;
+      color: white;
+      border: none;
+      padding: 5px 12px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 0.9em;
+      font-weight: bold;
+    }
+    .damage-btn:hover {
+      background: #d35400;
+      transform: translateY(-1px);
+    }
   </style>
 </head>
 <body>
@@ -213,6 +262,11 @@
     <div class="section">
       <h3>🎯 Skills</h3>
       <div class="grid" id="skills-grid"></div>
+    </div>
+
+    <div class="section">
+      <h3>⚔️ Actions & Attacks</h3>
+      <div id="actions-container"></div>
     </div>
 
     <div class="section">
