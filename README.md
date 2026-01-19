@@ -213,8 +213,8 @@ DiceCloud Tab                Background Script              Roll20 Tab(s)
 
 ```
 rollCloud/
-├── manifest.json              # Firefox manifest (Manifest V2) - default
-├── manifest-chrome.json       # Chrome manifest (Manifest V3)
+├── manifest.json              # Chrome manifest (Manifest V3) - default
+├── manifest-firefox.json      # Firefox manifest (Manifest V2)
 ├── build.js                   # Automated build script
 ├── package.json               # npm scripts and metadata
 ├── src/
@@ -270,8 +270,8 @@ npm run build
 ### Quick Development (Without Build)
 
 For rapid development without rebuilding:
-- **Firefox**: Load the root directory directly (uses `manifest.json`)
-- **Chrome**: See [BUILD.md](BUILD.md) for manual manifest swap instructions
+- **Chrome**: Load the root directory directly (uses `manifest.json`)
+- **Firefox**: See [BUILD.md](BUILD.md) for manual manifest swap instructions
 
 ### Debugging
 
