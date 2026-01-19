@@ -685,18 +685,25 @@
               // Use the first damage property (weapons typically have one main damage)
               const damageProp = damageProperties[0];
 
-              // Debug: log the damage property structure
-              console.log('🔍 Damage property for', prop.name, ':', JSON.stringify(damageProp, null, 2));
-              console.log('🔍 Available fields:', Object.keys(damageProp));
-
-              // Try to get the calculated formula first (includes modifiers)
-              if (damageProp.calculation) {
-                damage = damageProp.calculation;
-              } else if (damageProp.amount) {
+              // Extract damage formula with modifiers
+              if (damageProp.amount) {
                 if (typeof damageProp.amount === 'string') {
                   damage = damageProp.amount;
                 } else if (typeof damageProp.amount === 'object') {
+                  // Get base calculation (e.g., "1d8")
                   damage = damageProp.amount.calculation || damageProp.amount.value || damageProp.amount.text || '';
+
+                  // Add effects (modifiers) to build complete formula
+                  if (damageProp.amount.effects && Array.isArray(damageProp.amount.effects)) {
+                    for (const effect of damageProp.amount.effects) {
+                      if (effect.operation === 'add' && effect.amount && effect.amount.value !== undefined) {
+                        const modifier = effect.amount.value;
+                        if (modifier !== 0) {
+                          damage += modifier >= 0 ? `+${modifier}` : `${modifier}`;
+                        }
+                      }
+                    }
+                  }
                 }
               }
 
