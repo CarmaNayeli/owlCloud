@@ -636,7 +636,8 @@
 
         case 'action':
           // Extract attack actions (weapons, unarmed strikes, etc.)
-          if (prop.name) {
+          // Only include actions that have attack rolls or damage (actual combat actions)
+          if (prop.name && (prop.attackRoll || prop.damage)) {
             const action = {
               name: prop.name,
               actionType: prop.actionType || 'other',
