@@ -231,17 +231,29 @@
     });
 
     // Extract spell slots
+    // Dice Cloud uses: slotLevel1, slotLevel2, etc. (current and max combined in one variable)
     console.log('🔍 Extracting spell slots...');
-    STANDARD_VARS.spellSlots.forEach(slot => {
-      if (variables[slot]) {
-        characterData.spellSlots = characterData.spellSlots || {};
-        const slotValue = variables[slot].value || 0;
-        characterData.spellSlots[slot] = slotValue;
-        console.log(`  ✅ ${slot}: ${slotValue}`);
+    characterData.spellSlots = {};
+
+    for (let level = 1; level <= 9; level++) {
+      const diceCloudVarName = `slotLevel${level}`;
+      const currentKey = `level${level}SpellSlots`;
+      const maxKey = `level${level}SpellSlotsMax`;
+
+      if (variables[diceCloudVarName]) {
+        // Dice Cloud stores total slots in .total and current in .value
+        const currentSlots = variables[diceCloudVarName].value || 0;
+        const maxSlots = variables[diceCloudVarName].total || variables[diceCloudVarName].value || 0;
+
+        characterData.spellSlots[currentKey] = currentSlots;
+        characterData.spellSlots[maxKey] = maxSlots;
+
+        console.log(`  ✅ Level ${level}: ${currentSlots}/${maxSlots} (from ${diceCloudVarName})`);
       } else {
-        console.log(`  ⚠️ ${slot}: not found in variables`);
+        console.log(`  ⚠️ Level ${level}: ${diceCloudVarName} not found in variables`);
       }
-    });
+    }
+
     console.log('📊 Final spell slots object:', characterData.spellSlots);
 
     // Extract ALL kingdom attributes (Pathfinder Kingmaker / Kingdom Builder)
