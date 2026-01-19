@@ -135,25 +135,31 @@
   // Debounce variable to prevent recursive calls
   let isFixing = false;
   let lastFixTime = 0;
+  let observer = null; // Will be initialized later
 
   // Function to fix dice elements
   function fixDiceElements() {
     // Prevent recursive calls
     if (isFixing) return;
-    
+
     // Throttle to prevent excessive calls
     const now = Date.now();
     if (now - lastFixTime < 500) return;
     lastFixTime = now;
-    
+
     isFixing = true;
     console.log('🔧 Fixing dice elements...');
 
     try {
+      // Disconnect observer to prevent triggering mutations while we make changes
+      if (observer) {
+        observer.disconnect();
+      }
+
       // Find all potential dice elements
       const diceElements = document.querySelectorAll([
         '.dice-container',
-        '.dice-icon', 
+        '.dice-icon',
         '[class*="dice"]',
         '[class*="die"]',
         '.fa-dice',
@@ -200,6 +206,14 @@
           element.dataset.diceFixed = 'true';
         }
       });
+
+      // Reconnect observer after changes are done
+      if (observer) {
+        observer.observe(document.body, {
+          childList: true,
+          subtree: true
+        });
+      }
     } finally {
       isFixing = false;
     }
@@ -217,7 +231,7 @@
 
   // Run fix when DOM changes (with debouncing)
   let observerTimeout;
-  const observer = new MutationObserver((mutations) => {
+  observer = new MutationObserver((mutations) => {
     clearTimeout(observerTimeout);
     observerTimeout = setTimeout(() => {
       if (!isFixing) {

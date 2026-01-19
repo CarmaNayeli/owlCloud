@@ -597,9 +597,14 @@
                 characterData.features.push(toggleFeature);
 
                 // Add to actions if it has roll/damage OR if it has actionType/description (like Cunning Action)
+                // BUT: Never add passive effects to actions - they're modifiers, not actionable features
                 const validActionTypes = ['action', 'bonus', 'reaction', 'free', 'legendary', 'lair', 'other'];
                 const hasValidActionType = child.actionType && validActionTypes.includes(child.actionType.toLowerCase());
-                const shouldAddToActions = toggleFeature.roll || toggleFeature.damage || hasValidActionType || toggleFeature.description;
+
+                // Only add to actions if:
+                // 1. It's NOT an effect (effects are passive modifiers)
+                // 2. AND it has either a roll/damage OR a valid actionType
+                const shouldAddToActions = child.type !== 'effect' && (toggleFeature.roll || toggleFeature.damage || hasValidActionType);
 
                 if (shouldAddToActions) {
                   characterData.actions.push({
