@@ -53,13 +53,33 @@ function buildSheet(data) {
   const raceName = data.race ? data.race.charAt(0).toUpperCase() + data.race.slice(1) : 'Unknown';
 
   document.getElementById('char-info').innerHTML = `
-    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center;">
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center; margin-bottom: 15px;">
       <div><strong>Class:</strong> ${data.class || 'Unknown'}</div>
       <div><strong>Level:</strong> ${data.level || 1}</div>
       <div><strong>Race:</strong> ${raceName}</div>
       <div><strong>Hit Dice:</strong> ${data.hitDice.current}/${data.hitDice.max} ${data.hitDice.type}</div>
     </div>
+    <div style="text-align: center;">
+      <div id="hp-display" style="display: inline-block; padding: 15px 30px; background: #e74c3c; color: white; border-radius: 8px; cursor: pointer; font-size: 1.2em; font-weight: bold; transition: all 0.2s;">
+        <div style="font-size: 0.8em; margin-bottom: 5px;">Hit Points</div>
+        <div style="font-size: 1.5em;">${data.hitPoints.current} / ${data.hitPoints.max}</div>
+      </div>
+    </div>
   `;
+
+  // Add click handler for HP display
+  document.getElementById('hp-display').addEventListener('click', showHPModal);
+
+  // Update HP display color based on percentage
+  const hpPercent = (data.hitPoints.current / data.hitPoints.max) * 100;
+  const hpDisplay = document.getElementById('hp-display');
+  if (hpPercent > 50) {
+    hpDisplay.style.background = '#27ae60';
+  } else if (hpPercent > 25) {
+    hpDisplay.style.background = '#f39c12';
+  } else {
+    hpDisplay.style.background = '#e74c3c';
+  }
 
   // Spell Slots
   buildSpellSlotsDisplay();
@@ -230,6 +250,132 @@ function adjustSpellSlot(level, current, max) {
   buildSheet(characterData);
 
   showNotification(`✅ Level ${level} slots set to ${parsed}/${max}`);
+}
+
+function showHPModal() {
+  // Create modal overlay
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+
+  // Create modal content
+  const modalContent = document.createElement('div');
+  modalContent.style.cssText = 'background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); min-width: 300px;';
+
+  const currentHP = characterData.hitPoints.current;
+  const maxHP = characterData.hitPoints.max;
+
+  modalContent.innerHTML = `
+    <h3 style="margin: 0 0 20px 0; color: #2c3e50; text-align: center;">Adjust Hit Points</h3>
+    <div style="text-align: center; font-size: 1.2em; margin-bottom: 20px; color: #7f8c8d;">
+      Current: <strong>${currentHP} / ${maxHP}</strong>
+    </div>
+
+    <div style="margin-bottom: 20px;">
+      <label style="display: block; margin-bottom: 10px; font-weight: bold; color: #2c3e50;">Amount:</label>
+      <input type="number" id="hp-amount" min="1" value="1" style="width: 100%; padding: 10px; font-size: 1.1em; border: 2px solid #bdc3c7; border-radius: 6px; box-sizing: border-box;">
+    </div>
+
+    <div style="margin-bottom: 25px;">
+      <label style="display: block; margin-bottom: 10px; font-weight: bold; color: #2c3e50;">Action:</label>
+      <div style="display: flex; gap: 10px;">
+        <button id="hp-toggle-heal" style="flex: 1; padding: 12px; font-size: 1em; font-weight: bold; border: 2px solid #27ae60; background: #27ae60; color: white; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+          + Heal
+        </button>
+        <button id="hp-toggle-damage" style="flex: 1; padding: 12px; font-size: 1em; font-weight: bold; border: 2px solid #bdc3c7; background: white; color: #7f8c8d; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+          - Damage
+        </button>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 10px;">
+      <button id="hp-cancel" style="flex: 1; padding: 12px; font-size: 1em; background: #95a5a6; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
+        Cancel
+      </button>
+      <button id="hp-confirm" style="flex: 1; padding: 12px; font-size: 1em; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
+        Confirm
+      </button>
+    </div>
+  `;
+
+  modal.appendChild(modalContent);
+  document.body.appendChild(modal);
+
+  // Toggle state
+  let isHealing = true;
+
+  const healBtn = document.getElementById('hp-toggle-heal');
+  const damageBtn = document.getElementById('hp-toggle-damage');
+  const amountInput = document.getElementById('hp-amount');
+
+  // Toggle button handlers
+  healBtn.addEventListener('click', () => {
+    isHealing = true;
+    healBtn.style.background = '#27ae60';
+    healBtn.style.color = 'white';
+    healBtn.style.borderColor = '#27ae60';
+    damageBtn.style.background = 'white';
+    damageBtn.style.color = '#7f8c8d';
+    damageBtn.style.borderColor = '#bdc3c7';
+  });
+
+  damageBtn.addEventListener('click', () => {
+    isHealing = false;
+    damageBtn.style.background = '#e74c3c';
+    damageBtn.style.color = 'white';
+    damageBtn.style.borderColor = '#e74c3c';
+    healBtn.style.background = 'white';
+    healBtn.style.color = '#7f8c8d';
+    healBtn.style.borderColor = '#bdc3c7';
+  });
+
+  // Cancel button
+  document.getElementById('hp-cancel').addEventListener('click', () => {
+    modal.remove();
+  });
+
+  // Confirm button
+  document.getElementById('hp-confirm').addEventListener('click', () => {
+    const amount = parseInt(amountInput.value);
+
+    if (isNaN(amount) || amount <= 0) {
+      showNotification('❌ Please enter a valid amount', 'error');
+      return;
+    }
+
+    const oldHP = characterData.hitPoints.current;
+
+    if (isHealing) {
+      characterData.hitPoints.current = Math.min(currentHP + amount, maxHP);
+      const actualHealing = characterData.hitPoints.current - oldHP;
+      showNotification(`💚 Healed ${actualHealing} HP! (${characterData.hitPoints.current}/${maxHP})`);
+    } else {
+      characterData.hitPoints.current = Math.max(currentHP - amount, 0);
+      const actualDamage = oldHP - characterData.hitPoints.current;
+      showNotification(`💔 Took ${actualDamage} damage! (${characterData.hitPoints.current}/${maxHP})`);
+    }
+
+    saveCharacterData();
+    buildSheet(characterData);
+    modal.remove();
+  });
+
+  // Focus on input
+  amountInput.focus();
+  amountInput.select();
+
+  // Allow Enter key to confirm
+  amountInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      document.getElementById('hp-confirm').click();
+    }
+  });
+
+  // Click outside to close
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
 }
 
 function createCard(title, main, sub, onClick) {
