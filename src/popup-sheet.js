@@ -53,7 +53,7 @@ function buildSheet(data) {
         <button id="color-toggle" style="background: none; border: none; cursor: pointer; font-size: 1.2em; padding: 5px; display: flex; align-items: center; gap: 3px;" title="Change notification color">
           ${currentColorEmoji} 🎨
         </button>
-        <div id="color-palette" style="display: none; position: absolute; left: 100%; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.9); padding: 10px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 1000; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 150px;">
+        <div id="color-palette" style="display: none; position: absolute; left: 100%; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.9); padding: 12px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 1000; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 180px;">
           ${createColorPalette(data.notificationColor || '#3498db')}
         </div>
       </div>
