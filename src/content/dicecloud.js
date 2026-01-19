@@ -664,13 +664,19 @@
               }
             }
 
-            // Find damage properties that are children of this action
-            // Damage is stored as separate properties with this action as parent
-            const damageProperties = properties.filter(p =>
-              p.type === 'damage' &&
-              p.parent &&
-              p.parent.id === prop._id
-            );
+            // Find damage properties that are descendants of this action
+            // Damage can be nested under onHit or other child properties
+            const damageProperties = properties.filter(p => {
+              if (p.type !== 'damage') return false;
+
+              // Check if this action is in the damage property's ancestors
+              if (p.ancestors && Array.isArray(p.ancestors)) {
+                return p.ancestors.some(ancestor => ancestor.id === prop._id);
+              }
+
+              // Fallback: check direct parent
+              return p.parent && p.parent.id === prop._id;
+            });
 
             let damage = '';
             let damageType = '';
