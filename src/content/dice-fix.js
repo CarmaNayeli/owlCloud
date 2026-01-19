@@ -164,17 +164,22 @@
       console.log(`Found ${diceElements.length} potential dice elements`);
 
       diceElements.forEach((element, index) => {
+        // Skip if already fixed
+        if (element.dataset.diceFixed === 'true') {
+          return;
+        }
+
         // Add debug border to see what we're targeting
         element.style.border = '2px solid blue';
         element.style.background = 'lightblue';
-        
+
         // Try to extract the dice value
         const text = element.textContent || element.innerText || '';
         const value = parseInt(text);
-        
+
         if (!isNaN(value) && value >= 1 && value <= 6) {
           console.log(`Fixing dice ${index}: value = ${value}`);
-          
+
           // Replace with proper dice symbol
           const diceSymbols = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
           element.textContent = diceSymbols[value - 1];
@@ -190,6 +195,9 @@
           element.style.minWidth = '30px';
           element.style.height = '30px';
           element.style.lineHeight = '30px';
+
+          // Mark as fixed to prevent re-processing
+          element.dataset.diceFixed = 'true';
         }
       });
     } finally {
