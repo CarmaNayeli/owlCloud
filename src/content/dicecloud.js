@@ -637,20 +637,51 @@
         case 'action':
           // Extract attack actions (weapons, unarmed strikes, etc.)
           // Only include actions that have attack rolls or damage (actual combat actions)
-          if (prop.name && (prop.attackRoll || prop.damage)) {
+          // Skip inactive/disabled actions
+          if (prop.name && (prop.attackRoll || prop.damage) && !prop.inactive && !prop.disabled) {
+            // Handle description - it might be an object with a 'text' or 'value' field
+            let description = '';
+            if (prop.description) {
+              if (typeof prop.description === 'string') {
+                description = prop.description;
+              } else if (typeof prop.description === 'object') {
+                description = prop.description.text || prop.description.value || '';
+              }
+            }
+
+            // Handle attackRoll - extract formula if it's an object
+            let attackRoll = '';
+            if (prop.attackRoll) {
+              if (typeof prop.attackRoll === 'string') {
+                attackRoll = prop.attackRoll;
+              } else if (typeof prop.attackRoll === 'object') {
+                attackRoll = prop.attackRoll.formula || prop.attackRoll.text || prop.attackRoll.value || '';
+              }
+            }
+
+            // Handle damage - extract formula if it's an object
+            let damage = '';
+            if (prop.damage) {
+              if (typeof prop.damage === 'string') {
+                damage = prop.damage;
+              } else if (typeof prop.damage === 'object') {
+                damage = prop.damage.formula || prop.damage.text || prop.damage.value || '';
+              }
+            }
+
             const action = {
               name: prop.name,
               actionType: prop.actionType || 'other',
-              attackRoll: prop.attackRoll || '',
-              damage: prop.damage || '',
+              attackRoll: attackRoll,
+              damage: damage,
               damageType: prop.damageType || '',
-              description: prop.description || '',
+              description: description,
               uses: prop.uses || null,
               usesUsed: prop.usesUsed || 0
             };
 
             characterData.actions.push(action);
-            console.log(`⚔️ Added action: ${action.name} (${action.actionType})`);
+            console.log(`⚔️ Added action: ${action.name} (attack: ${attackRoll}, damage: ${damage})`);
           }
           break;
       }
