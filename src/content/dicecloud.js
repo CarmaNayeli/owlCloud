@@ -756,7 +756,9 @@
             duration: prop.duration || '',
             description: description,
             prepared: prop.prepared || false,
-            source: source
+            source: source,
+            concentration: prop.concentration || false,
+            ritual: prop.ritual || false
           });
           break;
 

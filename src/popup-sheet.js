@@ -348,7 +348,16 @@ function buildActionsDisplay(container, actions) {
 
     const nameDiv = document.createElement('div');
     nameDiv.className = 'action-name';
-    nameDiv.textContent = action.name;
+
+    // Show uses if available
+    let nameText = action.name;
+    if (action.uses) {
+      const usesUsed = action.usesUsed || 0;
+      const usesTotal = action.uses.total || action.uses.value || action.uses;
+      const usesRemaining = usesTotal - usesUsed;
+      nameText += ` <span class="uses-badge">${usesRemaining}/${usesTotal} uses</span>`;
+    }
+    nameDiv.innerHTML = nameText;
 
     const buttonsDiv = document.createElement('div');
     buttonsDiv.className = 'action-buttons';
@@ -698,10 +707,21 @@ function createSpellCard(spell, index) {
 
   const header = document.createElement('div');
   header.className = 'spell-header';
+
+  // Build tags string
+  let tags = '';
+  if (spell.concentration) {
+    tags += '<span class="concentration-tag">🧠 Concentration</span>';
+  }
+  if (spell.ritual) {
+    tags += '<span class="ritual-tag">📖 Ritual</span>';
+  }
+
   header.innerHTML = `
     <div>
       <span style="font-weight: bold;">${spell.name}</span>
       ${spell.level ? `<span style="margin-left: 10px; color: #666;">Level ${spell.level}</span>` : ''}
+      ${tags}
     </div>
     <div style="display: flex; gap: 8px;">
       <button class="cast-btn" data-spell-index="${index}">✨ Cast</button>
