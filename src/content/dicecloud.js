@@ -369,6 +369,17 @@
     apiData.creatureProperties.forEach(prop => {
       propertyTypes.add(prop.type);
 
+      // Debug: Log any properties with "elf" in the name
+      if (prop.name && prop.name.toLowerCase().includes('elf')) {
+        console.log('🔍 Found property with "elf" in name:', {
+          name: prop.name,
+          type: prop.type,
+          _id: prop._id,
+          parent: prop.parent,
+          tags: prop.tags
+        });
+      }
+
       if (prop.type === 'race') {
         console.log('🔍 Found race property:', prop);
         if (prop.name) {
@@ -743,6 +754,9 @@
           break;
       }
     });
+
+    // Debug: Log all property types found
+    console.log('🔍 All property types found in character:', Array.from(propertyTypes).sort());
 
     // Second pass: look for subrace as a child of the race property
     if (racePropertyId && raceName) {
