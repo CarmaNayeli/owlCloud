@@ -539,7 +539,7 @@ function decrementActionUses(action) {
   const newRemaining = usesTotal - action.usesUsed;
 
   // Update character data and save
-  updateCharacterData();
+  saveCharacterData();
 
   // Show notification
   showNotification(`✅ Used ${action.name} (${newRemaining}/${usesTotal} remaining)`);
@@ -836,7 +836,7 @@ function showDeathSavesModal() {
   document.getElementById('add-success').addEventListener('click', () => {
     if (characterData.deathSaves.successes < 3) {
       characterData.deathSaves.successes++;
-      updateCharacterData();
+      saveCharacterData();
       showNotification(`✓ Death Save Success (${characterData.deathSaves.successes}/3)`);
       buildSheet(characterData);
       modal.remove();
@@ -847,7 +847,7 @@ function showDeathSavesModal() {
   document.getElementById('add-failure').addEventListener('click', () => {
     if (characterData.deathSaves.failures < 3) {
       characterData.deathSaves.failures++;
-      updateCharacterData();
+      saveCharacterData();
       showNotification(`✗ Death Save Failure (${characterData.deathSaves.failures}/3)`);
       buildSheet(characterData);
       modal.remove();
@@ -858,7 +858,7 @@ function showDeathSavesModal() {
   document.getElementById('reset-death-saves').addEventListener('click', () => {
     characterData.deathSaves.successes = 0;
     characterData.deathSaves.failures = 0;
-    updateCharacterData();
+    saveCharacterData();
     showNotification('♻️ Death saves reset');
     buildSheet(characterData);
     modal.remove();
@@ -1699,18 +1699,42 @@ function resolveVariablesInFormula(formula) {
         const arrayPart = arrayMatch[1];
         const indexPart = arrayMatch[2];
 
-        // Parse array
-        const arrayValues = arrayPart.split(',').map(v => parseFloat(v.trim()));
+        // Parse array (handle both numbers and string values like "N/A")
+        const arrayValues = arrayPart.split(',').map(v => {
+          const trimmed = v.trim();
+          // Remove quotes if present
+          const unquoted = trimmed.replace(/^["']|["']$/g, '');
+          // Try to parse as number, otherwise keep as string
+          const num = parseFloat(unquoted);
+          return isNaN(num) ? unquoted : num;
+        });
 
         // Resolve index variable
-        const indexValue = getVariableValue(indexPart);
+        let indexValue = getVariableValue(indexPart);
 
-        if (indexValue !== null && !isNaN(indexValue) && arrayValues[indexValue] !== undefined) {
-          const result = arrayValues[indexValue];
-          resolvedFormula = resolvedFormula.replace(fullMatch, result);
-          variablesResolved.push(`array[${indexValue}]=${result}`);
-          console.log(`✅ Resolved array indexing: ${cleanExpr} = ${result}`);
-          continue;
+        if (indexValue !== null && !isNaN(indexValue)) {
+          // Try direct index first
+          let result = arrayValues[indexValue];
+
+          // If out of bounds and index > 0, try index-1 (for 1-based level arrays)
+          if (result === undefined && indexValue > 0) {
+            result = arrayValues[indexValue - 1];
+            if (result !== undefined) {
+              console.log(`📊 Array index ${indexValue} out of bounds, using ${indexValue - 1} instead`);
+              indexValue = indexValue - 1;
+            }
+          }
+
+          if (result !== undefined) {
+            resolvedFormula = resolvedFormula.replace(fullMatch, result);
+            variablesResolved.push(`array[${indexValue}]=${result}`);
+            console.log(`✅ Resolved array indexing: ${cleanExpr} = ${result}`);
+            continue;
+          } else {
+            console.log(`⚠️ Array index ${indexValue} out of bounds (array length: ${arrayValues.length})`);
+          }
+        } else {
+          console.log(`⚠️ Could not resolve index variable: ${indexPart}`);
         }
       } catch (e) {
         console.log(`⚠️ Failed to resolve array indexing: ${cleanExpr}`, e);
@@ -1741,6 +1765,67 @@ function resolveVariablesInFormula(formula) {
           resolvedFormula = resolvedFormula.replace(fullMatch, result);
           variablesResolved.push(`${func}(...)=${result}`);
           console.log(`✅ Resolved ${func} function: ${cleanExpr} = ${result}`);
+          continue;
+        }
+      } catch (e) {
+        console.log(`⚠️ Failed to resolve ${cleanExpr}`, e);
+      }
+    }
+
+    // Handle ceil/floor/round/abs functions with parentheses: ceil(expr), floor(expr), etc.
+    const mathFuncParenPattern = /^(ceil|floor|round|abs)\(([^)]+)\)$/i;
+    const mathFuncParenMatch = cleanExpr.match(mathFuncParenPattern);
+    if (mathFuncParenMatch) {
+      try {
+        const funcName = mathFuncParenMatch[1].toLowerCase();
+        const expression = mathFuncParenMatch[2];
+
+        // Replace variables in the expression
+        let evalExpression = expression;
+        const varPattern = /[a-zA-Z_][a-zA-Z0-9_.]*/g;
+        let varMatch;
+        const replacements = [];
+
+        while ((varMatch = varPattern.exec(expression)) !== null) {
+          const varName = varMatch[0];
+          const value = getVariableValue(varName);
+          if (value !== null && typeof value === 'number') {
+            replacements.push({ name: varName, value: value });
+          }
+        }
+
+        // Sort by length (longest first) to avoid partial replacements
+        replacements.sort((a, b) => b.name.length - a.name.length);
+
+        for (const {name, value} of replacements) {
+          evalExpression = evalExpression.replace(new RegExp(name.replace(/\./g, '\\.'), 'g'), value);
+        }
+
+        // Evaluate the expression
+        if (/^[\d\s+\-*/().]+$/.test(evalExpression)) {
+          const evalResult = eval(evalExpression);
+          let result;
+
+          switch (funcName) {
+            case 'ceil':
+              result = Math.ceil(evalResult);
+              break;
+            case 'floor':
+              result = Math.floor(evalResult);
+              break;
+            case 'round':
+              result = Math.round(evalResult);
+              break;
+            case 'abs':
+              result = Math.abs(evalResult);
+              break;
+            default:
+              result = evalResult;
+          }
+
+          resolvedFormula = resolvedFormula.replace(fullMatch, result);
+          variablesResolved.push(`${funcName}(${expression})=${result}`);
+          console.log(`✅ Resolved math function: ${funcName}(${expression}) = ${result}`);
           continue;
         }
       } catch (e) {
