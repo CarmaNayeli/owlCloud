@@ -1893,14 +1893,36 @@ function announceSpellCast(spell, resourceUsed) {
   }
 
   // Send to Roll20 chat
+  const messageData = {
+    action: 'announceSpell',
+    spellName: spell.name,
+    characterName: characterData.name,
+    message: message,
+    color: characterData.notificationColor
+  };
+
+  // Try window.opener first (Chrome)
   if (window.opener && !window.opener.closed) {
-    window.opener.postMessage({
-      action: 'announceSpell',
-      spellName: spell.name,
-      characterName: characterData.name,
-      message: message,
-      color: characterData.notificationColor
-    }, '*');
+    try {
+      window.opener.postMessage(messageData, '*');
+      console.log('✅ Spell announcement sent via window.opener');
+    } catch (error) {
+      console.warn('⚠️ Could not send via window.opener:', error.message);
+      // Fall through to background script relay
+    }
+  } else {
+    // Fallback: Use background script to relay to Roll20 (Firefox)
+    console.log('📡 Using background script to relay spell announcement to Roll20...');
+    browserAPI.runtime.sendMessage({
+      action: 'relayRollToRoll20',
+      roll: messageData
+    }, (response) => {
+      if (browserAPI.runtime.lastError) {
+        console.error('❌ Error relaying spell announcement:', browserAPI.runtime.lastError);
+      } else if (response && response.success) {
+        console.log('✅ Spell announcement relayed to Roll20');
+      }
+    });
   }
 
   // Also roll if there's a formula
