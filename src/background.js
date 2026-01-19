@@ -117,6 +117,20 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
         });
       return true;
 
+    case 'relayRollToRoll20':
+      // Relay roll from popup window to Roll20 tabs (Firefox fallback)
+      console.log('📡 Relaying roll from popup to Roll20:', request.roll);
+      sendRollToAllRoll20Tabs(request.roll)
+        .then(() => {
+          console.log('✅ Roll relayed successfully');
+          sendResponse({ success: true });
+        })
+        .catch((error) => {
+          console.error('❌ Error relaying roll to Roll20:', error);
+          sendResponse({ success: false, error: error.message });
+        });
+      return true;
+
     default:
       console.warn('Unknown action:', request.action);
       sendResponse({ success: false, error: 'Unknown action' });
