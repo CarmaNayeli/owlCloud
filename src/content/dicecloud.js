@@ -372,22 +372,28 @@
       // Check for race as a folder (DiceCloud stores races as folders)
       // Look for folders with common race names at the top level
       const commonRaces = ['human', 'elf', 'dwarf', 'halfling', 'gnome', 'half-elf', 'half-orc', 'dragonborn', 'tiefling', 'orc', 'goblin', 'kobold'];
-      if (prop.type === 'folder' && prop.name && commonRaces.some(race => prop.name.toLowerCase().includes(race))) {
-        // Check if this is likely a race folder (not nested deep in character)
-        const parentDepth = prop.ancestors ? prop.ancestors.length : 0;
-        if (parentDepth <= 2) { // Top-level or near top-level folder
-          console.log('🔍 Found potential race folder:', {
-            name: prop.name,
-            type: prop.type,
-            _id: prop._id,
-            parentDepth: parentDepth
-          });
-          if (!raceFound) {
-            raceName = prop.name;
-            racePropertyId = prop._id;
-            characterData.race = prop.name;
-            console.log('🔍 Set race to:', prop.name, '(ID:', prop._id, ')');
-            raceFound = true;
+      if (prop.type === 'folder' && prop.name) {
+        const nameMatchesRace = commonRaces.some(race => prop.name.toLowerCase().includes(race));
+        if (nameMatchesRace) {
+          const parentDepth = prop.ancestors ? prop.ancestors.length : 0;
+          console.log(`🔍 DEBUG: Found folder "${prop.name}" with parentDepth ${parentDepth}, ancestors:`, prop.ancestors);
+
+          if (parentDepth <= 2) { // Top-level or near top-level folder
+            console.log('🔍 Found potential race folder:', {
+              name: prop.name,
+              type: prop.type,
+              _id: prop._id,
+              parentDepth: parentDepth
+            });
+            if (!raceFound) {
+              raceName = prop.name;
+              racePropertyId = prop._id;
+              characterData.race = prop.name;
+              console.log('🔍 Set race to:', prop.name, '(ID:', prop._id, ')');
+              raceFound = true;
+            }
+          } else {
+            console.log(`🔍 DEBUG: Skipping "${prop.name}" - parentDepth ${parentDepth} > 2`);
           }
         }
       }
@@ -536,9 +542,9 @@
               console.log(`🔘   Child "${child.name}" has type: ${child.type}`);
             });
 
-            // Process each child (features, damage, etc.)
+            // Process each child (features, damage, effects, etc.)
             toggleChildren.forEach(child => {
-              if (child.type === 'feature' || child.type === 'damage') {
+              if (child.type === 'feature' || child.type === 'damage' || child.type === 'effect') {
                 const toggleFeature = {
                   name: child.name || prop.name || 'Unnamed Feature',
                   description: child.description || prop.description || '',
@@ -546,6 +552,15 @@
                   roll: child.roll || child.amount || '',
                   damage: child.damage || child.amount || ''
                 };
+
+                // For effects, check if there's an operation that modifies damage
+                if (child.type === 'effect' && child.operation === 'add' && child.amount) {
+                  if (typeof child.amount === 'string') {
+                    toggleFeature.damage = child.amount;
+                  } else if (typeof child.amount === 'object' && child.amount.calculation) {
+                    toggleFeature.damage = child.amount.calculation;
+                  }
+                }
 
                 characterData.features.push(toggleFeature);
 
