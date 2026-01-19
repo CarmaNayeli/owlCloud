@@ -685,7 +685,10 @@
               // Use the first damage property (weapons typically have one main damage)
               const damageProp = damageProperties[0];
 
-              if (damageProp.amount) {
+              // Try to get the calculated formula first (includes modifiers)
+              if (damageProp.calculation) {
+                damage = damageProp.calculation;
+              } else if (damageProp.amount) {
                 if (typeof damageProp.amount === 'string') {
                   damage = damageProp.amount;
                 } else if (typeof damageProp.amount === 'object') {
