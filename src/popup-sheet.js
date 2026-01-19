@@ -276,11 +276,64 @@ function buildSpellsBySource(container, spells) {
   });
 }
 
+// Store Sneak Attack toggle state
+let sneakAttackEnabled = false;
+let sneakAttackDamage = '';
+
 function buildActionsDisplay(container, actions) {
   // Clear container
   container.innerHTML = '';
 
+  // Check if character has Sneak Attack
+  const sneakAttackAction = actions.find(a => a.name === 'Sneak Attack');
+  if (sneakAttackAction && sneakAttackAction.damage) {
+    sneakAttackDamage = sneakAttackAction.damage;
+
+    // Add toggle section at the top
+    const toggleSection = document.createElement('div');
+    toggleSection.style.cssText = 'background: #2c3e50; color: white; padding: 10px; border-radius: 5px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px;';
+
+    const toggleLabel = document.createElement('label');
+    toggleLabel.style.cssText = 'display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: bold;';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.id = 'sneak-attack-toggle';
+    checkbox.checked = sneakAttackEnabled;
+    checkbox.style.cssText = 'width: 18px; height: 18px; cursor: pointer;';
+    checkbox.addEventListener('change', (e) => {
+      sneakAttackEnabled = e.target.checked;
+      console.log(`🎯 Sneak Attack toggle: ${sneakAttackEnabled ? 'ON' : 'OFF'}`);
+    });
+
+    const labelText = document.createElement('span');
+    labelText.textContent = `Add Sneak Attack (${sneakAttackDamage}) to weapon damage`;
+
+    toggleLabel.appendChild(checkbox);
+    toggleLabel.appendChild(labelText);
+    toggleSection.appendChild(toggleLabel);
+    container.appendChild(toggleSection);
+  }
+
   actions.forEach((action, index) => {
+    // Skip rendering standalone Sneak Attack button if it exists
+    if (action.name === 'Sneak Attack' && action.actionType === 'feature') {
+      console.log('⏭️ Skipping standalone Sneak Attack button (using toggle instead)');
+      return;
+    }
+
+    // Clean up weapon damage to remove sneak attack if it was auto-added
+    // Pattern: remove any multi-dice formulas like "+3d6", "+4d6", etc. that come after the base damage
+    if (action.damage && action.attackRoll && sneakAttackDamage) {
+      // Remove the sneak attack damage pattern from weapon damage
+      const sneakPattern = new RegExp(`\\+?${sneakAttackDamage.replace(/[+\-]/g, '')}`, 'g');
+      const cleanedDamage = action.damage.replace(sneakPattern, '');
+      if (cleanedDamage !== action.damage) {
+        console.log(`🧹 Cleaned weapon damage: "${action.damage}" -> "${cleanedDamage}"`);
+        action.damage = cleanedDamage;
+      }
+    }
+
     const actionCard = document.createElement('div');
     actionCard.className = 'action-card';
 
@@ -319,10 +372,19 @@ function buildActionsDisplay(container, actions) {
       const btnText = action.actionType === 'feature' ? '🎲 Roll' : '💥 Damage';
       damageBtn.textContent = btnText;
       damageBtn.addEventListener('click', () => {
-        const damageName = action.damageType ?
+        let damageName = action.damageType ?
           `${action.name} (${action.damageType})` :
           action.name;
-        roll(damageName, action.damage);
+        let damageFormula = action.damage;
+
+        // Add Sneak Attack if toggle is enabled and this is a weapon attack
+        if (sneakAttackEnabled && sneakAttackDamage && action.attackRoll) {
+          damageFormula += `+${sneakAttackDamage}`;
+          damageName += ' + Sneak Attack';
+          console.log(`🎯 Adding Sneak Attack to ${action.name}: ${damageFormula}`);
+        }
+
+        roll(damageName, damageFormula);
       });
       buttonsDiv.appendChild(damageBtn);
     }
