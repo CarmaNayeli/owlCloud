@@ -6,8 +6,9 @@
  */
 
 // Detect browser and get the appropriate API object
-const isFirefox = typeof browser !== 'undefined' && browser.runtime;
-const isChrome = typeof chrome !== 'undefined' && chrome.runtime;
+// Chrome now has a 'browser' object too, so we need to check for Chrome first
+const isChrome = typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id;
+const isFirefox = !isChrome && typeof browser !== 'undefined' && browser.runtime;
 
 // Use the appropriate browser API
 const browserAPI = isFirefox ? browser : chrome;
