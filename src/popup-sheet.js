@@ -1413,6 +1413,11 @@ function showUpcastChoice(spell, originalLevel) {
   // Check for metamagic options
   const metamagicOptions = getAvailableMetamagic();
   const sorceryPoints = getSorceryPointsResource();
+  console.log('🔮 Metamagic detection:', {
+    metamagicOptions,
+    sorceryPoints,
+    hasMetamagic: metamagicOptions.length > 0 && sorceryPoints && sorceryPoints.current > 0
+  });
   const hasMetamagic = metamagicOptions.length > 0 && sorceryPoints && sorceryPoints.current > 0;
 
   // If only the original level is available and no metamagic, just cast it
@@ -1766,7 +1771,10 @@ function getAvailableMetamagic() {
     'Twinned Spell': 'variable' // Cost equals spell level (min 1 for cantrips)
   };
 
-  if (!characterData || !characterData.features) return [];
+  if (!characterData || !characterData.features) {
+    console.log('🔮 No characterData or features for metamagic detection');
+    return [];
+  }
 
   // Find metamagic features
   const metamagicOptions = characterData.features.filter(feature => {
@@ -1781,6 +1789,7 @@ function getAvailableMetamagic() {
     };
   });
 
+  console.log('🔮 Found metamagic options:', metamagicOptions.map(m => m.name));
   return metamagicOptions;
 }
 
@@ -1818,9 +1827,12 @@ function getKiCostFromAction(action) {
   const match = lowerDesc.match(kiPattern);
 
   if (match) {
-    return parseInt(match[1]);
+    const cost = parseInt(match[1]);
+    console.log(`💨 Ki cost detected for ${action.name}: ${cost} ki points`);
+    return cost;
   }
 
+  console.log(`💨 No Ki cost detected for ${action.name}`);
   return 0;
 }
 
@@ -1834,9 +1846,12 @@ function getSorceryPointCostFromAction(action) {
   const match = lowerDesc.match(sorceryPattern);
 
   if (match) {
-    return parseInt(match[1]);
+    const cost = parseInt(match[1]);
+    console.log(`✨ Sorcery Point cost detected for ${action.name}: ${cost} SP`);
+    return cost;
   }
 
+  console.log(`✨ No Sorcery Point cost detected for ${action.name}`);
   return 0;
 }
 
