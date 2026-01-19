@@ -1,22 +1,38 @@
 /**
- * Browser API Compatibility Layer - Chrome Only (Simplified)
+ * Browser API Compatibility Layer - Chrome & Firefox Support
  *
- * For Chrome, we just expose the native chrome API as browserAPI.
- * This provides a consistent API name across all our code.
+ * This provides a consistent browserAPI interface across Chrome and Firefox.
+ * Firefox uses the 'browser' namespace (Promise-based), while Chrome uses 'chrome' (callback-based).
  */
 
-console.log('🌐 Loading browser polyfill for Chrome...');
+console.log('🌐 Loading browser polyfill...');
 
 // Use 'self' for service workers, 'window' for content scripts/popups
 const globalScope = typeof window !== 'undefined' ? window : self;
 
-// Expose chrome API as browserAPI for consistent naming
-globalScope.browserAPI = chrome;
+// Detect browser and use appropriate API
+let browserAPI;
+
+if (typeof browser !== 'undefined' && browser.runtime) {
+  // Firefox - uses native Promise-based API
+  console.log('🦊 Detected Firefox');
+  browserAPI = browser;
+} else if (typeof chrome !== 'undefined' && chrome.runtime) {
+  // Chrome - wrap callback-based API to be consistent
+  console.log('🌐 Detected Chrome');
+  browserAPI = chrome;
+} else {
+  console.error('❌ FATAL: No browser API available!');
+  throw new Error('No browser API available');
+}
+
+// Expose as browserAPI for consistent naming
+globalScope.browserAPI = browserAPI;
 
 // Verify API is available
 if (!globalScope.browserAPI || !globalScope.browserAPI.runtime) {
-  console.error('❌ FATAL: Chrome API not available!');
-  throw new Error('Chrome API not available');
+  console.error('❌ FATAL: Browser API not available!');
+  throw new Error('Browser API not available');
 }
 
-console.log('✅ Browser API ready (Chrome)');
+console.log('✅ Browser API ready:', browserAPI === browser ? 'Firefox' : 'Chrome');

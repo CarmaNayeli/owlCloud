@@ -1,172 +1,103 @@
-# Building RollCloud for Different Browsers
+# RollCloud Build Instructions
 
-This extension supports both Chrome and Firefox through a unified codebase with browser-specific manifests.
+RollCloud supports multiple browsers through browser-specific builds.
 
-## Quick Start - Automated Build (Recommended)
+## Supported Browsers
 
-The easiest way to build for both browsers is using the automated build script:
+- **Chrome** (Manifest V3, Service Worker)
+- **Firefox** (Manifest V2, Background Script)
+- **Safari** (Planned)
 
-```bash
-# Build packages for both Chrome and Firefox
-npm run build
+## Directory Structure
+
+```
+rollCloud/
+├── manifest.json          # Chrome manifest (MV3)
+├── manifest_firefox.json  # Firefox manifest (MV2)
+├── src/                   # Shared source code
+├── icons/                 # Extension icons
+├── dist/                  # Build output
+│   ├── chrome/            # Chrome build
+│   └── firefox/           # Firefox build
 ```
 
-This creates:
-- `dist/chrome/` - Chrome package (Manifest V3)
-- `dist/firefox/` - Firefox package (Manifest V2)
-- `dist/rollcloud-chrome.zip` - Ready to upload to Chrome Web Store
-- `dist/rollcloud-firefox.zip` - Ready to upload to Firefox Add-ons
+## Building for Chrome
 
-### Installing the Built Packages
+### Manual Build
+1. Copy all files except `manifest_firefox.json` to `dist/chrome/`
+2. The default `manifest.json` is already configured for Chrome
 
-**Chrome:**
+### Install in Chrome
 1. Open `chrome://extensions/`
 2. Enable "Developer mode"
 3. Click "Load unpacked"
-4. Select `dist/chrome/` directory
+4. Select the `dist/chrome/` directory (or root directory for development)
 
-**Firefox:**
-1. Open `about:debugging#/runtime/this-firefox`
-2. Click "Load Temporary Add-on"
-3. Select any file in `dist/firefox/` directory
+## Building for Firefox
 
----
-
-## Architecture
-
-The extension uses a **browser API polyfill** (`src/common/browser-polyfill.js`) that provides a unified API across browsers. This allows the same code to run on both Chrome and Firefox without modifications.
-
-### Key Components
-
-- **`manifest.json`** - Chrome Manifest V3 (default)
-- **`manifest-firefox.json`** - Firefox Manifest V2
-- **`src/common/browser-polyfill.js`** - Browser compatibility layer
-- **`build.js`** - Automated build script
-
----
-
-## Manual Build (Alternative)
-
-If you prefer to build manually without the build script:
-
-### Building for Chrome
-
-**Requirements:** Chrome 88+ (Manifest V3 support)
-
-1. Open Chrome and navigate to `chrome://extensions/`
-
-2. Enable "Developer mode" (toggle in top right)
-
-3. Click "Load unpacked"
-
-4. Select the root directory (contains `manifest.json`)
-
-5. The extension will use `manifest.json` (Manifest V3, default)
-
-### Building for Firefox
-
-**Requirements:** Firefox 109+ (Manifest V2 required - MV3 not fully supported)
-
-1. **Rename manifests**:
+### Manual Build
+1. Copy all files to `dist/firefox/`
+2. Replace `manifest.json` with `manifest_firefox.json`:
    ```bash
-   mv manifest.json manifest-chrome.json
-   mv manifest-firefox.json manifest.json
+   cd dist/firefox/
+   rm manifest.json
+   cp manifest_firefox.json manifest.json
    ```
 
-2. Open Firefox and navigate to `about:debugging#/runtime/this-firefox`
+### Install in Firefox
+1. Open `about:debugging#/runtime/this-firefox`
+2. Click "Load Temporary Add-on"
+3. Select the `manifest.json` file from `dist/firefox/`
 
-3. Click "Load Temporary Add-on"
+### Package for Firefox
+```bash
+cd dist/firefox/
+zip -r ../rollcloud-firefox.zip *
+```
 
-4. Select the `manifest.json` file in the root directory
+Then submit `rollcloud-firefox.zip` to Firefox Add-ons.
 
-5. The extension will load with Firefox-compatible Manifest V2
+## Automated Build Script
 
-**Important:** Remember to swap the manifests back when switching to Chrome!
-
-### For Production (Firefox)
-
-To create a signed Firefox extension:
+Use the provided build script:
 
 ```bash
-# Install web-ext
-npm install -g web-ext
-
-# Build the extension
-cd /home/user/rollCloud
-web-ext build --overwrite-dest
-
-# Sign the extension (requires AMO API credentials)
-web-ext sign --api-key=$AMO_JWT_ISSUER --api-secret=$AMO_JWT_SECRET
+./build.sh chrome    # Build for Chrome
+./build.sh firefox   # Build for Firefox
+./build.sh all       # Build for all browsers
 ```
 
-## Key Differences
+## Browser Compatibility Notes
 
-| Feature | Chrome (MV3) | Firefox (MV2) |
-|---------|--------------|---------------|
-| Manifest Version | 3 | 2 |
-| Background Script | Service Worker | Persistent Background Page |
-| Permissions | Separate `host_permissions` | Combined in `permissions` |
-| Browser Action | `action` | `browser_action` |
-| Web Accessible Resources | Object with matches | Simple array |
-| API Namespace | `chrome.*` | `browser.*` (promisified) |
+### Chrome (Manifest V3)
+- Uses Service Worker for background script
+- Callback-based `chrome` API
+- `action` for browser action button
 
-## Browser API Polyfill
+### Firefox (Manifest V2)
+- Uses background scripts (not service worker)
+- Promise-based `browser` API (with fallback to `chrome`)
+- `browser_action` for browser action button
+- Requires `applications.gecko.id` for extension ID
 
-The polyfill (`src/common/browser-polyfill.js`) provides:
+### Code Compatibility
+The extension uses a browser detection polyfill (`src/common/browser-polyfill.js`) that automatically detects the browser and uses the appropriate API:
+- Firefox: Uses native `browser` API
+- Chrome: Uses native `chrome` API
 
-- **Unified API**: Use `browserAPI` instead of `chrome` or `browser`
-- **Promise-based**: All async operations return Promises
-- **Automatic detection**: Detects browser and uses appropriate API
-- **Error handling**: Consistent error handling across browsers
+## Development
 
-### Example Usage
+For development, you can use the root directory directly without building:
+- **Chrome**: Load the root directory as unpacked extension
+- **Firefox**: Load the root directory, but Firefox will use the Chrome manifest (MV3)
 
-```javascript
-// Old (Chrome-specific)
-chrome.runtime.sendMessage({ action: 'test' }, (response) => {
-  if (chrome.runtime.lastError) {
-    console.error(chrome.runtime.lastError);
-  } else {
-    console.log(response);
-  }
-});
+For Firefox development, temporarily copy `manifest_firefox.json` to `manifest.json`.
 
-// New (Cross-browser)
-try {
-  const response = await browserAPI.runtime.sendMessage({ action: 'test' });
-  console.log(response);
-} catch (error) {
-  console.error(error);
-}
-```
+## API Differences Handled
 
-## Testing
-
-### Chrome Testing
-1. Load the extension with `manifest.json`
-2. Open DiceCloud and Roll20
-3. Test all features
-
-### Firefox Testing
-1. Swap to `manifest-firefox.json` as described above
-2. Load as temporary add-on
-3. Test all features
-4. Verify polyfill console message: `🌐 Browser API polyfill loaded for: firefox`
-
-## Troubleshooting
-
-### Chrome Issues
-- **Service Worker not loading**: Check console for importScripts errors
-- **API errors**: Verify `browserAPI` is defined before use
-
-### Firefox Issues
-- **MV3 not supported**: Use `manifest-firefox.json` (Manifest V2)
-- **Background page not persistent**: This is normal for MV2
-- **API promises not working**: Check that polyfill loaded successfully
-
-## Future Improvements
-
-- Automated build script to swap manifests
-- Webpack/Rollup build pipeline
-- Automated testing with both browsers
-- CI/CD for both Chrome Web Store and Firefox Add-ons
+The extension handles these browser differences automatically:
+1. **Background scripts**: Service worker (Chrome) vs. script (Firefox)
+2. **Browser API**: `chrome` vs. `browser` namespace
+3. **Storage API**: Callback-based (Chrome) vs. Promise-based (Firefox)
+4. **Extension button**: `action` (Chrome MV3) vs. `browser_action` (Firefox MV2)
+5. **Web accessible resources**: Different syntax between MV2 and MV3
