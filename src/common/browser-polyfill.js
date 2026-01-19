@@ -10,11 +10,24 @@
 const isChrome = typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id;
 const isFirefox = !isChrome && typeof browser !== 'undefined' && browser.runtime;
 
+console.log('🔍 Browser detection:', {
+  isChrome,
+  isFirefox,
+  hasChrome: typeof chrome !== 'undefined',
+  hasBrowser: typeof browser !== 'undefined',
+  hasWindow: typeof window !== 'undefined'
+});
+
 // Use the appropriate browser API
 const browserAPI = isFirefox ? browser : chrome;
 
 // Use 'self' for service workers, 'window' for content scripts
 const globalScope = typeof window !== 'undefined' ? window : self;
+
+if (!browserAPI || !browserAPI.runtime) {
+  console.error('❌ FATAL: No valid browser API found!');
+  throw new Error('No valid browser API found');
+}
 
 /**
  * Unified Browser API

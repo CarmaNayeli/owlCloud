@@ -4,6 +4,49 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
+  console.log('🚀 Popup DOMContentLoaded fired');
+  console.log('🔍 browserAPI check:', typeof browserAPI);
+  console.log('🔍 window.browserAPI check:', typeof window.browserAPI);
+  console.log('🔍 chrome check:', typeof chrome);
+
+  // Check if browserAPI is available
+  if (typeof browserAPI === 'undefined' && typeof window.browserAPI === 'undefined') {
+    console.error('❌ FATAL: browserAPI is not defined!');
+    document.body.innerHTML = `
+      <div style="padding: 20px; color: red; font-family: Arial;">
+        <h2>Error: Browser API Not Loaded</h2>
+        <p>The browser polyfill failed to load.</p>
+        <p><strong>Steps to fix:</strong></p>
+        <ol>
+          <li>Go to chrome://extensions/</li>
+          <li>Click "Remove" on RollCloud</li>
+          <li>Reload the extension fresh</li>
+        </ol>
+        <p style="font-size: 12px; color: #666;">
+          Check the console (F12) for more details.
+        </p>
+      </div>
+    `;
+    return;
+  }
+
+  try {
+    initializePopup();
+  } catch (error) {
+    console.error('❌ Popup initialization error:', error);
+    document.body.innerHTML = `
+      <div style="padding: 20px; color: red; font-family: Arial;">
+        <h2>Initialization Error</h2>
+        <p>${error.message}</p>
+        <pre style="background: #f0f0f0; padding: 10px; overflow: auto;">${error.stack}</pre>
+      </div>
+    `;
+  }
+});
+
+function initializePopup() {
+  console.log('📋 Initializing popup UI...');
+
   // DOM Elements - Sections
   const loginSection = document.getElementById('loginSection');
   const mainSection = document.getElementById('mainSection');
@@ -308,4 +351,4 @@ document.addEventListener('DOMContentLoaded', () => {
       loadCharacterData();
     }, 3000);
   }
-});
+} // End initializePopup
