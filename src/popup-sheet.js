@@ -449,6 +449,44 @@ function buildActionsDisplay(container, actions) {
           return; // No uses remaining
         }
 
+        // Check and decrement Ki points if action costs Ki
+        const kiCost = getKiCostFromAction(action);
+        if (kiCost > 0) {
+          const kiResource = getKiPointsResource();
+          if (!kiResource) {
+            showNotification(`❌ No Ki Points resource found`, 'error');
+            return;
+          }
+          if (kiResource.current < kiCost) {
+            showNotification(`❌ Not enough Ki Points! Need ${kiCost}, have ${kiResource.current}`, 'error');
+            return;
+          }
+          kiResource.current -= kiCost;
+          saveCharacterData();
+          console.log(`✨ Used ${kiCost} Ki points for ${action.name}. Remaining: ${kiResource.current}/${kiResource.max}`);
+          showNotification(`✨ ${action.name}! (${kiResource.current}/${kiResource.max} Ki left)`);
+          buildSheet(characterData); // Refresh display
+        }
+
+        // Check and decrement Sorcery Points if action costs them
+        const sorceryCost = getSorceryPointCostFromAction(action);
+        if (sorceryCost > 0) {
+          const sorceryResource = getSorceryPointsResource();
+          if (!sorceryResource) {
+            showNotification(`❌ No Sorcery Points resource found`, 'error');
+            return;
+          }
+          if (sorceryResource.current < sorceryCost) {
+            showNotification(`❌ Not enough Sorcery Points! Need ${sorceryCost}, have ${sorceryResource.current}`, 'error');
+            return;
+          }
+          sorceryResource.current -= sorceryCost;
+          saveCharacterData();
+          console.log(`✨ Used ${sorceryCost} Sorcery Points for ${action.name}. Remaining: ${sorceryResource.current}/${sorceryResource.max}`);
+          showNotification(`✨ ${action.name}! (${sorceryResource.current}/${sorceryResource.max} SP left)`);
+          buildSheet(characterData); // Refresh display
+        }
+
         let damageName = action.damageType ?
           `${action.name} (${action.damageType})` :
           action.name;
@@ -477,6 +515,101 @@ function buildActionsDisplay(container, actions) {
         if (action.uses && !decrementActionUses(action)) {
           return; // No uses remaining
         }
+
+        // Check and decrement Ki points if action costs Ki
+        const kiCost = getKiCostFromAction(action);
+        if (kiCost > 0) {
+          const kiResource = getKiPointsResource();
+          if (!kiResource) {
+            showNotification(`❌ No Ki Points resource found`, 'error');
+            return;
+          }
+          if (kiResource.current < kiCost) {
+            showNotification(`❌ Not enough Ki Points! Need ${kiCost}, have ${kiResource.current}`, 'error');
+            return;
+          }
+          kiResource.current -= kiCost;
+          saveCharacterData();
+          console.log(`✨ Used ${kiCost} Ki points for ${action.name}. Remaining: ${kiResource.current}/${kiResource.max}`);
+          showNotification(`✨ ${action.name}! (${kiResource.current}/${kiResource.max} Ki left)`);
+          buildSheet(characterData); // Refresh display
+        }
+
+        // Check and decrement Sorcery Points if action costs them
+        const sorceryCost = getSorceryPointCostFromAction(action);
+        if (sorceryCost > 0) {
+          const sorceryResource = getSorceryPointsResource();
+          if (!sorceryResource) {
+            showNotification(`❌ No Sorcery Points resource found`, 'error');
+            return;
+          }
+          if (sorceryResource.current < sorceryCost) {
+            showNotification(`❌ Not enough Sorcery Points! Need ${sorceryCost}, have ${sorceryResource.current}`, 'error');
+            return;
+          }
+          sorceryResource.current -= sorceryCost;
+          saveCharacterData();
+          console.log(`✨ Used ${sorceryCost} Sorcery Points for ${action.name}. Remaining: ${sorceryResource.current}/${sorceryResource.max}`);
+          showNotification(`✨ ${action.name}! (${sorceryResource.current}/${sorceryResource.max} SP left)`);
+          buildSheet(characterData); // Refresh display
+        }
+
+        announceAction(action);
+      });
+      buttonsDiv.appendChild(useBtn);
+    }
+
+    // Fallback: Add Use button for actions without attackRoll/damage/description
+    // This ensures actions like "Convert Sorcery Points to Spell Slot" get a button
+    if (!action.attackRoll && !action.damage && !action.description) {
+      const useBtn = document.createElement('button');
+      useBtn.className = 'use-btn';
+      useBtn.textContent = '✨ Use';
+      useBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // Check and decrement uses before announcing
+        if (action.uses && !decrementActionUses(action)) {
+          return; // No uses remaining
+        }
+
+        // Check and decrement Ki points if action costs Ki
+        const kiCost = getKiCostFromAction(action);
+        if (kiCost > 0) {
+          const kiResource = getKiPointsResource();
+          if (!kiResource) {
+            showNotification(`❌ No Ki Points resource found`, 'error');
+            return;
+          }
+          if (kiResource.current < kiCost) {
+            showNotification(`❌ Not enough Ki Points! Need ${kiCost}, have ${kiResource.current}`, 'error');
+            return;
+          }
+          kiResource.current -= kiCost;
+          saveCharacterData();
+          console.log(`✨ Used ${kiCost} Ki points for ${action.name}. Remaining: ${kiResource.current}/${kiResource.max}`);
+          showNotification(`✨ ${action.name}! (${kiResource.current}/${kiResource.max} Ki left)`);
+          buildSheet(characterData); // Refresh display
+        }
+
+        // Check and decrement Sorcery Points if action costs them
+        const sorceryCost = getSorceryPointCostFromAction(action);
+        if (sorceryCost > 0) {
+          const sorceryResource = getSorceryPointsResource();
+          if (!sorceryResource) {
+            showNotification(`❌ No Sorcery Points resource found`, 'error');
+            return;
+          }
+          if (sorceryResource.current < sorceryCost) {
+            showNotification(`❌ Not enough Sorcery Points! Need ${sorceryCost}, have ${sorceryResource.current}`, 'error');
+            return;
+          }
+          sorceryResource.current -= sorceryCost;
+          saveCharacterData();
+          console.log(`✨ Used ${sorceryCost} Sorcery Points for ${action.name}. Remaining: ${sorceryResource.current}/${sorceryResource.max}`);
+          showNotification(`✨ ${action.name}! (${sorceryResource.current}/${sorceryResource.max} SP left)`);
+          buildSheet(characterData); // Refresh display
+        }
+
         announceAction(action);
       });
       buttonsDiv.appendChild(useBtn);
@@ -1280,6 +1413,11 @@ function showUpcastChoice(spell, originalLevel) {
   // Check for metamagic options
   const metamagicOptions = getAvailableMetamagic();
   const sorceryPoints = getSorceryPointsResource();
+  console.log('🔮 Metamagic detection:', {
+    metamagicOptions,
+    sorceryPoints,
+    hasMetamagic: metamagicOptions.length > 0 && sorceryPoints && sorceryPoints.current > 0
+  });
   const hasMetamagic = metamagicOptions.length > 0 && sorceryPoints && sorceryPoints.current > 0;
 
   // If only the original level is available and no metamagic, just cast it
@@ -1633,7 +1771,10 @@ function getAvailableMetamagic() {
     'Twinned Spell': 'variable' // Cost equals spell level (min 1 for cantrips)
   };
 
-  if (!characterData || !characterData.features) return [];
+  if (!characterData || !characterData.features) {
+    console.log('🔮 No characterData or features for metamagic detection');
+    return [];
+  }
 
   // Find metamagic features
   const metamagicOptions = characterData.features.filter(feature => {
@@ -1648,6 +1789,7 @@ function getAvailableMetamagic() {
     };
   });
 
+  console.log('🔮 Found metamagic options:', metamagicOptions.map(m => m.name));
   return metamagicOptions;
 }
 
@@ -1661,6 +1803,56 @@ function getSorceryPointsResource() {
   });
 
   return sorceryResource || null;
+}
+
+function getKiPointsResource() {
+  if (!characterData || !characterData.resources) return null;
+
+  // Find ki points in resources
+  const kiResource = characterData.resources.find(r => {
+    const lowerName = r.name.toLowerCase();
+    return lowerName.includes('ki point') || lowerName === 'ki points' || lowerName === 'ki';
+  });
+
+  return kiResource || null;
+}
+
+function getKiCostFromAction(action) {
+  if (!action || !action.description) return 0;
+
+  const lowerDesc = action.description.toLowerCase();
+
+  // Match patterns like "spend 1 ki point", "costs 2 ki points", etc.
+  const kiPattern = /(?:spend|cost|use)s?\s+(\d+)\s+ki\s+point/i;
+  const match = lowerDesc.match(kiPattern);
+
+  if (match) {
+    const cost = parseInt(match[1]);
+    console.log(`💨 Ki cost detected for ${action.name}: ${cost} ki points`);
+    return cost;
+  }
+
+  console.log(`💨 No Ki cost detected for ${action.name}`);
+  return 0;
+}
+
+function getSorceryPointCostFromAction(action) {
+  if (!action || !action.description) return 0;
+
+  const lowerDesc = action.description.toLowerCase();
+
+  // Match patterns like "spend 1 sorcery point", "costs 2 sorcery points", etc.
+  const sorceryPattern = /(?:spend|cost|use)s?\s+(\d+)\s+sorcery\s+point/i;
+  const match = lowerDesc.match(sorceryPattern);
+
+  if (match) {
+    const cost = parseInt(match[1]);
+    console.log(`✨ Sorcery Point cost detected for ${action.name}: ${cost} SP`);
+    return cost;
+  }
+
+  console.log(`✨ No Sorcery Point cost detected for ${action.name}`);
+  return 0;
 }
 
 function calculateMetamagicCost(metamagicName, spellLevel) {
@@ -1963,6 +2155,41 @@ function resolveVariablesInFormula(formula) {
     }
   }
 
+  // Pattern 2.5: Handle max/min functions outside of curly braces (e.g., "1d6+max(strengthModifier, dexterityModifier)")
+  const maxMinGlobalPattern = /(max|min)\(([^)]+)\)/gi;
+
+  while ((match = maxMinGlobalPattern.exec(resolvedFormula)) !== null) {
+    const func = match[1].toLowerCase();
+    const argsString = match[2];
+    const fullMatch = match[0];
+
+    try {
+      const args = argsString.split(',').map(arg => {
+        const trimmed = arg.trim();
+        // Try to parse as number first
+        const num = parseFloat(trimmed);
+        if (!isNaN(num)) return num;
+
+        // Try to resolve as variable
+        const varVal = getVariableValue(trimmed);
+        if (varVal !== null && typeof varVal === 'number') return varVal;
+
+        return null;
+      }).filter(v => v !== null);
+
+      if (args.length > 0) {
+        const result = func === 'max' ? Math.max(...args) : Math.min(...args);
+        resolvedFormula = resolvedFormula.replace(fullMatch, result);
+        variablesResolved.push(`${func}(...)=${result}`);
+        console.log(`✅ Resolved ${func} function: ${fullMatch} = ${result}`);
+        // Reset regex lastIndex since we modified the string
+        maxMinGlobalPattern.lastIndex = 0;
+      }
+    } catch (e) {
+      console.log(`⚠️ Failed to resolve ${func} function: ${fullMatch}`, e);
+    }
+  }
+
   // Pattern 3: Find variables/expressions in curly braces like {variableName} or {3*cleric.level}
   const bracesPattern = /\{([^}]+)\}/g;
 
@@ -2032,7 +2259,7 @@ function resolveVariablesInFormula(formula) {
       }
     }
 
-    // Handle max/min functions
+    // Handle max/min functions (can be standalone or part of larger expression)
     const maxMinPattern = /^(max|min)\(([^)]+)\)$/i;
     const maxMinMatch = cleanExpr.match(maxMinPattern);
     if (maxMinMatch) {
