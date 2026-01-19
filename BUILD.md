@@ -38,8 +38,8 @@ The extension uses a **browser API polyfill** (`src/common/browser-polyfill.js`)
 
 ### Key Components
 
-- **`manifest.json`** - Firefox Manifest V2 (default)
-- **`manifest-chrome.json`** - Chrome Manifest V3
+- **`manifest.json`** - Chrome Manifest V3 (default)
+- **`manifest-firefox.json`** - Firefox Manifest V2
 - **`src/common/browser-polyfill.js`** - Browser compatibility layer
 - **`build.js`** - Automated build script
 
@@ -53,35 +53,35 @@ If you prefer to build manually without the build script:
 
 **Requirements:** Chrome 88+ (Manifest V3 support)
 
-1. **Rename manifests**:
-   ```bash
-   mv manifest.json manifest-firefox.json
-   mv manifest-chrome.json manifest.json
-   ```
+1. Open Chrome and navigate to `chrome://extensions/`
 
-2. Open Chrome and navigate to `chrome://extensions/`
+2. Enable "Developer mode" (toggle in top right)
 
-3. Enable "Developer mode" (toggle in top right)
+3. Click "Load unpacked"
 
-4. Click "Load unpacked"
+4. Select the root directory (contains `manifest.json`)
 
-5. Select the root directory (contains `manifest.json`)
-
-6. The extension will use `manifest.json` (Manifest V3)
-
-**Important:** Remember to swap the manifests back when switching to Firefox!
+5. The extension will use `manifest.json` (Manifest V3, default)
 
 ### Building for Firefox
 
 **Requirements:** Firefox 109+ (Manifest V2 required - MV3 not fully supported)
 
-1. Open Firefox and navigate to `about:debugging#/runtime/this-firefox`
+1. **Rename manifests**:
+   ```bash
+   mv manifest.json manifest-chrome.json
+   mv manifest-firefox.json manifest.json
+   ```
 
-2. Click "Load Temporary Add-on"
+2. Open Firefox and navigate to `about:debugging#/runtime/this-firefox`
 
-3. Select the `manifest.json` file in the root directory
+3. Click "Load Temporary Add-on"
 
-4. The extension will load with Firefox-compatible Manifest V2 (default)
+4. Select the `manifest.json` file in the root directory
+
+5. The extension will load with Firefox-compatible Manifest V2
+
+**Important:** Remember to swap the manifests back when switching to Chrome!
 
 ### For Production (Firefox)
 

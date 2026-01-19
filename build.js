@@ -89,7 +89,7 @@ function buildChrome() {
 
   // Copy Chrome manifest
   fs.copyFileSync(
-    path.join(ROOT, 'manifest-chrome.json'),
+    path.join(ROOT, 'manifest.json'),
     path.join(BUILD_CHROME, 'manifest.json')
   );
 
@@ -119,7 +119,7 @@ function buildFirefox() {
 
   // Copy Firefox manifest
   fs.copyFileSync(
-    path.join(ROOT, 'manifest.json'),
+    path.join(ROOT, 'manifest-firefox.json'),
     path.join(BUILD_FIREFOX, 'manifest.json')
   );
 
