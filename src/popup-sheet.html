@@ -120,6 +120,39 @@
       cursor: pointer;
       margin-top: 10px;
     }
+    .rest-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+      justify-content: center;
+    }
+    .rest-btn {
+      background: #3498db;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 0.95em;
+      transition: all 0.2s;
+    }
+    .rest-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    .rest-btn.long {
+      background: #2ecc71;
+    }
+    .rest-btn.long:hover {
+      background: #27ae60;
+    }
+    .rest-btn.short {
+      background: #f39c12;
+    }
+    .rest-btn.short:hover {
+      background: #e67e22;
+    }
   </style>
 </head>
 <body>
@@ -128,6 +161,10 @@
     <div class="header">
       <h2 id="char-name">🎲 Character Sheet</h2>
       <div id="char-info"></div>
+      <div class="rest-buttons">
+        <button class="rest-btn short" id="short-rest-btn">☕ Short Rest</button>
+        <button class="rest-btn long" id="long-rest-btn">🌙 Long Rest</button>
+      </div>
     </div>
 
     <div class="section">

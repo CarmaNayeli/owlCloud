@@ -24,6 +24,20 @@ if (window.opener && !window.opener.closed) {
 
 console.log('✅ Waiting for character data via postMessage...');
 
+// Add event listeners for rest buttons
+document.addEventListener('DOMContentLoaded', () => {
+  const shortRestBtn = document.getElementById('short-rest-btn');
+  const longRestBtn = document.getElementById('long-rest-btn');
+
+  if (shortRestBtn) {
+    shortRestBtn.addEventListener('click', takeShortRest);
+  }
+
+  if (longRestBtn) {
+    longRestBtn.addEventListener('click', takeLongRest);
+  }
+});
+
 function buildSheet(data) {
   console.log('Building character sheet...');
 
@@ -374,6 +388,141 @@ function showNotification(message) {
   notif.textContent = message;
   document.body.appendChild(notif);
   setTimeout(() => notif.remove(), 2000);
+}
+
+function takeShortRest() {
+  if (!characterData) {
+    showNotification('❌ Character data not available', 'error');
+    return;
+  }
+
+  const confirmed = confirm('Take a Short Rest?\n\nThis will:\n- Restore some HP (you can spend hit dice)\n- Restore Warlock spell slots\n- Restore some class features');
+
+  if (!confirmed) return;
+
+  console.log('☕ Taking short rest...');
+
+  // Restore Warlock Pact Magic slots (they recharge on short rest)
+  if (characterData.otherVariables) {
+    if (characterData.otherVariables.pactMagicSlotsMax !== undefined) {
+      characterData.otherVariables.pactMagicSlots = characterData.otherVariables.pactMagicSlotsMax;
+      console.log('✅ Restored Pact Magic slots');
+    }
+
+    // Restore Ki points for Monk (short rest feature)
+    if (characterData.otherVariables.kiMax !== undefined) {
+      characterData.otherVariables.ki = characterData.otherVariables.kiMax;
+      console.log('✅ Restored Ki points');
+    } else if (characterData.otherVariables.kiPointsMax !== undefined) {
+      characterData.otherVariables.kiPoints = characterData.otherVariables.kiPointsMax;
+      console.log('✅ Restored Ki points');
+    }
+
+    // Restore Action Surge, Second Wind (short rest features)
+    if (characterData.otherVariables.actionSurgeMax !== undefined) {
+      characterData.otherVariables.actionSurge = characterData.otherVariables.actionSurgeMax;
+    }
+    if (characterData.otherVariables.secondWindMax !== undefined) {
+      characterData.otherVariables.secondWind = characterData.otherVariables.secondWindMax;
+    }
+  }
+
+  // For HP, in 5e you spend hit dice. Let's add a simple HP restoration
+  const conMod = characterData.attributeMods?.constitution || 0;
+  const hpRestored = Math.floor(characterData.hitPoints.max * 0.5); // Restore ~50% HP as approximation
+  const newHP = Math.min(characterData.hitPoints.current + hpRestored, characterData.hitPoints.max);
+  characterData.hitPoints.current = newHP;
+
+  saveCharacterData();
+  buildSheet(characterData);
+
+  showNotification(`☕ Short Rest complete! Restored ${hpRestored} HP and recharged short rest features.`);
+  console.log('✅ Short rest complete');
+
+  // Announce to Roll20
+  if (window.opener && !window.opener.closed) {
+    window.opener.postMessage({
+      action: 'announceSpell',
+      message: `${characterData.name} takes a short rest.`
+    }, '*');
+  }
+}
+
+function takeLongRest() {
+  if (!characterData) {
+    showNotification('❌ Character data not available', 'error');
+    return;
+  }
+
+  const confirmed = confirm('Take a Long Rest?\n\nThis will:\n- Fully restore HP\n- Restore all spell slots\n- Restore all class features\n- Restore hit dice');
+
+  if (!confirmed) return;
+
+  console.log('🌙 Taking long rest...');
+
+  // Restore all HP
+  characterData.hitPoints.current = characterData.hitPoints.max;
+  console.log('✅ Restored HP to max');
+
+  // Restore all spell slots
+  if (characterData.spellSlots) {
+    for (let level = 1; level <= 9; level++) {
+      const slotVar = `level${level}SpellSlots`;
+      const slotMaxVar = `level${level}SpellSlotsMax`;
+
+      if (characterData.spellSlots[slotMaxVar] !== undefined) {
+        characterData.spellSlots[slotVar] = characterData.spellSlots[slotMaxVar];
+        console.log(`✅ Restored level ${level} spell slots`);
+      }
+    }
+  }
+
+  // Restore all class resources
+  if (characterData.otherVariables) {
+    Object.keys(characterData.otherVariables).forEach(key => {
+      // If there's a Max variant, restore to max
+      if (key.endsWith('Max')) {
+        const baseKey = key.replace('Max', '');
+        if (characterData.otherVariables[baseKey] !== undefined) {
+          characterData.otherVariables[baseKey] = characterData.otherVariables[key];
+          console.log(`✅ Restored ${baseKey}`);
+        }
+      }
+    });
+
+    // Also restore specific resources that might not follow the Max pattern
+    if (characterData.otherVariables.kiMax !== undefined) {
+      characterData.otherVariables.ki = characterData.otherVariables.kiMax;
+    } else if (characterData.otherVariables.kiPointsMax !== undefined) {
+      characterData.otherVariables.kiPoints = characterData.otherVariables.kiPointsMax;
+    }
+
+    if (characterData.otherVariables.sorceryPointsMax !== undefined) {
+      characterData.otherVariables.sorceryPoints = characterData.otherVariables.sorceryPointsMax;
+    }
+
+    if (characterData.otherVariables.pactMagicSlotsMax !== undefined) {
+      characterData.otherVariables.pactMagicSlots = characterData.otherVariables.pactMagicSlotsMax;
+    }
+
+    if (characterData.otherVariables.channelDivinityMax !== undefined) {
+      characterData.otherVariables.channelDivinity = characterData.otherVariables.channelDivinityMax;
+    }
+  }
+
+  saveCharacterData();
+  buildSheet(characterData);
+
+  showNotification('🌙 Long Rest complete! All resources restored.');
+  console.log('✅ Long rest complete');
+
+  // Announce to Roll20
+  if (window.opener && !window.opener.closed) {
+    window.opener.postMessage({
+      action: 'announceSpell',
+      message: `${characterData.name} completes a long rest and is fully restored!`
+    }, '*');
+  }
 }
 
 console.log('✅ Popup script fully loaded');
