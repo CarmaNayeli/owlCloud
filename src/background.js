@@ -7,11 +7,19 @@
 // Note: For Chrome service workers, use importScripts. For Firefox, it's loaded via manifest scripts array
 if (typeof importScripts === 'function') {
   try {
-    importScripts('src/common/browser-polyfill.js');
-    console.log('✅ Browser polyfill imported via importScripts');
+    // Try relative path first (service worker is in src/ directory)
+    importScripts('./common/browser-polyfill.js');
+    console.log('✅ Browser polyfill imported via importScripts (relative path)');
   } catch (e) {
-    console.error('❌ Failed to import browser-polyfill via importScripts:', e);
-    throw e;
+    console.log('⚠️ Relative path failed, trying absolute path...');
+    try {
+      // Try absolute path from extension root
+      importScripts('src/common/browser-polyfill.js');
+      console.log('✅ Browser polyfill imported via importScripts (absolute path)');
+    } catch (e2) {
+      console.error('❌ Failed to import browser-polyfill:', e, e2);
+      throw e2;
+    }
   }
 } else {
   console.log('Browser polyfill loaded via manifest (Firefox)');
