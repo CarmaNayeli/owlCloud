@@ -1424,7 +1424,8 @@ function announceAction(action) {
   if (action.uses) {
     const usesUsed = action.usesUsed || 0;
     const usesTotal = action.uses.total || action.uses.value || action.uses;
-    const usesText = `${usesUsed} / ${usesTotal}`;
+    const usesRemaining = usesTotal - usesUsed;
+    const usesText = `${usesRemaining} / ${usesTotal}`;
     message += ` {{Uses=${usesText}}}`;
   }
 
