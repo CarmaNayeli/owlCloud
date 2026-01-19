@@ -545,9 +545,41 @@
             // Process each child (features, damage, effects, etc.)
             toggleChildren.forEach(child => {
               if (child.type === 'feature' || child.type === 'damage' || child.type === 'effect') {
+                // Extract description from summary or description field
+                let childDescription = '';
+                if (child.summary) {
+                  if (typeof child.summary === 'object' && child.summary.text) {
+                    childDescription = child.summary.text;
+                  } else if (typeof child.summary === 'string') {
+                    childDescription = child.summary;
+                  }
+                } else if (child.description) {
+                  if (typeof child.description === 'object' && child.description.text) {
+                    childDescription = child.description.text;
+                  } else if (typeof child.description === 'string') {
+                    childDescription = child.description;
+                  }
+                }
+
+                // Fallback to parent description if child has none
+                if (!childDescription && prop.summary) {
+                  if (typeof prop.summary === 'object' && prop.summary.text) {
+                    childDescription = prop.summary.text;
+                  } else if (typeof prop.summary === 'string') {
+                    childDescription = prop.summary;
+                  }
+                }
+                if (!childDescription && prop.description) {
+                  if (typeof prop.description === 'object' && prop.description.text) {
+                    childDescription = prop.description.text;
+                  } else if (typeof prop.description === 'string') {
+                    childDescription = prop.description;
+                  }
+                }
+
                 const toggleFeature = {
                   name: child.name || prop.name || 'Unnamed Feature',
-                  description: child.description || prop.description || '',
+                  description: childDescription,
                   uses: child.uses || prop.uses,
                   roll: child.roll || child.amount || '',
                   damage: child.damage || child.amount || ''
@@ -564,17 +596,26 @@
 
                 characterData.features.push(toggleFeature);
 
-                // If has roll/damage, add to actions
-                if (toggleFeature.roll || toggleFeature.damage) {
+                // Add to actions if it has roll/damage OR if it has actionType/description (like Cunning Action)
+                const validActionTypes = ['action', 'bonus', 'reaction', 'free', 'legendary', 'lair', 'other'];
+                const hasValidActionType = child.actionType && validActionTypes.includes(child.actionType.toLowerCase());
+                const shouldAddToActions = toggleFeature.roll || toggleFeature.damage || hasValidActionType || toggleFeature.description;
+
+                if (shouldAddToActions) {
                   characterData.actions.push({
                     name: toggleFeature.name,
-                    actionType: 'feature',
+                    actionType: child.actionType || 'feature',
                     attackRoll: '',
                     damage: toggleFeature.damage || toggleFeature.roll,
                     damageType: child.damageType || '',
                     description: toggleFeature.description
                   });
-                  console.log(`⚔️ Added toggle feature to actions: ${toggleFeature.name}`);
+
+                  if (toggleFeature.damage || toggleFeature.roll) {
+                    console.log(`⚔️ Added toggle feature to actions: ${toggleFeature.name}`);
+                  } else {
+                    console.log(`✨ Added toggle non-attack feature to actions: ${toggleFeature.name} (${child.actionType || 'feature'})`);
+                  }
                 }
               }
             });
