@@ -637,8 +637,7 @@
         case 'action':
           // Extract attack actions (weapons, unarmed strikes, etc.)
           // Only include actions that have attack rolls or damage (actual combat actions)
-          // Skip inactive/disabled actions
-          if (prop.name && (prop.attackRoll || prop.damage) && !prop.inactive && !prop.disabled) {
+          if (prop.name && (prop.attackRoll || prop.damage)) {
             // Handle description - it might be an object with a 'text' or 'value' field
             let description = '';
             if (prop.description) {
@@ -669,19 +668,24 @@
               }
             }
 
-            const action = {
-              name: prop.name,
-              actionType: prop.actionType || 'other',
-              attackRoll: attackRoll,
-              damage: damage,
-              damageType: prop.damageType || '',
-              description: description,
-              uses: prop.uses || null,
-              usesUsed: prop.usesUsed || 0
-            };
+            // Only add actions that have at least one valid formula AND are not inactive/disabled
+            if ((attackRoll || damage) && !prop.inactive && !prop.disabled) {
+              const action = {
+                name: prop.name,
+                actionType: prop.actionType || 'other',
+                attackRoll: attackRoll,
+                damage: damage,
+                damageType: prop.damageType || '',
+                description: description,
+                uses: prop.uses || null,
+                usesUsed: prop.usesUsed || 0
+              };
 
-            characterData.actions.push(action);
-            console.log(`⚔️ Added action: ${action.name} (attack: ${attackRoll}, damage: ${damage})`);
+              characterData.actions.push(action);
+              console.log(`⚔️ Added action: ${action.name} (attack: ${attackRoll}, damage: ${damage})`);
+            } else {
+              console.log(`⏭️ Skipped action: ${prop.name} (inactive: ${prop.inactive}, disabled: ${prop.disabled}, attack: ${attackRoll}, damage: ${damage})`);
+            }
           }
           break;
       }
