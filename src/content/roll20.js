@@ -72,7 +72,7 @@
   /**
    * Listen for messages from other parts of the extension
    */
-  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'postRollToChat') {
       handleDiceCloudRoll(request.roll);
       sendResponse({ success: true });

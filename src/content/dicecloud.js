@@ -76,7 +76,7 @@
     // Get stored API token from background script
     let tokenResponse;
     try {
-      tokenResponse = await chrome.runtime.sendMessage({ action: 'getApiToken' });
+      tokenResponse = await browserAPI.runtime.sendMessage({ action: 'getApiToken' });
     } catch (error) {
       console.error('Extension context error:', error);
       throw new Error('Extension reloaded. Please refresh the page.');
@@ -1031,12 +1031,12 @@
       if (characterData && characterData.name) {
         // Send to background script for storage
         try {
-          chrome.runtime.sendMessage({
+          browserAPI.runtime.sendMessage({
             action: 'storeCharacterData',
             data: characterData
           }, (response) => {
-            if (chrome.runtime.lastError) {
-              console.error('❌ Extension context error:', chrome.runtime.lastError);
+            if (browserAPI.runtime.lastError) {
+              console.error('❌ Extension context error:', browserAPI.runtime.lastError);
               showNotification('Extension reloaded. Please refresh the page.', 'error');
               return;
             }
@@ -1159,7 +1159,7 @@
   /**
    * Listens for messages from popup and other parts of the extension
    */
-  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
     console.log('DiceCloud received message:', request);
 
     switch (request.action) {
@@ -2511,12 +2511,12 @@
     // Send to Roll20
     console.log('📡 Sending roll to Roll20...');
     try {
-      chrome.runtime.sendMessage({
+      browserAPI.runtime.sendMessage({
         action: 'sendRollToRoll20',
         roll: modifiedRoll
       }, (response) => {
-        if (chrome.runtime.lastError) {
-          console.error('❌ Chrome runtime error:', chrome.runtime.lastError);
+        if (browserAPI.runtime.lastError) {
+          console.error('❌ Chrome runtime error:', browserAPI.runtime.lastError);
           showNotification('Roll20 not available. Is Roll20 open?', 'warning');
           return;
         }
@@ -2597,12 +2597,12 @@
       .then(characterData => {
         if (characterData) {
           // Store in extension storage
-          chrome.runtime.sendMessage({
+          browserAPI.runtime.sendMessage({
             action: 'storeCharacterData',
             data: characterData
           }, (response) => {
-            if (chrome.runtime.lastError) {
-              console.error('❌ Extension context error:', chrome.runtime.lastError);
+            if (browserAPI.runtime.lastError) {
+              console.error('❌ Extension context error:', browserAPI.runtime.lastError);
               showNotification('Extension context error. Please refresh the page.', 'error');
               if (button) {
                 button.innerHTML = '🔄 Sync to RollCloud';

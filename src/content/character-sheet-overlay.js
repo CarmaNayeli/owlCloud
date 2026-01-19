@@ -1309,7 +1309,7 @@
       
       // Send to background script to find Dice Cloud tab and roll there
       console.log('🔍 Debug: Sending message to background script');
-      chrome.runtime.sendMessage({
+      browserAPI.runtime.sendMessage({
         action: 'rollInDiceCloudAndForward',
         roll: {
           name: name,
@@ -1320,8 +1320,8 @@
         }
       }, (response) => {
         console.log('🔍 Debug: Background script response:', response);
-        if (chrome.runtime.lastError) {
-          console.error('❌ Background script error:', chrome.runtime.lastError);
+        if (browserAPI.runtime.lastError) {
+          console.error('❌ Background script error:', browserAPI.runtime.lastError);
           showNotification('Failed to roll in Dice Cloud. Is Dice Cloud open?', 'error');
         } else if (response && response.success) {
           console.log('✅ Roll initiated in Dice Cloud via background script');
@@ -1353,7 +1353,7 @@
       
       // Send to background script to find Dice Cloud tab and roll there
       console.log('🔍 Debug: Sending message to background script from Roll20');
-      chrome.runtime.sendMessage({
+      browserAPI.runtime.sendMessage({
         action: 'rollInDiceCloudAndForward',
         roll: {
           name: name,
@@ -1364,8 +1364,8 @@
         }
       }, (response) => {
         console.log('🔍 Debug: Background script response from Roll20:', response);
-        if (chrome.runtime.lastError) {
-          console.error('❌ Background script error:', chrome.runtime.lastError);
+        if (browserAPI.runtime.lastError) {
+          console.error('❌ Background script error:', browserAPI.runtime.lastError);
           showNotification('Failed to roll in Dice Cloud. Is Dice Cloud open?', 'error');
         } else if (response && response.success) {
           console.log('✅ Roll initiated in Dice Cloud via background script');
@@ -1436,12 +1436,12 @@
     };
 
     // Send to Roll20
-    chrome.runtime.sendMessage({
+    browserAPI.runtime.sendMessage({
       action: 'postRollToChat',
       roll: rollData
     }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.error('❌ Error sending roll to Roll20:', chrome.runtime.lastError);
+      if (browserAPI.runtime.lastError) {
+        console.error('❌ Error sending roll to Roll20:', browserAPI.runtime.lastError);
       } else {
         console.log('✅ Roll sent to Roll20 directly');
         showNotification(`${name} roll sent to Roll20! 🎲`, 'success');
@@ -1560,9 +1560,9 @@
    */
   function showOverlay() {
     // Load character data first
-    chrome.runtime.sendMessage({ action: 'getCharacterData' }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.error('❌ Extension context error:', chrome.runtime.lastError);
+    browserAPI.runtime.sendMessage({ action: 'getCharacterData' }, (response) => {
+      if (browserAPI.runtime.lastError) {
+        console.error('❌ Extension context error:', browserAPI.runtime.lastError);
         showNotification('Extension context error. Please refresh the page.', 'error');
         return;
       }
@@ -1571,7 +1571,7 @@
         console.log('✅ Character data loaded for popup:', response.data.name);
 
         // Get the popup HTML file URL
-        const popupURL = chrome.runtime.getURL('src/popup-sheet.html');
+        const popupURL = browserAPI.runtime.getURL('src/popup-sheet.html');
 
         // Open popup with the HTML file
         const popupWindow = window.open(popupURL, 'rollcloud-character-sheet', 'width=900,height=700,scrollbars=yes,resizable=yes,menubar=no,toolbar=no,location=no,status=no');
@@ -1659,7 +1659,7 @@
       console.log('💾 Received character data update from popup:', event.data.data);
 
       // Save updated character data to storage
-      chrome.runtime.sendMessage({
+      browserAPI.runtime.sendMessage({
         action: 'storeCharacterData',
         data: event.data.data
       }, (response) => {
@@ -1731,7 +1731,7 @@
   }
 
   // Listen for messages from background script
-  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'postRollToChat') {
       // Handle roll from DiceCloud
       if (request.roll) {
