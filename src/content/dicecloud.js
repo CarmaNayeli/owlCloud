@@ -516,8 +516,16 @@
 
           characterData.features.push(feature);
 
+          // Filter out metamagic features (they should only be used when casting spells)
+          const metamagicFeatureNames = [
+            'Careful Spell', 'Distant Spell', 'Empowered Spell', 'Extended Spell',
+            'Heightened Spell', 'Quickened Spell', 'Subtle Spell', 'Twinned Spell'
+          ];
+          const isMetamagicFeature = metamagicFeatureNames.includes(feature.name);
+
           // If feature has a roll/damage, also add it to actions for easy access
-          if (feature.roll || feature.damage) {
+          // BUT skip metamagic features (they're handled in spell casting UI)
+          if (!isMetamagicFeature && (feature.roll || feature.damage)) {
             characterData.actions.push({
               name: feature.name,
               actionType: 'feature',
@@ -895,11 +903,19 @@
               }
             }
 
+            // Filter out metamagic features (they should only be used when casting spells)
+            const metamagicNames = [
+              'Careful Spell', 'Distant Spell', 'Empowered Spell', 'Extended Spell',
+              'Heightened Spell', 'Quickened Spell', 'Subtle Spell', 'Twinned Spell'
+            ];
+            const isMetamagic = metamagicNames.includes(prop.name);
+
             // Add action if it has attack roll OR if it's a non-attack action (bonus action, reaction, etc.)
+            // BUT skip metamagic features (they're handled in spell casting UI)
             const validActionTypes = ['action', 'bonus', 'reaction', 'free', 'legendary', 'lair', 'other'];
             const hasValidActionType = prop.actionType && validActionTypes.includes(prop.actionType.toLowerCase());
 
-            if (attackRoll || hasValidActionType || description) {
+            if (!isMetamagic && (attackRoll || hasValidActionType || description)) {
               const action = {
                 name: prop.name,
                 actionType: prop.actionType || 'other',
