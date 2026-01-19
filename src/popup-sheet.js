@@ -2215,6 +2215,26 @@ function resolveVariablesInFormula(formula) {
     // Strip markdown formatting
     let cleanExpr = expression.replace(/\*\*/g, '');
 
+    // Handle ternary operators: {condition ? trueValue : falseValue}
+    const ternaryPattern = /^(.+?)\s*\?\s*"([^"]*)"\s*:\s*"([^"]*)"$/;
+    const ternaryMatch = cleanExpr.match(ternaryPattern);
+    if (ternaryMatch) {
+      const condition = ternaryMatch[1].trim();
+      const trueValue = ternaryMatch[2];
+      const falseValue = ternaryMatch[3];
+
+      // Resolve the condition variable
+      const conditionValue = getVariableValue(condition);
+
+      // JavaScript truthiness: null, undefined, 0, false, "" are falsy
+      const result = conditionValue ? trueValue : falseValue;
+
+      resolvedFormula = resolvedFormula.replace(fullMatch, result);
+      variablesResolved.push(`${condition} ? "${trueValue}" : "${falseValue}" = "${result}"`);
+      console.log(`✅ Resolved ternary: ${condition} (${conditionValue}) ? "${trueValue}" : "${falseValue}" = "${result}"`);
+      continue;
+    }
+
     // Try as simple variable first
     let simpleValue = getVariableValue(cleanExpr);
     if (simpleValue !== null) {
