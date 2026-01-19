@@ -1573,29 +1573,50 @@
         // Get the popup HTML file URL
         const popupURL = browserAPI.runtime.getURL('src/popup-sheet.html');
 
-        // Open popup with the HTML file
-        const popupWindow = window.open(popupURL, 'rollcloud-character-sheet', 'width=900,height=700,scrollbars=yes,resizable=yes,menubar=no,toolbar=no,location=no,status=no');
+        let messageSent = false;
+        let popupWindow = null;
 
-        if (!popupWindow) {
-          console.error('❌ Failed to open popup window. Please allow popups for this site.');
-          showNotification('Failed to open popup window. Please allow popups for this site.', 'error');
-          return;
-        }
-
-        // Listen for popup ready message
+        // Set up message listener BEFORE opening the window to avoid race condition
         const messageHandler = (event) => {
-          if (event.data && event.data.action === 'popupReady') {
+          if (event.data && event.data.action === 'popupReady' && popupWindow && !messageSent) {
             console.log('✅ Popup is ready, sending character data...');
+            messageSent = true;
             popupWindow.postMessage({
               action: 'initCharacterSheet',
               data: response.data
             }, '*');
             console.log('✅ Character data sent to popup via postMessage');
-            // Clean up listener
-            window.removeEventListener('message', messageHandler);
+            // Clean up listener after a delay
+            setTimeout(() => {
+              window.removeEventListener('message', messageHandler);
+            }, 1000);
           }
         };
         window.addEventListener('message', messageHandler);
+
+        // Now open the popup window
+        popupWindow = window.open(popupURL, 'rollcloud-character-sheet', 'width=900,height=700,scrollbars=yes,resizable=yes,menubar=no,toolbar=no,location=no,status=no');
+
+        if (!popupWindow) {
+          console.error('❌ Failed to open popup window. Please allow popups for this site.');
+          showNotification('Failed to open popup window. Please allow popups for this site.', 'error');
+          window.removeEventListener('message', messageHandler);
+          return;
+        }
+
+        // Fallback: Send data after a delay if popup hasn't sent ready message
+        // This handles cases where the popup loads faster than expected
+        setTimeout(() => {
+          if (!messageSent && popupWindow && !popupWindow.closed) {
+            console.log('⏱️ Fallback: Sending character data after timeout...');
+            messageSent = true;
+            popupWindow.postMessage({
+              action: 'initCharacterSheet',
+              data: response.data
+            }, '*');
+            console.log('✅ Character data sent via fallback');
+          }
+        }, 500);
 
         overlayVisible = true;
         showNotification('Character sheet opened! 🎲', 'success');
