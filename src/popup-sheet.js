@@ -1,18 +1,16 @@
 console.log('✅ Popup HTML loaded');
 
-// Get character data from opener
-let characterData = null;
+// Listen for character data from parent window via postMessage
+window.addEventListener('message', (event) => {
+  console.log('✅ Received message in popup:', event.data);
 
-if (window.opener && window.opener.characterData) {
-  characterData = window.opener.characterData;
-  console.log('✅ Got character data from opener:', characterData);
-  buildSheet(characterData);
-} else {
-  console.error('❌ No character data available from opener');
-  document.addEventListener('DOMContentLoaded', () => {
-    document.querySelector('.container').innerHTML = '<p style="text-align: center; color: #666;">No character data available. Please sync from Dice Cloud first.</p>';
-  });
-}
+  if (event.data && event.data.action === 'initCharacterSheet') {
+    console.log('✅ Initializing character sheet with data:', event.data.data.name);
+    buildSheet(event.data.data);
+  }
+});
+
+console.log('✅ Waiting for character data via postMessage...');
 
 function buildSheet(data) {
   console.log('Building character sheet...');
