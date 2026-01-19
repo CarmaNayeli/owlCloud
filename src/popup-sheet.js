@@ -45,12 +45,15 @@ function buildSheet(data) {
 
   // Character name and info with color picker
   const charNameEl = document.getElementById('char-name');
+  const currentColorEmoji = getColorEmoji(data.notificationColor || '#3498db');
   charNameEl.innerHTML = `
     <div style="display: flex; align-items: center; justify-content: center; gap: 15px;">
       <span>🎲 ${data.name || 'Character'}</span>
-      <div style="display: flex; gap: 5px; align-items: center;">
-        <span style="font-size: 0.8em; opacity: 0.8;">🎨</span>
-        <div id="color-palette" style="display: flex; gap: 5px;">
+      <div style="display: flex; gap: 5px; align-items: center; position: relative;">
+        <button id="color-toggle" style="background: none; border: none; cursor: pointer; font-size: 1.2em; padding: 5px; display: flex; align-items: center; gap: 3px;" title="Change notification color">
+          ${currentColorEmoji} 🎨
+        </button>
+        <div id="color-palette" style="display: none; position: absolute; left: 100%; top: 50%; transform: translateY(-50%); gap: 5px; background: rgba(0,0,0,0.8); padding: 8px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 1000;">
           ${createColorPalette(data.notificationColor || '#3498db')}
         </div>
       </div>
@@ -845,11 +848,7 @@ function useClassResource(resource, spell) {
   return true;
 }
 
-function getColoredBanner() {
-  // Get the character's notification color
-  const color = characterData.notificationColor || '#3498db';
-
-  // Use colored emoji circles - these display properly in Roll20
+function getColorEmoji(color) {
   const colorEmojiMap = {
     '#3498db': '🔵', // Blue
     '#e74c3c': '🔴', // Red
@@ -863,8 +862,13 @@ function getColoredBanner() {
     '#34495e': '⚫', // Black
     '#8b4513': '🟤'  // Brown
   };
+  return colorEmojiMap[color] || '🔵';
+}
 
-  const emoji = colorEmojiMap[color] || '🔵';
+function getColoredBanner() {
+  // Get the character's notification color
+  const color = characterData.notificationColor || '#3498db';
+  const emoji = getColorEmoji(color);
   return `${emoji} `;
 }
 
@@ -978,10 +982,30 @@ function initColorPalette() {
     characterData.notificationColor = '#3498db';
   }
 
+  const toggleBtn = document.getElementById('color-toggle');
+  const palette = document.getElementById('color-palette');
+
+  if (!toggleBtn || !palette) return;
+
+  // Toggle palette visibility
+  toggleBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isVisible = palette.style.display === 'flex';
+    palette.style.display = isVisible ? 'none' : 'flex';
+  });
+
+  // Close palette when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!palette.contains(e.target) && e.target !== toggleBtn) {
+      palette.style.display = 'none';
+    }
+  });
+
   // Add click handlers to color swatches
   document.querySelectorAll('.color-swatch').forEach(swatch => {
     swatch.addEventListener('click', (e) => {
       const newColor = e.target.dataset.color;
+      const oldColor = characterData.notificationColor;
       characterData.notificationColor = newColor;
 
       // Update all swatches
@@ -990,6 +1014,13 @@ function initColorPalette() {
         s.style.border = isSelected ? '3px solid white' : '2px solid rgba(255,255,255,0.3)';
         s.style.boxShadow = isSelected ? '0 0 8px rgba(255,255,255,0.8)' : '0 2px 4px rgba(0,0,0,0.2)';
       });
+
+      // Update the toggle button emoji
+      const newEmoji = getColorEmoji(newColor);
+      toggleBtn.innerHTML = `${newEmoji} 🎨`;
+
+      // Close the palette
+      palette.style.display = 'none';
 
       // Save to storage
       saveCharacterData();
