@@ -572,6 +572,17 @@
             console.log(`❌ No source found for "${prop.name}"`);
           }
 
+          // Check if spell is from a locked feature (e.g., "11th Level Ranger" when character is level 3)
+          const levelRequirement = source.match(/(\d+)(?:st|nd|rd|th)?\s+Level/i);
+          const requiredLevel = levelRequirement ? parseInt(levelRequirement[1]) : 0;
+          const characterLevel = characterData.level || 1;
+
+          // Skip spells from features not yet unlocked
+          if (requiredLevel > characterLevel) {
+            console.log(`⏭️ Skipping "${prop.name}" from "${source}" (requires level ${requiredLevel}, character is level ${characterLevel})`);
+            break;
+          }
+
           characterData.spells.push({
             name: prop.name || 'Unnamed Spell',
             level: prop.level || 0,
