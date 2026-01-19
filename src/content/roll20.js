@@ -59,14 +59,14 @@
   }
 
   /**
-   * Formats roll data for Roll20 chat display
+   * Formats roll data for Roll20 chat display with fancy template
    */
   function formatRollForRoll20(rollData) {
     const { name, formula, result } = rollData;
-    
-    // Format for Roll20: /r {formula} {description}
-    // Roll20 will calculate the result automatically
-    return `/r ${formula} ${name}`;
+
+    // Use Roll20's template system with inline rolls for fancy formatting
+    // [[formula]] creates an inline roll that Roll20 will calculate
+    return `&{template:default} {{name=${name}}} {{Roll=[[${formula}]]}}`;
   }
 
   /**

@@ -59,16 +59,26 @@ function buildSheet(data) {
       <div><strong>Race:</strong> ${raceName}</div>
       <div><strong>Hit Dice:</strong> ${data.hitDice.current}/${data.hitDice.max} ${data.hitDice.type}</div>
     </div>
-    <div style="text-align: center;">
-      <div id="hp-display" style="display: inline-block; padding: 15px 30px; background: #e74c3c; color: white; border-radius: 8px; cursor: pointer; font-size: 1.2em; font-weight: bold; transition: all 0.2s;">
+    <div style="text-align: center; margin-bottom: 15px;">
+      <div id="hp-display" style="display: inline-block; padding: 15px 30px; background: #e74c3c; color: white; border-radius: 8px; cursor: pointer; font-size: 1.2em; font-weight: bold; transition: all 0.2s; margin-right: 15px;">
         <div style="font-size: 0.8em; margin-bottom: 5px;">Hit Points</div>
         <div style="font-size: 1.5em;">${data.hitPoints.current} / ${data.hitPoints.max}</div>
+      </div>
+      <div id="initiative-button" style="display: inline-block; padding: 15px 30px; background: #3498db; color: white; border-radius: 8px; cursor: pointer; font-size: 1.2em; font-weight: bold; transition: all 0.2s;">
+        <div style="font-size: 0.8em; margin-bottom: 5px;">Initiative</div>
+        <div style="font-size: 1.5em;">+${data.initiative || 0}</div>
       </div>
     </div>
   `;
 
   // Add click handler for HP display
   document.getElementById('hp-display').addEventListener('click', showHPModal);
+
+  // Add click handler for initiative button
+  document.getElementById('initiative-button').addEventListener('click', () => {
+    const initiativeBonus = data.initiative || 0;
+    roll('Initiative', `1d20+${initiativeBonus}`);
+  });
 
   // Update HP display color based on percentage
   const hpPercent = (data.hitPoints.current / data.hitPoints.max) * 100;
