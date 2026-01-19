@@ -1094,23 +1094,9 @@ function castSpell(spell, index) {
 
   console.log(`📊 Spell slots for level ${spellLevel}:`, { current: currentSlots, max: maxSlots });
 
-  // Check for class-specific casting resources
-  const classResources = detectClassResources(spell);
-
-  if (classResources.length > 0) {
-    // Show choice dialog if multiple options
-    if (classResources.length > 1 || (classResources.length === 1 && currentSlots > 0)) {
-      showResourceChoice(spell, spellLevel, currentSlots, maxSlots, classResources);
-      return;
-    }
-
-    // Use the only available resource
-    const resource = classResources[0];
-    if (useClassResource(resource, spell)) {
-      announceSpellCast(spell, resource.name);
-      return;
-    }
-  }
+  // In D&D 5e, spells are cast using spell slots (not class resources like Ki or Sorcery Points)
+  // Class resources are used for class features, and Sorcery Points are used for metamagic
+  // Metamagic is handled in showUpcastChoice(), not here
 
   // Use spell slot - but check if there are higher level slots for upcasting
   if (currentSlots <= 0) {
@@ -1151,14 +1137,8 @@ function detectClassResources(spell) {
     }
   }
 
-  // Check for Sorcery Points (Sorcerer)
-  if (otherVars.sorceryPoints !== undefined) {
-    const points = otherVars.sorceryPoints || 0;
-    const pointsMax = otherVars.sorceryPointsMax || 0;
-    if (points > 0) {
-      resources.push({ name: 'Sorcery Points', current: points, max: pointsMax, varName: 'sorceryPoints' });
-    }
-  }
+  // NOTE: Sorcery Points are NOT a casting resource - they're only used for metamagic
+  // Metamagic is handled in the spell slot casting flow, not as an alternative resource
 
   // Check for Pact Magic slots (Warlock)
   if (otherVars.pactMagicSlots !== undefined) {
