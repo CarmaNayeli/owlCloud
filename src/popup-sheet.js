@@ -435,7 +435,9 @@ function buildActionsDisplay(container, actions) {
       let btnText;
       if (action.damageType && action.damageType.toLowerCase().includes('heal')) {
         btnText = '💚 Heal';
-      } else if (action.actionType === 'feature') {
+      } else if (action.actionType === 'feature' || !action.attackRoll) {
+        // If it's a feature OR there's no attack roll (like Deflect Missiles, defensive abilities, etc.)
+        // then it's just a roll, not damage
         btnText = '🎲 Roll';
       } else {
         btnText = '💥 Damage';
@@ -1295,8 +1297,13 @@ function showUpcastChoice(spell, originalLevel) {
     }
   }
 
-  // If only the original level is available, just cast it
-  if (availableSlots.length === 1) {
+  // Check for metamagic options
+  const metamagicOptions = getAvailableMetamagic();
+  const sorceryPoints = getSorceryPointsResource();
+  const hasMetamagic = metamagicOptions.length > 0 && sorceryPoints && sorceryPoints.current > 0;
+
+  // If only the original level is available and no metamagic, just cast it
+  if (availableSlots.length === 1 && !hasMetamagic) {
     castWithSlot(spell, availableSlots[0]);
     return;
   }
@@ -1309,8 +1316,8 @@ function showUpcastChoice(spell, originalLevel) {
   modalContent.style.cssText = 'background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); max-width: 400px; width: 90%;';
 
   let dropdownHTML = `
-    <h3 style="margin: 0 0 20px 0; color: #2c3e50; text-align: center;">Upcast ${spell.name}?</h3>
-    <p style="text-align: center; color: #7f8c8d; margin-bottom: 20px;">This spell is level ${originalLevel}. Choose a spell slot:</p>
+    <h3 style="margin: 0 0 20px 0; color: #2c3e50; text-align: center;">Cast ${spell.name}</h3>
+    <p style="text-align: center; color: #7f8c8d; margin-bottom: 20px;">Level ${originalLevel} spell</p>
 
     <div style="margin-bottom: 25px;">
       <label style="display: block; margin-bottom: 10px; font-weight: bold; color: #2c3e50;">Spell Slot Level:</label>
@@ -1327,7 +1334,38 @@ function showUpcastChoice(spell, originalLevel) {
   dropdownHTML += `
       </select>
     </div>
+  `;
 
+  // Add metamagic options if available
+  if (hasMetamagic) {
+    dropdownHTML += `
+      <div style="margin-bottom: 25px; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 2px solid #9b59b6;">
+        <label style="display: block; margin-bottom: 10px; font-weight: bold; color: #9b59b6;">✨ Metamagic (Sorcery Points: ${sorceryPoints.current}/${sorceryPoints.max})</label>
+        <div id="metamagic-container" style="display: flex; flex-direction: column; gap: 8px;">
+    `;
+
+    metamagicOptions.forEach((meta, index) => {
+      const cost = meta.cost === 'variable' ? calculateMetamagicCost(meta.name, originalLevel) : meta.cost;
+      const canAfford = sorceryPoints.current >= cost;
+      const disabledStyle = !canAfford ? 'opacity: 0.5; cursor: not-allowed;' : '';
+
+      dropdownHTML += `
+          <label style="display: flex; align-items: center; padding: 10px; background: white; border-radius: 6px; cursor: pointer; ${disabledStyle}" title="${meta.description}">
+            <input type="checkbox" class="metamagic-option" data-name="${meta.name}" data-cost="${cost}" ${!canAfford ? 'disabled' : ''} style="margin-right: 10px; width: 18px; height: 18px; cursor: pointer;">
+            <span style="flex: 1; color: #2c3e50;">${meta.name}</span>
+            <span style="color: #9b59b6; font-weight: bold;">${cost} SP</span>
+          </label>
+      `;
+    });
+
+    dropdownHTML += `
+        </div>
+        <div id="metamagic-cost" style="margin-top: 10px; text-align: right; font-weight: bold; color: #2c3e50;">Total Cost: 0 SP</div>
+      </div>
+    `;
+  }
+
+  dropdownHTML += `
     <div style="display: flex; gap: 10px;">
       <button id="upcast-cancel" style="flex: 1; padding: 12px; font-size: 1em; background: #95a5a6; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">
         Cancel
@@ -1346,11 +1384,80 @@ function showUpcastChoice(spell, originalLevel) {
   const confirmBtn = document.getElementById('upcast-confirm');
   const cancelBtn = document.getElementById('upcast-cancel');
 
+  // Track metamagic selections
+  let selectedMetamagic = [];
+
+  if (hasMetamagic) {
+    const metamagicCheckboxes = document.querySelectorAll('.metamagic-option');
+    const costDisplay = document.getElementById('metamagic-cost');
+
+    // Update selected spell level when it changes (affects Twinned Spell cost)
+    selectElement.addEventListener('change', () => {
+      const selectedLevel = parseInt(selectElement.value);
+
+      // Recalculate costs for variable-cost metamagic
+      metamagicCheckboxes.forEach(checkbox => {
+        const metaName = checkbox.dataset.name;
+        const metaOption = metamagicOptions.find(m => m.name === metaName);
+        if (metaOption && metaOption.cost === 'variable') {
+          const newCost = calculateMetamagicCost(metaName, selectedLevel);
+          checkbox.dataset.cost = newCost;
+
+          // Update display
+          const label = checkbox.closest('label');
+          const costSpan = label.querySelector('span:last-child');
+          costSpan.textContent = `${newCost} SP`;
+
+          // Check if still affordable
+          if (sorceryPoints.current < newCost && checkbox.checked) {
+            checkbox.checked = false;
+          }
+        }
+      });
+
+      // Update total cost
+      updateMetamagicCost();
+    });
+
+    function updateMetamagicCost() {
+      let totalCost = 0;
+      selectedMetamagic = [];
+
+      metamagicCheckboxes.forEach(checkbox => {
+        if (checkbox.checked) {
+          const cost = parseInt(checkbox.dataset.cost);
+          totalCost += cost;
+          selectedMetamagic.push({
+            name: checkbox.dataset.name,
+            cost: cost
+          });
+        }
+      });
+
+      costDisplay.textContent = `Total Cost: ${totalCost} SP`;
+
+      // Disable confirm if not enough sorcery points
+      if (totalCost > sorceryPoints.current) {
+        confirmBtn.disabled = true;
+        confirmBtn.style.opacity = '0.5';
+        confirmBtn.style.cursor = 'not-allowed';
+      } else {
+        confirmBtn.disabled = false;
+        confirmBtn.style.opacity = '1';
+        confirmBtn.style.cursor = 'pointer';
+      }
+    }
+
+    metamagicCheckboxes.forEach(checkbox => {
+      checkbox.addEventListener('change', updateMetamagicCost);
+    });
+  }
+
   confirmBtn.addEventListener('click', () => {
     const selectedLevel = parseInt(selectElement.value);
     const selectedSlot = availableSlots.find(s => s.level === selectedLevel);
     modal.remove();
-    castWithSlot(spell, selectedSlot);
+    castWithSlot(spell, selectedSlot, selectedMetamagic);
   });
 
   cancelBtn.addEventListener('click', () => {
@@ -1365,18 +1472,49 @@ function showUpcastChoice(spell, originalLevel) {
   });
 }
 
-function castWithSlot(spell, slot) {
+function castWithSlot(spell, slot, metamagicOptions = []) {
   // Deduct spell slot
   characterData.spellSlots[slot.slotVar] = slot.current - 1;
+
+  // Deduct sorcery points for metamagic
+  let totalMetamagicCost = 0;
+  let metamagicNames = [];
+
+  if (metamagicOptions && metamagicOptions.length > 0) {
+    const sorceryPoints = getSorceryPointsResource();
+    if (sorceryPoints) {
+      metamagicOptions.forEach(meta => {
+        totalMetamagicCost += meta.cost;
+        metamagicNames.push(meta.name);
+      });
+
+      // Deduct sorcery points
+      sorceryPoints.current = Math.max(0, sorceryPoints.current - totalMetamagicCost);
+      console.log(`✨ Used ${totalMetamagicCost} sorcery points for metamagic. Remaining: ${sorceryPoints.current}/${sorceryPoints.max}`);
+    }
+  }
+
   saveCharacterData();
 
-  const resourceText = slot.level > parseInt(spell.level)
+  let resourceText = slot.level > parseInt(spell.level)
     ? `Level ${slot.level} slot (upcast from ${spell.level})`
     : `Level ${slot.level} slot`;
 
+  // Add metamagic to resource text
+  if (metamagicNames.length > 0) {
+    resourceText += ` + ${metamagicNames.join(', ')} (${totalMetamagicCost} SP)`;
+  }
+
   console.log(`✅ Used spell slot. Remaining: ${characterData.spellSlots[slot.slotVar]}/${slot.max}`);
+
+  let notificationText = `✨ Cast ${spell.name}! (${characterData.spellSlots[slot.slotVar]}/${slot.max} slots left)`;
+  if (metamagicNames.length > 0) {
+    const sorceryPoints = getSorceryPointsResource();
+    notificationText += ` with ${metamagicNames.join(', ')}! (${sorceryPoints.current}/${sorceryPoints.max} SP left)`;
+  }
+
   announceSpellCast(spell, resourceText);
-  showNotification(`✨ Cast ${spell.name}! (${characterData.spellSlots[slot.slotVar]}/${slot.max} slots left)`);
+  showNotification(notificationText);
 
   // Update the display
   buildSheet(characterData);
@@ -1498,6 +1636,71 @@ function announceSpellCast(spell, resourceUsed) {
       roll(spell.name, spell.formula);
     }, 500);
   }
+}
+
+// ===== METAMAGIC SYSTEM =====
+
+function getAvailableMetamagic() {
+  // Metamagic costs (in sorcery points)
+  const metamagicCosts = {
+    'Careful Spell': 1,
+    'Distant Spell': 1,
+    'Empowered Spell': 1,
+    'Extended Spell': 1,
+    'Heightened Spell': 3,
+    'Quickened Spell': 2,
+    'Subtle Spell': 1,
+    'Twinned Spell': 'variable' // Cost equals spell level (min 1 for cantrips)
+  };
+
+  if (!characterData || !characterData.features) return [];
+
+  // Find metamagic features
+  const metamagicOptions = characterData.features.filter(feature => {
+    const name = feature.name.trim();
+    return metamagicCosts.hasOwnProperty(name);
+  }).map(feature => {
+    const name = feature.name.trim();
+    return {
+      name: name,
+      cost: metamagicCosts[name],
+      description: feature.description || ''
+    };
+  });
+
+  return metamagicOptions;
+}
+
+function getSorceryPointsResource() {
+  if (!characterData || !characterData.resources) return null;
+
+  // Find sorcery points in resources
+  const sorceryResource = characterData.resources.find(r => {
+    const lowerName = r.name.toLowerCase();
+    return lowerName.includes('sorcery point') || lowerName === 'sorcery points';
+  });
+
+  return sorceryResource || null;
+}
+
+function calculateMetamagicCost(metamagicName, spellLevel) {
+  const metamagicCosts = {
+    'Careful Spell': 1,
+    'Distant Spell': 1,
+    'Empowered Spell': 1,
+    'Extended Spell': 1,
+    'Heightened Spell': 3,
+    'Quickened Spell': 2,
+    'Subtle Spell': 1,
+    'Twinned Spell': 'variable'
+  };
+
+  const cost = metamagicCosts[metamagicName];
+  if (cost === 'variable') {
+    // Twinned Spell costs spell level (minimum 1 for cantrips)
+    return Math.max(1, spellLevel);
+  }
+  return cost || 0;
 }
 
 function announceAction(action) {

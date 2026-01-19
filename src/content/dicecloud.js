@@ -934,16 +934,47 @@
               break;
             }
 
+            // Helper function to extract numeric value from potentially complex property
+            const extractNumericValue = (val) => {
+              if (typeof val === 'number') return val;
+              if (typeof val === 'string') {
+                const parsed = parseFloat(val);
+                return isNaN(parsed) ? 0 : parsed;
+              }
+              if (typeof val === 'object' && val !== null) {
+                // Try common properties in order of preference
+                return val.value !== undefined ? val.value :
+                       val.total !== undefined ? val.total :
+                       val.calculation !== undefined ? parseFloat(val.calculation) || 0 :
+                       val.text !== undefined ? parseFloat(val.text) || 0 : 0;
+              }
+              return 0;
+            };
+
+            // Extract current value
+            let currentValue = extractNumericValue(prop.value);
+            if (currentValue === 0 && prop.damage !== undefined) {
+              currentValue = extractNumericValue(prop.damage);
+            }
+
+            // Extract max value
+            let maxValue = extractNumericValue(prop.baseValue);
+            if (maxValue === 0 && prop.total !== undefined) {
+              maxValue = extractNumericValue(prop.total);
+            }
+
             const resource = {
               name: prop.name,
-              current: prop.value || prop.damage || 0,  // 'damage' field represents consumed resources
-              max: prop.baseValue || prop.total || 0,
+              current: currentValue,
+              max: maxValue,
               description: prop.description || ''
             };
 
             // For resources that track usage (like consumed resources), current = max - damage
-            if (prop.damage && prop.baseValue) {
-              resource.current = Math.max(0, prop.baseValue - prop.damage);
+            const damageValue = extractNumericValue(prop.damage);
+            const baseValue = extractNumericValue(prop.baseValue);
+            if (damageValue > 0 && baseValue > 0) {
+              resource.current = Math.max(0, baseValue - damageValue);
             }
 
             characterData.resources.push(resource);
