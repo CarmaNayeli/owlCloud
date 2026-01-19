@@ -174,50 +174,55 @@ function buildSheet(data) {
 }
 
 function buildSpellsBySource(container, spells) {
-  // Group spells by source
-  const spellsBySource = {};
+  // Group spells by actual spell level (not source)
+  const spellsByLevel = {};
 
   spells.forEach((spell, index) => {
     // Add index to spell for tracking
     spell.index = index;
 
-    const source = spell.source || 'Unknown Source';
-    if (!spellsBySource[source]) {
-      spellsBySource[source] = [];
+    // Use spell level for grouping
+    const spellLevel = parseInt(spell.level) || 0;
+    const levelKey = spellLevel === 0 ? 'Cantrips' : `Level ${spellLevel} Spells`;
+
+    if (!spellsByLevel[levelKey]) {
+      spellsByLevel[levelKey] = [];
     }
-    spellsBySource[source].push(spell);
+    spellsByLevel[levelKey].push(spell);
   });
 
   // Clear container
   container.innerHTML = '';
 
-  // Sort sources alphabetically
-  const sortedSources = Object.keys(spellsBySource).sort();
+  // Sort by spell level (cantrips first, then 1-9)
+  const sortedLevels = Object.keys(spellsByLevel).sort((a, b) => {
+    if (a === 'Cantrips') return -1;
+    if (b === 'Cantrips') return 1;
+    return a.localeCompare(b, undefined, { numeric: true });
+  });
 
-  sortedSources.forEach(source => {
-    // Create source section
-    const sourceSection = document.createElement('div');
-    sourceSection.style.cssText = 'margin-bottom: 20px;';
+  sortedLevels.forEach(levelKey => {
+    // Create level section
+    const levelSection = document.createElement('div');
+    levelSection.style.cssText = 'margin-bottom: 20px;';
 
-    const sourceHeader = document.createElement('h4');
-    sourceHeader.textContent = `📚 ${source}`;
-    sourceHeader.style.cssText = 'color: #2c3e50; margin-bottom: 10px; padding: 5px; background: #ecf0f1; border-radius: 4px;';
-    sourceSection.appendChild(sourceHeader);
+    const levelHeader = document.createElement('h4');
+    levelHeader.textContent = `📚 ${levelKey}`;
+    levelHeader.style.cssText = 'color: #2c3e50; margin-bottom: 10px; padding: 5px; background: #ecf0f1; border-radius: 4px;';
+    levelSection.appendChild(levelHeader);
 
-    // Sort spells by level within source
-    const sortedSpells = spellsBySource[source].sort((a, b) => {
-      const levelA = parseInt(a.level) || 0;
-      const levelB = parseInt(b.level) || 0;
-      return levelA - levelB;
+    // Sort spells alphabetically within level
+    const sortedSpells = spellsByLevel[levelKey].sort((a, b) => {
+      return (a.name || '').localeCompare(b.name || '');
     });
 
     // Add spells
     sortedSpells.forEach(spell => {
       const spellCard = createSpellCard(spell, spell.index);
-      sourceSection.appendChild(spellCard);
+      levelSection.appendChild(spellCard);
     });
 
-    container.appendChild(sourceSection);
+    container.appendChild(levelSection);
   });
 }
 
