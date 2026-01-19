@@ -637,14 +637,25 @@
         case 'action':
           // Extract attack actions (weapons, unarmed strikes, etc.)
           // Only include actions that have attack rolls or damage (actual combat actions)
-          if (prop.name && (prop.attackRoll || prop.damage)) {
+          // Skip inactive/disabled actions
+          if (prop.name && (prop.attackRoll || prop.damage) && !prop.inactive && !prop.disabled) {
+            // Handle description - it might be an object with a 'text' or 'value' field
+            let description = '';
+            if (prop.description) {
+              if (typeof prop.description === 'string') {
+                description = prop.description;
+              } else if (typeof prop.description === 'object') {
+                description = prop.description.text || prop.description.value || '';
+              }
+            }
+
             const action = {
               name: prop.name,
               actionType: prop.actionType || 'other',
               attackRoll: prop.attackRoll || '',
               damage: prop.damage || '',
               damageType: prop.damageType || '',
-              description: prop.description || '',
+              description: description,
               uses: prop.uses || null,
               usesUsed: prop.usesUsed || 0
             };
