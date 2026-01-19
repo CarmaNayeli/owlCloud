@@ -418,6 +418,11 @@ function buildActionsDisplay(container, actions) {
       }
       damageBtn.textContent = btnText;
       damageBtn.addEventListener('click', () => {
+        // Check and decrement uses before rolling
+        if (action.uses && !decrementActionUses(action)) {
+          return; // No uses remaining
+        }
+
         let damageName = action.damageType ?
           `${action.name} (${action.damageType})` :
           action.name;
@@ -442,6 +447,10 @@ function buildActionsDisplay(container, actions) {
       useBtn.textContent = '✨ Use';
       useBtn.addEventListener('click', (e) => {
         e.stopPropagation();
+        // Check and decrement uses before announcing
+        if (action.uses && !decrementActionUses(action)) {
+          return; // No uses remaining
+        }
         announceAction(action);
       });
       buttonsDiv.appendChild(useBtn);
@@ -488,6 +497,37 @@ function buildActionsDisplay(container, actions) {
 
     container.appendChild(actionCard);
   });
+}
+
+function decrementActionUses(action) {
+  if (!action.uses) {
+    return true; // No uses to track, allow action
+  }
+
+  const usesUsed = action.usesUsed || 0;
+  const usesTotal = action.uses.total || action.uses.value || action.uses;
+  const usesRemaining = usesTotal - usesUsed;
+
+  if (usesRemaining <= 0) {
+    showNotification(`❌ No uses remaining for ${action.name}`, 'error');
+    return false;
+  }
+
+  // Increment usesUsed
+  action.usesUsed = usesUsed + 1;
+  const newRemaining = usesTotal - action.usesUsed;
+
+  // Update character data and save
+  updateCharacterData();
+
+  // Show notification
+  showNotification(`✅ Used ${action.name} (${newRemaining}/${usesTotal} remaining)`);
+
+  // Rebuild the actions display to show updated count
+  const actionsContainer = document.getElementById('actions-container');
+  buildActionsDisplay(actionsContainer, characterData.actions);
+
+  return true;
 }
 
 function buildSpellSlotsDisplay() {
@@ -1661,6 +1701,18 @@ function takeShortRest() {
   // Handle Hit Dice spending for HP restoration
   spendHitDice();
 
+  // Reset limited uses for short rest abilities
+  if (characterData.actions) {
+    characterData.actions.forEach(action => {
+      // Reset usesUsed for actions that recharge on short rest
+      // Most limited use abilities in D&D 5e recharge on short rest
+      if (action.uses && action.usesUsed > 0) {
+        action.usesUsed = 0;
+        console.log(`✅ Reset uses for ${action.name}`);
+      }
+    });
+  }
+
   saveCharacterData();
   buildSheet(characterData);
 
@@ -1852,6 +1904,16 @@ function takeLongRest() {
     if (characterData.otherVariables.channelDivinityMax !== undefined) {
       characterData.otherVariables.channelDivinity = characterData.otherVariables.channelDivinityMax;
     }
+  }
+
+  // Reset limited uses for all abilities
+  if (characterData.actions) {
+    characterData.actions.forEach(action => {
+      if (action.uses && action.usesUsed > 0) {
+        action.usesUsed = 0;
+        console.log(`✅ Reset uses for ${action.name}`);
+      }
+    });
   }
 
   saveCharacterData();
