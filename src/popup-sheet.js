@@ -2034,6 +2034,8 @@ function resolveVariablesInFormula(formula) {
     return formula;
   }
 
+  console.log(`🔧 resolveVariablesInFormula called with: "${formula}"`);
+
   // Check if characterData has otherVariables
   if (!characterData.otherVariables || typeof characterData.otherVariables !== 'object') {
     console.log('⚠️ No otherVariables available for formula resolution');
@@ -2172,8 +2174,10 @@ function resolveVariablesInFormula(formula) {
 
   // Pattern 2.5: Handle max/min functions outside of curly braces (e.g., "1d6+max(strengthModifier, dexterityModifier)")
   const maxMinGlobalPattern = /(max|min)\(([^)]+)\)/gi;
+  console.log(`🔍 Looking for max/min in formula: "${resolvedFormula}"`);
 
   while ((match = maxMinGlobalPattern.exec(resolvedFormula)) !== null) {
+    console.log(`🔍 Found max/min match:`, match);
     const func = match[1].toLowerCase();
     const argsString = match[2];
     const fullMatch = match[0];
@@ -2181,14 +2185,21 @@ function resolveVariablesInFormula(formula) {
     try {
       const args = argsString.split(',').map(arg => {
         const trimmed = arg.trim();
+        console.log(`🔍 Resolving arg: "${trimmed}"`);
+
         // Try to parse as number first
         const num = parseFloat(trimmed);
-        if (!isNaN(num)) return num;
+        if (!isNaN(num)) {
+          console.log(`  ✅ Parsed as number: ${num}`);
+          return num;
+        }
 
         // Try to resolve as variable
         const varVal = getVariableValue(trimmed);
+        console.log(`  🔍 Variable lookup result: ${varVal}`);
         if (varVal !== null && typeof varVal === 'number') return varVal;
 
+        console.log(`  ❌ Could not resolve: "${trimmed}"`);
         return null;
       }).filter(v => v !== null);
 
