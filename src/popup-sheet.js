@@ -53,7 +53,7 @@ function buildSheet(data) {
         <button id="color-toggle" style="background: none; border: none; cursor: pointer; font-size: 1.2em; padding: 5px; display: flex; align-items: center; gap: 3px;" title="Change notification color">
           ${currentColorEmoji} 🎨
         </button>
-        <div id="color-palette" style="display: none; position: absolute; left: 100%; top: 50%; transform: translateY(-50%); gap: 5px; background: rgba(0,0,0,0.8); padding: 8px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 1000;">
+        <div id="color-palette" style="display: none; position: absolute; left: 100%; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.8); padding: 8px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 1000; grid-template-columns: repeat(4, 1fr); gap: 5px; width: 120px;">
           ${createColorPalette(data.notificationColor || '#3498db')}
         </div>
       </div>
@@ -990,8 +990,8 @@ function initColorPalette() {
   // Toggle palette visibility
   toggleBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    const isVisible = palette.style.display === 'flex';
-    palette.style.display = isVisible ? 'none' : 'flex';
+    const isVisible = palette.style.display === 'grid';
+    palette.style.display = isVisible ? 'none' : 'grid';
   });
 
   // Close palette when clicking outside
