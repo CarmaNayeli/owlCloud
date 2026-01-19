@@ -1282,6 +1282,7 @@ function createSpellCard(spell, index) {
   desc.innerHTML = `
     ${spell.castingTime ? `<div><strong>Casting Time:</strong> ${spell.castingTime}</div>` : ''}
     ${spell.range ? `<div><strong>Range:</strong> ${spell.range}</div>` : ''}
+    ${spell.components ? `<div><strong>Components:</strong> ${spell.components}</div>` : ''}
     ${spell.duration ? `<div><strong>Duration:</strong> ${spell.duration}</div>` : ''}
     ${spell.school ? `<div><strong>School:</strong> ${spell.school}</div>` : ''}
     ${spell.source ? `<div><strong>Source:</strong> ${spell.source}</div>` : ''}
