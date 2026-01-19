@@ -332,21 +332,47 @@ function buildActionsDisplay(container, actions) {
       const useBtn = document.createElement('button');
       useBtn.className = 'use-btn';
       useBtn.textContent = '✨ Use';
-      useBtn.addEventListener('click', () => {
+      useBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
         announceAction(action);
       });
       buttonsDiv.appendChild(useBtn);
+    }
+
+    // Add Details toggle button if description exists
+    if (action.description) {
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'toggle-btn';
+      toggleBtn.textContent = '▼ Details';
+      buttonsDiv.appendChild(toggleBtn);
     }
 
     actionHeader.appendChild(nameDiv);
     actionHeader.appendChild(buttonsDiv);
     actionCard.appendChild(actionHeader);
 
-    // Add description if available
+    // Add collapsible description if available
     if (action.description) {
       const descDiv = document.createElement('div');
-      descDiv.style.cssText = 'margin-top: 8px; padding-top: 8px; border-top: 1px solid #e74c3c; font-size: 0.9em; color: #666;';
-      descDiv.textContent = action.description;
+      descDiv.className = 'action-description';
+      descDiv.innerHTML = `
+        <div style="margin-top: 10px;">${action.description}</div>
+      `;
+
+      // Toggle functionality
+      const toggleBtn = buttonsDiv.querySelector('.toggle-btn');
+      actionHeader.addEventListener('click', (e) => {
+        // Don't toggle if clicking on action buttons
+        if (!e.target.classList.contains('attack-btn') &&
+            !e.target.classList.contains('damage-btn') &&
+            !e.target.classList.contains('use-btn')) {
+          descDiv.classList.toggle('expanded');
+          if (toggleBtn) {
+            toggleBtn.textContent = descDiv.classList.contains('expanded') ? '▲ Hide' : '▼ Details';
+          }
+        }
+      });
+
       actionCard.appendChild(descDiv);
     }
 
