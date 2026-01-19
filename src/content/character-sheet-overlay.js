@@ -1700,6 +1700,155 @@
 
   // Listen for messages from background script
   /**
+   * Makes a button draggable and adds hide/show functionality
+   */
+  function makeButtonDraggable(button, storageKey) {
+    let isDragging = false;
+    let startX, startY, initialLeft, initialTop;
+
+    // Load saved position
+    const savedPosition = localStorage.getItem(`${storageKey}_position`);
+    if (savedPosition) {
+      const { left, top } = JSON.parse(savedPosition);
+      button.style.left = left;
+      button.style.top = top;
+      button.style.transform = 'none'; // Remove centering transform when positioned
+    }
+
+    // Load saved visibility
+    const savedVisibility = localStorage.getItem(`${storageKey}_hidden`);
+    if (savedVisibility === 'true') {
+      button.style.display = 'none';
+    }
+
+    button.addEventListener('mousedown', (e) => {
+      // Only start dragging on left click
+      if (e.button === 0) {
+        isDragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+
+        const rect = button.getBoundingClientRect();
+        initialLeft = rect.left;
+        initialTop = rect.top;
+
+        button.style.cursor = 'grabbing';
+        button.style.transform = 'none'; // Remove any transform during drag
+        e.preventDefault();
+      }
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (isDragging) {
+        const deltaX = e.clientX - startX;
+        const deltaY = e.clientY - startY;
+
+        const newLeft = initialLeft + deltaX;
+        const newTop = initialTop + deltaY;
+
+        button.style.left = `${newLeft}px`;
+        button.style.top = `${newTop}px`;
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (isDragging) {
+        isDragging = false;
+        button.style.cursor = 'pointer';
+
+        // Save position
+        localStorage.setItem(`${storageKey}_position`, JSON.stringify({
+          left: button.style.left,
+          top: button.style.top
+        }));
+      }
+    });
+
+    // Right-click context menu
+    button.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+
+      // Create context menu
+      const existingMenu = document.getElementById('rollcloud-context-menu');
+      if (existingMenu) existingMenu.remove();
+
+      const menu = document.createElement('div');
+      menu.id = 'rollcloud-context-menu';
+      menu.style.cssText = `
+        position: fixed;
+        left: ${e.clientX}px;
+        top: ${e.clientY}px;
+        background: white;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        z-index: 1000000;
+        padding: 5px 0;
+      `;
+
+      const hideOption = document.createElement('div');
+      hideOption.textContent = '🙈 Hide Button';
+      hideOption.style.cssText = `
+        padding: 8px 16px;
+        cursor: pointer;
+        font-size: 14px;
+      `;
+      hideOption.addEventListener('mouseenter', () => {
+        hideOption.style.background = '#f0f0f0';
+      });
+      hideOption.addEventListener('mouseleave', () => {
+        hideOption.style.background = 'white';
+      });
+      hideOption.addEventListener('click', () => {
+        button.style.display = 'none';
+        localStorage.setItem(`${storageKey}_hidden`, 'true');
+        menu.remove();
+        showNotification('Button hidden. Use extension popup to show it again.', 'info');
+      });
+
+      const resetOption = document.createElement('div');
+      resetOption.textContent = '🔄 Reset Position';
+      resetOption.style.cssText = `
+        padding: 8px 16px;
+        cursor: pointer;
+        font-size: 14px;
+        border-top: 1px solid #eee;
+      `;
+      resetOption.addEventListener('mouseenter', () => {
+        resetOption.style.background = '#f0f0f0';
+      });
+      resetOption.addEventListener('mouseleave', () => {
+        resetOption.style.background = 'white';
+      });
+      resetOption.addEventListener('click', () => {
+        localStorage.removeItem(`${storageKey}_position`);
+        if (storageKey === 'rollcloud-sheet-toggle') {
+          button.style.left = '50%';
+          button.style.top = '20px';
+          button.style.transform = 'translateX(-50%)';
+        } else {
+          button.style.left = '20px';
+          button.style.top = 'auto';
+          button.style.bottom = '20px';
+        }
+        menu.remove();
+        showNotification('Button position reset', 'success');
+      });
+
+      menu.appendChild(hideOption);
+      menu.appendChild(resetOption);
+      document.body.appendChild(menu);
+
+      // Close menu when clicking outside
+      setTimeout(() => {
+        document.addEventListener('click', () => {
+          menu.remove();
+        }, { once: true });
+      }, 0);
+    });
+  }
+
+  /**
    * Creates the toggle button for opening the character sheet
    */
   function createToggleButton() {
@@ -1733,12 +1882,16 @@
 
     // Hover effects
     button.addEventListener('mouseenter', () => {
-      button.style.transform = 'translateX(-50%) translateY(-2px)';
+      if (!button.style.left || button.style.left === '50%') {
+        button.style.transform = 'translateX(-50%) translateY(-2px)';
+      }
       button.style.boxShadow = '0 6px 20px rgba(78, 205, 196, 0.3)';
     });
 
     button.addEventListener('mouseleave', () => {
-      button.style.transform = 'translateX(-50%) translateY(0)';
+      if (!button.style.left || button.style.left === '50%') {
+        button.style.transform = 'translateX(-50%) translateY(0)';
+      }
       button.style.boxShadow = '0 4px 15px rgba(78, 205, 196, 0.2)';
     });
 
@@ -1748,6 +1901,10 @@
     });
 
     document.body.appendChild(button);
+
+    // Make it draggable and add hide/show functionality
+    makeButtonDraggable(button, 'rollcloud-sheet-toggle');
+
     console.log('✅ Character sheet button created');
   }
 
@@ -1769,6 +1926,15 @@
           updateRollHistoryDisplay();
           updateStatsDisplay();
         }
+      }
+      sendResponse({ success: true });
+    } else if (request.action === 'showCharacterSheetButton') {
+      // Show the character sheet button
+      const button = document.getElementById('rollcloud-sheet-toggle');
+      if (button) {
+        button.style.display = '';
+        localStorage.removeItem('rollcloud-sheet-toggle_hidden');
+        showNotification('Character Sheet button shown', 'success');
       }
       sendResponse({ success: true });
     }
