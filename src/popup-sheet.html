@@ -70,7 +70,7 @@
     }
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
       gap: 10px;
     }
     .card {
@@ -81,6 +81,10 @@
       text-align: center;
       cursor: pointer;
       transition: all 0.2s;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      hyphens: auto;
+      font-size: 0.95em;
     }
     .card:hover {
       background: #e8f5e8;
