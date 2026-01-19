@@ -500,13 +500,18 @@
           }
           // Fallback to ancestors if parent lookup failed
           else if (prop.ancestors && prop.ancestors.length > 0) {
-            // Get the closest ancestor (last one in array is usually the immediate parent)
-            const closestAncestor = prop.ancestors[prop.ancestors.length - 1];
-            if (closestAncestor && propertyIdToName.has(closestAncestor)) {
-              source = propertyIdToName.get(closestAncestor);
-              console.log(`✅ Found source from ancestor for "${prop.name}": ${source}`);
-            } else {
-              console.log(`❌ No source found for "${prop.name}" - ancestor ${closestAncestor} not in map`);
+            // Try ALL ancestors from closest to farthest until we find one with a name
+            let found = false;
+            for (let i = prop.ancestors.length - 1; i >= 0 && !found; i--) {
+              const ancestorId = prop.ancestors[i];
+              if (ancestorId && propertyIdToName.has(ancestorId)) {
+                source = propertyIdToName.get(ancestorId);
+                console.log(`✅ Found source from ancestor[${i}] for "${prop.name}": ${source}`);
+                found = true;
+              }
+            }
+            if (!found) {
+              console.log(`❌ No source found in ${prop.ancestors.length} ancestors for "${prop.name}"`);
             }
           }
           // Fallback to tags

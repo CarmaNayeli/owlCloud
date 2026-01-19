@@ -368,11 +368,11 @@ function showHPModal() {
       const actualHealing = characterData.hitPoints.current - oldHP;
       showNotification(`💚 Healed ${actualHealing} HP! (${characterData.hitPoints.current}/${maxHP})`);
 
-      // Announce to Roll20 chat
+      // Announce to Roll20 chat with fancy formatting
       if (window.opener && !window.opener.closed) {
         window.opener.postMessage({
           action: 'announceSpell',
-          message: `${characterData.name} regains ${actualHealing} hit points! (${characterData.hitPoints.current}/${maxHP} HP)`
+          message: `&{template:default} {{name=💚 Healing}} {{Character=${characterData.name}}} {{HP Restored=${actualHealing}}} {{Current HP=${characterData.hitPoints.current}/${maxHP}}}`
         }, '*');
       }
     } else {
@@ -380,11 +380,11 @@ function showHPModal() {
       const actualDamage = oldHP - characterData.hitPoints.current;
       showNotification(`💔 Took ${actualDamage} damage! (${characterData.hitPoints.current}/${maxHP})`);
 
-      // Announce to Roll20 chat
+      // Announce to Roll20 chat with fancy formatting
       if (window.opener && !window.opener.closed) {
         window.opener.postMessage({
           action: 'announceSpell',
-          message: `${characterData.name} takes ${actualDamage} damage! (${characterData.hitPoints.current}/${maxHP} HP)`
+          message: `&{template:default} {{name=💔 Damage}} {{Character=${characterData.name}}} {{Damage Taken=${actualDamage}}} {{Current HP=${characterData.hitPoints.current}/${maxHP}}}`
         }, '*');
       }
     }
@@ -818,36 +818,44 @@ function useClassResource(resource, spell) {
 }
 
 function announceSpellCast(spell, resourceUsed) {
-  // Build the announcement message with spell details
-  let message = `${characterData.name} casts ${spell.name}!`;
+  // Build a fancy formatted message using Roll20 template syntax
+  let message = `&{template:default} {{name=${characterData.name} casts ${spell.name}!}}`;
 
+  // Add resource usage if applicable
   if (resourceUsed) {
-    message += ` (using ${resourceUsed})`;
+    message += ` {{Resource=${resourceUsed}}}`;
   }
 
-  // Add spell level if it's not a cantrip
+  // Add spell level and school
   if (spell.level && spell.level > 0) {
-    message += `\nLevel ${spell.level}`;
+    let levelText = `Level ${spell.level}`;
     if (spell.school) {
-      message += ` ${spell.school}`;
+      levelText += ` ${spell.school}`;
     }
+    message += ` {{Level=${levelText}}}`;
   } else if (spell.school) {
-    message += `\n${spell.school} cantrip`;
+    message += ` {{Level=${spell.school} cantrip}}`;
   }
 
   // Add casting details
-  const details = [];
-  if (spell.castingTime) details.push(`Casting Time: ${spell.castingTime}`);
-  if (spell.range) details.push(`Range: ${spell.range}`);
-  if (spell.duration) details.push(`Duration: ${spell.duration}`);
+  if (spell.castingTime) {
+    message += ` {{Casting Time=${spell.castingTime}}}`;
+  }
+  if (spell.range) {
+    message += ` {{Range=${spell.range}}}`;
+  }
+  if (spell.duration) {
+    message += ` {{Duration=${spell.duration}}}`;
+  }
 
-  if (details.length > 0) {
-    message += `\n${details.join(' | ')}`;
+  // Add components if available
+  if (spell.components) {
+    message += ` {{Components=${spell.components}}}`;
   }
 
   // Add description
   if (spell.description) {
-    message += `\n${spell.description}`;
+    message += ` {{Description=${spell.description}}}`;
   }
 
   // Send to Roll20 chat
@@ -949,11 +957,11 @@ function takeShortRest() {
   showNotification('☕ Short Rest complete! Resources recharged.');
   console.log('✅ Short rest complete');
 
-  // Announce to Roll20
+  // Announce to Roll20 with fancy formatting
   if (window.opener && !window.opener.closed) {
     window.opener.postMessage({
       action: 'announceSpell',
-      message: `${characterData.name} takes a short rest.`
+      message: `&{template:default} {{name=☕ Short Rest}} {{Character=${characterData.name}}} {{=Short rest complete. Resources recharged!}}`
     }, '*');
   }
 }
@@ -1042,11 +1050,11 @@ function spendHitDice() {
 
     console.log(`🎲 Rolled ${hitDie}: ${roll} + ${conMod} = ${healing} HP (restored ${actualHealing})`);
 
-    // Announce the roll
+    // Announce the roll with fancy formatting
     if (window.opener && !window.opener.closed) {
       window.opener.postMessage({
         action: 'announceSpell',
-        message: `${characterData.name} spends a Hit Die (${hitDie}): ${roll} + ${conMod} = ${healing} HP restored!`
+        message: `&{template:default} {{name=🎲 Hit Die}} {{Character=${characterData.name}}} {{Roll=${hitDie}: ${roll} + ${conMod} CON}} {{HP Restored=${healing}}} {{Current HP=${characterData.hitPoints.current}/${characterData.hitPoints.max}}}`
       }, '*');
     }
   }
@@ -1138,11 +1146,11 @@ function takeLongRest() {
   showNotification('🌙 Long Rest complete! All resources restored.');
   console.log('✅ Long rest complete');
 
-  // Announce to Roll20
+  // Announce to Roll20 with fancy formatting
   if (window.opener && !window.opener.closed) {
     window.opener.postMessage({
       action: 'announceSpell',
-      message: `${characterData.name} completes a long rest and is fully restored!`
+      message: `&{template:default} {{name=🌙 Long Rest}} {{Character=${characterData.name}}} {{=Long rest complete!}} {{HP=${characterData.hitPoints.current}/${characterData.hitPoints.max} (Fully Restored)}} {{=All spell slots and resources restored!}}`
     }, '*');
   }
 }
