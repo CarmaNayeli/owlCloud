@@ -374,8 +374,15 @@ function buildActionsDisplay(container, actions) {
     if (action.damage) {
       const damageBtn = document.createElement('button');
       damageBtn.className = 'damage-btn';
-      // Use different text for features vs attacks
-      const btnText = action.actionType === 'feature' ? '🎲 Roll' : '💥 Damage';
+      // Use different text for healing vs damage vs features
+      let btnText;
+      if (action.damageType && action.damageType.toLowerCase().includes('heal')) {
+        btnText = '💚 Heal';
+      } else if (action.actionType === 'feature') {
+        btnText = '🎲 Roll';
+      } else {
+        btnText = '💥 Damage';
+      }
       damageBtn.textContent = btnText;
       damageBtn.addEventListener('click', () => {
         let damageName = action.damageType ?
@@ -423,8 +430,10 @@ function buildActionsDisplay(container, actions) {
     if (action.description) {
       const descDiv = document.createElement('div');
       descDiv.className = 'action-description';
+      // Resolve any variables in the description (like {bardicInspirationDie})
+      const resolvedDescription = resolveVariablesInFormula(action.description);
       descDiv.innerHTML = `
-        <div style="margin-top: 10px;">${action.description}</div>
+        <div style="margin-top: 10px;">${resolvedDescription}</div>
       `;
 
       // Toggle functionality
@@ -1325,13 +1334,14 @@ function resolveVariablesInFormula(formula) {
     return formula;
   }
 
-  // Find all variables in parentheses like (variableName)
-  const variablePattern = /\(([a-zA-Z_][a-zA-Z0-9_]*)\)/g;
   let resolvedFormula = formula;
-  let match;
   let variablesResolved = [];
 
-  while ((match = variablePattern.exec(formula)) !== null) {
+  // Pattern 1: Find variables in parentheses like (variableName)
+  const parenthesesPattern = /\(([a-zA-Z_][a-zA-Z0-9_]*)\)/g;
+  let match;
+
+  while ((match = parenthesesPattern.exec(formula)) !== null) {
     const variableName = match[1];
     const fullMatch = match[0]; // e.g., "(sneakAttackDieAmount)"
 
@@ -1356,6 +1366,71 @@ function resolveVariablesInFormula(formula) {
       }
     } else {
       console.log(`⚠️ Variable not found in otherVariables: ${variableName}`);
+    }
+  }
+
+  // Pattern 2: Find variables/expressions in curly braces like {variableName} or {ceilproficiencyBonus/2}
+  const bracesPattern = /\{([^}]+)\}/g;
+
+  while ((match = bracesPattern.exec(resolvedFormula)) !== null) {
+    const expression = match[1];
+    const fullMatch = match[0]; // e.g., "{bardicInspirationDie}" or "{ceilproficiencyBonus/2}"
+
+    // First try as a simple variable lookup
+    if (characterData.otherVariables.hasOwnProperty(expression)) {
+      const variableValue = characterData.otherVariables[expression];
+
+      // Extract value (can be numeric or string like "1d8")
+      let value = null;
+      if (typeof variableValue === 'number' || typeof variableValue === 'string') {
+        value = variableValue;
+      } else if (typeof variableValue === 'object' && variableValue.value !== undefined) {
+        value = variableValue.value;
+      }
+
+      if (value !== null) {
+        resolvedFormula = resolvedFormula.replace(fullMatch, value);
+        variablesResolved.push(`${expression}=${value}`);
+        console.log(`✅ Resolved variable: ${expression} = ${value}`);
+        continue;
+      }
+    }
+
+    // If not a simple variable, try to evaluate as expression by replacing variables first
+    let evalExpression = expression;
+
+    // Replace all variables in the expression with their values
+    for (const varName in characterData.otherVariables) {
+      if (evalExpression.includes(varName)) {
+        const variableValue = characterData.otherVariables[varName];
+        let value = null;
+
+        if (typeof variableValue === 'number') {
+          value = variableValue;
+        } else if (typeof variableValue === 'object' && variableValue.value !== undefined) {
+          value = variableValue.value;
+        }
+
+        if (value !== null && typeof value === 'number') {
+          // Replace variable name with its numeric value
+          evalExpression = evalExpression.replace(new RegExp(varName, 'g'), value);
+        }
+      }
+    }
+
+    // Try to evaluate the expression
+    try {
+      // Only evaluate if it looks like a safe math expression
+      if (/^[\d\s+\-*/().]+$/.test(evalExpression)) {
+        const result = Math.ceil(eval(evalExpression));
+        resolvedFormula = resolvedFormula.replace(fullMatch, result);
+        variablesResolved.push(`${expression}=${result}`);
+        console.log(`✅ Resolved expression: ${expression} = ${result}`);
+      } else {
+        console.log(`⚠️ Could not resolve expression: ${expression}`);
+      }
+    } catch (e) {
+      console.log(`⚠️ Failed to evaluate expression: ${expression}`, e);
     }
   }
 
