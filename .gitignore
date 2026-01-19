@@ -16,9 +16,6 @@ Thumbs.db
 *.swo
 *~
 
-# Temporary manifest swaps
-manifest-chrome.json
-
 # Logs
 *.log
 npm-debug.log*
