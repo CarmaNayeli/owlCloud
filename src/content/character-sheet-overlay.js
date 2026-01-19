@@ -1568,8 +1568,6 @@
       }
 
       if (response && response.data) {
-        // Store character data globally so popup can access it
-        window.characterData = response.data;
         console.log('✅ Character data loaded for popup:', response.data.name);
 
         // Get the popup HTML file URL
@@ -1577,12 +1575,21 @@
 
         // Open popup with the HTML file
         const popupWindow = window.open(popupURL, 'rollcloud-character-sheet', 'width=900,height=700,scrollbars=yes,resizable=yes,menubar=no,toolbar=no,location=no,status=no');
-        
+
         if (!popupWindow) {
           console.error('❌ Failed to open popup window. Please allow popups for this site.');
           showNotification('Failed to open popup window. Please allow popups for this site.', 'error');
           return;
         }
+
+        // Wait for popup to load, then send data via postMessage
+        popupWindow.addEventListener('load', () => {
+          popupWindow.postMessage({
+            action: 'initCharacterSheet',
+            data: response.data
+          }, '*');
+          console.log('✅ Character data sent to popup via postMessage');
+        });
 
         overlayVisible = true;
         showNotification('Character sheet opened! 🎲', 'success');
