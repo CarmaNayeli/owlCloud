@@ -494,22 +494,30 @@ function castSpell(spell, index) {
     }
   }
 
-  // Use spell slot
+  // Use spell slot - but check if there are higher level slots for upcasting
   if (currentSlots <= 0) {
-    showNotification(`❌ No level ${spellLevel} spell slots remaining! (${currentSlots}/${maxSlots})`, 'error');
-    return;
+    // Check if there are any higher level slots available for upcasting
+    let hasHigherSlots = false;
+    for (let level = spellLevel + 1; level <= 9; level++) {
+      const higherSlotVar = `level${level}SpellSlots`;
+      if ((characterData.spellSlots?.[higherSlotVar] || 0) > 0) {
+        hasHigherSlots = true;
+        break;
+      }
+    }
+
+    if (hasHigherSlots) {
+      // Show upcast choice even though base level is empty
+      showUpcastChoice(spell, spellLevel);
+      return;
+    } else {
+      showNotification(`❌ No spell slots remaining for level ${spellLevel} or higher!`, 'error');
+      return;
+    }
   }
 
-  // Deduct spell slot
-  characterData.spellSlots[slotVar] = currentSlots - 1;
-  saveCharacterData();
-
-  console.log(`✅ Used spell slot. Remaining: ${characterData.spellSlots[slotVar]}/${maxSlots}`);
-  announceSpellCast(spell, `Level ${spellLevel} slot`);
-  showNotification(`✨ Cast ${spell.name}! (${characterData.spellSlots[slotVar]}/${maxSlots} slots left)`);
-
-  // Update the display
-  buildSheet(characterData);
+  // Has slots at this level - show upcast choice
+  showUpcastChoice(spell, spellLevel);
 }
 
 function detectClassResources(spell) {
@@ -556,45 +564,206 @@ function detectClassResources(spell) {
 }
 
 function showResourceChoice(spell, spellLevel, spellSlots, maxSlots, classResources) {
-  const options = [];
+  // Create modal overlay
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
 
+  // Create modal content
+  const modalContent = document.createElement('div');
+  modalContent.style.cssText = 'background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); max-width: 400px; width: 90%;';
+
+  let buttonsHTML = `
+    <h3 style="margin: 0 0 20px 0; color: #2c3e50; text-align: center;">Cast ${spell.name}</h3>
+    <p style="text-align: center; color: #7f8c8d; margin-bottom: 25px;">Choose a resource:</p>
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+  `;
+
+  // Add spell slot option if available
   if (spellSlots > 0) {
-    options.push(`Level ${spellLevel} Spell Slot (${spellSlots}/${maxSlots} remaining)`);
+    buttonsHTML += `
+      <button class="resource-choice-btn" data-type="spell-slot" data-level="${spellLevel}" style="padding: 15px; font-size: 1em; font-weight: bold; background: #9b59b6; color: white; border: 2px solid #9b59b6; border-radius: 8px; cursor: pointer; transition: all 0.2s; text-align: left;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span>Level ${spellLevel} Spell Slot</span>
+          <span style="background: rgba(255,255,255,0.3); padding: 4px 8px; border-radius: 4px; font-size: 0.9em;">${spellSlots}/${maxSlots}</span>
+        </div>
+      </button>
+    `;
   }
 
-  classResources.forEach(resource => {
-    options.push(`${resource.name} (${resource.current}/${resource.max} remaining)`);
+  // Add class resource options
+  classResources.forEach((resource, idx) => {
+    const colors = {
+      'Ki': { bg: '#f39c12', border: '#f39c12' },
+      'Sorcery Points': { bg: '#e74c3c', border: '#e74c3c' },
+      'Pact Magic': { bg: '#16a085', border: '#16a085' },
+      'Channel Divinity': { bg: '#3498db', border: '#3498db' }
+    };
+    const color = colors[resource.name] || { bg: '#95a5a6', border: '#95a5a6' };
+
+    buttonsHTML += `
+      <button class="resource-choice-btn" data-type="class-resource" data-index="${idx}" style="padding: 15px; font-size: 1em; font-weight: bold; background: ${color.bg}; color: white; border: 2px solid ${color.border}; border-radius: 8px; cursor: pointer; transition: all 0.2s; text-align: left;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span>${resource.name}</span>
+          <span style="background: rgba(255,255,255,0.3); padding: 4px 8px; border-radius: 4px; font-size: 0.9em;">${resource.current}/${resource.max}</span>
+        </div>
+      </button>
+    `;
   });
 
-  const choice = prompt(`Cast ${spell.name} using:\n\n${options.map((opt, i) => `${i + 1}. ${opt}`).join('\n')}\n\nEnter number (1-${options.length}):`);
+  buttonsHTML += `
+    </div>
+    <button id="resource-cancel" style="width: 100%; margin-top: 20px; padding: 12px; font-size: 1em; background: #95a5a6; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">
+      Cancel
+    </button>
+  `;
 
-  if (!choice) return; // Cancelled
+  modalContent.innerHTML = buttonsHTML;
+  modal.appendChild(modalContent);
+  document.body.appendChild(modal);
 
-  const index = parseInt(choice) - 1;
+  // Add hover effects
+  const resourceBtns = modalContent.querySelectorAll('.resource-choice-btn');
+  resourceBtns.forEach(btn => {
+    btn.addEventListener('mouseenter', () => {
+      btn.style.transform = 'translateY(-2px)';
+      btn.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+    });
+    btn.addEventListener('mouseleave', () => {
+      btn.style.transform = 'translateY(0)';
+      btn.style.boxShadow = 'none';
+    });
 
-  if (index < 0 || index >= options.length) {
-    showNotification('❌ Invalid choice', 'error');
+    btn.addEventListener('click', () => {
+      const type = btn.dataset.type;
+
+      if (type === 'spell-slot') {
+        const level = parseInt(btn.dataset.level);
+        modal.remove();
+        // Check if they want to upcast
+        showUpcastChoice(spell, level);
+      } else if (type === 'class-resource') {
+        const resourceIdx = parseInt(btn.dataset.index);
+        const resource = classResources[resourceIdx];
+        modal.remove();
+        if (useClassResource(resource, spell)) {
+          announceSpellCast(spell, resource.name);
+        }
+      }
+    });
+  });
+
+  // Cancel button
+  document.getElementById('resource-cancel').addEventListener('click', () => {
+    modal.remove();
+  });
+
+  // Click outside to close
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
+}
+
+function showUpcastChoice(spell, originalLevel) {
+  // Get all available spell slots at this level or higher
+  const availableSlots = [];
+  for (let level = originalLevel; level <= 9; level++) {
+    const slotVar = `level${level}SpellSlots`;
+    const slotMaxVar = `level${level}SpellSlotsMax`;
+    const current = characterData.spellSlots?.[slotVar] || 0;
+    const max = characterData.spellSlots?.[slotMaxVar] || 0;
+
+    if (current > 0) {
+      availableSlots.push({ level, current, max, slotVar, slotMaxVar });
+    }
+  }
+
+  // If only the original level is available, just cast it
+  if (availableSlots.length === 1) {
+    castWithSlot(spell, availableSlots[0]);
     return;
   }
 
-  // If spell slot was chosen
-  if (spellSlots > 0 && index === 0) {
-    const slotVar = `level${spellLevel}SpellSlots`;
-    characterData.spellSlots[slotVar] = spellSlots - 1;
-    saveCharacterData();
-    announceSpellCast(spell, `Level ${spellLevel} slot`);
-    showNotification(`✨ Cast ${spell.name}! (${characterData.spellSlots[slotVar]}/${maxSlots} slots left)`);
-    buildSheet(characterData);
-    return;
-  }
+  // Show upcast modal
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
 
-  // Class resource was chosen
-  const resourceIndex = spellSlots > 0 ? index - 1 : index;
-  const resource = classResources[resourceIndex];
+  const modalContent = document.createElement('div');
+  modalContent.style.cssText = 'background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); max-width: 400px; width: 90%;';
 
-  if (useClassResource(resource, spell)) {
-    announceSpellCast(spell, resource.name);
-  }
+  let dropdownHTML = `
+    <h3 style="margin: 0 0 20px 0; color: #2c3e50; text-align: center;">Upcast ${spell.name}?</h3>
+    <p style="text-align: center; color: #7f8c8d; margin-bottom: 20px;">This spell is level ${originalLevel}. Choose a spell slot:</p>
+
+    <div style="margin-bottom: 25px;">
+      <label style="display: block; margin-bottom: 10px; font-weight: bold; color: #2c3e50;">Spell Slot Level:</label>
+      <select id="upcast-slot-select" style="width: 100%; padding: 12px; font-size: 1.1em; border: 2px solid #bdc3c7; border-radius: 6px; box-sizing: border-box; background: white;">
+  `;
+
+  availableSlots.forEach(slot => {
+    const label = slot.level === originalLevel
+      ? `Level ${slot.level} (Normal) - ${slot.current}/${slot.max} remaining`
+      : `Level ${slot.level} (Upcast) - ${slot.current}/${slot.max} remaining`;
+    dropdownHTML += `<option value="${slot.level}">${label}</option>`;
+  });
+
+  dropdownHTML += `
+      </select>
+    </div>
+
+    <div style="display: flex; gap: 10px;">
+      <button id="upcast-cancel" style="flex: 1; padding: 12px; font-size: 1em; background: #95a5a6; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">
+        Cancel
+      </button>
+      <button id="upcast-confirm" style="flex: 1; padding: 12px; font-size: 1em; background: #9b59b6; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">
+        Cast Spell
+      </button>
+    </div>
+  `;
+
+  modalContent.innerHTML = dropdownHTML;
+  modal.appendChild(modalContent);
+  document.body.appendChild(modal);
+
+  const selectElement = document.getElementById('upcast-slot-select');
+  const confirmBtn = document.getElementById('upcast-confirm');
+  const cancelBtn = document.getElementById('upcast-cancel');
+
+  confirmBtn.addEventListener('click', () => {
+    const selectedLevel = parseInt(selectElement.value);
+    const selectedSlot = availableSlots.find(s => s.level === selectedLevel);
+    modal.remove();
+    castWithSlot(spell, selectedSlot);
+  });
+
+  cancelBtn.addEventListener('click', () => {
+    modal.remove();
+  });
+
+  // Click outside to close
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
+}
+
+function castWithSlot(spell, slot) {
+  // Deduct spell slot
+  characterData.spellSlots[slot.slotVar] = slot.current - 1;
+  saveCharacterData();
+
+  const resourceText = slot.level > parseInt(spell.level)
+    ? `Level ${slot.level} slot (upcast from ${spell.level})`
+    : `Level ${slot.level} slot`;
+
+  console.log(`✅ Used spell slot. Remaining: ${characterData.spellSlots[slot.slotVar]}/${slot.max}`);
+  announceSpellCast(spell, resourceText);
+  showNotification(`✨ Cast ${spell.name}! (${characterData.spellSlots[slot.slotVar]}/${slot.max} slots left)`);
+
+  // Update the display
+  buildSheet(characterData);
 }
 
 function useClassResource(resource, spell) {
