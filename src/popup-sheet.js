@@ -348,10 +348,26 @@ function showHPModal() {
       characterData.hitPoints.current = Math.min(currentHP + amount, maxHP);
       const actualHealing = characterData.hitPoints.current - oldHP;
       showNotification(`💚 Healed ${actualHealing} HP! (${characterData.hitPoints.current}/${maxHP})`);
+
+      // Announce to Roll20 chat
+      if (window.opener && !window.opener.closed) {
+        window.opener.postMessage({
+          action: 'announceSpell',
+          message: `${characterData.name} regains ${actualHealing} hit points! (${characterData.hitPoints.current}/${maxHP} HP)`
+        }, '*');
+      }
     } else {
       characterData.hitPoints.current = Math.max(currentHP - amount, 0);
       const actualDamage = oldHP - characterData.hitPoints.current;
       showNotification(`💔 Took ${actualDamage} damage! (${characterData.hitPoints.current}/${maxHP})`);
+
+      // Announce to Roll20 chat
+      if (window.opener && !window.opener.closed) {
+        window.opener.postMessage({
+          action: 'announceSpell',
+          message: `${characterData.name} takes ${actualDamage} damage! (${characterData.hitPoints.current}/${maxHP} HP)`
+        }, '*');
+      }
     }
 
     saveCharacterData();
