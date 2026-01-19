@@ -468,6 +468,25 @@ function buildActionsDisplay(container, actions) {
           buildSheet(characterData); // Refresh display
         }
 
+        // Check and decrement Sorcery Points if action costs them
+        const sorceryCost = getSorceryPointCostFromAction(action);
+        if (sorceryCost > 0) {
+          const sorceryResource = getSorceryPointsResource();
+          if (!sorceryResource) {
+            showNotification(`❌ No Sorcery Points resource found`, 'error');
+            return;
+          }
+          if (sorceryResource.current < sorceryCost) {
+            showNotification(`❌ Not enough Sorcery Points! Need ${sorceryCost}, have ${sorceryResource.current}`, 'error');
+            return;
+          }
+          sorceryResource.current -= sorceryCost;
+          saveCharacterData();
+          console.log(`✨ Used ${sorceryCost} Sorcery Points for ${action.name}. Remaining: ${sorceryResource.current}/${sorceryResource.max}`);
+          showNotification(`✨ ${action.name}! (${sorceryResource.current}/${sorceryResource.max} SP left)`);
+          buildSheet(characterData); // Refresh display
+        }
+
         let damageName = action.damageType ?
           `${action.name} (${action.damageType})` :
           action.name;
@@ -516,6 +535,25 @@ function buildActionsDisplay(container, actions) {
           buildSheet(characterData); // Refresh display
         }
 
+        // Check and decrement Sorcery Points if action costs them
+        const sorceryCost = getSorceryPointCostFromAction(action);
+        if (sorceryCost > 0) {
+          const sorceryResource = getSorceryPointsResource();
+          if (!sorceryResource) {
+            showNotification(`❌ No Sorcery Points resource found`, 'error');
+            return;
+          }
+          if (sorceryResource.current < sorceryCost) {
+            showNotification(`❌ Not enough Sorcery Points! Need ${sorceryCost}, have ${sorceryResource.current}`, 'error');
+            return;
+          }
+          sorceryResource.current -= sorceryCost;
+          saveCharacterData();
+          console.log(`✨ Used ${sorceryCost} Sorcery Points for ${action.name}. Remaining: ${sorceryResource.current}/${sorceryResource.max}`);
+          showNotification(`✨ ${action.name}! (${sorceryResource.current}/${sorceryResource.max} SP left)`);
+          buildSheet(characterData); // Refresh display
+        }
+
         announceAction(action);
       });
       buttonsDiv.appendChild(useBtn);
@@ -550,6 +588,25 @@ function buildActionsDisplay(container, actions) {
           saveCharacterData();
           console.log(`✨ Used ${kiCost} Ki points for ${action.name}. Remaining: ${kiResource.current}/${kiResource.max}`);
           showNotification(`✨ ${action.name}! (${kiResource.current}/${kiResource.max} Ki left)`);
+          buildSheet(characterData); // Refresh display
+        }
+
+        // Check and decrement Sorcery Points if action costs them
+        const sorceryCost = getSorceryPointCostFromAction(action);
+        if (sorceryCost > 0) {
+          const sorceryResource = getSorceryPointsResource();
+          if (!sorceryResource) {
+            showNotification(`❌ No Sorcery Points resource found`, 'error');
+            return;
+          }
+          if (sorceryResource.current < sorceryCost) {
+            showNotification(`❌ Not enough Sorcery Points! Need ${sorceryCost}, have ${sorceryResource.current}`, 'error');
+            return;
+          }
+          sorceryResource.current -= sorceryCost;
+          saveCharacterData();
+          console.log(`✨ Used ${sorceryCost} Sorcery Points for ${action.name}. Remaining: ${sorceryResource.current}/${sorceryResource.max}`);
+          showNotification(`✨ ${action.name}! (${sorceryResource.current}/${sorceryResource.max} SP left)`);
           buildSheet(characterData); // Refresh display
         }
 
@@ -1759,6 +1816,22 @@ function getKiCostFromAction(action) {
   // Match patterns like "spend 1 ki point", "costs 2 ki points", etc.
   const kiPattern = /(?:spend|cost|use)s?\s+(\d+)\s+ki\s+point/i;
   const match = lowerDesc.match(kiPattern);
+
+  if (match) {
+    return parseInt(match[1]);
+  }
+
+  return 0;
+}
+
+function getSorceryPointCostFromAction(action) {
+  if (!action || !action.description) return 0;
+
+  const lowerDesc = action.description.toLowerCase();
+
+  // Match patterns like "spend 1 sorcery point", "costs 2 sorcery points", etc.
+  const sorceryPattern = /(?:spend|cost|use)s?\s+(\d+)\s+sorcery\s+point/i;
+  const match = lowerDesc.match(sorceryPattern);
 
   if (match) {
     return parseInt(match[1]);
