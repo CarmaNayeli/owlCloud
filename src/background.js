@@ -1,37 +1,12 @@
 /**
- * Background Service Worker
+ * Background Service Worker - Chrome Only
  * Handles data storage, API authentication, and communication between Dice Cloud and Roll20
  */
 
-// Import browser polyfill for cross-browser compatibility
-// Note: For Chrome service workers, use importScripts. For Firefox, it's loaded via manifest scripts array
-if (typeof importScripts === 'function') {
-  try {
-    // Try relative path first (service worker is in src/ directory)
-    importScripts('./common/browser-polyfill.js');
-    console.log('✅ Browser polyfill imported via importScripts (relative path)');
-  } catch (e) {
-    console.log('⚠️ Relative path failed, trying absolute path...');
-    try {
-      // Try absolute path from extension root
-      importScripts('src/common/browser-polyfill.js');
-      console.log('✅ Browser polyfill imported via importScripts (absolute path)');
-    } catch (e2) {
-      console.error('❌ Failed to import browser-polyfill:', e, e2);
-      throw e2;
-    }
-  }
-} else {
-  console.log('Browser polyfill loaded via manifest (Firefox)');
-}
+console.log('RollCloud: Background service worker starting...');
 
-// Get browserAPI from global scope (set by browser-polyfill.js)
-const browserAPI = self.browserAPI || self.chrome || self.browser;
-
-if (!browserAPI) {
-  console.error('❌ FATAL: browserAPI is not available!');
-  throw new Error('browserAPI is not available');
-}
+// Use native Chrome APIs directly (no polyfill needed for Chrome-only)
+const browserAPI = chrome;
 
 console.log('RollCloud: Background service worker initialized');
 
