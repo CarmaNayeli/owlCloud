@@ -44,14 +44,18 @@ function buildSheet(data) {
   // Character name and info
   document.getElementById('char-name').textContent = `🎲 ${data.name || 'Character'}`;
 
+  // Initialize hit dice if needed
+  initializeHitDice();
+
   // Capitalize race name
   const raceName = data.race ? data.race.charAt(0).toUpperCase() + data.race.slice(1) : 'Unknown';
 
   document.getElementById('char-info').innerHTML = `
-    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; text-align: center;">
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center;">
       <div><strong>Class:</strong> ${data.class || 'Unknown'}</div>
       <div><strong>Level:</strong> ${data.level || 1}</div>
       <div><strong>Race:</strong> ${raceName}</div>
+      <div><strong>Hit Dice:</strong> ${data.hitDice.current}/${data.hitDice.max} ${data.hitDice.type}</div>
     </div>
   `;
 
@@ -400,7 +404,7 @@ function takeShortRest() {
     return;
   }
 
-  const confirmed = confirm('Take a Short Rest?\n\nThis will:\n- Restore some HP (you can spend hit dice)\n- Restore Warlock spell slots\n- Restore some class features');
+  const confirmed = confirm('Take a Short Rest?\n\nThis will:\n- Allow you to spend Hit Dice to restore HP\n- Restore Warlock spell slots\n- Restore some class features');
 
   if (!confirmed) return;
 
@@ -431,16 +435,13 @@ function takeShortRest() {
     }
   }
 
-  // For HP, in 5e you spend hit dice. Let's add a simple HP restoration
-  const conMod = characterData.attributeMods?.constitution || 0;
-  const hpRestored = Math.floor(characterData.hitPoints.max * 0.5); // Restore ~50% HP as approximation
-  const newHP = Math.min(characterData.hitPoints.current + hpRestored, characterData.hitPoints.max);
-  characterData.hitPoints.current = newHP;
+  // Handle Hit Dice spending for HP restoration
+  spendHitDice();
 
   saveCharacterData();
   buildSheet(characterData);
 
-  showNotification(`☕ Short Rest complete! Restored ${hpRestored} HP and recharged short rest features.`);
+  showNotification('☕ Short Rest complete! Resources recharged.');
   console.log('✅ Short rest complete');
 
   // Announce to Roll20
@@ -452,21 +453,133 @@ function takeShortRest() {
   }
 }
 
+function getHitDieType() {
+  // Determine hit die based on class (D&D 5e)
+  const className = (characterData.class || '').toLowerCase();
+
+  const hitDiceMap = {
+    'barbarian': 'd12',
+    'fighter': 'd10',
+    'paladin': 'd10',
+    'ranger': 'd10',
+    'bard': 'd8',
+    'cleric': 'd8',
+    'druid': 'd8',
+    'monk': 'd8',
+    'rogue': 'd8',
+    'warlock': 'd8',
+    'sorcerer': 'd6',
+    'wizard': 'd6'
+  };
+
+  for (const [classKey, die] of Object.entries(hitDiceMap)) {
+    if (className.includes(classKey)) {
+      return die;
+    }
+  }
+
+  // Default to d8 if class not found
+  return 'd8';
+}
+
+function initializeHitDice() {
+  // Initialize hit dice if not already set
+  if (characterData.hitDice === undefined) {
+    const level = characterData.level || 1;
+    characterData.hitDice = {
+      current: level,
+      max: level,
+      type: getHitDieType()
+    };
+  }
+}
+
+function spendHitDice() {
+  initializeHitDice();
+
+  const conMod = characterData.attributeMods?.constitution || 0;
+  const hitDie = characterData.hitDice.type;
+  const maxDice = parseInt(hitDie.substring(1)); // Extract number from "d8" -> 8
+
+  if (characterData.hitDice.current <= 0) {
+    alert('You have no Hit Dice remaining to spend!');
+    return;
+  }
+
+  let totalHealed = 0;
+  let diceSpent = 0;
+
+  while (characterData.hitDice.current > 0 && characterData.hitPoints.current < characterData.hitPoints.max) {
+    const spend = confirm(
+      `Spend a Hit Die? (${characterData.hitDice.current}/${characterData.hitDice.max} remaining)\n\n` +
+      `Hit Die: ${hitDie}\n` +
+      `CON Modifier: ${conMod >= 0 ? '+' : ''}${conMod}\n` +
+      `Current HP: ${characterData.hitPoints.current}/${characterData.hitPoints.max}\n` +
+      `HP Healed so far: ${totalHealed}`
+    );
+
+    if (!spend) break;
+
+    // Roll the hit die
+    const roll = Math.floor(Math.random() * maxDice) + 1;
+    const healing = Math.max(1, roll + conMod); // Minimum 1 HP restored
+
+    characterData.hitDice.current--;
+    diceSpent++;
+
+    const oldHP = characterData.hitPoints.current;
+    characterData.hitPoints.current = Math.min(
+      characterData.hitPoints.current + healing,
+      characterData.hitPoints.max
+    );
+    const actualHealing = characterData.hitPoints.current - oldHP;
+    totalHealed += actualHealing;
+
+    console.log(`🎲 Rolled ${hitDie}: ${roll} + ${conMod} = ${healing} HP (restored ${actualHealing})`);
+
+    // Announce the roll
+    if (window.opener && !window.opener.closed) {
+      window.opener.postMessage({
+        action: 'announceSpell',
+        message: `${characterData.name} spends a Hit Die (${hitDie}): ${roll} + ${conMod} = ${healing} HP restored!`
+      }, '*');
+    }
+  }
+
+  if (diceSpent > 0) {
+    showNotification(`🎲 Spent ${diceSpent} Hit Dice and restored ${totalHealed} HP!`);
+  } else {
+    showNotification('No Hit Dice spent.');
+  }
+}
+
 function takeLongRest() {
   if (!characterData) {
     showNotification('❌ Character data not available', 'error');
     return;
   }
 
-  const confirmed = confirm('Take a Long Rest?\n\nThis will:\n- Fully restore HP\n- Restore all spell slots\n- Restore all class features\n- Restore hit dice');
+  const confirmed = confirm('Take a Long Rest?\n\nThis will:\n- Fully restore HP\n- Restore all spell slots\n- Restore all class features\n- Restore half your hit dice (minimum 1)');
 
   if (!confirmed) return;
 
   console.log('🌙 Taking long rest...');
 
+  // Initialize hit dice if needed
+  initializeHitDice();
+
   // Restore all HP
   characterData.hitPoints.current = characterData.hitPoints.max;
   console.log('✅ Restored HP to max');
+
+  // Restore hit dice (half of max, minimum 1)
+  const hitDiceRestored = Math.max(1, Math.floor(characterData.hitDice.max / 2));
+  const oldHitDice = characterData.hitDice.current;
+  characterData.hitDice.current = Math.min(
+    characterData.hitDice.current + hitDiceRestored,
+    characterData.hitDice.max
+  );
+  console.log(`✅ Restored ${characterData.hitDice.current - oldHitDice} hit dice (${characterData.hitDice.current}/${characterData.hitDice.max})`);
 
   // Restore all spell slots
   if (characterData.spellSlots) {
