@@ -346,6 +346,10 @@
     });
     console.log(`📋 Built property ID map with ${propertyIdToName.size} entries`);
 
+    // Debug: Show sample entries from the map
+    const sampleEntries = Array.from(propertyIdToName.entries()).slice(0, 5);
+    console.log('📋 Sample property ID map entries:', sampleEntries);
+
     // Parse properties for classes, race, features, spells, etc.
     // Track unique classes to avoid duplicates
     const uniqueClasses = new Set();
@@ -383,12 +387,15 @@
       switch (prop.type) {
         case 'class':
           // Only add class name once, even if there are multiple classLevel entries
-          if (prop.name && !uniqueClasses.has(prop.name)) {
-            uniqueClasses.add(prop.name);
-            if (characterData.class) {
-              characterData.class += ` / ${prop.name}`;
-            } else {
-              characterData.class = prop.name;
+          if (prop.name) {
+            const normalizedClassName = prop.name.toLowerCase().trim();
+            if (!uniqueClasses.has(normalizedClassName)) {
+              uniqueClasses.add(normalizedClassName);
+              if (characterData.class) {
+                characterData.class += ` / ${prop.name}`;
+              } else {
+                characterData.class = prop.name;
+              }
             }
           }
           break;
@@ -397,12 +404,15 @@
           // Count each classLevel entry as 1 level
           characterData.level += 1;
           // Also add the class name if not already added
-          if (prop.name && !uniqueClasses.has(prop.name)) {
-            uniqueClasses.add(prop.name);
-            if (characterData.class) {
-              characterData.class += ` / ${prop.name}`;
-            } else {
-              characterData.class = prop.name;
+          if (prop.name) {
+            const normalizedClassName = prop.name.toLowerCase().trim();
+            if (!uniqueClasses.has(normalizedClassName)) {
+              uniqueClasses.add(normalizedClassName);
+              if (characterData.class) {
+                characterData.class += ` / ${prop.name}`;
+              } else {
+                characterData.class = prop.name;
+              }
             }
           }
           break;
@@ -466,15 +476,27 @@
             }
           }
 
-          // Debug: Log all available fields to find source info
-          console.log('🔍 Spell property fields:', Object.keys(prop));
-
           // Determine source (from parent, tags, or ancestors)
           let source = 'Unknown Source';
+
+          // Debug: Log parent and ancestors info for the first spell
+          if (characterData.spells.length === 0) {
+            console.log('🔍 First spell debug info:');
+            console.log('  - Spell name:', prop.name);
+            console.log('  - Parent ID:', prop.parent);
+            console.log('  - Parent exists in map?', prop.parent ? propertyIdToName.has(prop.parent) : 'N/A');
+            console.log('  - Ancestors:', prop.ancestors);
+            if (prop.ancestors && prop.ancestors.length > 0) {
+              console.log('  - Ancestor IDs in map?', prop.ancestors.map(id => `${id}: ${propertyIdToName.has(id)}`));
+            }
+            console.log('  - Tags:', prop.tags);
+            console.log('  - LibraryTags:', prop.libraryTags);
+          }
 
           // Try to get parent name from the map
           if (prop.parent && propertyIdToName.has(prop.parent)) {
             source = propertyIdToName.get(prop.parent);
+            console.log(`✅ Found source from parent for "${prop.name}": ${source}`);
           }
           // Fallback to ancestors if parent lookup failed
           else if (prop.ancestors && prop.ancestors.length > 0) {
@@ -482,15 +504,22 @@
             const closestAncestor = prop.ancestors[prop.ancestors.length - 1];
             if (closestAncestor && propertyIdToName.has(closestAncestor)) {
               source = propertyIdToName.get(closestAncestor);
+              console.log(`✅ Found source from ancestor for "${prop.name}": ${source}`);
+            } else {
+              console.log(`❌ No source found for "${prop.name}" - ancestor ${closestAncestor} not in map`);
             }
           }
           // Fallback to tags
           else if (prop.tags && prop.tags.length > 0) {
             source = prop.tags.join(', ');
+            console.log(`✅ Found source from tags for "${prop.name}": ${source}`);
           }
           // Fallback to libraryTags
           else if (prop.libraryTags && prop.libraryTags.length > 0) {
             source = prop.libraryTags.join(', ');
+            console.log(`✅ Found source from libraryTags for "${prop.name}": ${source}`);
+          } else {
+            console.log(`❌ No source found for "${prop.name}"`)
           }
 
           characterData.spells.push({
