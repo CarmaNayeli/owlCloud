@@ -685,6 +685,9 @@
               // Use the first damage property (weapons typically have one main damage)
               const damageProp = damageProperties[0];
 
+              // Debug: log the damage property structure
+              console.log('🔍 Damage property for', prop.name, ':', JSON.stringify(damageProp, null, 2));
+
               // Try to get the calculated formula first (includes modifiers)
               if (damageProp.calculation) {
                 damage = damageProp.calculation;
