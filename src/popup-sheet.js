@@ -63,8 +63,50 @@ function buildSheet(data) {
   // Initialize hit dice if needed
   initializeHitDice();
 
-  // Capitalize race name
-  const raceName = data.race ? data.race.charAt(0).toUpperCase() + data.race.slice(1) : 'Unknown';
+  // Capitalize race name - handle both string and object formats
+  let raceName = 'Unknown';
+  if (data.race) {
+    if (typeof data.race === 'string') {
+      raceName = data.race.charAt(0).toUpperCase() + data.race.slice(1);
+    } else if (typeof data.race === 'object') {
+      // If race is an object, try to extract the value from various possible properties
+      let raceValue = data.race.value || data.race.name || data.race.text ||
+                      data.race.variableName || data.race.displayName;
+
+      // If still no value, try to get something useful from the object
+      if (!raceValue) {
+        // Check if it has a tags property that might indicate race type
+        if (data.race.tags && Array.isArray(data.race.tags)) {
+          const raceTags = data.race.tags.filter(tag =>
+            !tag.toLowerCase().includes('class') &&
+            !tag.toLowerCase().includes('level')
+          );
+          if (raceTags.length > 0) {
+            raceValue = raceTags[0];
+          }
+        }
+
+        // Last resort: look for any string property that seems like a race name
+        if (!raceValue) {
+          const keys = Object.keys(data.race);
+          for (const key of keys) {
+            if (typeof data.race[key] === 'string' && data.race[key].length > 0 && data.race[key].length < 50) {
+              raceValue = data.race[key];
+              break;
+            }
+          }
+        }
+      }
+
+      // If we found something, capitalize it; otherwise use "Unknown"
+      if (raceValue && typeof raceValue === 'string') {
+        raceName = raceValue.charAt(0).toUpperCase() + raceValue.slice(1);
+      } else {
+        console.warn('Could not extract race name from object:', data.race);
+        raceName = 'Unknown Race';
+      }
+    }
+  }
 
   document.getElementById('char-info').innerHTML = `
     <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center; margin-bottom: 15px;">

@@ -758,7 +758,18 @@
             characterData.race = raceValue.value;
             console.log(`🔍 Found race object with value: ${raceVar} = ${characterData.race}`);
           } else {
-            console.log(`🔍 Race object found but no name/text/value: ${raceVar} =`, raceValue);
+            // If object has no standard properties, try to extract something useful
+            if (raceValue.variableName) {
+              characterData.race = raceValue.variableName;
+              console.log(`🔍 Found race object with variableName: ${raceVar} = ${characterData.race}`);
+            } else {
+              // Last resort: convert object to string and try to extract meaningful info
+              const raceStr = JSON.stringify(raceValue);
+              console.log(`🔍 Race object found but no name/text/value/variableName: ${raceVar} =`, raceValue);
+              console.log(`🔍 Race object stringified:`, raceStr);
+              // Store the whole object so popup can handle it
+              characterData.race = raceValue;
+            }
           }
         } else if (typeof raceValue === 'string') {
           characterData.race = raceValue;
