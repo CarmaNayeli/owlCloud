@@ -267,11 +267,13 @@ function buildActionsDisplay(container, actions) {
     if (action.damage) {
       const damageBtn = document.createElement('button');
       damageBtn.className = 'damage-btn';
-      damageBtn.textContent = `💥 Damage`;
+      // Use different text for features vs attacks
+      const btnText = action.actionType === 'feature' ? '🎲 Roll' : '💥 Damage';
+      damageBtn.textContent = btnText;
       damageBtn.addEventListener('click', () => {
         const damageName = action.damageType ?
-          `${action.name} Damage (${action.damageType})` :
-          `${action.name} Damage`;
+          `${action.name} (${action.damageType})` :
+          action.name;
         roll(damageName, action.damage);
       });
       buttonsDiv.appendChild(damageBtn);
