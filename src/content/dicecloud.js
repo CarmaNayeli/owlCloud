@@ -519,6 +519,48 @@
           }
           break;
 
+        case 'toggle':
+          // Extract features from enabled toggles (like Sneak Attack)
+          if (prop.enabled) {
+            console.log(`🔘 Found enabled toggle: ${prop.name}`);
+
+            // Find child properties of this toggle
+            const toggleChildren = apiData.creatureProperties.filter(child => {
+              return child.parent && child.parent.id === prop._id;
+            });
+
+            console.log(`🔘 Toggle "${prop.name}" has ${toggleChildren.length} children:`, toggleChildren.map(c => c.name));
+
+            // Process each child (features, damage, etc.)
+            toggleChildren.forEach(child => {
+              if (child.type === 'feature' || child.type === 'damage') {
+                const toggleFeature = {
+                  name: child.name || prop.name || 'Unnamed Feature',
+                  description: child.description || prop.description || '',
+                  uses: child.uses || prop.uses,
+                  roll: child.roll || child.amount || '',
+                  damage: child.damage || child.amount || ''
+                };
+
+                characterData.features.push(toggleFeature);
+
+                // If has roll/damage, add to actions
+                if (toggleFeature.roll || toggleFeature.damage) {
+                  characterData.actions.push({
+                    name: toggleFeature.name,
+                    actionType: 'feature',
+                    attackRoll: '',
+                    damage: toggleFeature.damage || toggleFeature.roll,
+                    damageType: child.damageType || '',
+                    description: toggleFeature.description
+                  });
+                  console.log(`⚔️ Added toggle feature to actions: ${toggleFeature.name}`);
+                }
+              }
+            });
+          }
+          break;
+
         case 'spell':
           // Extract description from object or string
           let description = '';
@@ -795,7 +837,7 @@
       if (subraceProps.length > 0) {
         const subraceProp = subraceProps[0];
         console.log('🔍 Found subrace child property:', subraceProp.name, 'with tags:', subraceProp.tags);
-        characterData.race = `${subraceProp.name} ${raceName}`;
+        characterData.race = `${raceName} - ${subraceProp.name}`;
         console.log('🔍 Combined race with subrace:', characterData.race);
       } else {
         console.log('🔍 No subrace children found for race');
@@ -880,7 +922,7 @@
 
         // Combine race and subrace if we have both
         if (raceName && suberaceName) {
-          characterData.race = `${suberaceName} ${raceName}`;
+          characterData.race = `${raceName} - ${suberaceName}`;
           console.log(`🔍 Combined race and subrace: ${characterData.race}`);
         } else if (suberaceName) {
           characterData.race = suberaceName;
