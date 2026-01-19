@@ -369,15 +369,27 @@
     apiData.creatureProperties.forEach(prop => {
       propertyTypes.add(prop.type);
 
-      // Debug: Log any properties with "elf" in the name
-      if (prop.name && prop.name.toLowerCase().includes('elf')) {
-        console.log('🔍 Found property with "elf" in name:', {
-          name: prop.name,
-          type: prop.type,
-          _id: prop._id,
-          parent: prop.parent,
-          tags: prop.tags
-        });
+      // Check for race as a folder (DiceCloud stores races as folders)
+      // Look for folders with common race names at the top level
+      const commonRaces = ['human', 'elf', 'dwarf', 'halfling', 'gnome', 'half-elf', 'half-orc', 'dragonborn', 'tiefling', 'orc', 'goblin', 'kobold'];
+      if (prop.type === 'folder' && prop.name && commonRaces.some(race => prop.name.toLowerCase().includes(race))) {
+        // Check if this is likely a race folder (not nested deep in character)
+        const parentDepth = prop.ancestors ? prop.ancestors.length : 0;
+        if (parentDepth <= 2) { // Top-level or near top-level folder
+          console.log('🔍 Found potential race folder:', {
+            name: prop.name,
+            type: prop.type,
+            _id: prop._id,
+            parentDepth: parentDepth
+          });
+          if (!raceFound) {
+            raceName = prop.name;
+            racePropertyId = prop._id;
+            characterData.race = prop.name;
+            console.log('🔍 Set race to:', prop.name, '(ID:', prop._id, ')');
+            raceFound = true;
+          }
+        }
       }
 
       if (prop.type === 'race') {
@@ -766,10 +778,18 @@
         const hasSubraceTag = prop.tags && Array.isArray(prop.tags) && prop.tags.some(tag =>
           tag.toLowerCase().includes('subrace')
         );
+        const isFolder = prop.type === 'folder';
         if (isChild) {
-          console.log('🔍 Found child of race:', prop.name, 'with tags:', prop.tags, 'hasSubraceTag:', hasSubraceTag);
+          console.log('🔍 Found child of race:', {
+            name: prop.name,
+            type: prop.type,
+            tags: prop.tags,
+            hasSubraceTag: hasSubraceTag,
+            isFolder: isFolder
+          });
         }
-        return isChild && hasSubraceTag;
+        // Look for folders that are children of the race and have subrace tags
+        return isChild && hasSubraceTag && isFolder;
       });
 
       if (subraceProps.length > 0) {
