@@ -1659,15 +1659,18 @@
         // Fallback: Send data after a delay if popup hasn't sent ready message
         // This handles cases where the popup loads faster than expected
         setTimeout(() => {
-          if (!messageSent && popupWindow && !popupWindow.closed) {
-            console.log('⏱️ Fallback: Sending character data after timeout...');
-            messageSent = true;
+          if (!messageSent && popupWindow) {
             try {
-              popupWindow.postMessage({
-                action: 'initCharacterSheet',
-                data: response.data
-              }, '*');
-              console.log('✅ Character data sent via fallback');
+              // Firefox can throw "dead object" error even when accessing .closed property
+              if (!popupWindow.closed) {
+                console.log('⏱️ Fallback: Sending character data after timeout...');
+                messageSent = true;
+                popupWindow.postMessage({
+                  action: 'initCharacterSheet',
+                  data: response.data
+                }, '*');
+                console.log('✅ Character data sent via fallback');
+              }
             } catch (error) {
               console.warn('⚠️ Could not send fallback message to popup (Firefox security):', error.message);
               // The popup will load data from storage if postMessage fails
