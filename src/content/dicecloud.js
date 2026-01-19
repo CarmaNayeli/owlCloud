@@ -666,7 +666,7 @@
 
             // Find damage properties that are children of this action
             // Damage is stored as separate properties with this action as parent
-            const damageProperties = creatureProperties.filter(p =>
+            const damageProperties = properties.filter(p =>
               p.type === 'damage' &&
               p.parent &&
               p.parent.id === prop._id
