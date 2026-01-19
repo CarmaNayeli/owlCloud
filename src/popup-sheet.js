@@ -1074,13 +1074,31 @@ function showHPModal() {
       showNotification(`💚 Healed ${actualHealing} HP! (${characterData.hitPoints.current}/${maxHP})`);
 
       // Announce to Roll20 chat with fancy formatting
+      const colorBanner = getColoredBanner();
+      const messageData = {
+        action: 'announceSpell',
+        message: `&{template:default} {{name=${colorBanner}${characterData.name} regains HP}} {{💚 Healing=${actualHealing} HP}} {{Current HP=${characterData.hitPoints.current}/${maxHP}}}`,
+        color: characterData.notificationColor
+      };
+
+      // Try window.opener first (Chrome)
       if (window.opener && !window.opener.closed) {
-        const colorBanner = getColoredBanner();
-        window.opener.postMessage({
-          action: 'announceSpell',
-          message: `&{template:default} {{name=${colorBanner}${characterData.name} regains HP}} {{💚 Healing=${actualHealing} HP}} {{Current HP=${characterData.hitPoints.current}/${maxHP}}}`,
-          color: characterData.notificationColor
-        }, '*');
+        try {
+          window.opener.postMessage(messageData, '*');
+        } catch (error) {
+          console.warn('⚠️ Could not send via window.opener:', error.message);
+          // Fallback to background script relay
+          browserAPI.runtime.sendMessage({
+            action: 'relayRollToRoll20',
+            roll: messageData
+          });
+        }
+      } else {
+        // Fallback: Use background script to relay to Roll20 (Firefox)
+        browserAPI.runtime.sendMessage({
+          action: 'relayRollToRoll20',
+          roll: messageData
+        });
       }
     } else {
       characterData.hitPoints.current = Math.max(currentHP - amount, 0);
@@ -1088,13 +1106,31 @@ function showHPModal() {
       showNotification(`💔 Took ${actualDamage} damage! (${characterData.hitPoints.current}/${maxHP})`);
 
       // Announce to Roll20 chat with fancy formatting
+      const colorBanner = getColoredBanner();
+      const messageData = {
+        action: 'announceSpell',
+        message: `&{template:default} {{name=${colorBanner}${characterData.name} takes damage}} {{💔 Damage=${actualDamage} HP}} {{Current HP=${characterData.hitPoints.current}/${maxHP}}}`,
+        color: characterData.notificationColor
+      };
+
+      // Try window.opener first (Chrome)
       if (window.opener && !window.opener.closed) {
-        const colorBanner = getColoredBanner();
-        window.opener.postMessage({
-          action: 'announceSpell',
-          message: `&{template:default} {{name=${colorBanner}${characterData.name} takes damage}} {{💔 Damage=${actualDamage} HP}} {{Current HP=${characterData.hitPoints.current}/${maxHP}}}`,
-          color: characterData.notificationColor
-        }, '*');
+        try {
+          window.opener.postMessage(messageData, '*');
+        } catch (error) {
+          console.warn('⚠️ Could not send via window.opener:', error.message);
+          // Fallback to background script relay
+          browserAPI.runtime.sendMessage({
+            action: 'relayRollToRoll20',
+            roll: messageData
+          });
+        }
+      } else {
+        // Fallback: Use background script to relay to Roll20 (Firefox)
+        browserAPI.runtime.sendMessage({
+          action: 'relayRollToRoll20',
+          roll: messageData
+        });
       }
     }
 
@@ -3402,13 +3438,31 @@ function takeShortRest() {
   console.log('✅ Short rest complete');
 
   // Announce to Roll20 with fancy formatting
+  const colorBanner = getColoredBanner();
+  const messageData = {
+    action: 'announceSpell',
+    message: `&{template:default} {{name=${colorBanner}${characterData.name} takes a short rest}} {{=☕ Short rest complete. Resources recharged!}}`,
+    color: characterData.notificationColor
+  };
+
+  // Try window.opener first (Chrome)
   if (window.opener && !window.opener.closed) {
-    const colorBanner = getColoredBanner();
-    window.opener.postMessage({
-      action: 'announceSpell',
-      message: `&{template:default} {{name=${colorBanner}${characterData.name} takes a short rest}} {{=☕ Short rest complete. Resources recharged!}}`,
-      color: characterData.notificationColor
-    }, '*');
+    try {
+      window.opener.postMessage(messageData, '*');
+    } catch (error) {
+      console.warn('⚠️ Could not send via window.opener:', error.message);
+      // Fallback to background script relay
+      browserAPI.runtime.sendMessage({
+        action: 'relayRollToRoll20',
+        roll: messageData
+      });
+    }
+  } else {
+    // Fallback: Use background script to relay to Roll20 (Firefox)
+    browserAPI.runtime.sendMessage({
+      action: 'relayRollToRoll20',
+      roll: messageData
+    });
   }
 }
 
@@ -3613,13 +3667,31 @@ function takeLongRest() {
   console.log('✅ Long rest complete');
 
   // Announce to Roll20 with fancy formatting
+  const colorBanner = getColoredBanner();
+  const messageData = {
+    action: 'announceSpell',
+    message: `&{template:default} {{name=${colorBanner}${characterData.name} takes a long rest}} {{=🌙 Long rest complete!}} {{HP=${characterData.hitPoints.current}/${characterData.hitPoints.max} (Fully Restored)}} {{=All spell slots and resources restored!}}`,
+    color: characterData.notificationColor
+  };
+
+  // Try window.opener first (Chrome)
   if (window.opener && !window.opener.closed) {
-    const colorBanner = getColoredBanner();
-    window.opener.postMessage({
-      action: 'announceSpell',
-      message: `&{template:default} {{name=${colorBanner}${characterData.name} takes a long rest}} {{=🌙 Long rest complete!}} {{HP=${characterData.hitPoints.current}/${characterData.hitPoints.max} (Fully Restored)}} {{=All spell slots and resources restored!}}`,
-      color: characterData.notificationColor
-    }, '*');
+    try {
+      window.opener.postMessage(messageData, '*');
+    } catch (error) {
+      console.warn('⚠️ Could not send via window.opener:', error.message);
+      // Fallback to background script relay
+      browserAPI.runtime.sendMessage({
+        action: 'relayRollToRoll20',
+        roll: messageData
+      });
+    }
+  } else {
+    // Fallback: Use background script to relay to Roll20 (Firefox)
+    browserAPI.runtime.sendMessage({
+      action: 'relayRollToRoll20',
+      roll: messageData
+    });
   }
 }
 

@@ -44,13 +44,14 @@
    */
   function handleDiceCloudRoll(rollData) {
     console.log('🎲 Handling Dice Cloud roll:', rollData);
-    
-    // Format the roll for Roll20 chat
-    const formattedMessage = formatRollForRoll20(rollData);
-    
+
+    // Use pre-formatted message if it exists (for spells, actions, etc.)
+    // Otherwise format the roll data
+    const formattedMessage = rollData.message || formatRollForRoll20(rollData);
+
     // Post to chat
     const success = postChatMessage(formattedMessage);
-    
+
     if (success) {
       console.log('✅ Roll successfully posted to Roll20');
     } else {
@@ -76,11 +77,23 @@
     if (request.action === 'postRollToChat') {
       handleDiceCloudRoll(request.roll);
       sendResponse({ success: true });
+    } else if (request.action === 'rollFromPopout') {
+      // Handle rolls relayed from background script (Firefox)
+      handleDiceCloudRoll(request);
+      sendResponse({ success: true });
+    } else if (request.action === 'announceSpell') {
+      // Handle spell/action announcements relayed from background script (Firefox)
+      if (request.message) {
+        postChatMessage(request.message);
+      } else {
+        handleDiceCloudRoll(request);
+      }
+      sendResponse({ success: true });
     } else if (request.action === 'testRoll20Connection') {
       // Test if we can access Roll20 chat
       const chatInput = document.querySelector('#textchat-input textarea');
-      sendResponse({ 
-        success: !!chatInput, 
+      sendResponse({
+        success: !!chatInput,
         message: chatInput ? 'Roll20 chat accessible' : 'Roll20 chat not found'
       });
     } else if (request.action === 'showCharacterSheet') {
@@ -114,6 +127,16 @@
     } else if (event.data.action === 'postChat') {
       // Handle general chat messages (like spell descriptions)
       postChatMessage(event.data.message);
+    } else if (event.data.action === 'rollFromPopout') {
+      // Handle rolls from the popup window (Chrome direct communication)
+      handleDiceCloudRoll(event.data);
+    } else if (event.data.action === 'announceSpell') {
+      // Handle spell/action announcements with pre-formatted messages
+      if (event.data.message) {
+        postChatMessage(event.data.message);
+      } else {
+        handleDiceCloudRoll(event.data);
+      }
     }
   });
 

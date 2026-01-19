@@ -1979,8 +1979,11 @@
       if (request.roll) {
         console.log('🎲 Received roll in overlay:', request.roll);
 
-        // Add to history and update stats
-        addToRollHistory(request.roll);
+        // Only add to history if it's an actual roll (has a formula)
+        // Announcements like spells/actions don't have formulas
+        if (request.roll.formula) {
+          addToRollHistory(request.roll);
+        }
 
         // Show notification
         showNotification(`Roll received: ${request.roll.name || 'dice roll'}`, 'success');
