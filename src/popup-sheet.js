@@ -400,7 +400,7 @@ function showHPModal() {
         const colorBanner = getColoredBanner();
         window.opener.postMessage({
           action: 'announceSpell',
-          message: `&{template:default} {{name=${colorBanner}💚 Healing}} {{Character=${characterData.name}}} {{HP Restored=${actualHealing}}} {{Current HP=${characterData.hitPoints.current}/${maxHP}}}`,
+          message: `&{template:default} {{name=${colorBanner}${characterData.name} regains HP}} {{💚 Healing=${actualHealing} HP}} {{Current HP=${characterData.hitPoints.current}/${maxHP}}}`,
           color: characterData.notificationColor
         }, '*');
       }
@@ -414,7 +414,7 @@ function showHPModal() {
         const colorBanner = getColoredBanner();
         window.opener.postMessage({
           action: 'announceSpell',
-          message: `&{template:default} {{name=${colorBanner}💔 Damage}} {{Character=${characterData.name}}} {{Damage Taken=${actualDamage}}} {{Current HP=${characterData.hitPoints.current}/${maxHP}}}`,
+          message: `&{template:default} {{name=${colorBanner}${characterData.name} takes damage}} {{💔 Damage=${actualDamage} HP}} {{Current HP=${characterData.hitPoints.current}/${maxHP}}}`,
           color: characterData.notificationColor
         }, '*');
       }
@@ -1046,9 +1046,12 @@ function roll(name, formula) {
 
   if (window.opener && !window.opener.closed) {
     const colorBanner = getColoredBanner();
+    // Format: "🔵 CharacterName rolls Initiative"
+    const rollName = `${colorBanner}${characterData.name} rolls ${name}`;
+
     window.opener.postMessage({
       action: 'rollFromPopout',
-      name: `${colorBanner}${name}`,
+      name: rollName,
       formula: formula,
       color: characterData.notificationColor,
       characterName: characterData.name
@@ -1119,7 +1122,7 @@ function takeShortRest() {
     const colorBanner = getColoredBanner();
     window.opener.postMessage({
       action: 'announceSpell',
-      message: `&{template:default} {{name=${colorBanner}☕ Short Rest}} {{Character=${characterData.name}}} {{=Short rest complete. Resources recharged!}}`,
+      message: `&{template:default} {{name=${colorBanner}${characterData.name} takes a short rest}} {{=☕ Short rest complete. Resources recharged!}}`,
       color: characterData.notificationColor
     }, '*');
   }
@@ -1214,7 +1217,7 @@ function spendHitDice() {
       const colorBanner = getColoredBanner();
       window.opener.postMessage({
         action: 'announceSpell',
-        message: `&{template:default} {{name=${colorBanner}🎲 Hit Die}} {{Character=${characterData.name}}} {{Roll=${hitDie}: ${roll} + ${conMod} CON}} {{HP Restored=${healing}}} {{Current HP=${characterData.hitPoints.current}/${characterData.hitPoints.max}}}`,
+        message: `&{template:default} {{name=${colorBanner}${characterData.name} spends hit dice}} {{Roll=🎲 ${hitDie}: ${roll} + ${conMod} CON}} {{HP Restored=${healing}}} {{Current HP=${characterData.hitPoints.current}/${characterData.hitPoints.max}}}`,
         color: characterData.notificationColor
       }, '*');
     }
@@ -1312,7 +1315,7 @@ function takeLongRest() {
     const colorBanner = getColoredBanner();
     window.opener.postMessage({
       action: 'announceSpell',
-      message: `&{template:default} {{name=${colorBanner}🌙 Long Rest}} {{Character=${characterData.name}}} {{=Long rest complete!}} {{HP=${characterData.hitPoints.current}/${characterData.hitPoints.max} (Fully Restored)}} {{=All spell slots and resources restored!}}`,
+      message: `&{template:default} {{name=${colorBanner}${characterData.name} takes a long rest}} {{=🌙 Long rest complete!}} {{HP=${characterData.hitPoints.current}/${characterData.hitPoints.max} (Fully Restored)}} {{=All spell slots and resources restored!}}`,
       color: characterData.notificationColor
     }, '*');
   }
