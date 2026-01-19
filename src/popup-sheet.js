@@ -2599,8 +2599,6 @@ function resolveVariablesInFormula(formula) {
   console.log(`🔍 Looking for max/min in formula: "${resolvedFormula}"`);
 
   const maxMinPattern = /(max|min)\(/gi;
-  let match;
-  let offset = 0; // Track modifications to the string
 
   while ((match = maxMinPattern.exec(resolvedFormula)) !== null) {
     const func = match[1].toLowerCase();
