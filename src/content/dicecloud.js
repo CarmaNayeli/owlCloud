@@ -183,6 +183,7 @@
         successes: (creature.deathSave && creature.deathSave.success) || 0,
         failures: (creature.deathSave && creature.deathSave.fail) || 0
       },
+      resources: [],  // Ki Points, Sorcery Points, Rage, etc.
       kingdom: {},
       army: {},
       otherVariables: {}
@@ -581,22 +582,40 @@
                   }
                 }
 
+                // Extract damage/roll value based on property type
+                let damageValue = '';
+                let rollValue = '';
+
+                // For damage properties, check amount field (can be string or object with calculation)
+                if (child.type === 'damage') {
+                  if (typeof child.amount === 'string') {
+                    damageValue = child.amount;
+                  } else if (typeof child.amount === 'object' && child.amount.calculation) {
+                    damageValue = child.amount.calculation;
+                  }
+                  console.log(`🎯 Found damage property: "${child.name || prop.name}" with value: "${damageValue}"`);
+                }
+                // For effects, check if there's an operation that modifies damage
+                else if (child.type === 'effect' && child.operation === 'add' && child.amount) {
+                  if (typeof child.amount === 'string') {
+                    damageValue = child.amount;
+                  } else if (typeof child.amount === 'object' && child.amount.calculation) {
+                    damageValue = child.amount.calculation;
+                  }
+                }
+                // For features, use roll or damage fields
+                else {
+                  rollValue = child.roll || '';
+                  damageValue = child.damage || '';
+                }
+
                 const toggleFeature = {
                   name: child.name || prop.name || 'Unnamed Feature',
                   description: childDescription,
                   uses: child.uses || prop.uses,
-                  roll: child.roll || child.amount || '',
-                  damage: child.damage || child.amount || ''
+                  roll: rollValue,
+                  damage: damageValue
                 };
-
-                // For effects, check if there's an operation that modifies damage
-                if (child.type === 'effect' && child.operation === 'add' && child.amount) {
-                  if (typeof child.amount === 'string') {
-                    toggleFeature.damage = child.amount;
-                  } else if (typeof child.amount === 'object' && child.amount.calculation) {
-                    toggleFeature.damage = child.amount.calculation;
-                  }
-                }
 
                 characterData.features.push(toggleFeature);
 
@@ -902,6 +921,33 @@
             }
           } else if (prop.inactive || prop.disabled) {
             console.log(`⏭️ Skipped action: ${prop.name} (inactive: ${!!prop.inactive}, disabled: ${!!prop.disabled})`);
+          }
+          break;
+
+        case 'attribute':
+          // Extract resources like Ki Points, Sorcery Points, Rage, etc.
+          // These are attributes with attributeType === 'resource' or 'healthBar'
+          if (prop.name && (prop.attributeType === 'resource' || prop.attributeType === 'healthBar')) {
+            // Skip hit points (already extracted)
+            const lowerName = prop.name.toLowerCase();
+            if (lowerName.includes('hit point') || lowerName === 'hp') {
+              break;
+            }
+
+            const resource = {
+              name: prop.name,
+              current: prop.value || prop.damage || 0,  // 'damage' field represents consumed resources
+              max: prop.baseValue || prop.total || 0,
+              description: prop.description || ''
+            };
+
+            // For resources that track usage (like consumed resources), current = max - damage
+            if (prop.damage && prop.baseValue) {
+              resource.current = Math.max(0, prop.baseValue - prop.damage);
+            }
+
+            characterData.resources.push(resource);
+            console.log(`💎 Added resource: ${resource.name} (${resource.current}/${resource.max})`);
           }
           break;
       }
@@ -1435,7 +1481,7 @@
   /**
    * Shows a notification to the user
    */
-  function showNotification(message, type = 'info') {
+  function showNotification(message, type = 'info', duration = 5000) {
     const colors = {
       success: '#4CAF50',
       error: '#f44336',
@@ -1459,7 +1505,7 @@
       max-width: 300px;
     `;
     document.body.appendChild(notification);
-    setTimeout(() => notification.remove(), 5000);
+    setTimeout(() => notification.remove(), duration);
   }
 
   /**
@@ -2999,7 +3045,16 @@
       })
       .catch(error => {
         console.error('❌ Error during character extraction:', error);
-        showNotification('Failed to extract character data. Please try again.', 'error');
+
+        // Check if this is a login error
+        if (error.message && error.message.includes('Not logged in')) {
+          showNotification('⚠️ Please login to DiceCloud first! Click the RollCloud extension icon to login.', 'error', 5000);
+        } else if (error.message && error.message.includes('Extension reloaded')) {
+          showNotification('Extension context error. Please refresh the page.', 'error');
+        } else {
+          showNotification('Failed to extract character data. Please try again.', 'error');
+        }
+
         if (button) {
           button.innerHTML = '🔄 Sync to RollCloud';
           button.disabled = false;
