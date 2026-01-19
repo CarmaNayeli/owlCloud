@@ -290,8 +290,29 @@ function buildSpellsBySource(container, spells) {
       return (a.name || '').localeCompare(b.name || '');
     });
 
-    // Add spells
+    // Deduplicate spells by name and combine sources
+    const deduplicatedSpells = [];
+    const spellsByName = {};
+
     sortedSpells.forEach(spell => {
+      const spellName = spell.name || 'Unnamed Spell';
+
+      if (!spellsByName[spellName]) {
+        // First occurrence of this spell
+        spellsByName[spellName] = spell;
+        deduplicatedSpells.push(spell);
+      } else {
+        // Duplicate spell - combine sources
+        const existingSpell = spellsByName[spellName];
+        if (spell.source && !existingSpell.source.includes(spell.source)) {
+          existingSpell.source += '; ' + spell.source;
+          console.log(`📚 Combined duplicate spell "${spellName}": ${existingSpell.source}`);
+        }
+      }
+    });
+
+    // Add deduplicated spells
+    deduplicatedSpells.forEach(spell => {
       const spellCard = createSpellCard(spell, spell.index);
       levelSection.appendChild(spellCard);
     });
@@ -418,6 +439,11 @@ function buildActionsDisplay(container, actions) {
       }
       damageBtn.textContent = btnText;
       damageBtn.addEventListener('click', () => {
+        // Check and decrement uses before rolling
+        if (action.uses && !decrementActionUses(action)) {
+          return; // No uses remaining
+        }
+
         let damageName = action.damageType ?
           `${action.name} (${action.damageType})` :
           action.name;
@@ -442,6 +468,10 @@ function buildActionsDisplay(container, actions) {
       useBtn.textContent = '✨ Use';
       useBtn.addEventListener('click', (e) => {
         e.stopPropagation();
+        // Check and decrement uses before announcing
+        if (action.uses && !decrementActionUses(action)) {
+          return; // No uses remaining
+        }
         announceAction(action);
       });
       buttonsDiv.appendChild(useBtn);
@@ -488,6 +518,37 @@ function buildActionsDisplay(container, actions) {
 
     container.appendChild(actionCard);
   });
+}
+
+function decrementActionUses(action) {
+  if (!action.uses) {
+    return true; // No uses to track, allow action
+  }
+
+  const usesUsed = action.usesUsed || 0;
+  const usesTotal = action.uses.total || action.uses.value || action.uses;
+  const usesRemaining = usesTotal - usesUsed;
+
+  if (usesRemaining <= 0) {
+    showNotification(`❌ No uses remaining for ${action.name}`, 'error');
+    return false;
+  }
+
+  // Increment usesUsed
+  action.usesUsed = usesUsed + 1;
+  const newRemaining = usesTotal - action.usesUsed;
+
+  // Update character data and save
+  updateCharacterData();
+
+  // Show notification
+  showNotification(`✅ Used ${action.name} (${newRemaining}/${usesTotal} remaining)`);
+
+  // Rebuild the actions display to show updated count
+  const actionsContainer = document.getElementById('actions-container');
+  buildActionsDisplay(actionsContainer, characterData.actions);
+
+  return true;
 }
 
 function buildSpellSlotsDisplay() {
@@ -1484,6 +1545,42 @@ function resolveVariablesInFormula(formula) {
   let resolvedFormula = formula;
   let variablesResolved = [];
 
+  // Helper function to get variable value (handles dot notation like "bard.level")
+  const getVariableValue = (varPath) => {
+    // Try direct lookup first
+    if (characterData.otherVariables.hasOwnProperty(varPath)) {
+      const val = characterData.otherVariables[varPath];
+      if (typeof val === 'number') return val;
+      if (typeof val === 'object' && val.value !== undefined) return val.value;
+      if (typeof val === 'string') return val;
+    }
+
+    // Try converting dot notation (e.g., "bard.level" -> "bardLevel")
+    const camelCase = varPath.replace(/\.([a-z])/g, (_, letter) => letter.toUpperCase());
+    if (characterData.otherVariables.hasOwnProperty(camelCase)) {
+      const val = characterData.otherVariables[camelCase];
+      if (typeof val === 'number') return val;
+      if (typeof val === 'object' && val.value !== undefined) return val.value;
+    }
+
+    // Try other common patterns
+    const alternatives = [
+      varPath.replace(/\./g, ''), // Remove dots
+      varPath.split('.').pop(), // Just the last part
+      varPath.replace(/\./g, '_') // Underscores instead
+    ];
+
+    for (const alt of alternatives) {
+      if (characterData.otherVariables.hasOwnProperty(alt)) {
+        const val = characterData.otherVariables[alt];
+        if (typeof val === 'number') return val;
+        if (typeof val === 'object' && val.value !== undefined) return val.value;
+      }
+    }
+
+    return null;
+  };
+
   // Pattern 1: Find variables in parentheses like (variableName)
   const parenthesesPattern = /\(([a-zA-Z_][a-zA-Z0-9_]*)\)/g;
   let match;
@@ -1516,37 +1613,16 @@ function resolveVariablesInFormula(formula) {
     }
   }
 
-  // Pattern 2: Find variables/expressions in curly braces like {variableName} or {ceilproficiencyBonus/2}
-  const bracesPattern = /\{([^}]+)\}/g;
+  // Pattern 2: Handle math functions like ceil{expression}, floor{expression}, etc.
+  const mathFuncPattern = /(ceil|floor|round|abs)\{([^}]+)\}/gi;
 
-  while ((match = bracesPattern.exec(resolvedFormula)) !== null) {
-    const expression = match[1];
-    const fullMatch = match[0]; // e.g., "{bardicInspirationDie}" or "{ceilproficiencyBonus/2}"
+  while ((match = mathFuncPattern.exec(resolvedFormula)) !== null) {
+    const funcName = match[1].toLowerCase();
+    const expression = match[2];
+    const fullMatch = match[0]; // e.g., "ceil{proficiencyBonus/2}"
 
-    // First try as a simple variable lookup
-    if (characterData.otherVariables.hasOwnProperty(expression)) {
-      const variableValue = characterData.otherVariables[expression];
-
-      // Extract value (can be numeric or string like "1d8")
-      let value = null;
-      if (typeof variableValue === 'number' || typeof variableValue === 'string') {
-        value = variableValue;
-      } else if (typeof variableValue === 'object' && variableValue.value !== undefined) {
-        value = variableValue.value;
-      }
-
-      if (value !== null) {
-        resolvedFormula = resolvedFormula.replace(fullMatch, value);
-        variablesResolved.push(`${expression}=${value}`);
-        console.log(`✅ Resolved variable: ${expression} = ${value}`);
-        continue;
-      }
-    }
-
-    // If not a simple variable, try to evaluate as expression by replacing variables first
+    // Replace variables in the expression
     let evalExpression = expression;
-
-    // Replace all variables in the expression with their values
     for (const varName in characterData.otherVariables) {
       if (evalExpression.includes(varName)) {
         const variableValue = characterData.otherVariables[varName];
@@ -1559,31 +1635,163 @@ function resolveVariablesInFormula(formula) {
         }
 
         if (value !== null && typeof value === 'number') {
-          // Replace variable name with its numeric value
           evalExpression = evalExpression.replace(new RegExp(varName, 'g'), value);
         }
       }
     }
 
-    // Try to evaluate the expression
+    // Evaluate the expression with the appropriate math function
     try {
-      // Only evaluate if it looks like a safe math expression
       if (/^[\d\s+\-*/().]+$/.test(evalExpression)) {
-        const result = Math.ceil(eval(evalExpression));
+        const evalResult = eval(evalExpression);
+        let result;
+
+        switch (funcName) {
+          case 'ceil':
+            result = Math.ceil(evalResult);
+            break;
+          case 'floor':
+            result = Math.floor(evalResult);
+            break;
+          case 'round':
+            result = Math.round(evalResult);
+            break;
+          case 'abs':
+            result = Math.abs(evalResult);
+            break;
+          default:
+            result = evalResult;
+        }
+
         resolvedFormula = resolvedFormula.replace(fullMatch, result);
-        variablesResolved.push(`${expression}=${result}`);
-        console.log(`✅ Resolved expression: ${expression} = ${result}`);
-      } else {
-        console.log(`⚠️ Could not resolve expression: ${expression}`);
+        variablesResolved.push(`${funcName}{${expression}}=${result}`);
+        console.log(`✅ Resolved math function: ${funcName}{${expression}} = ${result}`);
       }
     } catch (e) {
-      console.log(`⚠️ Failed to evaluate expression: ${expression}`, e);
+      console.log(`⚠️ Failed to evaluate ${funcName}{${expression}}`, e);
+    }
+  }
+
+  // Pattern 3: Find variables/expressions in curly braces like {variableName} or {3*cleric.level}
+  const bracesPattern = /\{([^}]+)\}/g;
+
+  while ((match = bracesPattern.exec(resolvedFormula)) !== null) {
+    const expression = match[1];
+    const fullMatch = match[0];
+
+    // Strip markdown formatting
+    let cleanExpr = expression.replace(/\*\*/g, '');
+
+    // Try as simple variable first
+    let simpleValue = getVariableValue(cleanExpr);
+    if (simpleValue !== null) {
+      resolvedFormula = resolvedFormula.replace(fullMatch, simpleValue);
+      variablesResolved.push(`${cleanExpr}=${simpleValue}`);
+      console.log(`✅ Resolved variable: ${cleanExpr} = ${simpleValue}`);
+      continue;
+    }
+
+    // Handle array indexing: [array][index]
+    const arrayPattern = /^\[([^\]]+)\]\[([^\]]+)\]$/;
+    const arrayMatch = cleanExpr.match(arrayPattern);
+    if (arrayMatch) {
+      try {
+        const arrayPart = arrayMatch[1];
+        const indexPart = arrayMatch[2];
+
+        // Parse array
+        const arrayValues = arrayPart.split(',').map(v => parseFloat(v.trim()));
+
+        // Resolve index variable
+        const indexValue = getVariableValue(indexPart);
+
+        if (indexValue !== null && !isNaN(indexValue) && arrayValues[indexValue] !== undefined) {
+          const result = arrayValues[indexValue];
+          resolvedFormula = resolvedFormula.replace(fullMatch, result);
+          variablesResolved.push(`array[${indexValue}]=${result}`);
+          console.log(`✅ Resolved array indexing: ${cleanExpr} = ${result}`);
+          continue;
+        }
+      } catch (e) {
+        console.log(`⚠️ Failed to resolve array indexing: ${cleanExpr}`, e);
+      }
+    }
+
+    // Handle max/min functions
+    const maxMinPattern = /^(max|min)\(([^)]+)\)$/i;
+    const maxMinMatch = cleanExpr.match(maxMinPattern);
+    if (maxMinMatch) {
+      try {
+        const func = maxMinMatch[1].toLowerCase();
+        const args = maxMinMatch[2].split(',').map(arg => {
+          const trimmed = arg.trim();
+          // Try to parse as number first
+          const num = parseFloat(trimmed);
+          if (!isNaN(num)) return num;
+
+          // Try to resolve as variable
+          const varVal = getVariableValue(trimmed);
+          if (varVal !== null) return varVal;
+
+          return null;
+        }).filter(v => v !== null);
+
+        if (args.length > 0) {
+          const result = func === 'max' ? Math.max(...args) : Math.min(...args);
+          resolvedFormula = resolvedFormula.replace(fullMatch, result);
+          variablesResolved.push(`${func}(...)=${result}`);
+          console.log(`✅ Resolved ${func} function: ${cleanExpr} = ${result}`);
+          continue;
+        }
+      } catch (e) {
+        console.log(`⚠️ Failed to resolve ${cleanExpr}`, e);
+      }
+    }
+
+    // Try to evaluate as math expression
+    let evalExpression = cleanExpr;
+
+    // Replace all variable names with their values (sorted by length to avoid partial matches)
+    const varPattern = /[a-zA-Z_][a-zA-Z0-9_.]*/g;
+    let varMatch;
+    const replacements = [];
+
+    while ((varMatch = varPattern.exec(cleanExpr)) !== null) {
+      const varName = varMatch[0];
+      const value = getVariableValue(varName);
+      if (value !== null && typeof value === 'number') {
+        replacements.push({ name: varName, value: value });
+      }
+    }
+
+    // Sort by length (longest first) to avoid partial replacements
+    replacements.sort((a, b) => b.name.length - a.name.length);
+
+    for (const {name, value} of replacements) {
+      evalExpression = evalExpression.replace(new RegExp(name.replace(/\./g, '\\.'), 'g'), value);
+    }
+
+    // Try to evaluate the expression
+    try {
+      if (/^[\d\s+\-*/().]+$/.test(evalExpression)) {
+        const result = eval(evalExpression);
+        resolvedFormula = resolvedFormula.replace(fullMatch, Math.floor(result));
+        variablesResolved.push(`${cleanExpr}=${Math.floor(result)}`);
+        console.log(`✅ Resolved expression: ${cleanExpr} = ${Math.floor(result)}`);
+      } else {
+        console.log(`⚠️ Could not resolve expression: ${cleanExpr} (eval: ${evalExpression})`);
+      }
+    } catch (e) {
+      console.log(`⚠️ Failed to evaluate expression: ${cleanExpr}`, e);
     }
   }
 
   if (variablesResolved.length > 0) {
     console.log(`🔧 Formula resolution: "${formula}" -> "${resolvedFormula}" (${variablesResolved.join(', ')})`);
   }
+
+  // Strip remaining markdown formatting
+  resolvedFormula = resolvedFormula.replace(/\*\*/g, ''); // Remove bold markers
 
   return resolvedFormula;
 }
@@ -1660,6 +1868,18 @@ function takeShortRest() {
 
   // Handle Hit Dice spending for HP restoration
   spendHitDice();
+
+  // Reset limited uses for short rest abilities
+  if (characterData.actions) {
+    characterData.actions.forEach(action => {
+      // Reset usesUsed for actions that recharge on short rest
+      // Most limited use abilities in D&D 5e recharge on short rest
+      if (action.uses && action.usesUsed > 0) {
+        action.usesUsed = 0;
+        console.log(`✅ Reset uses for ${action.name}`);
+      }
+    });
+  }
 
   saveCharacterData();
   buildSheet(characterData);
@@ -1852,6 +2072,16 @@ function takeLongRest() {
     if (characterData.otherVariables.channelDivinityMax !== undefined) {
       characterData.otherVariables.channelDivinity = characterData.otherVariables.channelDivinityMax;
     }
+  }
+
+  // Reset limited uses for all abilities
+  if (characterData.actions) {
+    characterData.actions.forEach(action => {
+      if (action.uses && action.usesUsed > 0) {
+        action.usesUsed = 0;
+        console.log(`✅ Reset uses for ${action.name}`);
+      }
+    });
   }
 
   saveCharacterData();
