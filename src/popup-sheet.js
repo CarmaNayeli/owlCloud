@@ -848,10 +848,21 @@ function useClassResource(resource, spell) {
 function getColoredBanner() {
   // Get the character's notification color
   const color = characterData.notificationColor || '#3498db';
-  const colorName = getColorName(color);
 
-  // Return a colored indicator using HTML span
-  return `<span style="color: ${color}; font-weight: bold;">⬤</span> `;
+  // Use colored emoji circles - these display properly in Roll20
+  const colorEmojiMap = {
+    '#3498db': '🔵', // Blue
+    '#e74c3c': '🔴', // Red
+    '#27ae60': '🟢', // Green
+    '#9b59b6': '🟣', // Purple
+    '#e67e22': '🟠', // Orange
+    '#1abc9c': '🔷', // Teal/Cyan
+    '#e91e63': '🩷', // Pink
+    '#f1c40f': '🟡'  // Yellow
+  };
+
+  const emoji = colorEmojiMap[color] || '🔵';
+  return `${emoji} `;
 }
 
 function getColorName(hexColor) {
