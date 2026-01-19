@@ -2289,6 +2289,32 @@ function resolveVariablesInFormula(formula) {
   let resolvedFormula = formula;
   let variablesResolved = [];
 
+  // Pattern 0: Check if the entire formula is just a bare variable name (e.g., "breathWeaponDamage")
+  // This must be checked BEFORE other patterns to handle cases like action.damage = "breathWeaponDamage"
+  const bareVariablePattern = /^[a-zA-Z_][a-zA-Z0-9_.]*$/;
+  if (bareVariablePattern.test(formula.trim())) {
+    const varName = formula.trim();
+    if (characterData.otherVariables.hasOwnProperty(varName)) {
+      const variableValue = characterData.otherVariables[varName];
+
+      // Extract the value
+      let value = null;
+      if (typeof variableValue === 'number') {
+        value = variableValue;
+      } else if (typeof variableValue === 'string') {
+        value = variableValue;
+      } else if (typeof variableValue === 'object' && variableValue.value !== undefined) {
+        value = variableValue.value;
+      }
+
+      if (value !== null && value !== undefined) {
+        console.log(`✅ Resolved bare variable: ${varName} = ${value}`);
+        return String(value);
+      }
+    }
+    console.log(`⚠️ Bare variable not found in otherVariables: ${varName}`);
+  }
+
   // Helper function to get variable value (handles dot notation like "bard.level")
   const getVariableValue = (varPath) => {
     // Try direct lookup first
@@ -2506,23 +2532,158 @@ function resolveVariablesInFormula(formula) {
     let cleanExpr = expression.replace(/\*\*/g, '');
 
     // Handle ternary operators: {condition ? trueValue : falseValue}
-    const ternaryPattern = /^(.+?)\s*\?\s*"([^"]*)"\s*:\s*"([^"]*)"$/;
-    const ternaryMatch = cleanExpr.match(ternaryPattern);
-    if (ternaryMatch) {
-      const condition = ternaryMatch[1].trim();
-      const trueValue = ternaryMatch[2];
-      const falseValue = ternaryMatch[3];
+    // First try complex ternary with concatenation and functions: level >= 5 ? "+ " + floor((level+1)/6) + "d8" : ""
+    const complexTernaryPattern = /^(.+?)\s*\?\s*(.+?)\s*:\s*(.+?)$/;
+    const complexTernaryMatch = cleanExpr.match(complexTernaryPattern);
+    if (complexTernaryMatch && cleanExpr.includes('?') && cleanExpr.includes(':')) {
+      const condition = complexTernaryMatch[1].trim();
+      const trueBranch = complexTernaryMatch[2].trim();
+      const falseBranch = complexTernaryMatch[3].trim();
 
-      // Resolve the condition variable
-      const conditionValue = getVariableValue(condition);
+      // Evaluate the condition
+      let conditionResult = false;
+      try {
+        // Replace variables in condition
+        let evalCondition = condition;
+        const varPattern = /[a-zA-Z_][a-zA-Z0-9_.]*/g;
+        let varMatch;
+        const replacements = [];
 
-      // JavaScript truthiness: null, undefined, 0, false, "" are falsy
-      const result = conditionValue ? trueValue : falseValue;
+        while ((varMatch = varPattern.exec(condition)) !== null) {
+          const varName = varMatch[0];
+          const value = getVariableValue(varName);
+          if (value !== null && typeof value === 'number') {
+            replacements.push({ name: varName, value: value });
+          }
+        }
 
-      resolvedFormula = resolvedFormula.replace(fullMatch, result);
-      variablesResolved.push(`${condition} ? "${trueValue}" : "${falseValue}" = "${result}"`);
-      console.log(`✅ Resolved ternary: ${condition} (${conditionValue}) ? "${trueValue}" : "${falseValue}" = "${result}"`);
-      continue;
+        // Sort by length (longest first) to avoid partial replacements
+        replacements.sort((a, b) => b.name.length - a.name.length);
+
+        for (const {name, value} of replacements) {
+          evalCondition = evalCondition.replace(new RegExp(name.replace(/\./g, '\\.'), 'g'), value);
+        }
+
+        // Evaluate condition
+        if (/^[\d\s+\-*/><=!&|()]+$/.test(evalCondition)) {
+          conditionResult = eval(evalCondition);
+        }
+      } catch (e) {
+        console.log(`⚠️ Failed to evaluate ternary condition: ${condition}`, e);
+      }
+
+      // Evaluate the chosen branch
+      const chosenBranch = conditionResult ? trueBranch : falseBranch;
+      let result = '';
+
+      try {
+        // Handle string concatenation with + operator
+        // Pattern: "string" + expression + "string"
+        if (chosenBranch.includes('+')) {
+          const parts = [];
+          let current = '';
+          let inString = false;
+          let i = 0;
+
+          while (i < chosenBranch.length) {
+            const char = chosenBranch[i];
+
+            if (char === '"') {
+              if (inString) {
+                // End of string
+                parts.push({ type: 'string', value: current });
+                current = '';
+                inString = false;
+              } else {
+                // Start of string
+                inString = true;
+              }
+              i++;
+            } else if (char === '+' && !inString) {
+              // Operator outside string
+              if (current.trim()) {
+                parts.push({ type: 'expr', value: current.trim() });
+                current = '';
+              }
+              i++;
+            } else {
+              current += char;
+              i++;
+            }
+          }
+
+          // Add remaining part
+          if (current.trim()) {
+            if (inString) {
+              parts.push({ type: 'string', value: current });
+            } else {
+              parts.push({ type: 'expr', value: current.trim() });
+            }
+          }
+
+          // Evaluate each part and concatenate
+          for (const part of parts) {
+            if (part.type === 'string') {
+              result += part.value;
+            } else {
+              // Evaluate expression (may contain floor(), variables, etc.)
+              let exprResult = part.value;
+
+              // Handle floor() function
+              const floorMatch = exprResult.match(/floor\(([^)]+)\)/);
+              if (floorMatch) {
+                const floorExpr = floorMatch[1];
+                // Resolve variables in floor expression
+                let evalExpr = floorExpr;
+                const varPattern = /[a-zA-Z_][a-zA-Z0-9_.]*/g;
+                let varMatch;
+                const replacements = [];
+
+                while ((varMatch = varPattern.exec(floorExpr)) !== null) {
+                  const varName = varMatch[0];
+                  const value = getVariableValue(varName);
+                  if (value !== null && typeof value === 'number') {
+                    replacements.push({ name: varName, value: value });
+                  }
+                }
+
+                replacements.sort((a, b) => b.name.length - a.name.length);
+                for (const {name, value} of replacements) {
+                  evalExpr = evalExpr.replace(new RegExp(name.replace(/\./g, '\\.'), 'g'), value);
+                }
+
+                if (/^[\d\s+\-*/().]+$/.test(evalExpr)) {
+                  const floorResult = Math.floor(eval(evalExpr));
+                  exprResult = exprResult.replace(floorMatch[0], floorResult);
+                }
+              }
+
+              // Try to resolve as variable or evaluate
+              const varValue = getVariableValue(exprResult);
+              if (varValue !== null) {
+                result += varValue;
+              } else if (/^[\d\s+\-*/().]+$/.test(exprResult)) {
+                result += eval(exprResult);
+              } else {
+                result += exprResult;
+              }
+            }
+          }
+        } else if (chosenBranch.startsWith('"') && chosenBranch.endsWith('"')) {
+          // Simple quoted string
+          result = chosenBranch.slice(1, -1);
+        } else {
+          // Try to evaluate as expression
+          result = chosenBranch;
+        }
+
+        resolvedFormula = resolvedFormula.replace(fullMatch, result);
+        variablesResolved.push(`${condition} ? ... : ... = "${result}"`);
+        console.log(`✅ Resolved complex ternary: ${condition} (${conditionResult}) => "${result}"`);
+        continue;
+      } catch (e) {
+        console.log(`⚠️ Failed to resolve ternary expression: ${cleanExpr}`, e);
+      }
     }
 
     // Try as simple variable first
