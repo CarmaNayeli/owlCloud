@@ -12,6 +12,9 @@ const isChrome = typeof chrome !== 'undefined' && chrome.runtime;
 // Use the appropriate browser API
 const browserAPI = isFirefox ? browser : chrome;
 
+// Use 'self' for service workers, 'window' for content scripts
+const globalScope = typeof window !== 'undefined' ? window : self;
+
 /**
  * Unified Browser API
  * All methods return Promises for consistency
@@ -20,7 +23,7 @@ const browserAPI = isFirefox ? browser : chrome;
 // Firefox already has Promise-based APIs, Chrome needs wrapping
 if (isFirefox) {
   // Firefox: Use native Promise-based browser API directly
-  window.browserAPI = {
+  globalScope.browserAPI = {
     runtime: {
       sendMessage: (message) => browserAPI.runtime.sendMessage(message),
       onMessage: browserAPI.runtime.onMessage,
@@ -45,7 +48,7 @@ if (isFirefox) {
   };
 } else {
   // Chrome: Wrap callback-based APIs with Promises
-  window.browserAPI = {
+  globalScope.browserAPI = {
     runtime: {
       sendMessage: function(message) {
         return new Promise((resolve, reject) => {
@@ -191,10 +194,10 @@ if (isFirefox) {
 }
 
 // Export info about current browser
-window.browserAPI.info = {
+globalScope.browserAPI.info = {
   isFirefox,
   isChrome,
   name: isFirefox ? 'firefox' : 'chrome'
 };
 
-console.log(`🌐 Browser API polyfill loaded for: ${window.browserAPI.info.name}`);
+console.log(`🌐 Browser API polyfill loaded for: ${globalScope.browserAPI.info.name}`);

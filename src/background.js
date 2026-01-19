@@ -8,11 +8,21 @@
 if (typeof importScripts === 'function') {
   try {
     importScripts('src/common/browser-polyfill.js');
+    console.log('✅ Browser polyfill imported via importScripts');
   } catch (e) {
-    console.log('Failed to import browser-polyfill via importScripts:', e.message);
+    console.error('❌ Failed to import browser-polyfill via importScripts:', e);
+    throw e;
   }
 } else {
   console.log('Browser polyfill loaded via manifest (Firefox)');
+}
+
+// Get browserAPI from global scope (set by browser-polyfill.js)
+const browserAPI = self.browserAPI || self.chrome || self.browser;
+
+if (!browserAPI) {
+  console.error('❌ FATAL: browserAPI is not available!');
+  throw new Error('browserAPI is not available');
 }
 
 console.log('RollCloud: Background service worker initialized');
