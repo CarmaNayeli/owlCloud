@@ -45,12 +45,15 @@ function buildSheet(data) {
 
   // Character name and info with color picker
   const charNameEl = document.getElementById('char-name');
+  const currentColorEmoji = getColorEmoji(data.notificationColor || '#3498db');
   charNameEl.innerHTML = `
     <div style="display: flex; align-items: center; justify-content: center; gap: 15px;">
       <span>🎲 ${data.name || 'Character'}</span>
-      <div style="display: flex; gap: 5px; align-items: center;">
-        <span style="font-size: 0.8em; opacity: 0.8;">🎨</span>
-        <div id="color-palette" style="display: flex; gap: 5px;">
+      <div style="display: flex; gap: 5px; align-items: center; position: relative;">
+        <button id="color-toggle" style="background: none; border: none; cursor: pointer; font-size: 1.2em; padding: 5px; display: flex; align-items: center; gap: 3px;" title="Change notification color">
+          ${currentColorEmoji} 🎨
+        </button>
+        <div id="color-palette" style="display: none; position: absolute; left: 100%; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.8); padding: 8px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 1000; grid-template-columns: repeat(4, 1fr); gap: 5px; width: 120px;">
           ${createColorPalette(data.notificationColor || '#3498db')}
         </div>
       </div>
@@ -397,7 +400,7 @@ function showHPModal() {
         const colorBanner = getColoredBanner();
         window.opener.postMessage({
           action: 'announceSpell',
-          message: `&{template:default} {{name=${colorBanner}💚 Healing}} {{Character=${characterData.name}}} {{HP Restored=${actualHealing}}} {{Current HP=${characterData.hitPoints.current}/${maxHP}}}`,
+          message: `&{template:default} {{name=${colorBanner}${characterData.name} regains HP}} {{💚 Healing=${actualHealing} HP}} {{Current HP=${characterData.hitPoints.current}/${maxHP}}}`,
           color: characterData.notificationColor
         }, '*');
       }
@@ -411,7 +414,7 @@ function showHPModal() {
         const colorBanner = getColoredBanner();
         window.opener.postMessage({
           action: 'announceSpell',
-          message: `&{template:default} {{name=${colorBanner}💔 Damage}} {{Character=${characterData.name}}} {{Damage Taken=${actualDamage}}} {{Current HP=${characterData.hitPoints.current}/${maxHP}}}`,
+          message: `&{template:default} {{name=${colorBanner}${characterData.name} takes damage}} {{💔 Damage=${actualDamage} HP}} {{Current HP=${characterData.hitPoints.current}/${maxHP}}}`,
           color: characterData.notificationColor
         }, '*');
       }
@@ -845,11 +848,7 @@ function useClassResource(resource, spell) {
   return true;
 }
 
-function getColoredBanner() {
-  // Get the character's notification color
-  const color = characterData.notificationColor || '#3498db';
-
-  // Use colored emoji circles - these display properly in Roll20
+function getColorEmoji(color) {
   const colorEmojiMap = {
     '#3498db': '🔵', // Blue
     '#e74c3c': '🔴', // Red
@@ -863,8 +862,13 @@ function getColoredBanner() {
     '#34495e': '⚫', // Black
     '#8b4513': '🟤'  // Brown
   };
+  return colorEmojiMap[color] || '🔵';
+}
 
-  const emoji = colorEmojiMap[color] || '🔵';
+function getColoredBanner() {
+  // Get the character's notification color
+  const color = characterData.notificationColor || '#3498db';
+  const emoji = getColorEmoji(color);
   return `${emoji} `;
 }
 
@@ -948,17 +952,17 @@ function announceSpellCast(spell, resourceUsed) {
 
 function createColorPalette(selectedColor) {
   const colors = [
-    { name: 'Blue', value: '#3498db' },
-    { name: 'Red', value: '#e74c3c' },
-    { name: 'Green', value: '#27ae60' },
-    { name: 'Purple', value: '#9b59b6' },
-    { name: 'Orange', value: '#e67e22' },
-    { name: 'Teal', value: '#1abc9c' },
-    { name: 'Pink', value: '#e91e63' },
-    { name: 'Yellow', value: '#f1c40f' },
-    { name: 'Grey', value: '#95a5a6' },
-    { name: 'Black', value: '#34495e' },
-    { name: 'Brown', value: '#8b4513' }
+    { name: 'Blue', value: '#3498db', emoji: '🔵' },
+    { name: 'Red', value: '#e74c3c', emoji: '🔴' },
+    { name: 'Green', value: '#27ae60', emoji: '🟢' },
+    { name: 'Purple', value: '#9b59b6', emoji: '🟣' },
+    { name: 'Orange', value: '#e67e22', emoji: '🟠' },
+    { name: 'Teal', value: '#1abc9c', emoji: '🔷' },
+    { name: 'Pink', value: '#e91e63', emoji: '🩷' },
+    { name: 'Yellow', value: '#f1c40f', emoji: '🟡' },
+    { name: 'Grey', value: '#95a5a6', emoji: '⚪' },
+    { name: 'Black', value: '#34495e', emoji: '⚫' },
+    { name: 'Brown', value: '#8b4513', emoji: '🟤' }
   ];
 
   return colors.map(color => {
@@ -966,8 +970,8 @@ function createColorPalette(selectedColor) {
     return `
       <div class="color-swatch"
            data-color="${color.value}"
-           style="width: 24px; height: 24px; border-radius: 50%; background: ${color.value}; cursor: pointer; transition: all 0.2s; border: ${isSelected ? '3px solid white' : '2px solid rgba(255,255,255,0.3)'}; box-shadow: ${isSelected ? '0 0 8px rgba(255,255,255,0.8)' : '0 2px 4px rgba(0,0,0,0.2)'};"
-           title="${color.name}"></div>
+           style="font-size: 1.8em; cursor: pointer; transition: all 0.2s; opacity: ${isSelected ? '1' : '0.6'}; transform: ${isSelected ? 'scale(1.2)' : 'scale(1)'}; filter: ${isSelected ? 'drop-shadow(0 0 4px white)' : 'none'};"
+           title="${color.name}">${color.emoji}</div>
     `;
   }).join('');
 }
@@ -978,18 +982,46 @@ function initColorPalette() {
     characterData.notificationColor = '#3498db';
   }
 
+  const toggleBtn = document.getElementById('color-toggle');
+  const palette = document.getElementById('color-palette');
+
+  if (!toggleBtn || !palette) return;
+
+  // Toggle palette visibility
+  toggleBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isVisible = palette.style.display === 'grid';
+    palette.style.display = isVisible ? 'none' : 'grid';
+  });
+
+  // Close palette when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!palette.contains(e.target) && e.target !== toggleBtn) {
+      palette.style.display = 'none';
+    }
+  });
+
   // Add click handlers to color swatches
   document.querySelectorAll('.color-swatch').forEach(swatch => {
     swatch.addEventListener('click', (e) => {
       const newColor = e.target.dataset.color;
+      const oldColor = characterData.notificationColor;
       characterData.notificationColor = newColor;
 
-      // Update all swatches
+      // Update all swatches appearance
       document.querySelectorAll('.color-swatch').forEach(s => {
         const isSelected = s.dataset.color === newColor;
-        s.style.border = isSelected ? '3px solid white' : '2px solid rgba(255,255,255,0.3)';
-        s.style.boxShadow = isSelected ? '0 0 8px rgba(255,255,255,0.8)' : '0 2px 4px rgba(0,0,0,0.2)';
+        s.style.opacity = isSelected ? '1' : '0.6';
+        s.style.transform = isSelected ? 'scale(1.2)' : 'scale(1)';
+        s.style.filter = isSelected ? 'drop-shadow(0 0 4px white)' : 'none';
       });
+
+      // Update the toggle button emoji
+      const newEmoji = getColorEmoji(newColor);
+      toggleBtn.innerHTML = `${newEmoji} 🎨`;
+
+      // Close the palette
+      palette.style.display = 'none';
 
       // Save to storage
       saveCharacterData();
@@ -1014,9 +1046,12 @@ function roll(name, formula) {
 
   if (window.opener && !window.opener.closed) {
     const colorBanner = getColoredBanner();
+    // Format: "🔵 CharacterName rolls Initiative"
+    const rollName = `${colorBanner}${characterData.name} rolls ${name}`;
+
     window.opener.postMessage({
       action: 'rollFromPopout',
-      name: `${colorBanner}${name}`,
+      name: rollName,
       formula: formula,
       color: characterData.notificationColor,
       characterName: characterData.name
@@ -1087,7 +1122,7 @@ function takeShortRest() {
     const colorBanner = getColoredBanner();
     window.opener.postMessage({
       action: 'announceSpell',
-      message: `&{template:default} {{name=${colorBanner}☕ Short Rest}} {{Character=${characterData.name}}} {{=Short rest complete. Resources recharged!}}`,
+      message: `&{template:default} {{name=${colorBanner}${characterData.name} takes a short rest}} {{=☕ Short rest complete. Resources recharged!}}`,
       color: characterData.notificationColor
     }, '*');
   }
@@ -1182,7 +1217,7 @@ function spendHitDice() {
       const colorBanner = getColoredBanner();
       window.opener.postMessage({
         action: 'announceSpell',
-        message: `&{template:default} {{name=${colorBanner}🎲 Hit Die}} {{Character=${characterData.name}}} {{Roll=${hitDie}: ${roll} + ${conMod} CON}} {{HP Restored=${healing}}} {{Current HP=${characterData.hitPoints.current}/${characterData.hitPoints.max}}}`,
+        message: `&{template:default} {{name=${colorBanner}${characterData.name} spends hit dice}} {{Roll=🎲 ${hitDie}: ${roll} + ${conMod} CON}} {{HP Restored=${healing}}} {{Current HP=${characterData.hitPoints.current}/${characterData.hitPoints.max}}}`,
         color: characterData.notificationColor
       }, '*');
     }
@@ -1280,7 +1315,7 @@ function takeLongRest() {
     const colorBanner = getColoredBanner();
     window.opener.postMessage({
       action: 'announceSpell',
-      message: `&{template:default} {{name=${colorBanner}🌙 Long Rest}} {{Character=${characterData.name}}} {{=Long rest complete!}} {{HP=${characterData.hitPoints.current}/${characterData.hitPoints.max} (Fully Restored)}} {{=All spell slots and resources restored!}}`,
+      message: `&{template:default} {{name=${colorBanner}${characterData.name} takes a long rest}} {{=🌙 Long rest complete!}} {{HP=${characterData.hitPoints.current}/${characterData.hitPoints.max} (Fully Restored)}} {{=All spell slots and resources restored!}}`,
       color: characterData.notificationColor
     }, '*');
   }
