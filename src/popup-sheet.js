@@ -2212,4 +2212,21 @@ if (document.readyState === 'loading') {
   initCollapsibleSections();
 }
 
+// Add close button event listener (CSP-compliant, no inline onclick)
+function initCloseButton() {
+  const closeBtn = document.getElementById('close-btn');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      window.close();
+    });
+  }
+}
+
+// Initialize close button when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initCloseButton);
+} else {
+  initCloseButton();
+}
+
 console.log('✅ Popup script fully loaded');
