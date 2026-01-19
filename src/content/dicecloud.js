@@ -1054,6 +1054,7 @@
 
             const resource = {
               name: prop.name,
+              variableName: prop.variableName || '',
               current: currentValue,
               max: maxValue,
               description: prop.description || ''
