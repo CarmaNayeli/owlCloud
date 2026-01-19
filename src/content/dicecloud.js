@@ -392,15 +392,17 @@
         case 'class':
           // Only add class name once, even if there are multiple classLevel entries
           if (prop.name) {
-            const normalizedClassName = prop.name.toLowerCase().trim();
-            console.log(`📚 Found class property: "${prop.name}" (normalized: "${normalizedClassName}")`);
+            // Remove [Multiclass] suffix before normalizing
+            const cleanName = prop.name.replace(/\s*\[Multiclass\]/i, '').trim();
+            const normalizedClassName = cleanName.toLowerCase().trim();
+            console.log(`📚 Found class property: "${prop.name}" (cleaned: "${cleanName}", normalized: "${normalizedClassName}")`);
             if (!uniqueClasses.has(normalizedClassName)) {
               console.log(`  ✅ Adding class (not in set yet)`);
               uniqueClasses.add(normalizedClassName);
               if (characterData.class) {
-                characterData.class += ` / ${prop.name}`;
+                characterData.class += ` / ${cleanName}`;
               } else {
-                characterData.class = prop.name;
+                characterData.class = cleanName;
               }
             } else {
               console.log(`  ⏭️  Skipping class (already in set:`, Array.from(uniqueClasses), ')');
@@ -413,15 +415,17 @@
           characterData.level += 1;
           // Also add the class name if not already added
           if (prop.name) {
-            const normalizedClassName = prop.name.toLowerCase().trim();
-            console.log(`📊 Found classLevel property: "${prop.name}" (normalized: "${normalizedClassName}")`);
+            // Remove [Multiclass] suffix before normalizing
+            const cleanName = prop.name.replace(/\s*\[Multiclass\]/i, '').trim();
+            const normalizedClassName = cleanName.toLowerCase().trim();
+            console.log(`📊 Found classLevel property: "${prop.name}" (cleaned: "${cleanName}", normalized: "${normalizedClassName}")`);
             if (!uniqueClasses.has(normalizedClassName)) {
               console.log(`  ✅ Adding class from classLevel (not in set yet)`);
               uniqueClasses.add(normalizedClassName);
               if (characterData.class) {
-                characterData.class += ` / ${prop.name}`;
+                characterData.class += ` / ${cleanName}`;
               } else {
-                characterData.class = prop.name;
+                characterData.class = cleanName;
               }
             } else {
               console.log(`  ⏭️  Skipping classLevel (already in set:`, Array.from(uniqueClasses), ')');
