@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
    */
   async function checkLoginStatus() {
     try {
-      const response = await chrome.runtime.sendMessage({ action: 'checkLoginStatus' });
+      const response = await browserAPI.runtime.sendMessage({ action: 'checkLoginStatus' });
 
       if (response.success && response.loggedIn) {
         showMainSection(response.username);
@@ -96,7 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
       loginBtn.textContent = '⏳ Logging in...';
       hideLoginError();
 
-      const response = await chrome.runtime.sendMessage({
+      const response = await browserAPI.runtime.sendMessage({
         action: 'loginToDiceCloud',
         username: username,
         password: password
@@ -123,7 +123,7 @@ document.addEventListener('DOMContentLoaded', () => {
    */
   async function handleLogout() {
     try {
-      await chrome.runtime.sendMessage({ action: 'logout' });
+      await browserAPI.runtime.sendMessage({ action: 'logout' });
       showLoginSection();
       clearCharacterDisplay();
     } catch (error) {
@@ -152,7 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
    */
   async function loadCharacterData() {
     try {
-      const response = await chrome.runtime.sendMessage({ action: 'getCharacterData' });
+      const response = await browserAPI.runtime.sendMessage({ action: 'getCharacterData' });
       if (response.success && response.data) {
         displayCharacterData(response.data);
       } else {
@@ -205,7 +205,7 @@ document.addEventListener('DOMContentLoaded', () => {
       statusText.textContent = 'Syncing from Dice Cloud...';
 
       // Get current tab
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const [tab] = await browserAPI.tabs.query({ active: true, currentWindow: true });
 
       // Check if we're on Dice Cloud
       if (!tab.url || !(tab.url.includes('dicecloud.com'))) {
@@ -216,7 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       // Send message to content script to sync data
-      const response = await chrome.tabs.sendMessage(tab.id, { action: 'syncCharacter' });
+      const response = await browserAPI.tabs.sendMessage(tab.id, { action: 'syncCharacter' });
 
       if (response && response.success) {
         // Reload character data to display
@@ -243,7 +243,7 @@ document.addEventListener('DOMContentLoaded', () => {
       showSheetBtn.textContent = '⏳ Opening...';
 
       // Get current tab
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const [tab] = await browserAPI.tabs.query({ active: true, currentWindow: true });
 
       // Check if we're on Roll20
       if (!tab.url || !tab.url.includes('roll20.net')) {
@@ -254,7 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       // Send message to Roll20 content script to show sheet
-      const response = await chrome.tabs.sendMessage(tab.id, { action: 'showCharacterSheet' });
+      const response = await browserAPI.tabs.sendMessage(tab.id, { action: 'showCharacterSheet' });
 
       if (response && response.success) {
         showSuccess('Character sheet opened!');
@@ -276,7 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function handleClear() {
     try {
       clearBtn.disabled = true;
-      await chrome.runtime.sendMessage({ action: 'clearCharacterData' });
+      await browserAPI.runtime.sendMessage({ action: 'clearCharacterData' });
       clearCharacterDisplay();
       showSuccess('Character data cleared');
     } catch (error) {

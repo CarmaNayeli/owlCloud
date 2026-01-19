@@ -1,0 +1,19 @@
+{
+  "name": "rollcloud",
+  "version": "1.0.0",
+  "description": "Dice Cloud Integration for Roll20",
+  "scripts": {
+    "build": "node build.js",
+    "build:chrome": "node build.js && echo 'Chrome build: dist/chrome/'",
+    "build:firefox": "node build.js && echo 'Firefox build: dist/firefox/'"
+  },
+  "keywords": [
+    "dicecloud",
+    "roll20",
+    "browser-extension",
+    "chrome-extension",
+    "firefox-addon"
+  ],
+  "author": "",
+  "license": "MIT"
+}

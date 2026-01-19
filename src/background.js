@@ -3,12 +3,21 @@
  * Handles data storage, API authentication, and communication between Dice Cloud and Roll20
  */
 
+// Import browser polyfill for cross-browser compatibility
+// Note: For MV3 (Chrome), this uses importScripts. For MV2 (Firefox), it's loaded via manifest
+try {
+  importScripts('common/browser-polyfill.js');
+} catch (e) {
+  // Already loaded via manifest (Firefox MV2)
+  console.log('Browser polyfill loaded via manifest');
+}
+
 console.log('RollCloud: Background service worker initialized');
 
 const API_BASE = 'https://dicecloud.com/api';
 
 // Listen for messages from content scripts and popup
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('Background received message:', request);
 
   switch (request.action) {
@@ -142,7 +151,7 @@ async function loginToDiceCloud(username, password) {
     const data = await response.json();
 
     // Store authentication data
-    await chrome.storage.local.set({
+    await browserAPI.storage.local.set({
       diceCloudToken: data.token,
       diceCloudUserId: data.id,
       tokenExpires: data.tokenExpires,
@@ -162,7 +171,7 @@ async function loginToDiceCloud(username, password) {
  */
 async function getApiToken() {
   try {
-    const result = await chrome.storage.local.get(['diceCloudToken', 'tokenExpires']);
+    const result = await browserAPI.storage.local.get(['diceCloudToken', 'tokenExpires']);
 
     if (!result.diceCloudToken) {
       return null;
@@ -191,7 +200,7 @@ async function getApiToken() {
  */
 async function checkLoginStatus() {
   try {
-    const result = await chrome.storage.local.get(['diceCloudToken', 'username', 'tokenExpires']);
+    const result = await browserAPI.storage.local.get(['diceCloudToken', 'username', 'tokenExpires']);
 
     if (!result.diceCloudToken) {
       return { loggedIn: false };
@@ -223,7 +232,7 @@ async function checkLoginStatus() {
  */
 async function logout() {
   try {
-    await chrome.storage.local.remove(['diceCloudToken', 'diceCloudUserId', 'tokenExpires', 'username']);
+    await browserAPI.storage.local.remove(['diceCloudToken', 'diceCloudUserId', 'tokenExpires', 'username']);
     console.log('Logged out successfully');
   } catch (error) {
     console.error('Failed to logout:', error);
@@ -232,11 +241,11 @@ async function logout() {
 }
 
 /**
- * Stores character data in chrome.storage
+ * Stores character data in browserAPI.storage
  */
 async function storeCharacterData(characterData) {
   try {
-    await chrome.storage.local.set({
+    await browserAPI.storage.local.set({
       characterData: characterData,
       timestamp: Date.now()
     });
@@ -248,11 +257,11 @@ async function storeCharacterData(characterData) {
 }
 
 /**
- * Retrieves character data from chrome.storage
+ * Retrieves character data from browserAPI.storage
  */
 async function getCharacterData() {
   try {
-    const result = await chrome.storage.local.get(['characterData', 'timestamp']);
+    const result = await browserAPI.storage.local.get(['characterData', 'timestamp']);
     if (result.characterData) {
       console.log('Retrieved character data:', result.characterData);
       return result.characterData;
@@ -269,7 +278,7 @@ async function getCharacterData() {
  */
 async function clearCharacterData() {
   try {
-    await chrome.storage.local.remove(['characterData', 'timestamp']);
+    await browserAPI.storage.local.remove(['characterData', 'timestamp']);
     console.log('Character data cleared successfully');
   } catch (error) {
     console.error('Failed to clear character data:', error);
@@ -283,7 +292,7 @@ async function clearCharacterData() {
 async function rollInDiceCloudAndForward(rollData) {
   try {
     // Find Dice Cloud tab
-    const diceCloudTabs = await chrome.tabs.query({ url: '*://dicecloud.com/*' });
+    const diceCloudTabs = await browserAPI.tabs.query({ url: '*://dicecloud.com/*' });
     
     if (diceCloudTabs.length === 0) {
       throw new Error('No Dice Cloud tab found. Please open Dice Cloud first.');
@@ -291,7 +300,7 @@ async function rollInDiceCloudAndForward(rollData) {
 
     // Send roll request to Dice Cloud
     const diceCloudTab = diceCloudTabs[0];
-    const response = await chrome.tabs.sendMessage(diceCloudTab.id, {
+    const response = await browserAPI.tabs.sendMessage(diceCloudTab.id, {
       action: 'rollInDiceCloud',
       roll: rollData
     });
@@ -314,7 +323,7 @@ async function rollInDiceCloudAndForward(rollData) {
 async function sendRollToAllRoll20Tabs(rollData) {
   try {
     // Query all tabs for Roll20
-    const tabs = await chrome.tabs.query({ url: '*://app.roll20.net/*' });
+    const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
 
     if (tabs.length === 0) {
       console.warn('No Roll20 tabs found');
@@ -323,7 +332,7 @@ async function sendRollToAllRoll20Tabs(rollData) {
 
     // Send roll to each Roll20 tab
     const promises = tabs.map(tab => {
-      return chrome.tabs.sendMessage(tab.id, {
+      return browserAPI.tabs.sendMessage(tab.id, {
         action: 'postRollToChat',
         roll: rollData
       });
@@ -340,10 +349,10 @@ async function sendRollToAllRoll20Tabs(rollData) {
 /**
  * Handle extension installation
  */
-chrome.runtime.onInstalled.addListener((details) => {
+browserAPI.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'install') {
     console.log('Extension installed');
   } else if (details.reason === 'update') {
-    console.log('Extension updated to version', chrome.runtime.getManifest().version);
+    console.log('Extension updated to version', browserAPI.runtime.getManifest().version);
   }
 });
