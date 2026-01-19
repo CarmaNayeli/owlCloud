@@ -952,17 +952,17 @@ function announceSpellCast(spell, resourceUsed) {
 
 function createColorPalette(selectedColor) {
   const colors = [
-    { name: 'Blue', value: '#3498db' },
-    { name: 'Red', value: '#e74c3c' },
-    { name: 'Green', value: '#27ae60' },
-    { name: 'Purple', value: '#9b59b6' },
-    { name: 'Orange', value: '#e67e22' },
-    { name: 'Teal', value: '#1abc9c' },
-    { name: 'Pink', value: '#e91e63' },
-    { name: 'Yellow', value: '#f1c40f' },
-    { name: 'Grey', value: '#95a5a6' },
-    { name: 'Black', value: '#34495e' },
-    { name: 'Brown', value: '#8b4513' }
+    { name: 'Blue', value: '#3498db', emoji: '🔵' },
+    { name: 'Red', value: '#e74c3c', emoji: '🔴' },
+    { name: 'Green', value: '#27ae60', emoji: '🟢' },
+    { name: 'Purple', value: '#9b59b6', emoji: '🟣' },
+    { name: 'Orange', value: '#e67e22', emoji: '🟠' },
+    { name: 'Teal', value: '#1abc9c', emoji: '🔷' },
+    { name: 'Pink', value: '#e91e63', emoji: '🩷' },
+    { name: 'Yellow', value: '#f1c40f', emoji: '🟡' },
+    { name: 'Grey', value: '#95a5a6', emoji: '⚪' },
+    { name: 'Black', value: '#34495e', emoji: '⚫' },
+    { name: 'Brown', value: '#8b4513', emoji: '🟤' }
   ];
 
   return colors.map(color => {
@@ -970,8 +970,8 @@ function createColorPalette(selectedColor) {
     return `
       <div class="color-swatch"
            data-color="${color.value}"
-           style="width: 24px; height: 24px; border-radius: 50%; background: ${color.value}; cursor: pointer; transition: all 0.2s; border: ${isSelected ? '3px solid white' : '2px solid rgba(255,255,255,0.3)'}; box-shadow: ${isSelected ? '0 0 8px rgba(255,255,255,0.8)' : '0 2px 4px rgba(0,0,0,0.2)'};"
-           title="${color.name}"></div>
+           style="font-size: 1.8em; cursor: pointer; transition: all 0.2s; opacity: ${isSelected ? '1' : '0.6'}; transform: ${isSelected ? 'scale(1.2)' : 'scale(1)'}; filter: ${isSelected ? 'drop-shadow(0 0 4px white)' : 'none'};"
+           title="${color.name}">${color.emoji}</div>
     `;
   }).join('');
 }
@@ -1008,11 +1008,12 @@ function initColorPalette() {
       const oldColor = characterData.notificationColor;
       characterData.notificationColor = newColor;
 
-      // Update all swatches
+      // Update all swatches appearance
       document.querySelectorAll('.color-swatch').forEach(s => {
         const isSelected = s.dataset.color === newColor;
-        s.style.border = isSelected ? '3px solid white' : '2px solid rgba(255,255,255,0.3)';
-        s.style.boxShadow = isSelected ? '0 0 8px rgba(255,255,255,0.8)' : '0 2px 4px rgba(0,0,0,0.2)';
+        s.style.opacity = isSelected ? '1' : '0.6';
+        s.style.transform = isSelected ? 'scale(1.2)' : 'scale(1)';
+        s.style.filter = isSelected ? 'drop-shadow(0 0 4px white)' : 'none';
       });
 
       // Update the toggle button emoji
