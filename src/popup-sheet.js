@@ -497,6 +497,24 @@ function buildActionsDisplay(container, actions) {
           action.name;
         let damageFormula = action.damage;
 
+        // If damage formula is a bare variable that doesn't exist, try to extract from description
+        const bareVarPattern = /^[a-zA-Z_][a-zA-Z0-9_.]*$/;
+        if (bareVarPattern.test(damageFormula.trim()) && !characterData.otherVariables.hasOwnProperty(damageFormula.trim())) {
+          console.log(`⚠️ Damage variable "${damageFormula}" not found, attempting to extract from description`);
+          if (action.description) {
+            const resolvedDesc = resolveVariablesInFormula(action.description);
+            // Extract dice formulas from description (e.g., "5d6", "2d8+3", etc.)
+            const dicePattern = /(\d+d\d+(?:[+\-]\d+)?)/gi;
+            const matches = resolvedDesc.match(dicePattern);
+            if (matches && matches.length > 0) {
+              damageFormula = matches[0];
+              console.log(`✅ Extracted damage formula from description: ${damageFormula}`);
+            } else {
+              console.log(`⚠️ Could not extract damage formula from description`);
+            }
+          }
+        }
+
         // Add Sneak Attack if toggle is enabled and this is a weapon attack
         if (sneakAttackEnabled && sneakAttackDamage && action.attackRoll) {
           damageFormula += `+${sneakAttackDamage}`;
@@ -2228,9 +2246,10 @@ function announceAction(action) {
 
   let message = `&{template:default} {{name=${colorBanner}${characterData.name} uses ${action.name}${emoji}}} {{Action Type=${action.actionType || 'Other'}}}`;
 
-  // Add description
+  // Add description (resolve variables first)
   if (action.description) {
-    message += ` {{Description=${action.description}}}`;
+    const resolvedDescription = resolveVariablesInFormula(action.description);
+    message += ` {{Description=${resolvedDescription}}}`;
   }
 
   // Add uses if available
@@ -2517,18 +2536,73 @@ function resolveVariablesInFormula(formula) {
   }
 
   // Pattern 2.5: Handle max/min functions outside of curly braces (e.g., "1d6+max(strengthModifier, dexterityModifier)")
-  const maxMinGlobalPattern = /(max|min)\(([^)]+)\)/gi;
+  // Helper function to find matching closing parenthesis
+  function findMatchingParen(str, startIndex) {
+    let depth = 1;
+    for (let i = startIndex; i < str.length; i++) {
+      if (str[i] === '(') depth++;
+      else if (str[i] === ')') {
+        depth--;
+        if (depth === 0) return i;
+      }
+    }
+    return -1;
+  }
+
+  // Helper function to split arguments respecting nested parentheses
+  function splitArgs(argsString) {
+    const args = [];
+    let currentArg = '';
+    let depth = 0;
+
+    for (let i = 0; i < argsString.length; i++) {
+      const char = argsString[i];
+      if (char === '(') {
+        depth++;
+        currentArg += char;
+      } else if (char === ')') {
+        depth--;
+        currentArg += char;
+      } else if (char === ',' && depth === 0) {
+        args.push(currentArg.trim());
+        currentArg = '';
+      } else {
+        currentArg += char;
+      }
+    }
+
+    if (currentArg) {
+      args.push(currentArg.trim());
+    }
+
+    return args;
+  }
+
   console.log(`🔍 Looking for max/min in formula: "${resolvedFormula}"`);
 
-  while ((match = maxMinGlobalPattern.exec(resolvedFormula)) !== null) {
-    console.log(`🔍 Found max/min match:`, match);
+  const maxMinPattern = /(max|min)\(/gi;
+  let match;
+  let offset = 0; // Track modifications to the string
+
+  while ((match = maxMinPattern.exec(resolvedFormula)) !== null) {
     const func = match[1].toLowerCase();
-    const argsString = match[2];
-    const fullMatch = match[0];
+    const funcStart = match.index;
+    const argsStart = funcStart + match[0].length;
+
+    // Find the matching closing parenthesis
+    const closingParen = findMatchingParen(resolvedFormula, argsStart);
+    if (closingParen === -1) {
+      console.log(`⚠️ No matching closing parenthesis for ${func} at position ${funcStart}`);
+      continue;
+    }
+
+    const argsString = resolvedFormula.substring(argsStart, closingParen);
+    const fullMatch = resolvedFormula.substring(funcStart, closingParen + 1);
+    console.log(`🔍 Found max/min match: ${func}(${argsString})`)
 
     try {
-      const args = argsString.split(',').map(arg => {
-        const trimmed = arg.trim();
+      const args = splitArgs(argsString).map(arg => {
+        const trimmed = arg;
         console.log(`🔍 Resolving arg: "${trimmed}"`);
 
         // Try to parse as number first
@@ -2567,9 +2641,15 @@ function resolveVariablesInFormula(formula) {
           evalExpression = evalExpression.replace(new RegExp(name.replace(/\./g, '\\.'), 'g'), value);
         }
 
+        // Handle math functions (ceil, floor, round, abs) in the expression
+        evalExpression = evalExpression.replace(/ceil\(/g, 'Math.ceil(');
+        evalExpression = evalExpression.replace(/floor\(/g, 'Math.floor(');
+        evalExpression = evalExpression.replace(/round\(/g, 'Math.round(');
+        evalExpression = evalExpression.replace(/abs\(/g, 'Math.abs(');
+
         // Try to evaluate
         try {
-          if (/^[\d\s+\-*/().]+$/.test(evalExpression)) {
+          if (/^[\d\s+\-*/().Math]+$/.test(evalExpression)) {
             const result = eval(evalExpression);
             console.log(`  ✅ Evaluated expression "${trimmed}" = ${result}`);
             return result;
@@ -2588,7 +2668,7 @@ function resolveVariablesInFormula(formula) {
         variablesResolved.push(`${func}(...)=${result}`);
         console.log(`✅ Resolved ${func} function: ${fullMatch} = ${result}`);
         // Reset regex lastIndex since we modified the string
-        maxMinGlobalPattern.lastIndex = 0;
+        maxMinPattern.lastIndex = 0;
       }
     } catch (e) {
       console.log(`⚠️ Failed to resolve ${func} function: ${fullMatch}`, e);
