@@ -167,6 +167,7 @@
       skills: {},
       features: [],
       spells: [],
+      actions: [],
       spellSlots: {},
       inventory: [],
       proficiencies: [],
@@ -613,6 +614,25 @@
             name: prop.name || '',
             type: prop.proficiencyType || 'other'
           });
+          break;
+
+        case 'action':
+          // Extract attack actions (weapons, unarmed strikes, etc.)
+          if (prop.name) {
+            const action = {
+              name: prop.name,
+              actionType: prop.actionType || 'other',
+              attackRoll: prop.attackRoll || '',
+              damage: prop.damage || '',
+              damageType: prop.damageType || '',
+              description: prop.description || '',
+              uses: prop.uses || null,
+              usesUsed: prop.usesUsed || 0
+            };
+
+            characterData.actions.push(action);
+            console.log(`⚔️ Added action: ${action.name} (${action.actionType})`);
+          }
           break;
       }
     });

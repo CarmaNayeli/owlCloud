@@ -159,6 +159,14 @@ function buildSheet(data) {
     skillsGrid.appendChild(card);
   });
 
+  // Actions & Attacks
+  const actionsContainer = document.getElementById('actions-container');
+  if (data.actions && data.actions.length > 0) {
+    buildActionsDisplay(actionsContainer, data.actions);
+  } else {
+    actionsContainer.innerHTML = '<p style="text-align: center; color: #666;">No actions available</p>';
+  }
+
   // Spells - organized by source then level
   const spellsContainer = document.getElementById('spells-container');
   if (data.spells && data.spells.length > 0) {
@@ -223,6 +231,65 @@ function buildSpellsBySource(container, spells) {
     });
 
     container.appendChild(levelSection);
+  });
+}
+
+function buildActionsDisplay(container, actions) {
+  // Clear container
+  container.innerHTML = '';
+
+  actions.forEach((action, index) => {
+    const actionCard = document.createElement('div');
+    actionCard.className = 'action-card';
+
+    const actionHeader = document.createElement('div');
+    actionHeader.className = 'action-header';
+
+    const nameDiv = document.createElement('div');
+    nameDiv.className = 'action-name';
+    nameDiv.textContent = action.name;
+
+    const buttonsDiv = document.createElement('div');
+    buttonsDiv.className = 'action-buttons';
+
+    // Attack button (if attackRoll exists)
+    if (action.attackRoll) {
+      const attackBtn = document.createElement('button');
+      attackBtn.className = 'attack-btn';
+      attackBtn.textContent = '🎯 Attack';
+      attackBtn.addEventListener('click', () => {
+        roll(`${action.name} Attack`, action.attackRoll);
+      });
+      buttonsDiv.appendChild(attackBtn);
+    }
+
+    // Damage button (if damage exists)
+    if (action.damage) {
+      const damageBtn = document.createElement('button');
+      damageBtn.className = 'damage-btn';
+      damageBtn.textContent = `💥 Damage`;
+      damageBtn.addEventListener('click', () => {
+        const damageName = action.damageType ?
+          `${action.name} Damage (${action.damageType})` :
+          `${action.name} Damage`;
+        roll(damageName, action.damage);
+      });
+      buttonsDiv.appendChild(damageBtn);
+    }
+
+    actionHeader.appendChild(nameDiv);
+    actionHeader.appendChild(buttonsDiv);
+    actionCard.appendChild(actionHeader);
+
+    // Add description if available
+    if (action.description) {
+      const descDiv = document.createElement('div');
+      descDiv.style.cssText = 'margin-top: 8px; padding-top: 8px; border-top: 1px solid #e74c3c; font-size: 0.9em; color: #666;';
+      descDiv.textContent = action.description;
+      actionCard.appendChild(descDiv);
+    }
+
+    container.appendChild(actionCard);
   });
 }
 
