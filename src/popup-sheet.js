@@ -327,6 +327,17 @@ function buildActionsDisplay(container, actions) {
       buttonsDiv.appendChild(damageBtn);
     }
 
+    // Use button for non-attack actions (bonus actions, reactions, etc.)
+    if (!action.attackRoll && !action.damage && action.description) {
+      const useBtn = document.createElement('button');
+      useBtn.className = 'use-btn';
+      useBtn.textContent = '✨ Use';
+      useBtn.addEventListener('click', () => {
+        announceAction(action);
+      });
+      buttonsDiv.appendChild(useBtn);
+    }
+
     actionHeader.appendChild(nameDiv);
     actionHeader.appendChild(buttonsDiv);
     actionCard.appendChild(actionHeader);
@@ -1070,6 +1081,51 @@ function announceSpellCast(spell, resourceUsed) {
     setTimeout(() => {
       roll(spell.name, spell.formula);
     }, 500);
+  }
+}
+
+function announceAction(action) {
+  // Announce the use of an action (bonus action, reaction, etc.) to Roll20 chat
+  const colorBanner = getColoredBanner();
+
+  // Determine action type emoji
+  const actionTypeEmoji = {
+    'bonus': '⚡',
+    'reaction': '🛡️',
+    'action': '⚔️',
+    'free': '💨',
+    'legendary': '👑',
+    'lair': '🏰',
+    'other': '✨'
+  };
+
+  const emoji = actionTypeEmoji[action.actionType?.toLowerCase()] || '✨';
+  const actionTypeText = action.actionType ? ` (${action.actionType})` : '';
+
+  let message = `&{template:default} {{name=${colorBanner}${characterData.name} uses ${action.name}${emoji}}} {{Action Type=${action.actionType || 'Other'}}}`;
+
+  // Add description
+  if (action.description) {
+    message += ` {{Description=${action.description}}}`;
+  }
+
+  // Add uses if available
+  if (action.uses) {
+    const usesText = `${action.usesUsed || 0} / ${action.uses}`;
+    message += ` {{Uses=${usesText}}}`;
+  }
+
+  // Send to Roll20 chat
+  if (window.opener && !window.opener.closed) {
+    window.opener.postMessage({
+      action: 'announceSpell',
+      message: message,
+      color: characterData.notificationColor
+    }, '*');
+
+    showNotification(`✨ ${action.name} used!`);
+  } else {
+    showNotification('❌ Roll20 window not available');
   }
 }
 
