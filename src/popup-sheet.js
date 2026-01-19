@@ -276,20 +276,22 @@ function buildSpellsBySource(container, spells) {
   });
 }
 
-// Store Sneak Attack toggle state
-let sneakAttackEnabled = false;
+// Store Sneak Attack toggle state (independent from DiceCloud - controlled only by our sheet)
+let sneakAttackEnabled = false;  // Always starts unchecked - user manually enables when needed
 let sneakAttackDamage = '';
 
 function buildActionsDisplay(container, actions) {
   // Clear container
   container.innerHTML = '';
 
-  // Check if character has Sneak Attack
+  // Check if character has Sneak Attack available (from DiceCloud)
+  // We only check if it EXISTS, not whether it's enabled on DiceCloud
+  // The toggle state on our sheet is independent and user-controlled
   const sneakAttackAction = actions.find(a => a.name === 'Sneak Attack');
   if (sneakAttackAction && sneakAttackAction.damage) {
     sneakAttackDamage = sneakAttackAction.damage;
 
-    // Add toggle section at the top
+    // Add toggle section at the top of actions
     const toggleSection = document.createElement('div');
     toggleSection.style.cssText = 'background: #2c3e50; color: white; padding: 10px; border-radius: 5px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px;';
 
@@ -299,11 +301,11 @@ function buildActionsDisplay(container, actions) {
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.id = 'sneak-attack-toggle';
-    checkbox.checked = sneakAttackEnabled;
+    checkbox.checked = sneakAttackEnabled;  // Always starts false - IGNORES DiceCloud toggle state
     checkbox.style.cssText = 'width: 18px; height: 18px; cursor: pointer;';
     checkbox.addEventListener('change', (e) => {
       sneakAttackEnabled = e.target.checked;
-      console.log(`🎯 Sneak Attack toggle: ${sneakAttackEnabled ? 'ON' : 'OFF'}`);
+      console.log(`🎯 Sneak Attack toggle on our sheet: ${sneakAttackEnabled ? 'ON' : 'OFF'} (independent of DiceCloud)`);
     });
 
     const labelText = document.createElement('span');
