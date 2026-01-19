@@ -879,6 +879,19 @@
       );
 
       if (raceVars.length > 0) {
+        // Helper function to format camelCase race names
+        // e.g., "highElf" -> "High Elf", "elf" -> "Elf"
+        const formatRaceName = (name) => {
+          if (!name) return null;
+          // Convert camelCase to space-separated (highElf -> high Elf)
+          let formatted = name.replace(/([a-z])([A-Z])/g, '$1 $2');
+          // Capitalize first letter of each word
+          formatted = formatted.split(' ').map(word =>
+            word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+          ).join(' ');
+          return formatted;
+        };
+
         // Helper function to extract race name from variable name
         // e.g., "elfRace" -> "Elf", "humanRace" -> "Human"
         const extractRaceFromVarName = (varName) => {
@@ -903,18 +916,18 @@
           if (typeof subRaceValue === 'object' && subRaceValue !== null) {
             console.log(`🔍 DEBUG: subRace object keys:`, Object.keys(subRaceValue));
             if (subRaceValue.name) {
-              suberaceName = subRaceValue.name;
+              suberaceName = formatRaceName(subRaceValue.name);
               console.log(`🔍 Found subrace name: ${suberaceName}`);
             } else if (subRaceValue.text) {
-              suberaceName = subRaceValue.text;
+              suberaceName = formatRaceName(subRaceValue.text);
               console.log(`🔍 Found subrace text: ${suberaceName}`);
             } else if (subRaceValue.value) {
               // Try value property
-              suberaceName = subRaceValue.value;
+              suberaceName = formatRaceName(subRaceValue.value);
               console.log(`🔍 Found subrace value: ${suberaceName}`);
             }
           } else if (typeof subRaceValue === 'string') {
-            suberaceName = subRaceValue;
+            suberaceName = formatRaceName(subRaceValue);
             console.log(`🔍 Found subrace string: ${suberaceName}`);
           }
         }
@@ -927,17 +940,17 @@
           if (typeof raceValue === 'object' && raceValue !== null) {
             console.log(`🔍 DEBUG: race object keys:`, Object.keys(raceValue));
             if (raceValue.name) {
-              raceName = raceValue.name;
+              raceName = formatRaceName(raceValue.name);
               console.log(`🔍 Found race name: ${raceName}`);
             } else if (raceValue.text) {
-              raceName = raceValue.text;
+              raceName = formatRaceName(raceValue.text);
               console.log(`🔍 Found race text: ${raceName}`);
             } else if (raceValue.value) {
-              raceName = raceValue.value;
+              raceName = formatRaceName(raceValue.value);
               console.log(`🔍 Found race value: ${raceName}`);
             }
           } else if (typeof raceValue === 'string') {
-            raceName = raceValue;
+            raceName = formatRaceName(raceValue);
             console.log(`🔍 Found race string: ${raceName}`);
           }
         }
