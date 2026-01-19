@@ -19,7 +19,7 @@
   "content_scripts": [
     {
       "matches": ["https://dicecloud.com/*", "https://*.dicecloud.com/*"],
-      "js": ["src/common/browser-polyfill.js", "src/content/dice-fix.js", "src/content/dicecloud.js"],
+      "js": ["src/common/browser-polyfill.js", "src/content/dicecloud.js"],
       "run_at": "document_idle"
     },
     {
