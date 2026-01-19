@@ -899,13 +899,19 @@
         const subRaceVar = raceVars.find(key => key.toLowerCase() === 'subrace');
         if (subRaceVar) {
           const subRaceValue = characterData.otherVariables[subRaceVar];
+          console.log(`🔍 DEBUG: subRace value:`, subRaceValue, `type:`, typeof subRaceValue);
           if (typeof subRaceValue === 'object' && subRaceValue !== null) {
+            console.log(`🔍 DEBUG: subRace object keys:`, Object.keys(subRaceValue));
             if (subRaceValue.name) {
               suberaceName = subRaceValue.name;
               console.log(`🔍 Found subrace name: ${suberaceName}`);
             } else if (subRaceValue.text) {
               suberaceName = subRaceValue.text;
               console.log(`🔍 Found subrace text: ${suberaceName}`);
+            } else if (subRaceValue.value) {
+              // Try value property
+              suberaceName = subRaceValue.value;
+              console.log(`🔍 Found subrace value: ${suberaceName}`);
             }
           } else if (typeof subRaceValue === 'string') {
             suberaceName = subRaceValue;
@@ -917,13 +923,18 @@
         const raceVar = raceVars.find(key => key.toLowerCase() === 'race');
         if (raceVar) {
           const raceValue = characterData.otherVariables[raceVar];
+          console.log(`🔍 DEBUG: race value:`, raceValue, `type:`, typeof raceValue);
           if (typeof raceValue === 'object' && raceValue !== null) {
+            console.log(`🔍 DEBUG: race object keys:`, Object.keys(raceValue));
             if (raceValue.name) {
               raceName = raceValue.name;
               console.log(`🔍 Found race name: ${raceName}`);
             } else if (raceValue.text) {
               raceName = raceValue.text;
               console.log(`🔍 Found race text: ${raceName}`);
+            } else if (raceValue.value) {
+              raceName = raceValue.value;
+              console.log(`🔍 Found race value: ${raceName}`);
             }
           } else if (typeof raceValue === 'string') {
             raceName = raceValue;
