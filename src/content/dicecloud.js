@@ -462,11 +462,29 @@
           break;
 
         case 'feature':
-          characterData.features.push({
+          // Extract features, especially those with rolls (like Sneak Attack)
+          const feature = {
             name: prop.name || 'Unnamed Feature',
             description: prop.description || '',
-            uses: prop.uses
-          });
+            uses: prop.uses,
+            roll: prop.roll || '',
+            damage: prop.damage || ''
+          };
+
+          characterData.features.push(feature);
+
+          // If feature has a roll/damage, also add it to actions for easy access
+          if (feature.roll || feature.damage) {
+            characterData.actions.push({
+              name: feature.name,
+              actionType: 'feature',
+              attackRoll: '',
+              damage: feature.damage || feature.roll,
+              damageType: '',
+              description: feature.description
+            });
+            console.log(`⚔️ Added feature with roll to actions: ${feature.name}`);
+          }
           break;
 
         case 'spell':
