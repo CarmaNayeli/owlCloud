@@ -2392,17 +2392,38 @@ function announceAction(action) {
   }
 
   // Send to Roll20 chat
-  if (window.opener && !window.opener.closed) {
-    window.opener.postMessage({
-      action: 'announceSpell',
-      message: message,
-      color: characterData.notificationColor
-    }, '*');
+  const messageData = {
+    action: 'announceSpell',
+    message: message,
+    color: characterData.notificationColor
+  };
 
-    showNotification(`✨ ${action.name} used!`);
-  } else {
-    showNotification('❌ Roll20 window not available');
+  // Try window.opener first (Chrome)
+  if (window.opener && !window.opener.closed) {
+    try {
+      window.opener.postMessage(messageData, '*');
+      showNotification(`✨ ${action.name} used!`);
+      console.log('✅ Action announcement sent via window.opener');
+      return;
+    } catch (error) {
+      console.warn('⚠️ Could not send via window.opener:', error.message);
+    }
   }
+
+  // Fallback: Use background script to relay to Roll20 (Firefox)
+  console.log('📡 Using background script to relay action announcement to Roll20...');
+  browserAPI.runtime.sendMessage({
+    action: 'relayRollToRoll20',
+    roll: messageData
+  }, (response) => {
+    if (browserAPI.runtime.lastError) {
+      console.error('❌ Error relaying action announcement:', browserAPI.runtime.lastError);
+      showNotification('❌ Failed to announce action');
+    } else if (response && response.success) {
+      console.log('✅ Action announcement relayed to Roll20');
+      showNotification(`✨ ${action.name} used!`);
+    }
+  });
 }
 
 function createColorPalette(selectedColor) {
