@@ -1220,8 +1220,63 @@ function saveCharacterData() {
   }
 }
 
+function resolveVariablesInFormula(formula) {
+  if (!formula || typeof formula !== 'string') {
+    return formula;
+  }
+
+  // Check if characterData has otherVariables
+  if (!characterData.otherVariables || typeof characterData.otherVariables !== 'object') {
+    console.log('⚠️ No otherVariables available for formula resolution');
+    return formula;
+  }
+
+  // Find all variables in parentheses like (variableName)
+  const variablePattern = /\(([a-zA-Z_][a-zA-Z0-9_]*)\)/g;
+  let resolvedFormula = formula;
+  let match;
+  let variablesResolved = [];
+
+  while ((match = variablePattern.exec(formula)) !== null) {
+    const variableName = match[1];
+    const fullMatch = match[0]; // e.g., "(sneakAttackDieAmount)"
+
+    // Look up the variable value
+    if (characterData.otherVariables.hasOwnProperty(variableName)) {
+      const variableValue = characterData.otherVariables[variableName];
+
+      // Extract numeric value
+      let numericValue = null;
+      if (typeof variableValue === 'number') {
+        numericValue = variableValue;
+      } else if (typeof variableValue === 'object' && variableValue.value !== undefined) {
+        numericValue = variableValue.value;
+      }
+
+      if (numericValue !== null) {
+        resolvedFormula = resolvedFormula.replace(fullMatch, numericValue);
+        variablesResolved.push(`${variableName}=${numericValue}`);
+        console.log(`✅ Resolved variable: ${variableName} = ${numericValue}`);
+      } else {
+        console.log(`⚠️ Could not extract numeric value from variable: ${variableName}`, variableValue);
+      }
+    } else {
+      console.log(`⚠️ Variable not found in otherVariables: ${variableName}`);
+    }
+  }
+
+  if (variablesResolved.length > 0) {
+    console.log(`🔧 Formula resolution: "${formula}" -> "${resolvedFormula}" (${variablesResolved.join(', ')})`);
+  }
+
+  return resolvedFormula;
+}
+
 function roll(name, formula) {
   console.log('🎲 Rolling:', name, formula);
+
+  // Resolve any variables in the formula
+  const resolvedFormula = resolveVariablesInFormula(formula);
 
   if (window.opener && !window.opener.closed) {
     const colorBanner = getColoredBanner();
@@ -1231,7 +1286,7 @@ function roll(name, formula) {
     window.opener.postMessage({
       action: 'rollFromPopout',
       name: rollName,
-      formula: formula,
+      formula: resolvedFormula,
       color: characterData.notificationColor,
       characterName: characterData.name
     }, '*');
