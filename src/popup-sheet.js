@@ -3222,30 +3222,52 @@ function roll(name, formula, prerolledResult = null) {
   // Resolve any variables in the formula
   const resolvedFormula = resolveVariablesInFormula(formula);
 
-  if (window.opener && !window.opener.closed) {
-    const colorBanner = getColoredBanner();
-    // Format: "🔵 CharacterName rolls Initiative"
-    const rollName = `${colorBanner}${characterData.name} rolls ${name}`;
+  const colorBanner = getColoredBanner();
+  // Format: "🔵 CharacterName rolls Initiative"
+  const rollName = `${colorBanner}${characterData.name} rolls ${name}`;
 
-    // If we have a prerolled result (e.g., from death saves), include it
-    const messageData = {
-      action: 'rollFromPopout',
-      name: rollName,
-      formula: resolvedFormula,
-      color: characterData.notificationColor,
-      characterName: characterData.name
-    };
+  // If we have a prerolled result (e.g., from death saves), include it
+  const messageData = {
+    action: 'rollFromPopout',
+    name: rollName,
+    formula: resolvedFormula,
+    color: characterData.notificationColor,
+    characterName: characterData.name
+  };
 
-    if (prerolledResult !== null) {
-      messageData.prerolledResult = prerolledResult;
-    }
-
-    window.opener.postMessage(messageData, '*');
-
-    showNotification(`🎲 Rolling ${name}...`);
-  } else {
-    alert('Parent window not available');
+  if (prerolledResult !== null) {
+    messageData.prerolledResult = prerolledResult;
   }
+
+  // Try window.opener first (Chrome)
+  if (window.opener && !window.opener.closed) {
+    try {
+      window.opener.postMessage(messageData, '*');
+      showNotification(`🎲 Rolling ${name}...`);
+      console.log('✅ Roll sent via window.opener');
+      return;
+    } catch (error) {
+      console.warn('⚠️ Could not send via window.opener:', error.message);
+    }
+  }
+
+  // Fallback: Use background script to relay to Roll20 (Firefox)
+  console.log('📡 Using background script to relay roll to Roll20...');
+  browserAPI.runtime.sendMessage({
+    action: 'relayRollToRoll20',
+    roll: messageData
+  }, (response) => {
+    if (browserAPI.runtime.lastError) {
+      console.error('❌ Error relaying roll:', browserAPI.runtime.lastError);
+      showNotification('Failed to send roll. Please try from Roll20 page.', 'error');
+    } else if (response && response.success) {
+      console.log('✅ Roll relayed to Roll20 via background script');
+      showNotification(`🎲 Rolling ${name}...`);
+    } else {
+      console.error('❌ Failed to relay roll:', response?.error);
+      showNotification('Failed to send roll. Make sure Roll20 tab is open.', 'error');
+    }
+  });
 }
 
 function showNotification(message) {
