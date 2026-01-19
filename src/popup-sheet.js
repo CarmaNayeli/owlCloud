@@ -497,6 +497,24 @@ function buildActionsDisplay(container, actions) {
           action.name;
         let damageFormula = action.damage;
 
+        // If damage formula is a bare variable that doesn't exist, try to extract from description
+        const bareVarPattern = /^[a-zA-Z_][a-zA-Z0-9_.]*$/;
+        if (bareVarPattern.test(damageFormula.trim()) && !characterData.otherVariables.hasOwnProperty(damageFormula.trim())) {
+          console.log(`⚠️ Damage variable "${damageFormula}" not found, attempting to extract from description`);
+          if (action.description) {
+            const resolvedDesc = resolveVariablesInFormula(action.description);
+            // Extract dice formulas from description (e.g., "5d6", "2d8+3", etc.)
+            const dicePattern = /(\d+d\d+(?:[+\-]\d+)?)/gi;
+            const matches = resolvedDesc.match(dicePattern);
+            if (matches && matches.length > 0) {
+              damageFormula = matches[0];
+              console.log(`✅ Extracted damage formula from description: ${damageFormula}`);
+            } else {
+              console.log(`⚠️ Could not extract damage formula from description`);
+            }
+          }
+        }
+
         // Add Sneak Attack if toggle is enabled and this is a weapon attack
         if (sneakAttackEnabled && sneakAttackDamage && action.attackRoll) {
           damageFormula += `+${sneakAttackDamage}`;
@@ -569,6 +587,21 @@ function buildActionsDisplay(container, actions) {
         // Check and decrement other resources (Wild Shape, Breath Weapon, etc.)
         if (!decrementActionResources(action)) {
           return; // Not enough resources
+        }
+
+        // Check if description contains a dice formula to roll
+        if (action.description) {
+          const resolvedDesc = resolveVariablesInFormula(action.description);
+          const dicePattern = /(\d+d\d+(?:[+\-]\d+)?)/gi;
+          const matches = resolvedDesc.match(dicePattern);
+          if (matches && matches.length > 0) {
+            // Roll the first dice formula found in the description
+            const diceFormula = matches[0];
+            console.log(`🎲 Found dice formula in description: ${diceFormula}`);
+            roll(action.name, diceFormula);
+            // Don't announce separately since roll already announces
+            return;
+          }
         }
 
         announceAction(action);
@@ -2228,9 +2261,10 @@ function announceAction(action) {
 
   let message = `&{template:default} {{name=${colorBanner}${characterData.name} uses ${action.name}${emoji}}} {{Action Type=${action.actionType || 'Other'}}}`;
 
-  // Add description
+  // Add description (resolve variables first)
   if (action.description) {
-    message += ` {{Description=${action.description}}}`;
+    const resolvedDescription = resolveVariablesInFormula(action.description);
+    message += ` {{Description=${resolvedDescription}}}`;
   }
 
   // Add uses if available
@@ -2395,6 +2429,7 @@ function resolveVariablesInFormula(formula) {
     if (characterData.otherVariables.hasOwnProperty(varPath)) {
       const val = characterData.otherVariables[varPath];
       if (typeof val === 'number') return val;
+      if (typeof val === 'boolean') return val;
       if (typeof val === 'object' && val.value !== undefined) return val.value;
       if (typeof val === 'string') return val;
     }
@@ -2404,6 +2439,7 @@ function resolveVariablesInFormula(formula) {
     if (characterData.otherVariables.hasOwnProperty(camelCase)) {
       const val = characterData.otherVariables[camelCase];
       if (typeof val === 'number') return val;
+      if (typeof val === 'boolean') return val;
       if (typeof val === 'object' && val.value !== undefined) return val.value;
     }
 
@@ -2418,6 +2454,7 @@ function resolveVariablesInFormula(formula) {
       if (characterData.otherVariables.hasOwnProperty(alt)) {
         const val = characterData.otherVariables[alt];
         if (typeof val === 'number') return val;
+        if (typeof val === 'boolean') return val;
         if (typeof val === 'object' && val.value !== undefined) return val.value;
       }
     }
@@ -2517,18 +2554,73 @@ function resolveVariablesInFormula(formula) {
   }
 
   // Pattern 2.5: Handle max/min functions outside of curly braces (e.g., "1d6+max(strengthModifier, dexterityModifier)")
-  const maxMinGlobalPattern = /(max|min)\(([^)]+)\)/gi;
+  // Helper function to find matching closing parenthesis
+  function findMatchingParen(str, startIndex) {
+    let depth = 1;
+    for (let i = startIndex; i < str.length; i++) {
+      if (str[i] === '(') depth++;
+      else if (str[i] === ')') {
+        depth--;
+        if (depth === 0) return i;
+      }
+    }
+    return -1;
+  }
+
+  // Helper function to split arguments respecting nested parentheses
+  function splitArgs(argsString) {
+    const args = [];
+    let currentArg = '';
+    let depth = 0;
+
+    for (let i = 0; i < argsString.length; i++) {
+      const char = argsString[i];
+      if (char === '(') {
+        depth++;
+        currentArg += char;
+      } else if (char === ')') {
+        depth--;
+        currentArg += char;
+      } else if (char === ',' && depth === 0) {
+        args.push(currentArg.trim());
+        currentArg = '';
+      } else {
+        currentArg += char;
+      }
+    }
+
+    if (currentArg) {
+      args.push(currentArg.trim());
+    }
+
+    return args;
+  }
+
   console.log(`🔍 Looking for max/min in formula: "${resolvedFormula}"`);
 
-  while ((match = maxMinGlobalPattern.exec(resolvedFormula)) !== null) {
-    console.log(`🔍 Found max/min match:`, match);
+  const maxMinPattern = /(max|min)\(/gi;
+  let match;
+  let offset = 0; // Track modifications to the string
+
+  while ((match = maxMinPattern.exec(resolvedFormula)) !== null) {
     const func = match[1].toLowerCase();
-    const argsString = match[2];
-    const fullMatch = match[0];
+    const funcStart = match.index;
+    const argsStart = funcStart + match[0].length;
+
+    // Find the matching closing parenthesis
+    const closingParen = findMatchingParen(resolvedFormula, argsStart);
+    if (closingParen === -1) {
+      console.log(`⚠️ No matching closing parenthesis for ${func} at position ${funcStart}`);
+      continue;
+    }
+
+    const argsString = resolvedFormula.substring(argsStart, closingParen);
+    const fullMatch = resolvedFormula.substring(funcStart, closingParen + 1);
+    console.log(`🔍 Found max/min match: ${func}(${argsString})`)
 
     try {
-      const args = argsString.split(',').map(arg => {
-        const trimmed = arg.trim();
+      const args = splitArgs(argsString).map(arg => {
+        const trimmed = arg;
         console.log(`🔍 Resolving arg: "${trimmed}"`);
 
         // Try to parse as number first
@@ -2567,9 +2659,15 @@ function resolveVariablesInFormula(formula) {
           evalExpression = evalExpression.replace(new RegExp(name.replace(/\./g, '\\.'), 'g'), value);
         }
 
+        // Handle math functions (ceil, floor, round, abs) in the expression
+        evalExpression = evalExpression.replace(/ceil\(/g, 'Math.ceil(');
+        evalExpression = evalExpression.replace(/floor\(/g, 'Math.floor(');
+        evalExpression = evalExpression.replace(/round\(/g, 'Math.round(');
+        evalExpression = evalExpression.replace(/abs\(/g, 'Math.abs(');
+
         // Try to evaluate
         try {
-          if (/^[\d\s+\-*/().]+$/.test(evalExpression)) {
+          if (/^[\d\s+\-*/().Math]+$/.test(evalExpression)) {
             const result = eval(evalExpression);
             console.log(`  ✅ Evaluated expression "${trimmed}" = ${result}`);
             return result;
@@ -2588,7 +2686,7 @@ function resolveVariablesInFormula(formula) {
         variablesResolved.push(`${func}(...)=${result}`);
         console.log(`✅ Resolved ${func} function: ${fullMatch} = ${result}`);
         // Reset regex lastIndex since we modified the string
-        maxMinGlobalPattern.lastIndex = 0;
+        maxMinPattern.lastIndex = 0;
       }
     } catch (e) {
       console.log(`⚠️ Failed to resolve ${func} function: ${fullMatch}`, e);
@@ -2617,30 +2715,61 @@ function resolveVariablesInFormula(formula) {
       // Evaluate the condition
       let conditionResult = false;
       try {
-        // Replace variables in condition
-        let evalCondition = condition;
-        const varPattern = /[a-zA-Z_][a-zA-Z0-9_.]*/g;
-        let varMatch;
-        const replacements = [];
-
-        while ((varMatch = varPattern.exec(condition)) !== null) {
-          const varName = varMatch[0];
-          const value = getVariableValue(varName);
-          if (value !== null && typeof value === 'number') {
-            replacements.push({ name: varName, value: value });
+        // Check if condition is just a simple variable name
+        const simpleVarPattern = /^[a-zA-Z_][a-zA-Z0-9_.]*$/;
+        if (simpleVarPattern.test(condition.trim())) {
+          const varValue = getVariableValue(condition.trim());
+          if (varValue !== null) {
+            // Convert to boolean: numbers, strings, booleans
+            conditionResult = Boolean(varValue);
+          } else {
+            // Variable doesn't exist, treat as false
+            conditionResult = false;
           }
-        }
+          console.log(`✅ Evaluated simple variable condition: ${condition} = ${conditionResult}`);
+        } else {
+          // Complex condition with operators
+          // Replace variables in condition
+          let evalCondition = condition;
+          const varPattern = /[a-zA-Z_][a-zA-Z0-9_.]*/g;
+          let varMatch;
+          const replacements = [];
 
-        // Sort by length (longest first) to avoid partial replacements
-        replacements.sort((a, b) => b.name.length - a.name.length);
+          while ((varMatch = varPattern.exec(condition)) !== null) {
+            const varName = varMatch[0];
+            // Skip reserved words
+            if (['true', 'false', 'null', 'undefined'].includes(varName.toLowerCase())) {
+              continue;
+            }
+            const value = getVariableValue(varName);
+            if (value !== null) {
+              // Handle numbers, strings, and booleans
+              if (typeof value === 'number') {
+                replacements.push({ name: varName, value: value });
+              } else if (typeof value === 'boolean') {
+                replacements.push({ name: varName, value: value });
+              } else if (typeof value === 'string') {
+                // Convert string to boolean for condition evaluation
+                const boolValue = value !== '' && value !== '0' && value.toLowerCase() !== 'false';
+                replacements.push({ name: varName, value: boolValue });
+              }
+            } else {
+              // Variable doesn't exist, replace with false
+              replacements.push({ name: varName, value: false });
+            }
+          }
 
-        for (const {name, value} of replacements) {
-          evalCondition = evalCondition.replace(new RegExp(name.replace(/\./g, '\\.'), 'g'), value);
-        }
+          // Sort by length (longest first) to avoid partial replacements
+          replacements.sort((a, b) => b.name.length - a.name.length);
 
-        // Evaluate condition
-        if (/^[\d\s+\-*/><=!&|()]+$/.test(evalCondition)) {
-          conditionResult = eval(evalCondition);
+          for (const {name, value} of replacements) {
+            evalCondition = evalCondition.replace(new RegExp(name.replace(/\./g, '\\.'), 'g'), value);
+          }
+
+          // Evaluate condition
+          if (/^[\w\s+\-*/><=!&|()\.]+$/.test(evalCondition)) {
+            conditionResult = eval(evalCondition);
+          }
         }
       } catch (e) {
         console.log(`⚠️ Failed to evaluate ternary condition: ${condition}`, e);
