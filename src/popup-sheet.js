@@ -1402,4 +1402,27 @@ function takeLongRest() {
   }
 }
 
+// Initialize collapsible sections
+function initCollapsibleSections() {
+  const sections = document.querySelectorAll('.section h3');
+
+  sections.forEach(header => {
+    header.addEventListener('click', function() {
+      const section = this.parentElement;
+      const content = section.querySelector('.section-content');
+
+      // Toggle collapsed class
+      this.classList.toggle('collapsed');
+      content.classList.toggle('collapsed');
+    });
+  });
+}
+
+// Call collapsible initialization when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initCollapsibleSections);
+} else {
+  initCollapsibleSections();
+}
+
 console.log('✅ Popup script fully loaded');

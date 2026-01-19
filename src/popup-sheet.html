@@ -21,7 +21,7 @@
       text-align: center;
       margin-bottom: 20px;
       padding-bottom: 10px;
-      border-bottom: 2px solid #4ECDC4;
+      border-bottom: 2px solid #2D8B83;
     }
     .close-btn {
       float: right;
@@ -38,6 +38,35 @@
     .section h3 {
       color: #2C3E50;
       margin-bottom: 10px;
+      cursor: pointer;
+      user-select: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+    .section h3:hover {
+      background: #f0f0f0;
+    }
+    .section h3::after {
+      content: '▼';
+      font-size: 0.8em;
+      transition: transform 0.3s;
+    }
+    .section h3.collapsed::after {
+      transform: rotate(-90deg);
+    }
+    .section-content {
+      overflow: hidden;
+      transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
+      max-height: 5000px;
+      opacity: 1;
+    }
+    .section-content.collapsed {
+      max-height: 0;
+      opacity: 0;
     }
     .grid {
       display: grid;
@@ -46,7 +75,7 @@
     }
     .card {
       background: #f0fff4;
-      border: 1px solid #4ECDC4;
+      border: 1px solid #2D8B83;
       border-radius: 4px;
       padding: 15px;
       text-align: center;
@@ -58,7 +87,7 @@
       transform: translateY(-2px);
     }
     .bonus {
-      color: #4ECDC4;
+      color: #2D8B83;
       font-weight: bold;
     }
     .spell-card {
@@ -89,7 +118,7 @@
       display: block;
     }
     .toggle-btn {
-      background: #4ECDC4;
+      background: #2D8B83;
       color: white;
       border: none;
       padding: 3px 8px;
@@ -251,32 +280,44 @@
 
     <div class="section">
       <h3>⚡ Abilities</h3>
-      <div class="grid" id="abilities-grid"></div>
+      <div class="section-content">
+        <div class="grid" id="abilities-grid"></div>
+      </div>
     </div>
 
     <div class="section">
       <h3>🛡️ Saving Throws</h3>
-      <div class="grid" id="saves-grid"></div>
+      <div class="section-content">
+        <div class="grid" id="saves-grid"></div>
+      </div>
     </div>
 
     <div class="section">
       <h3>🎯 Skills</h3>
-      <div class="grid" id="skills-grid"></div>
+      <div class="section-content">
+        <div class="grid" id="skills-grid"></div>
+      </div>
     </div>
 
     <div class="section">
       <h3>⚔️ Actions & Attacks</h3>
-      <div id="actions-container"></div>
+      <div class="section-content">
+        <div id="actions-container"></div>
+      </div>
     </div>
 
     <div class="section">
       <h3>✨ Spell Slots</h3>
-      <div id="spell-slots-container"></div>
+      <div class="section-content">
+        <div id="spell-slots-container"></div>
+      </div>
     </div>
 
     <div class="section">
       <h3>🔮 Spells</h3>
-      <div id="spells-container"></div>
+      <div class="section-content">
+        <div id="spells-container"></div>
+      </div>
     </div>
   </div>
 
