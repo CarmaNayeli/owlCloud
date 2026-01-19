@@ -231,12 +231,30 @@
     });
 
     // Extract spell slots
-    STANDARD_VARS.spellSlots.forEach(slot => {
-      if (variables[slot]) {
-        characterData.spellSlots = characterData.spellSlots || {};
-        characterData.spellSlots[slot] = variables[slot].value || 0;
+    // Dice Cloud uses: slotLevel1, slotLevel2, etc. (current and max combined in one variable)
+    console.log('🔍 Extracting spell slots...');
+    characterData.spellSlots = {};
+
+    for (let level = 1; level <= 9; level++) {
+      const diceCloudVarName = `slotLevel${level}`;
+      const currentKey = `level${level}SpellSlots`;
+      const maxKey = `level${level}SpellSlotsMax`;
+
+      if (variables[diceCloudVarName]) {
+        // Dice Cloud stores total slots in .total and current in .value
+        const currentSlots = variables[diceCloudVarName].value || 0;
+        const maxSlots = variables[diceCloudVarName].total || variables[diceCloudVarName].value || 0;
+
+        characterData.spellSlots[currentKey] = currentSlots;
+        characterData.spellSlots[maxKey] = maxSlots;
+
+        console.log(`  ✅ Level ${level}: ${currentSlots}/${maxSlots} (from ${diceCloudVarName})`);
+      } else {
+        console.log(`  ⚠️ Level ${level}: ${diceCloudVarName} not found in variables`);
       }
-    });
+    }
+
+    console.log('📊 Final spell slots object:', characterData.spellSlots);
 
     // Extract ALL kingdom attributes (Pathfinder Kingmaker / Kingdom Builder)
     const kingdomSkills = [
@@ -319,10 +337,19 @@
     // Debug: Check for race in other variables as fallback
     console.log('🔍 Checking for race in otherVariables:', Object.keys(characterData.otherVariables).filter(key => key.toLowerCase().includes('race')).map(key => `${key}: ${characterData.otherVariables[key]}`));
 
+    // Build a map of property IDs to names for spell source resolution
+    const propertyIdToName = new Map();
+    properties.forEach(prop => {
+      if (prop._id && prop.name) {
+        propertyIdToName.set(prop._id, prop.name);
+      }
+    });
+    console.log(`📋 Built property ID map with ${propertyIdToName.size} entries`);
+
     // Parse properties for classes, race, features, spells, etc.
     // Track unique classes to avoid duplicates
     const uniqueClasses = new Set();
-    
+
     // Debug: Log all property types to see what's available
     const propertyTypes = new Set();
     let raceFound = false;
@@ -442,13 +469,27 @@
           // Debug: Log all available fields to find source info
           console.log('🔍 Spell property fields:', Object.keys(prop));
 
-          // Determine source (from parent, tags, or other fields)
-          let source = '';
-          if (prop.parent) {
-            source = prop.parent;
-          } else if (prop.tags && prop.tags.length > 0) {
+          // Determine source (from parent, tags, or ancestors)
+          let source = 'Unknown Source';
+
+          // Try to get parent name from the map
+          if (prop.parent && propertyIdToName.has(prop.parent)) {
+            source = propertyIdToName.get(prop.parent);
+          }
+          // Fallback to ancestors if parent lookup failed
+          else if (prop.ancestors && prop.ancestors.length > 0) {
+            // Get the closest ancestor (last one in array is usually the immediate parent)
+            const closestAncestor = prop.ancestors[prop.ancestors.length - 1];
+            if (closestAncestor && propertyIdToName.has(closestAncestor)) {
+              source = propertyIdToName.get(closestAncestor);
+            }
+          }
+          // Fallback to tags
+          else if (prop.tags && prop.tags.length > 0) {
             source = prop.tags.join(', ');
-          } else if (prop.libraryTags && prop.libraryTags.length > 0) {
+          }
+          // Fallback to libraryTags
+          else if (prop.libraryTags && prop.libraryTags.length > 0) {
             source = prop.libraryTags.join(', ');
           }
 

@@ -468,9 +468,37 @@ function useClassResource(resource, spell) {
 }
 
 function announceSpellCast(spell, resourceUsed) {
-  const message = resourceUsed ?
-    `${characterData.name} casts ${spell.name}! (using ${resourceUsed})` :
-    `${characterData.name} casts ${spell.name}!`;
+  // Build the announcement message with spell details
+  let message = `${characterData.name} casts ${spell.name}!`;
+
+  if (resourceUsed) {
+    message += ` (using ${resourceUsed})`;
+  }
+
+  // Add spell level if it's not a cantrip
+  if (spell.level && spell.level > 0) {
+    message += `\nLevel ${spell.level}`;
+    if (spell.school) {
+      message += ` ${spell.school}`;
+    }
+  } else if (spell.school) {
+    message += `\n${spell.school} cantrip`;
+  }
+
+  // Add casting details
+  const details = [];
+  if (spell.castingTime) details.push(`Casting Time: ${spell.castingTime}`);
+  if (spell.range) details.push(`Range: ${spell.range}`);
+  if (spell.duration) details.push(`Duration: ${spell.duration}`);
+
+  if (details.length > 0) {
+    message += `\n${details.join(' | ')}`;
+  }
+
+  // Add description
+  if (spell.description) {
+    message += `\n${spell.description}`;
+  }
 
   // Send to Roll20 chat
   if (window.opener && !window.opener.closed) {
