@@ -35,4 +35,4 @@ if (!globalScope.browserAPI || !globalScope.browserAPI.runtime) {
   throw new Error('Browser API not available');
 }
 
-console.log('✅ Browser API ready:', browserAPI === browser ? 'Firefox' : 'Chrome');
+console.log('✅ Browser API ready:', (typeof browser !== 'undefined' && browserAPI === browser) ? 'Firefox' : 'Chrome');

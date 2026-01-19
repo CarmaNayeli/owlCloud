@@ -1628,11 +1628,16 @@
           if (event.data && event.data.action === 'popupReady' && popupWindow && !messageSent) {
             console.log('✅ Popup is ready, sending character data...');
             messageSent = true;
-            popupWindow.postMessage({
-              action: 'initCharacterSheet',
-              data: response.data
-            }, '*');
-            console.log('✅ Character data sent to popup via postMessage');
+            try {
+              popupWindow.postMessage({
+                action: 'initCharacterSheet',
+                data: response.data
+              }, '*');
+              console.log('✅ Character data sent to popup via postMessage');
+            } catch (error) {
+              console.warn('⚠️ Could not send message to popup (Firefox security):', error.message);
+              // The popup will use storage fallback if postMessage fails
+            }
             // Clean up listener after a delay
             setTimeout(() => {
               window.removeEventListener('message', messageHandler);
@@ -1657,11 +1662,16 @@
           if (!messageSent && popupWindow && !popupWindow.closed) {
             console.log('⏱️ Fallback: Sending character data after timeout...');
             messageSent = true;
-            popupWindow.postMessage({
-              action: 'initCharacterSheet',
-              data: response.data
-            }, '*');
-            console.log('✅ Character data sent via fallback');
+            try {
+              popupWindow.postMessage({
+                action: 'initCharacterSheet',
+                data: response.data
+              }, '*');
+              console.log('✅ Character data sent via fallback');
+            } catch (error) {
+              console.warn('⚠️ Could not send fallback message to popup (Firefox security):', error.message);
+              // The popup will load data from storage if postMessage fails
+            }
           }
         }, 500);
 
