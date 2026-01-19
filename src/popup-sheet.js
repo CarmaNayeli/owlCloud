@@ -40,6 +40,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function buildSheet(data) {
   console.log('Building character sheet...');
+  console.log('📊 Character data received:', data);
+  console.log('✨ Spell slots data:', data.spellSlots);
 
   // Character name and info
   document.getElementById('char-name').textContent = `🎲 ${data.name || 'Character'}`;
@@ -58,6 +60,9 @@ function buildSheet(data) {
       <div><strong>Hit Dice:</strong> ${data.hitDice.current}/${data.hitDice.max} ${data.hitDice.type}</div>
     </div>
   `;
+
+  // Spell Slots
+  buildSpellSlotsDisplay();
 
   // Abilities
   const abilitiesGrid = document.getElementById('abilities-grid');
@@ -91,18 +96,140 @@ function buildSheet(data) {
     skillsGrid.appendChild(card);
   });
 
-  // Spells
+  // Spells - organized by source then level
   const spellsContainer = document.getElementById('spells-container');
   if (data.spells && data.spells.length > 0) {
-    data.spells.forEach((spell, index) => {
-      const spellCard = createSpellCard(spell, index);
-      spellsContainer.appendChild(spellCard);
-    });
+    buildSpellsBySource(spellsContainer, data.spells);
   } else {
     spellsContainer.innerHTML = '<p style="text-align: center; color: #666;">No spells available</p>';
   }
 
   console.log('✅ Sheet built successfully');
+}
+
+function buildSpellsBySource(container, spells) {
+  // Group spells by source
+  const spellsBySource = {};
+
+  spells.forEach((spell, index) => {
+    // Add index to spell for tracking
+    spell.index = index;
+
+    const source = spell.source || 'Unknown Source';
+    if (!spellsBySource[source]) {
+      spellsBySource[source] = [];
+    }
+    spellsBySource[source].push(spell);
+  });
+
+  // Clear container
+  container.innerHTML = '';
+
+  // Sort sources alphabetically
+  const sortedSources = Object.keys(spellsBySource).sort();
+
+  sortedSources.forEach(source => {
+    // Create source section
+    const sourceSection = document.createElement('div');
+    sourceSection.style.cssText = 'margin-bottom: 20px;';
+
+    const sourceHeader = document.createElement('h4');
+    sourceHeader.textContent = `📚 ${source}`;
+    sourceHeader.style.cssText = 'color: #2c3e50; margin-bottom: 10px; padding: 5px; background: #ecf0f1; border-radius: 4px;';
+    sourceSection.appendChild(sourceHeader);
+
+    // Sort spells by level within source
+    const sortedSpells = spellsBySource[source].sort((a, b) => {
+      const levelA = parseInt(a.level) || 0;
+      const levelB = parseInt(b.level) || 0;
+      return levelA - levelB;
+    });
+
+    // Add spells
+    sortedSpells.forEach(spell => {
+      const spellCard = createSpellCard(spell, spell.index);
+      sourceSection.appendChild(spellCard);
+    });
+
+    container.appendChild(sourceSection);
+  });
+}
+
+function buildSpellSlotsDisplay() {
+  const container = document.getElementById('spell-slots-container');
+
+  if (!characterData || !characterData.spellSlots) {
+    container.innerHTML = '<p style="text-align: center; color: #666;">No spell slots available</p>';
+    console.log('⚠️ No spell slots in character data');
+    return;
+  }
+
+  const slotsGrid = document.createElement('div');
+  slotsGrid.className = 'spell-slots-grid';
+
+  let hasAnySlots = false;
+
+  // Check each level (1-9)
+  for (let level = 1; level <= 9; level++) {
+    const slotVar = `level${level}SpellSlots`;
+    const slotMaxVar = `level${level}SpellSlotsMax`;
+
+    const maxSlots = characterData.spellSlots[slotMaxVar] || 0;
+
+    // Only show if character has slots at this level
+    if (maxSlots > 0) {
+      hasAnySlots = true;
+      const currentSlots = characterData.spellSlots[slotVar] || 0;
+
+      const slotCard = document.createElement('div');
+      slotCard.className = currentSlots > 0 ? 'spell-slot-card' : 'spell-slot-card empty';
+      slotCard.innerHTML = `
+        <div class="spell-slot-level">Level ${level}</div>
+        <div class="spell-slot-count">${currentSlots}/${maxSlots}</div>
+      `;
+
+      // Add click to manually adjust slots
+      slotCard.addEventListener('click', () => {
+        adjustSpellSlot(level, currentSlots, maxSlots);
+      });
+      slotCard.style.cursor = 'pointer';
+
+      slotsGrid.appendChild(slotCard);
+    }
+  }
+
+  if (hasAnySlots) {
+    container.innerHTML = '';
+    container.appendChild(slotsGrid);
+
+    // Add a small note
+    const note = document.createElement('p');
+    note.style.cssText = 'text-align: center; color: #666; font-size: 0.85em; margin-top: 8px;';
+    note.textContent = 'Click a slot to manually adjust';
+    container.appendChild(note);
+  } else {
+    container.innerHTML = '<p style="text-align: center; color: #666;">No spell slots available</p>';
+    console.log('⚠️ Character has 0 max slots for all levels');
+  }
+}
+
+function adjustSpellSlot(level, current, max) {
+  const newValue = prompt(`Adjust Level ${level} Spell Slots\n\nCurrent: ${current}/${max}\n\nEnter new current value (0-${max}):`);
+
+  if (newValue === null) return; // Cancelled
+
+  const parsed = parseInt(newValue);
+  if (isNaN(parsed) || parsed < 0 || parsed > max) {
+    showNotification('❌ Invalid value', 'error');
+    return;
+  }
+
+  const slotVar = `level${level}SpellSlots`;
+  characterData.spellSlots[slotVar] = parsed;
+  saveCharacterData();
+  buildSheet(characterData);
+
+  showNotification(`✅ Level ${level} slots set to ${parsed}/${max}`);
 }
 
 function createCard(title, main, sub, onClick) {
