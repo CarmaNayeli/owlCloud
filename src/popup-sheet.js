@@ -43,11 +43,15 @@ function buildSheet(data) {
 
   // Character name and info
   document.getElementById('char-name').textContent = `🎲 ${data.name || 'Character'}`;
+
+  // Capitalize race name
+  const raceName = data.race ? data.race.charAt(0).toUpperCase() + data.race.slice(1) : 'Unknown';
+
   document.getElementById('char-info').innerHTML = `
     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; text-align: center;">
       <div><strong>Class:</strong> ${data.class || 'Unknown'}</div>
       <div><strong>Level:</strong> ${data.level || 1}</div>
-      <div><strong>Race:</strong> ${data.race || 'Unknown'}</div>
+      <div><strong>Race:</strong> ${raceName}</div>
     </div>
   `;
 
