@@ -935,18 +935,34 @@
             }
 
             // Helper function to extract numeric value from potentially complex property
-            const extractNumericValue = (val) => {
+            const extractNumericValue = (val, depth = 0) => {
+              // Prevent infinite recursion
+              if (depth > 5) return 0;
+
               if (typeof val === 'number') return val;
               if (typeof val === 'string') {
                 const parsed = parseFloat(val);
                 return isNaN(parsed) ? 0 : parsed;
               }
               if (typeof val === 'object' && val !== null) {
-                // Try common properties in order of preference
-                return val.value !== undefined ? val.value :
-                       val.total !== undefined ? val.total :
-                       val.calculation !== undefined ? parseFloat(val.calculation) || 0 :
-                       val.text !== undefined ? parseFloat(val.text) || 0 : 0;
+                // Try common properties in order of preference, recursively
+                if (val.value !== undefined) {
+                  const extracted = extractNumericValue(val.value, depth + 1);
+                  if (extracted !== 0) return extracted;
+                }
+                if (val.total !== undefined) {
+                  const extracted = extractNumericValue(val.total, depth + 1);
+                  if (extracted !== 0) return extracted;
+                }
+                if (val.calculation !== undefined) {
+                  const parsed = parseFloat(val.calculation);
+                  if (!isNaN(parsed) && parsed !== 0) return parsed;
+                }
+                if (val.text !== undefined) {
+                  const parsed = parseFloat(val.text);
+                  if (!isNaN(parsed) && parsed !== 0) return parsed;
+                }
+                return 0;
               }
               return 0;
             };
