@@ -1039,8 +1039,55 @@
     document.getElementById('stats-toggle').addEventListener('click', () => togglePanel('stats'));
     document.getElementById('settings-toggle').addEventListener('click', () => togglePanel('settings'));
 
-    // Make draggable
-    makeDraggable(overlayElement.querySelector('.rollcloud-header'));
+    // Note: Dragging is not needed as overlay is shown in popup window
+  }
+
+  /**
+   * Opens the character sheet in a popup window
+   */
+  function popOutCharacterSheet() {
+    console.log('🔗 Opening character sheet in popup...');
+    showOverlay();
+  }
+
+  /**
+   * Loads character data from extension storage
+   */
+  function loadCharacterData() {
+    console.log('🔄 Loading character data from storage...');
+    browserAPI.runtime.sendMessage({ action: 'getCharacterData' }, (response) => {
+      if (browserAPI.runtime.lastError) {
+        console.error('❌ Extension context error:', browserAPI.runtime.lastError);
+        showNotification('Failed to load character data', 'error');
+        return;
+      }
+
+      if (response && response.data) {
+        console.log('✅ Character data loaded:', response.data.name);
+        characterData = response.data;
+
+        showNotification('Character data synced! 🎲', 'success');
+      } else {
+        console.log('📋 No character data found');
+        showNotification('No character data found. Please sync from Dice Cloud first.', 'error');
+      }
+    });
+  }
+
+  /**
+   * Posts spell description to Roll20 chat
+   */
+  function postSpellDescriptionToChat(spellName, spellLevel, spellDescription) {
+    console.log('🔮 Posting spell description to chat:', spellName);
+
+    const message = `/em casts **${spellName}** (Level ${spellLevel})\n${spellDescription || 'No description available'}`;
+
+    const success = postChatMessage(message);
+    if (success) {
+      showNotification(`${spellName} description posted to chat! ✨`, 'success');
+    } else {
+      showNotification('Failed to post to chat. Make sure you are on Roll20.', 'error');
+    }
   }
 
   /**
