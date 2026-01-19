@@ -487,6 +487,11 @@ function buildActionsDisplay(container, actions) {
           buildSheet(characterData); // Refresh display
         }
 
+        // Check and decrement other resources (Wild Shape, Breath Weapon, etc.)
+        if (!decrementActionResources(action)) {
+          return; // Not enough resources
+        }
+
         let damageName = action.damageType ?
           `${action.name} (${action.damageType})` :
           action.name;
@@ -561,6 +566,11 @@ function buildActionsDisplay(container, actions) {
           buildSheet(characterData); // Refresh display
         }
 
+        // Check and decrement other resources (Wild Shape, Breath Weapon, etc.)
+        if (!decrementActionResources(action)) {
+          return; // Not enough resources
+        }
+
         announceAction(action);
       });
       buttonsDiv.appendChild(useBtn);
@@ -622,6 +632,11 @@ function buildActionsDisplay(container, actions) {
           console.log(`✨ Used ${sorceryCost} Sorcery Points for ${action.name}. Remaining: ${sorceryResource.current}/${sorceryResource.max}`);
           showNotification(`✨ ${action.name}! (${sorceryResource.current}/${sorceryResource.max} SP left)`);
           buildSheet(characterData); // Refresh display
+        }
+
+        // Check and decrement other resources (Wild Shape, Breath Weapon, etc.)
+        if (!decrementActionResources(action)) {
+          return; // Not enough resources
         }
 
         announceAction(action);
@@ -1882,6 +1897,65 @@ function getSorceryPointCostFromAction(action) {
   }
 
   return 0;
+}
+
+function decrementActionResources(action) {
+  // Decrement all resource costs for an action (Wild Shape uses, Breath Weapon uses, etc.)
+  const costs = getResourceCostsFromAction(action);
+
+  if (!costs || costs.length === 0) {
+    return true; // No resources to decrement
+  }
+
+  // Check all resources have sufficient quantities before decrementing any
+  for (const cost of costs) {
+    // Skip Ki and Sorcery Points as they're handled separately
+    if (cost.variableName === 'kiPoints' || cost.variableName === 'sorceryPoints') {
+      continue;
+    }
+
+    if (!cost.variableName) {
+      console.log(`⚠️ Resource cost missing variableName for ${action.name}:`, cost);
+      continue;
+    }
+
+    // Find the resource in character data
+    const resource = characterData.resources?.find(r => r.variableName === cost.variableName);
+
+    if (!resource) {
+      console.log(`⚠️ Resource not found: ${cost.variableName} for ${action.name}`);
+      continue;
+    }
+
+    if (resource.current < cost.quantity) {
+      showNotification(`❌ Not enough ${cost.name || cost.variableName}! Need ${cost.quantity}, have ${resource.current}`, 'error');
+      return false;
+    }
+  }
+
+  // All checks passed, now decrement the resources
+  for (const cost of costs) {
+    // Skip Ki and Sorcery Points as they're handled separately
+    if (cost.variableName === 'kiPoints' || cost.variableName === 'sorceryPoints') {
+      continue;
+    }
+
+    if (!cost.variableName) {
+      continue;
+    }
+
+    const resource = characterData.resources?.find(r => r.variableName === cost.variableName);
+
+    if (resource) {
+      resource.current -= cost.quantity;
+      console.log(`✅ Used ${cost.quantity} ${cost.name || cost.variableName} for ${action.name}. Remaining: ${resource.current}/${resource.max}`);
+      showNotification(`✅ Used ${action.name}! (${resource.current}/${resource.max} ${cost.name || cost.variableName} left)`);
+    }
+  }
+
+  saveCharacterData();
+  buildSheet(characterData); // Refresh display
+  return true;
 }
 
 function calculateMetamagicCost(metamagicName, spellLevel) {
