@@ -22,9 +22,15 @@ if (typeof browser !== 'undefined' && browser.runtime) {
   console.log('🌐 Detected Chrome');
   browserAPI = {
     runtime: {
-      sendMessage: (...args) => {
+      sendMessage: (message, callback) => {
+        // If callback is provided, use callback-based API
+        if (typeof callback === 'function') {
+          chrome.runtime.sendMessage(message, callback);
+          return;
+        }
+        // Otherwise return a Promise
         return new Promise((resolve, reject) => {
-          chrome.runtime.sendMessage(...args, (response) => {
+          chrome.runtime.sendMessage(message, (response) => {
             if (chrome.runtime.lastError) {
               reject(new Error(chrome.runtime.lastError.message));
             } else {
@@ -36,7 +42,9 @@ if (typeof browser !== 'undefined' && browser.runtime) {
       onMessage: chrome.runtime.onMessage,
       getURL: chrome.runtime.getURL,
       id: chrome.runtime.id,
-      lastError: chrome.runtime.lastError
+      get lastError() {
+        return chrome.runtime.lastError;
+      }
     },
     storage: {
       local: {
@@ -98,7 +106,13 @@ if (typeof browser !== 'undefined' && browser.runtime) {
           });
         });
       },
-      sendMessage: (tabId, message) => {
+      sendMessage: (tabId, message, callback) => {
+        // If callback is provided, use callback-based API
+        if (typeof callback === 'function') {
+          chrome.tabs.sendMessage(tabId, message, callback);
+          return;
+        }
+        // Otherwise return a Promise
         return new Promise((resolve, reject) => {
           chrome.tabs.sendMessage(tabId, message, (response) => {
             if (chrome.runtime.lastError) {
