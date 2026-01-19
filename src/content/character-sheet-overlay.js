@@ -1244,10 +1244,14 @@
    * Updates statistics display
    */
   function updateStatsDisplay() {
-    document.getElementById('stat-total').textContent = rollStats.stats.totalRolls;
+    // Check if elements exist (they won't exist if overlay is in popup window)
+    const statTotal = document.getElementById('stat-total');
+    if (!statTotal) return; // Overlay not on this page
+
+    statTotal.textContent = rollStats.stats.totalRolls;
     document.getElementById('stat-average').textContent = rollStats.stats.averageRoll.toFixed(1);
     document.getElementById('stat-highest').textContent = rollStats.stats.highestRoll;
-    document.getElementById('stat-lowest').textContent = 
+    document.getElementById('stat-lowest').textContent =
       rollStats.stats.lowestRoll === Infinity ? '∞' : rollStats.stats.lowestRoll;
     document.getElementById('stat-crits').textContent = rollStats.stats.criticalSuccesses;
     document.getElementById('stat-fails').textContent = rollStats.stats.criticalFailures;

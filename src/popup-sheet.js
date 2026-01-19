@@ -498,8 +498,9 @@ function buildActionsDisplay(container, actions) {
       buttonsDiv.appendChild(attackBtn);
     }
 
-    // Damage button (if damage exists)
-    if (action.damage) {
+    // Damage button (if damage exists and is a valid dice formula)
+    const isValidDiceFormula = action.damage && /\dd/.test(action.damage); // Check for dice formula
+    if (isValidDiceFormula) {
       const damageBtn = document.createElement('button');
       damageBtn.className = 'damage-btn';
       // Use different text for healing vs damage vs features
@@ -611,7 +612,9 @@ function buildActionsDisplay(container, actions) {
     }
 
     // Use button for non-attack actions (bonus actions, reactions, etc.)
-    if (!action.attackRoll && !action.damage && action.description) {
+    // Only show if there's no attack roll AND (no damage OR damage is invalid/descriptive text)
+    const hasValidDamage = action.damage && /\dd/.test(action.damage); // Check for dice formula (e.g., "1d6", "2d8")
+    if (!action.attackRoll && !hasValidDamage && action.description) {
       const useBtn = document.createElement('button');
       useBtn.className = 'use-btn';
       useBtn.textContent = '✨ Use';
@@ -1890,14 +1893,36 @@ function announceSpellCast(spell, resourceUsed) {
   }
 
   // Send to Roll20 chat
+  const messageData = {
+    action: 'announceSpell',
+    spellName: spell.name,
+    characterName: characterData.name,
+    message: message,
+    color: characterData.notificationColor
+  };
+
+  // Try window.opener first (Chrome)
   if (window.opener && !window.opener.closed) {
-    window.opener.postMessage({
-      action: 'announceSpell',
-      spellName: spell.name,
-      characterName: characterData.name,
-      message: message,
-      color: characterData.notificationColor
-    }, '*');
+    try {
+      window.opener.postMessage(messageData, '*');
+      console.log('✅ Spell announcement sent via window.opener');
+    } catch (error) {
+      console.warn('⚠️ Could not send via window.opener:', error.message);
+      // Fall through to background script relay
+    }
+  } else {
+    // Fallback: Use background script to relay to Roll20 (Firefox)
+    console.log('📡 Using background script to relay spell announcement to Roll20...');
+    browserAPI.runtime.sendMessage({
+      action: 'relayRollToRoll20',
+      roll: messageData
+    }, (response) => {
+      if (browserAPI.runtime.lastError) {
+        console.error('❌ Error relaying spell announcement:', browserAPI.runtime.lastError);
+      } else if (response && response.success) {
+        console.log('✅ Spell announcement relayed to Roll20');
+      }
+    });
   }
 
   // Also roll if there's a formula
