@@ -86,6 +86,7 @@ function buildSheet(data) {
 
   // Abilities
   const abilitiesGrid = document.getElementById('abilities-grid');
+  abilitiesGrid.innerHTML = ''; // Clear existing
   const abilities = ['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma'];
   abilities.forEach(ability => {
     const score = data.attributes?.[ability] || 10;
@@ -98,6 +99,7 @@ function buildSheet(data) {
 
   // Saves
   const savesGrid = document.getElementById('saves-grid');
+  savesGrid.innerHTML = ''; // Clear existing
   abilities.forEach(ability => {
     const bonus = data.savingThrows?.[ability] || 0;
     const card = createCard(`${ability.substring(0, 3).toUpperCase()}`, `+${bonus}`, '', () => {
@@ -106,9 +108,26 @@ function buildSheet(data) {
     savesGrid.appendChild(card);
   });
 
-  // Skills
+  // Skills - deduplicate and show unique skills only
   const skillsGrid = document.getElementById('skills-grid');
+  skillsGrid.innerHTML = ''; // Clear existing
+
+  // Create a map to deduplicate skills (in case data has duplicates)
+  const uniqueSkills = new Map();
   Object.entries(data.skills || {}).forEach(([skill, bonus]) => {
+    const normalizedSkill = skill.toLowerCase().trim();
+    // Only keep the skill if we haven't seen it, or if this bonus is higher
+    if (!uniqueSkills.has(normalizedSkill) || bonus > uniqueSkills.get(normalizedSkill).bonus) {
+      uniqueSkills.set(normalizedSkill, { skill, bonus });
+    }
+  });
+
+  // Sort skills alphabetically and display
+  const sortedSkills = Array.from(uniqueSkills.values()).sort((a, b) =>
+    a.skill.localeCompare(b.skill)
+  );
+
+  sortedSkills.forEach(({ skill, bonus }) => {
     const displayName = skill.charAt(0).toUpperCase() + skill.slice(1).replace(/-/g, ' ');
     const card = createCard(displayName, `${bonus >= 0 ? '+' : ''}${bonus}`, '', () => {
       roll(displayName, `1d20${bonus >= 0 ? '+' : ''}${bonus}`);
@@ -348,10 +367,26 @@ function showHPModal() {
       characterData.hitPoints.current = Math.min(currentHP + amount, maxHP);
       const actualHealing = characterData.hitPoints.current - oldHP;
       showNotification(`💚 Healed ${actualHealing} HP! (${characterData.hitPoints.current}/${maxHP})`);
+
+      // Announce to Roll20 chat
+      if (window.opener && !window.opener.closed) {
+        window.opener.postMessage({
+          action: 'announceSpell',
+          message: `${characterData.name} regains ${actualHealing} hit points! (${characterData.hitPoints.current}/${maxHP} HP)`
+        }, '*');
+      }
     } else {
       characterData.hitPoints.current = Math.max(currentHP - amount, 0);
       const actualDamage = oldHP - characterData.hitPoints.current;
       showNotification(`💔 Took ${actualDamage} damage! (${characterData.hitPoints.current}/${maxHP})`);
+
+      // Announce to Roll20 chat
+      if (window.opener && !window.opener.closed) {
+        window.opener.postMessage({
+          action: 'announceSpell',
+          message: `${characterData.name} takes ${actualDamage} damage! (${characterData.hitPoints.current}/${maxHP} HP)`
+        }, '*');
+      }
     }
 
     saveCharacterData();
