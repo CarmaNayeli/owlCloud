@@ -1151,14 +1151,8 @@ function detectClassResources(spell) {
     }
   }
 
-  // Check for Sorcery Points (Sorcerer)
-  if (otherVars.sorceryPoints !== undefined) {
-    const points = otherVars.sorceryPoints || 0;
-    const pointsMax = otherVars.sorceryPointsMax || 0;
-    if (points > 0) {
-      resources.push({ name: 'Sorcery Points', current: points, max: pointsMax, varName: 'sorceryPoints' });
-    }
-  }
+  // NOTE: Sorcery Points are NOT a casting resource - they're only used for metamagic
+  // Metamagic is handled in the spell slot casting flow, not as an alternative resource
 
   // Check for Pact Magic slots (Warlock)
   if (otherVars.pactMagicSlots !== undefined) {
