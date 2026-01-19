@@ -636,11 +636,8 @@
 
         case 'action':
           // Extract attack actions (weapons, unarmed strikes, etc.)
-          // Only include actions that have attack rolls or damage (actual combat actions)
-          if (prop.name && (prop.attackRoll || prop.damage)) {
-            // Debug: Log the entire prop to see what fields are available
-            console.log(`🔍 Full action prop for ${prop.name}:`, JSON.stringify(prop, null, 2));
-
+          // Only include actions that have attack rolls (actual combat actions)
+          if (prop.name && prop.attackRoll) {
             // Handle description - it might be an object with a 'text' or 'value' field
             let description = '';
             if (prop.description) {
@@ -651,52 +648,67 @@
               }
             }
 
-            // Handle attackRoll - extract formula if it's an object
+            // Build attack roll formula from the calculated value
             let attackRoll = '';
             if (prop.attackRoll) {
-              console.log(`🔍 attackRoll type: ${typeof prop.attackRoll}, value:`, prop.attackRoll);
               if (typeof prop.attackRoll === 'string') {
                 attackRoll = prop.attackRoll;
-              } else if (typeof prop.attackRoll === 'object') {
-                // Log the object to see what fields it has
-                console.log(`🔍 attackRoll object fields:`, Object.keys(prop.attackRoll));
-                attackRoll = prop.attackRoll.formula || prop.attackRoll.text || prop.attackRoll.value || prop.attackRoll.calculation || '';
+              } else if (typeof prop.attackRoll === 'object' && prop.attackRoll.value !== undefined) {
+                // Build the full d20 formula from the calculated bonus
+                const bonus = prop.attackRoll.value;
+                attackRoll = bonus >= 0 ? `1d20+${bonus}` : `1d20${bonus}`;
               } else if (typeof prop.attackRoll === 'number') {
-                // If it's just a number, we need to construct the full formula
-                attackRoll = `1d20+${prop.attackRoll}`;
+                // If it's just a number, construct the formula
+                const bonus = prop.attackRoll;
+                attackRoll = bonus >= 0 ? `1d20+${bonus}` : `1d20${bonus}`;
               }
             }
 
-            // Handle damage - extract formula if it's an object
+            // Find damage properties that are children of this action
+            // Damage is stored as separate properties with this action as parent
+            const damageProperties = creatureProperties.filter(p =>
+              p.type === 'damage' &&
+              p.parent &&
+              p.parent.id === prop._id
+            );
+
             let damage = '';
-            if (prop.damage) {
-              console.log(`🔍 damage type: ${typeof prop.damage}, value:`, prop.damage);
-              if (typeof prop.damage === 'string') {
-                damage = prop.damage;
-              } else if (typeof prop.damage === 'object') {
-                console.log(`🔍 damage object fields:`, Object.keys(prop.damage));
-                damage = prop.damage.formula || prop.damage.text || prop.damage.value || prop.damage.calculation || '';
+            let damageType = '';
+
+            if (damageProperties.length > 0) {
+              // Use the first damage property (weapons typically have one main damage)
+              const damageProp = damageProperties[0];
+
+              if (damageProp.amount) {
+                if (typeof damageProp.amount === 'string') {
+                  damage = damageProp.amount;
+                } else if (typeof damageProp.amount === 'object') {
+                  damage = damageProp.amount.calculation || damageProp.amount.value || damageProp.amount.text || '';
+                }
+              }
+
+              if (damageProp.damageType) {
+                damageType = damageProp.damageType;
               }
             }
 
-            // Only add actions that have at least one valid formula (allow inactive for now to debug)
-            if (attackRoll || damage) {
+            // Only add actions that have valid formulas (skip inactive for now)
+            if (attackRoll && !prop.inactive && !prop.disabled) {
               const action = {
                 name: prop.name,
                 actionType: prop.actionType || 'other',
                 attackRoll: attackRoll,
                 damage: damage,
-                damageType: prop.damageType || '',
+                damageType: damageType,
                 description: description,
                 uses: prop.uses || null,
                 usesUsed: prop.usesUsed || 0
               };
 
               characterData.actions.push(action);
-              const inactiveNote = prop.inactive ? ' [INACTIVE]' : '';
-              console.log(`⚔️ Added action: ${action.name}${inactiveNote} (attack: ${attackRoll}, damage: ${damage})`);
-            } else {
-              console.log(`⏭️ Skipped action: ${prop.name} (no formulas - attack: ${attackRoll}, damage: ${damage})`);
+              console.log(`⚔️ Added action: ${action.name} (attack: ${attackRoll}, damage: ${damage} ${damageType})`);
+            } else if (prop.inactive || prop.disabled) {
+              console.log(`⏭️ Skipped action: ${prop.name} (inactive: ${!!prop.inactive}, disabled: ${!!prop.disabled})`);
             }
           }
           break;
