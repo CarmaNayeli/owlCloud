@@ -14,15 +14,47 @@ window.addEventListener('message', (event) => {
   }
 });
 
-// Tell parent window we're ready
-if (window.opener && !window.opener.closed) {
-  console.log('✅ Sending ready message to parent window...');
-  window.opener.postMessage({ action: 'popupReady' }, '*');
-} else {
-  console.error('❌ No parent window available');
+// Tell parent window we're ready - wait for window to be fully loaded
+// This prevents race conditions in Firefox
+function notifyParentReady() {
+  try {
+    if (window.opener && !window.opener.closed) {
+      console.log('✅ Sending ready message to parent window...');
+      window.opener.postMessage({ action: 'popupReady' }, '*');
+    } else {
+      console.warn('⚠️ No parent window available, waiting for postMessage...');
+    }
+  } catch (error) {
+    console.warn('⚠️ Could not notify parent (this is normal):', error.message);
+  }
 }
 
+// Send ready message after a short delay to ensure parent is listening
+setTimeout(notifyParentReady, 100);
+
 console.log('✅ Waiting for character data via postMessage...');
+
+// Fallback: If we don't receive data via postMessage within 1 second,
+// load directly from storage (Firefox sometimes blocks postMessage between windows)
+setTimeout(() => {
+  if (!characterData) {
+    console.log('⏱️ No data received via postMessage, loading from storage...');
+    browserAPI.runtime.sendMessage({ action: 'getCharacterData' }, (response) => {
+      if (browserAPI.runtime.lastError) {
+        console.error('❌ Extension context error:', browserAPI.runtime.lastError);
+        return;
+      }
+
+      if (response && response.data) {
+        console.log('✅ Character data loaded from storage:', response.data.name);
+        characterData = response.data;
+        buildSheet(characterData);
+      } else {
+        console.error('❌ No character data found in storage');
+      }
+    });
+  }
+}, 1000);
 
 // Add event listeners for rest buttons
 document.addEventListener('DOMContentLoaded', () => {
