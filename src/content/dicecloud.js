@@ -654,7 +654,9 @@
               if (typeof prop.attackRoll === 'string') {
                 attackRoll = prop.attackRoll;
               } else if (typeof prop.attackRoll === 'object') {
-                attackRoll = prop.attackRoll.formula || prop.attackRoll.text || prop.attackRoll.value || '';
+                // Log the object to see what fields it has
+                console.log(`🔍 attackRoll object for ${prop.name}:`, prop.attackRoll);
+                attackRoll = prop.attackRoll.formula || prop.attackRoll.text || prop.attackRoll.value || prop.attackRoll.calculation || '';
               }
             }
 
@@ -664,12 +666,13 @@
               if (typeof prop.damage === 'string') {
                 damage = prop.damage;
               } else if (typeof prop.damage === 'object') {
-                damage = prop.damage.formula || prop.damage.text || prop.damage.value || '';
+                console.log(`🔍 damage object for ${prop.name}:`, prop.damage);
+                damage = prop.damage.formula || prop.damage.text || prop.damage.value || prop.damage.calculation || '';
               }
             }
 
-            // Only add actions that have at least one valid formula AND are not inactive/disabled
-            if ((attackRoll || damage) && !prop.inactive && !prop.disabled) {
+            // Only add actions that have at least one valid formula (allow inactive for now to debug)
+            if (attackRoll || damage) {
               const action = {
                 name: prop.name,
                 actionType: prop.actionType || 'other',
@@ -682,9 +685,10 @@
               };
 
               characterData.actions.push(action);
-              console.log(`⚔️ Added action: ${action.name} (attack: ${attackRoll}, damage: ${damage})`);
+              const inactiveNote = prop.inactive ? ' [INACTIVE]' : '';
+              console.log(`⚔️ Added action: ${action.name}${inactiveNote} (attack: ${attackRoll}, damage: ${damage})`);
             } else {
-              console.log(`⏭️ Skipped action: ${prop.name} (inactive: ${prop.inactive}, disabled: ${prop.disabled}, attack: ${attackRoll}, damage: ${damage})`);
+              console.log(`⏭️ Skipped action: ${prop.name} (no formulas - attack: ${attackRoll}, damage: ${damage})`);
             }
           }
           break;
