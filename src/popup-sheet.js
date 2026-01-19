@@ -291,6 +291,10 @@ function buildActionsDisplay(container, actions) {
   if (sneakAttackAction && sneakAttackAction.damage) {
     sneakAttackDamage = sneakAttackAction.damage;
 
+    // Resolve variables in the damage formula for display
+    const resolvedDamage = resolveVariablesInFormula(sneakAttackDamage);
+    console.log(`🎯 Sneak Attack damage: "${sneakAttackDamage}" resolved to "${resolvedDamage}"`);
+
     // Add toggle section at the top of actions
     const toggleSection = document.createElement('div');
     toggleSection.style.cssText = 'background: #2c3e50; color: white; padding: 10px; border-radius: 5px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px;';
@@ -309,7 +313,7 @@ function buildActionsDisplay(container, actions) {
     });
 
     const labelText = document.createElement('span');
-    labelText.textContent = `Add Sneak Attack (${sneakAttackDamage}) to weapon damage`;
+    labelText.textContent = `Add Sneak Attack (${resolvedDamage}) to weapon damage`;
 
     toggleLabel.appendChild(checkbox);
     toggleLabel.appendChild(labelText);
