@@ -328,6 +328,10 @@ function buildSpellsBySource(container, spells) {
 let sneakAttackEnabled = false;  // Always starts unchecked - user manually enables when needed
 let sneakAttackDamage = '';
 
+// Store Elemental Weapon toggle state (independent from DiceCloud - controlled only by our sheet)
+let elementalWeaponEnabled = false;  // Always starts unchecked - user manually enables when needed
+let elementalWeaponDamage = '1d4';  // Default to level 3 (base damage)
+
 function buildActionsDisplay(container, actions) {
   // Clear container
   container.innerHTML = '';
@@ -367,6 +371,41 @@ function buildActionsDisplay(container, actions) {
     toggleLabel.appendChild(labelText);
     toggleSection.appendChild(toggleLabel);
     container.appendChild(toggleSection);
+  }
+
+  // Check if character has Elemental Weapon spell prepared (check spells list)
+  // We only check if it EXISTS, the toggle is user-controlled
+  const hasElementalWeapon = characterData.spells && characterData.spells.some(s =>
+    s.name === 'Elemental Weapon' || (s.spell && s.spell.name === 'Elemental Weapon')
+  );
+
+  if (hasElementalWeapon) {
+    console.log(`⚔️ Elemental Weapon spell found, adding toggle`);
+
+    // Add toggle section for Elemental Weapon
+    const elementalToggleSection = document.createElement('div');
+    elementalToggleSection.style.cssText = 'background: #8b4513; color: white; padding: 10px; border-radius: 5px; margin-bottom: 10px; display: flex; align-items: center; gap: 10px;';
+
+    const elementalToggleLabel = document.createElement('label');
+    elementalToggleLabel.style.cssText = 'display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: bold;';
+
+    const elementalCheckbox = document.createElement('input');
+    elementalCheckbox.type = 'checkbox';
+    elementalCheckbox.id = 'elemental-weapon-toggle';
+    elementalCheckbox.checked = elementalWeaponEnabled;  // Always starts false
+    elementalCheckbox.style.cssText = 'width: 18px; height: 18px; cursor: pointer;';
+    elementalCheckbox.addEventListener('change', (e) => {
+      elementalWeaponEnabled = e.target.checked;
+      console.log(`⚔️ Elemental Weapon toggle: ${elementalWeaponEnabled ? 'ON' : 'OFF'}`);
+    });
+
+    const elementalLabelText = document.createElement('span');
+    elementalLabelText.textContent = `Add Elemental Weapon (${elementalWeaponDamage}) to weapon damage`;
+
+    elementalToggleLabel.appendChild(elementalCheckbox);
+    elementalToggleLabel.appendChild(elementalLabelText);
+    elementalToggleSection.appendChild(elementalToggleLabel);
+    container.appendChild(elementalToggleSection);
   }
 
   actions.forEach((action, index) => {
@@ -492,6 +531,11 @@ function buildActionsDisplay(container, actions) {
           return; // Not enough resources
         }
 
+        // Announce the action with description first if it has one
+        if (action.description) {
+          announceAction(action);
+        }
+
         let damageName = action.damageType ?
           `${action.name} (${action.damageType})` :
           action.name;
@@ -520,6 +564,13 @@ function buildActionsDisplay(container, actions) {
           damageFormula += `+${sneakAttackDamage}`;
           damageName += ' + Sneak Attack';
           console.log(`🎯 Adding Sneak Attack to ${action.name}: ${damageFormula}`);
+        }
+
+        // Add Elemental Weapon if toggle is enabled and this is a weapon attack
+        if (elementalWeaponEnabled && elementalWeaponDamage && action.attackRoll) {
+          damageFormula += `+${elementalWeaponDamage}`;
+          damageName += ' + Elemental Weapon';
+          console.log(`⚔️ Adding Elemental Weapon to ${action.name}: ${damageFormula}`);
         }
 
         roll(damageName, damageFormula);
@@ -592,14 +643,20 @@ function buildActionsDisplay(container, actions) {
         // Check if description contains a dice formula to roll
         if (action.description) {
           const resolvedDesc = resolveVariablesInFormula(action.description);
-          const dicePattern = /(\d+d\d+(?:[+\-]\d+)?)/gi;
+          // Match dice formulas like "1d4", "2d6+3", or standalone "d4", "d6", etc.
+          const dicePattern = /(\d*d\d+(?:[+\-]\d+)?)/gi;
           const matches = resolvedDesc.match(dicePattern);
           if (matches && matches.length > 0) {
-            // Roll the first dice formula found in the description
-            const diceFormula = matches[0];
+            // Find the first valid dice formula (must have at least "d" + number)
+            let diceFormula = matches[0];
+            // If it starts with "d" (like "d4"), assume it's "1d4"
+            if (diceFormula.startsWith('d')) {
+              diceFormula = '1' + diceFormula;
+            }
             console.log(`🎲 Found dice formula in description: ${diceFormula}`);
+            // Announce the action first, then roll
+            announceAction(action);
             roll(action.name, diceFormula);
-            // Don't announce separately since roll already announces
             return;
           }
         }
@@ -2425,9 +2482,12 @@ function resolveVariablesInFormula(formula) {
 
   // Helper function to get variable value (handles dot notation like "bard.level")
   const getVariableValue = (varPath) => {
+    // Strip # prefix if present (DiceCloud reference notation)
+    const cleanPath = varPath.startsWith('#') ? varPath.substring(1) : varPath;
+
     // Try direct lookup first
-    if (characterData.otherVariables.hasOwnProperty(varPath)) {
-      const val = characterData.otherVariables[varPath];
+    if (characterData.otherVariables.hasOwnProperty(cleanPath)) {
+      const val = characterData.otherVariables[cleanPath];
       if (typeof val === 'number') return val;
       if (typeof val === 'boolean') return val;
       if (typeof val === 'object' && val.value !== undefined) return val.value;
@@ -2435,7 +2495,7 @@ function resolveVariablesInFormula(formula) {
     }
 
     // Try converting dot notation (e.g., "bard.level" -> "bardLevel")
-    const camelCase = varPath.replace(/\.([a-z])/g, (_, letter) => letter.toUpperCase());
+    const camelCase = cleanPath.replace(/\.([a-z])/g, (_, letter) => letter.toUpperCase());
     if (characterData.otherVariables.hasOwnProperty(camelCase)) {
       const val = characterData.otherVariables[camelCase];
       if (typeof val === 'number') return val;
@@ -2445,9 +2505,9 @@ function resolveVariablesInFormula(formula) {
 
     // Try other common patterns
     const alternatives = [
-      varPath.replace(/\./g, ''), // Remove dots
-      varPath.split('.').pop(), // Just the last part
-      varPath.replace(/\./g, '_') // Underscores instead
+      cleanPath.replace(/\./g, ''), // Remove dots
+      cleanPath.split('.').pop(), // Just the last part
+      cleanPath.replace(/\./g, '_') // Underscores instead
     ];
 
     for (const alt of alternatives) {
@@ -2688,6 +2748,43 @@ function resolveVariablesInFormula(formula) {
       }
     } catch (e) {
       console.log(`⚠️ Failed to resolve ${func} function: ${fullMatch}`, e);
+    }
+  }
+
+  // Pattern 2.5: Handle ternary conditionals in parentheses for dice formulas like (condition?value1:value2)d6
+  const parenTernaryPattern = /\(([^)]+\?[^)]+:[^)]+)\)/g;
+
+  while ((match = parenTernaryPattern.exec(resolvedFormula)) !== null) {
+    const expression = match[1];
+    const fullMatch = match[0];
+
+    // Check if this is a ternary conditional
+    if (expression.includes('?') && expression.includes(':')) {
+      const ternaryParts = expression.match(/^(.+?)\s*\?\s*(.+?)\s*:\s*(.+?)$/);
+      if (ternaryParts) {
+        const condition = ternaryParts[1].trim();
+        const trueValue = ternaryParts[2].trim();
+        const falseValue = ternaryParts[3].trim();
+
+        // Evaluate the condition
+        let conditionResult = false;
+        const varValue = getVariableValue(condition);
+        if (varValue !== null) {
+          conditionResult = Boolean(varValue);
+          console.log(`✅ Evaluated parentheses ternary condition: ${condition} = ${conditionResult}`);
+        }
+
+        // Choose the appropriate value
+        const chosenValue = conditionResult ? trueValue : falseValue;
+
+        // Replace the entire match with the chosen value
+        resolvedFormula = resolvedFormula.replace(fullMatch, chosenValue);
+        variablesResolved.push(`(${condition}?${trueValue}:${falseValue}) = ${chosenValue}`);
+        console.log(`✅ Resolved parentheses ternary: (${expression}) => ${chosenValue}`);
+
+        // Reset regex lastIndex since we modified the string
+        parenTernaryPattern.lastIndex = 0;
+      }
     }
   }
 
