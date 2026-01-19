@@ -944,9 +944,10 @@
           // Extract resources like Ki Points, Sorcery Points, Rage, etc.
           // These are attributes with attributeType === 'resource' or 'healthBar'
           if (prop.name && (prop.attributeType === 'resource' || prop.attributeType === 'healthBar')) {
-            // Skip hit points (already extracted)
+            // Skip hit points (already extracted) and Font of Magic trackers (not actual resources)
             const lowerName = prop.name.toLowerCase();
-            if (lowerName.includes('hit point') || lowerName === 'hp') {
+            if (lowerName.includes('hit point') || lowerName === 'hp' ||
+                lowerName.includes('slot level to create')) {
               break;
             }
 
