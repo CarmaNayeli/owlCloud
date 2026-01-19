@@ -511,6 +511,13 @@ function buildActionsDisplay(container, actions) {
       useBtn.textContent = '✨ Use';
       useBtn.addEventListener('click', (e) => {
         e.stopPropagation();
+
+        // Special handling for Font of Magic conversions
+        if (action.name === 'Convert Spell Slot to Sorcery Points') {
+          showConvertSlotToPointsModal();
+          return;
+        }
+
         // Check and decrement uses before announcing
         if (action.uses && !decrementActionUses(action)) {
           return; // No uses remaining
@@ -567,6 +574,13 @@ function buildActionsDisplay(container, actions) {
       useBtn.textContent = '✨ Use';
       useBtn.addEventListener('click', (e) => {
         e.stopPropagation();
+
+        // Special handling for Font of Magic conversions
+        if (action.name === 'Convert Sorcery Points to Spell Slot') {
+          showFontOfMagicModal();
+          return;
+        }
+
         // Check and decrement uses before announcing
         if (action.uses && !decrementActionUses(action)) {
           return; // No uses remaining
@@ -1890,6 +1904,236 @@ function calculateMetamagicCost(metamagicName, spellLevel) {
   return cost || 0;
 }
 
+function showConvertSlotToPointsModal() {
+  const sorceryPoints = getSorceryPointsResource();
+
+  if (!sorceryPoints) {
+    showNotification('❌ No Sorcery Points resource found', 'error');
+    return;
+  }
+
+  // Get available spell slots
+  const availableSlots = [];
+  for (let level = 1; level <= 9; level++) {
+    const slotVar = `level${level}SpellSlots`;
+    const maxSlotVar = `level${level}SpellSlotsMax`;
+    const current = characterData.spellSlots?.[slotVar] || 0;
+    const max = characterData.spellSlots?.[maxSlotVar] || 0;
+
+    if (current > 0) {
+      availableSlots.push({ level, current, max, slotVar, maxSlotVar });
+    }
+  }
+
+  if (availableSlots.length === 0) {
+    showNotification('❌ No spell slots available to convert!', 'error');
+    return;
+  }
+
+  // Create modal
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+
+  const modalContent = document.createElement('div');
+  modalContent.style.cssText = 'background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); max-width: 400px; width: 90%;';
+
+  let optionsHTML = `
+    <h3 style="margin: 0 0 15px 0; color: #2c3e50; text-align: center;">Convert Spell Slot to Sorcery Points</h3>
+    <p style="text-align: center; color: #e74c3c; margin-bottom: 20px; font-weight: bold;">Current: ${sorceryPoints.current}/${sorceryPoints.max} SP</p>
+
+    <div style="margin-bottom: 25px;">
+      <label style="display: block; margin-bottom: 10px; font-weight: bold; color: #2c3e50;">Expend Spell Slot:</label>
+      <select id="slot-to-points-level" style="width: 100%; padding: 12px; font-size: 1.1em; border: 2px solid #bdc3c7; border-radius: 6px; box-sizing: border-box; background: white;">
+  `;
+
+  availableSlots.forEach(slot => {
+    optionsHTML += `<option value="${slot.level}">Level ${slot.level} - Gain ${slot.level} SP (${slot.current}/${slot.max} slots)</option>`;
+  });
+
+  optionsHTML += `
+      </select>
+    </div>
+
+    <div style="display: flex; gap: 10px;">
+      <button id="slot-cancel" style="flex: 1; padding: 12px; font-size: 1em; background: #95a5a6; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">
+        Cancel
+      </button>
+      <button id="slot-confirm" style="flex: 1; padding: 12px; font-size: 1em; background: #9b59b6; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">
+        Convert
+      </button>
+    </div>
+  `;
+
+  modalContent.innerHTML = optionsHTML;
+  modal.appendChild(modalContent);
+  document.body.appendChild(modal);
+
+  const selectElement = document.getElementById('slot-to-points-level');
+  const confirmBtn = document.getElementById('slot-confirm');
+  const cancelBtn = document.getElementById('slot-cancel');
+
+  cancelBtn.addEventListener('click', () => {
+    document.body.removeChild(modal);
+  });
+
+  confirmBtn.addEventListener('click', () => {
+    const selectedLevel = parseInt(selectElement.value);
+    const slotVar = `level${selectedLevel}SpellSlots`;
+    const currentSlots = characterData.spellSlots?.[slotVar] || 0;
+
+    if (currentSlots <= 0) {
+      showNotification(`❌ No Level ${selectedLevel} spell slots available!`, 'error');
+      return;
+    }
+
+    // Remove spell slot
+    characterData.spellSlots[slotVar] -= 1;
+
+    // Gain sorcery points equal to slot level
+    const pointsGained = selectedLevel;
+    sorceryPoints.current = Math.min(sorceryPoints.current + pointsGained, sorceryPoints.max);
+
+    saveCharacterData();
+
+    const maxSlotVar = `level${selectedLevel}SpellSlotsMax`;
+    const newSlotCount = characterData.spellSlots[slotVar];
+    const maxSlots = characterData.spellSlots[maxSlotVar];
+    showNotification(`✨ Gained ${pointsGained} Sorcery Points! (${sorceryPoints.current}/${sorceryPoints.max} SP, ${newSlotCount}/${maxSlots} slots)`);
+
+    // Announce to Roll20
+    const colorBanner = getColoredBanner();
+    const message = `&{template:default} {{name=${colorBanner}${characterData.name} uses Font of Magic⚡}} {{Action=Convert Spell Slot to Sorcery Points}} {{Result=Expended Level ${selectedLevel} spell slot for ${pointsGained} SP}} {{Sorcery Points=${sorceryPoints.current}/${sorceryPoints.max}}}`;
+
+    if (window.opener && !window.opener.closed) {
+      window.opener.postMessage({
+        action: 'roll',
+        characterName: characterData.name,
+        message: message,
+        color: characterData.notificationColor
+      }, '*');
+    }
+
+    document.body.removeChild(modal);
+    buildSheet(characterData); // Refresh display
+  });
+}
+
+function showFontOfMagicModal() {
+  const sorceryPoints = getSorceryPointsResource();
+
+  if (!sorceryPoints) {
+    showNotification('❌ No Sorcery Points resource found', 'error');
+    return;
+  }
+
+  // Font of Magic spell slot creation costs (D&D 5e rules)
+  const slotCosts = {
+    1: 2,
+    2: 3,
+    3: 5,
+    4: 6,
+    5: 7
+  };
+
+  // Create modal
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+
+  const modalContent = document.createElement('div');
+  modalContent.style.cssText = 'background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); max-width: 400px; width: 90%;';
+
+  let optionsHTML = `
+    <h3 style="margin: 0 0 15px 0; color: #2c3e50; text-align: center;">Convert Sorcery Points to Spell Slot</h3>
+    <p style="text-align: center; color: #e74c3c; margin-bottom: 20px; font-weight: bold;">Current: ${sorceryPoints.current}/${sorceryPoints.max} SP</p>
+
+    <div style="margin-bottom: 25px;">
+      <label style="display: block; margin-bottom: 10px; font-weight: bold; color: #2c3e50;">Create Spell Slot Level:</label>
+      <select id="font-of-magic-slot" style="width: 100%; padding: 12px; font-size: 1.1em; border: 2px solid #bdc3c7; border-radius: 6px; box-sizing: border-box; background: white;">
+  `;
+
+  // Add options for each spell slot level
+  for (let level = 1; level <= 5; level++) {
+    const cost = slotCosts[level];
+    const canAfford = sorceryPoints.current >= cost;
+    const slotVar = `level${level}SpellSlots`;
+    const maxSlotVar = `level${level}SpellSlotsMax`;
+    const currentSlots = characterData.spellSlots?.[slotVar] || 0;
+    const maxSlots = characterData.spellSlots?.[maxSlotVar] || 0;
+
+    const disabledAttr = canAfford ? '' : 'disabled';
+    const affordText = canAfford ? '' : ' (not enough SP)';
+
+    optionsHTML += `<option value="${level}" ${disabledAttr}>Level ${level} - ${cost} SP${affordText} (${currentSlots}/${maxSlots} slots)</option>`;
+  }
+
+  optionsHTML += `
+      </select>
+    </div>
+
+    <div style="display: flex; gap: 10px;">
+      <button id="font-cancel" style="flex: 1; padding: 12px; font-size: 1em; background: #95a5a6; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">
+        Cancel
+      </button>
+      <button id="font-confirm" style="flex: 1; padding: 12px; font-size: 1em; background: #e74c3c; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">
+        Convert
+      </button>
+    </div>
+  `;
+
+  modalContent.innerHTML = optionsHTML;
+  modal.appendChild(modalContent);
+  document.body.appendChild(modal);
+
+  const selectElement = document.getElementById('font-of-magic-slot');
+  const confirmBtn = document.getElementById('font-confirm');
+  const cancelBtn = document.getElementById('font-cancel');
+
+  cancelBtn.addEventListener('click', () => {
+    document.body.removeChild(modal);
+  });
+
+  confirmBtn.addEventListener('click', () => {
+    const selectedLevel = parseInt(selectElement.value);
+    const cost = slotCosts[selectedLevel];
+
+    if (sorceryPoints.current < cost) {
+      showNotification(`❌ Not enough Sorcery Points! Need ${cost}, have ${sorceryPoints.current}`, 'error');
+      return;
+    }
+
+    // Deduct sorcery points
+    sorceryPoints.current -= cost;
+
+    // Add spell slot
+    const slotVar = `level${selectedLevel}SpellSlots`;
+    const maxSlotVar = `level${selectedLevel}SpellSlotsMax`;
+    const maxSlots = characterData.spellSlots?.[maxSlotVar] || 0;
+
+    characterData.spellSlots[slotVar] = Math.min((characterData.spellSlots[slotVar] || 0) + 1, maxSlots);
+
+    saveCharacterData();
+
+    const currentSlots = characterData.spellSlots[slotVar];
+    showNotification(`✨ Created Level ${selectedLevel} spell slot! (${sorceryPoints.current}/${sorceryPoints.max} SP left, ${currentSlots}/${maxSlots} slots)`);
+
+    // Announce to Roll20
+    const colorBanner = getColoredBanner();
+    const message = `&{template:default} {{name=${colorBanner}${characterData.name} uses Font of Magic⚡}} {{Action=Convert Sorcery Points to Spell Slot}} {{Result=Created Level ${selectedLevel} spell slot for ${cost} SP}} {{Sorcery Points=${sorceryPoints.current}/${sorceryPoints.max}}}`;
+
+    if (window.opener && !window.opener.closed) {
+      window.opener.postMessage({
+        action: 'roll',
+        characterName: characterData.name,
+        message: message,
+        color: characterData.notificationColor
+      }, '*');
+    }
+
+    document.body.removeChild(modal);
+    buildSheet(characterData); // Refresh display
+  });
+}
+
 function announceAction(action) {
   // Announce the use of an action (bonus action, reaction, etc.) to Roll20 chat
   const colorBanner = getColoredBanner();
@@ -2034,6 +2278,8 @@ function resolveVariablesInFormula(formula) {
     return formula;
   }
 
+  console.log(`🔧 resolveVariablesInFormula called with: "${formula}"`);
+
   // Check if characterData has otherVariables
   if (!characterData.otherVariables || typeof characterData.otherVariables !== 'object') {
     console.log('⚠️ No otherVariables available for formula resolution');
@@ -2172,8 +2418,10 @@ function resolveVariablesInFormula(formula) {
 
   // Pattern 2.5: Handle max/min functions outside of curly braces (e.g., "1d6+max(strengthModifier, dexterityModifier)")
   const maxMinGlobalPattern = /(max|min)\(([^)]+)\)/gi;
+  console.log(`🔍 Looking for max/min in formula: "${resolvedFormula}"`);
 
   while ((match = maxMinGlobalPattern.exec(resolvedFormula)) !== null) {
+    console.log(`🔍 Found max/min match:`, match);
     const func = match[1].toLowerCase();
     const argsString = match[2];
     const fullMatch = match[0];
@@ -2181,14 +2429,21 @@ function resolveVariablesInFormula(formula) {
     try {
       const args = argsString.split(',').map(arg => {
         const trimmed = arg.trim();
+        console.log(`🔍 Resolving arg: "${trimmed}"`);
+
         // Try to parse as number first
         const num = parseFloat(trimmed);
-        if (!isNaN(num)) return num;
+        if (!isNaN(num)) {
+          console.log(`  ✅ Parsed as number: ${num}`);
+          return num;
+        }
 
         // Try to resolve as variable
         const varVal = getVariableValue(trimmed);
+        console.log(`  🔍 Variable lookup result: ${varVal}`);
         if (varVal !== null && typeof varVal === 'number') return varVal;
 
+        console.log(`  ❌ Could not resolve: "${trimmed}"`);
         return null;
       }).filter(v => v !== null);
 
@@ -2214,6 +2469,26 @@ function resolveVariablesInFormula(formula) {
 
     // Strip markdown formatting
     let cleanExpr = expression.replace(/\*\*/g, '');
+
+    // Handle ternary operators: {condition ? trueValue : falseValue}
+    const ternaryPattern = /^(.+?)\s*\?\s*"([^"]*)"\s*:\s*"([^"]*)"$/;
+    const ternaryMatch = cleanExpr.match(ternaryPattern);
+    if (ternaryMatch) {
+      const condition = ternaryMatch[1].trim();
+      const trueValue = ternaryMatch[2];
+      const falseValue = ternaryMatch[3];
+
+      // Resolve the condition variable
+      const conditionValue = getVariableValue(condition);
+
+      // JavaScript truthiness: null, undefined, 0, false, "" are falsy
+      const result = conditionValue ? trueValue : falseValue;
+
+      resolvedFormula = resolvedFormula.replace(fullMatch, result);
+      variablesResolved.push(`${condition} ? "${trueValue}" : "${falseValue}" = "${result}"`);
+      console.log(`✅ Resolved ternary: ${condition} (${conditionValue}) ? "${trueValue}" : "${falseValue}" = "${result}"`);
+      continue;
+    }
 
     // Try as simple variable first
     let simpleValue = getVariableValue(cleanExpr);
