@@ -115,6 +115,27 @@ function buildSheet(data) {
       <div><strong>Race:</strong> ${raceName}</div>
       <div><strong>Hit Dice:</strong> ${data.hitDice.current}/${data.hitDice.max} ${data.hitDice.type}</div>
     </div>
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center; margin-bottom: 15px;">
+      <div style="padding: 10px; background: #ecf0f1; border-radius: 6px;">
+        <div style="font-size: 0.8em; color: #666; margin-bottom: 3px;">Armor Class</div>
+        <div style="font-size: 1.3em; font-weight: bold; color: #2c3e50;">${data.armorClass || 10}</div>
+      </div>
+      <div style="padding: 10px; background: #ecf0f1; border-radius: 6px;">
+        <div style="font-size: 0.8em; color: #666; margin-bottom: 3px;">Speed</div>
+        <div style="font-size: 1.3em; font-weight: bold; color: #2c3e50;">${data.speed || 30} ft</div>
+      </div>
+      <div style="padding: 10px; background: #ecf0f1; border-radius: 6px;">
+        <div style="font-size: 0.8em; color: #666; margin-bottom: 3px;">Proficiency</div>
+        <div style="font-size: 1.3em; font-weight: bold; color: #2c3e50;">+${data.proficiencyBonus || 0}</div>
+      </div>
+      <div id="death-saves-display" style="padding: 10px; background: ${(data.deathSaves.successes > 0 || data.deathSaves.failures > 0) ? '#ffe5e5' : '#ecf0f1'}; border-radius: 6px; cursor: pointer;">
+        <div style="font-size: 0.8em; color: #666; margin-bottom: 3px;">Death Saves</div>
+        <div style="font-size: 0.9em; font-weight: bold; color: #2c3e50;">
+          <span style="color: #27ae60;">✓${data.deathSaves.successes || 0}</span> /
+          <span style="color: #e74c3c;">✗${data.deathSaves.failures || 0}</span>
+        </div>
+      </div>
+    </div>
     <div style="text-align: center; margin-bottom: 15px;">
       <div id="hp-display" style="display: inline-block; padding: 15px 30px; background: #e74c3c; color: white; border-radius: 8px; cursor: pointer; font-size: 1.2em; font-weight: bold; transition: all 0.2s; margin-right: 15px;">
         <div style="font-size: 0.8em; margin-bottom: 5px;">Hit Points</div>
@@ -135,6 +156,9 @@ function buildSheet(data) {
     const initiativeBonus = data.initiative || 0;
     roll('Initiative', `1d20+${initiativeBonus}`);
   });
+
+  // Add click handler for death saves display
+  document.getElementById('death-saves-display').addEventListener('click', showDeathSavesModal);
 
   // Update HP display color based on percentage
   const hpPercent = (data.hitPoints.current / data.hitPoints.max) * 100;
@@ -679,6 +703,109 @@ function showHPModal() {
     if (e.key === 'Enter') {
       document.getElementById('hp-confirm').click();
     }
+  });
+
+  // Click outside to close
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
+}
+
+function showDeathSavesModal() {
+  // Create modal overlay
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+
+  // Create modal content
+  const modalContent = document.createElement('div');
+  modalContent.style.cssText = 'background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); min-width: 300px;';
+
+  const successes = characterData.deathSaves.successes || 0;
+  const failures = characterData.deathSaves.failures || 0;
+
+  modalContent.innerHTML = `
+    <h3 style="margin: 0 0 20px 0; color: #2c3e50; text-align: center;">Death Saves</h3>
+    <div style="text-align: center; font-size: 1.2em; margin-bottom: 20px;">
+      <div style="margin-bottom: 10px;">
+        <span style="color: #27ae60; font-weight: bold;">Successes: ${successes}/3</span>
+      </div>
+      <div>
+        <span style="color: #e74c3c; font-weight: bold;">Failures: ${failures}/3</span>
+      </div>
+    </div>
+
+    <div style="margin-bottom: 20px;">
+      <button id="roll-death-save" style="width: 100%; padding: 15px; font-size: 1.1em; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin-bottom: 15px;">
+        🎲 Roll Death Save
+      </button>
+    </div>
+
+    <div style="margin-bottom: 20px; border-top: 1px solid #ecf0f1; padding-top: 20px;">
+      <label style="display: block; margin-bottom: 10px; font-weight: bold; color: #2c3e50;">Manual Adjustment:</label>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+        <button id="add-success" style="padding: 10px; background: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
+          + Success
+        </button>
+        <button id="add-failure" style="padding: 10px; background: #e74c3c; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
+          + Failure
+        </button>
+      </div>
+      <button id="reset-death-saves" style="width: 100%; padding: 10px; background: #95a5a6; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
+        Reset All
+      </button>
+    </div>
+
+    <button id="close-modal" style="width: 100%; padding: 12px; font-size: 1em; background: #7f8c8d; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
+      Close
+    </button>
+  `;
+
+  modal.appendChild(modalContent);
+  document.body.appendChild(modal);
+
+  // Roll death save button
+  document.getElementById('roll-death-save').addEventListener('click', () => {
+    roll('Death Save', '1d20');
+    modal.remove();
+  });
+
+  // Add success button
+  document.getElementById('add-success').addEventListener('click', () => {
+    if (characterData.deathSaves.successes < 3) {
+      characterData.deathSaves.successes++;
+      updateCharacterData();
+      showNotification(`✓ Death Save Success (${characterData.deathSaves.successes}/3)`);
+      buildSheet(characterData);
+      modal.remove();
+    }
+  });
+
+  // Add failure button
+  document.getElementById('add-failure').addEventListener('click', () => {
+    if (characterData.deathSaves.failures < 3) {
+      characterData.deathSaves.failures++;
+      updateCharacterData();
+      showNotification(`✗ Death Save Failure (${characterData.deathSaves.failures}/3)`);
+      buildSheet(characterData);
+      modal.remove();
+    }
+  });
+
+  // Reset button
+  document.getElementById('reset-death-saves').addEventListener('click', () => {
+    characterData.deathSaves.successes = 0;
+    characterData.deathSaves.failures = 0;
+    updateCharacterData();
+    showNotification('♻️ Death saves reset');
+    buildSheet(characterData);
+    modal.remove();
+  });
+
+  // Close button
+  document.getElementById('close-modal').addEventListener('click', () => {
+    modal.remove();
   });
 
   // Click outside to close

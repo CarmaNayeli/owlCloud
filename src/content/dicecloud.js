@@ -179,6 +179,10 @@
       speed: (variables.speed && variables.speed.value) || 30,
       initiative: (variables.initiative && variables.initiative.value) || 0,
       proficiencyBonus: (variables.proficiencyBonus && variables.proficiencyBonus.value) || 0,
+      deathSaves: {
+        successes: (creature.deathSave && creature.deathSave.success) || 0,
+        failures: (creature.deathSave && creature.deathSave.fail) || 0
+      },
       kingdom: {},
       army: {},
       otherVariables: {}
