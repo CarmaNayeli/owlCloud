@@ -1,14 +1,14 @@
 /**
- * Background Service Worker - Chrome Only
+ * Background Script - Chrome & Firefox Support
  * Handles data storage, API authentication, and communication between Dice Cloud and Roll20
  */
 
-console.log('RollCloud: Background service worker starting...');
+console.log('RollCloud: Background script starting...');
 
-// Use native Chrome APIs directly (no polyfill needed for Chrome-only)
-const browserAPI = chrome;
+// Detect browser API
+const browserAPI = typeof browser !== 'undefined' && browser.runtime ? browser : chrome;
 
-console.log('RollCloud: Background service worker initialized');
+console.log('RollCloud: Background script initialized on', browserAPI === browser ? 'Firefox' : 'Chrome');
 
 const API_BASE = 'https://dicecloud.com/api';
 

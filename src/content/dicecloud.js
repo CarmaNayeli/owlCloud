@@ -2002,14 +2002,14 @@
   };
 
   // Load saved positions from storage
-  chrome.storage.local.get(['panelPositions'], (result) => {
+  browserAPI.storage.local.get(['panelPositions'], (result) => {
     if (result.panelPositions) {
       dragState.positions = result.panelPositions;
     }
   });
 
   function savePositions() {
-    chrome.storage.local.set({ panelPositions: dragState.positions });
+    browserAPI.storage.local.set({ panelPositions: dragState.positions });
   }
 
   function makeDraggable(element, handleSelector) {
@@ -2141,7 +2141,7 @@
   };
 
   // Load settings from storage
-  chrome.storage.local.get(['rollSettings'], (result) => {
+  browserAPI.storage.local.get(['rollSettings'], (result) => {
     if (result.rollSettings) {
       Object.assign(rollStats.settings, result.rollSettings);
     }
@@ -2150,7 +2150,7 @@
   });
 
   function saveSettings() {
-    chrome.storage.local.set({ rollSettings: rollStats.settings });
+    browserAPI.storage.local.set({ rollSettings: rollStats.settings });
   }
 
   function detectAdvantageDisadvantage(rollData) {
@@ -2868,7 +2868,7 @@
         }
 
         // Save to storage
-        chrome.storage.local.set({ rollSettings: rollStats.settings });
+        browserAPI.storage.local.set({ rollSettings: rollStats.settings });
         console.log('Roll mode changed to:', mode);
         showNotification(`Roll mode: ${mode.charAt(0).toUpperCase() + mode.slice(1)}`, 'info');
       });
