@@ -777,6 +777,41 @@
             break;
           }
 
+          // Special handling: Font of Magic conversions should be actions, not spells
+          if (prop.name === 'Convert Spell Slot to Sorcery Points') {
+            // Try to find Font of Magic feature description from ancestors
+            let fontOfMagicDesc = description;
+            if (prop.ancestors && Array.isArray(prop.ancestors)) {
+              for (const ancestor of prop.ancestors) {
+                const ancestorId = typeof ancestor === 'object' ? ancestor.id : ancestor;
+                const ancestorProp = properties.find(p => p._id === ancestorId);
+                if (ancestorProp && ancestorProp.name === 'Font of Magic') {
+                  // Extract Font of Magic description
+                  if (ancestorProp.summary) {
+                    fontOfMagicDesc = typeof ancestorProp.summary === 'string' ? ancestorProp.summary : ancestorProp.summary.text || ancestorProp.summary.value || '';
+                  } else if (ancestorProp.description) {
+                    fontOfMagicDesc = typeof ancestorProp.description === 'string' ? ancestorProp.description : ancestorProp.description.text || ancestorProp.description.value || '';
+                  }
+                  break;
+                }
+              }
+            }
+
+            characterData.actions.push({
+              name: prop.name,
+              actionType: 'bonus',
+              attackRoll: '',
+              damage: '',
+              damageType: '',
+              description: fontOfMagicDesc,
+              uses: null,
+              usesUsed: 0,
+              resources: null
+            });
+            console.log(`✨ Added Font of Magic conversion as action: ${prop.name}`);
+            break;
+          }
+
           characterData.spells.push({
             name: prop.name || 'Unnamed Spell',
             level: prop.level || 0,
@@ -827,6 +862,26 @@
                 description = prop.description;
               } else if (typeof prop.description === 'object') {
                 description = prop.description.text || prop.description.value || '';
+              }
+            }
+
+            // Special handling: Font of Magic conversion should use parent feature description
+            if (prop.name === 'Convert Sorcery Points to Spell Slot') {
+              // Try to find Font of Magic feature description from ancestors
+              if (prop.ancestors && Array.isArray(prop.ancestors)) {
+                for (const ancestor of prop.ancestors) {
+                  const ancestorId = typeof ancestor === 'object' ? ancestor.id : ancestor;
+                  const ancestorProp = properties.find(p => p._id === ancestorId);
+                  if (ancestorProp && ancestorProp.name === 'Font of Magic') {
+                    // Extract Font of Magic description
+                    if (ancestorProp.summary) {
+                      description = typeof ancestorProp.summary === 'string' ? ancestorProp.summary : ancestorProp.summary.text || ancestorProp.summary.value || '';
+                    } else if (ancestorProp.description) {
+                      description = typeof ancestorProp.description === 'string' ? ancestorProp.description : ancestorProp.description.text || ancestorProp.description.value || '';
+                    }
+                    break;
+                  }
+                }
               }
             }
 
