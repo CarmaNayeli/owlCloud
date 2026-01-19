@@ -772,9 +772,15 @@
         case 'action':
           // Extract all actions (attacks, bonus actions, reactions, etc.)
           if (prop.name && !prop.inactive && !prop.disabled) {
-            // Handle description - it might be an object with a 'text' or 'value' field
+            // Handle description - it might be in 'summary' or 'description' field
             let description = '';
-            if (prop.description) {
+            if (prop.summary) {
+              if (typeof prop.summary === 'string') {
+                description = prop.summary;
+              } else if (typeof prop.summary === 'object') {
+                description = prop.summary.text || prop.summary.value || '';
+              }
+            } else if (prop.description) {
               if (typeof prop.description === 'string') {
                 description = prop.description;
               } else if (typeof prop.description === 'object') {
