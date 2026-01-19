@@ -526,9 +526,9 @@
           break;
 
         case 'toggle':
-          // Extract features from enabled toggles (like Sneak Attack)
-          if (prop.enabled) {
-            console.log(`🔘 Found enabled toggle: ${prop.name}`);
+          // Extract features from ALL toggles (enabled or disabled on DiceCloud)
+          // Our sheet will have its own independent toggle to control when to use them
+          console.log(`🔘 Found toggle: ${prop.name} (enabled on DiceCloud: ${prop.enabled})`);
 
             // Find child properties of this toggle
             const toggleChildren = apiData.creatureProperties.filter(child => {
@@ -619,7 +619,6 @@
                 }
               }
             });
-          }
           break;
 
         case 'spell':
