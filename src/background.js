@@ -4,12 +4,15 @@
  */
 
 // Import browser polyfill for cross-browser compatibility
-// Note: For MV3 (Chrome), this uses importScripts. For MV2 (Firefox), it's loaded via manifest
-try {
-  importScripts('common/browser-polyfill.js');
-} catch (e) {
-  // Already loaded via manifest (Firefox MV2)
-  console.log('Browser polyfill loaded via manifest');
+// Note: For Chrome service workers, use importScripts. For Firefox, it's loaded via manifest scripts array
+if (typeof importScripts === 'function') {
+  try {
+    importScripts('src/common/browser-polyfill.js');
+  } catch (e) {
+    console.log('Failed to import browser-polyfill via importScripts:', e.message);
+  }
+} else {
+  console.log('Browser polyfill loaded via manifest (Firefox)');
 }
 
 console.log('RollCloud: Background service worker initialized');

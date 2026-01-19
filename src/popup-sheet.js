@@ -171,6 +171,9 @@ function buildSheet(data) {
     hpDisplay.style.background = '#e74c3c';
   }
 
+  // Resources
+  buildResourcesDisplay();
+
   // Spell Slots
   buildSpellSlotsDisplay();
 
@@ -551,6 +554,62 @@ function decrementActionUses(action) {
   return true;
 }
 
+function buildResourcesDisplay() {
+  const container = document.getElementById('resources-container');
+
+  if (!characterData || !characterData.resources || characterData.resources.length === 0) {
+    container.innerHTML = '<p style="text-align: center; color: #666;">No class resources available</p>';
+    console.log('⚠️ No resources in character data');
+    return;
+  }
+
+  const resourcesGrid = document.createElement('div');
+  resourcesGrid.className = 'spell-slots-grid'; // Reuse spell slot styling
+
+  characterData.resources.forEach(resource => {
+    const resourceCard = document.createElement('div');
+    resourceCard.className = resource.current > 0 ? 'spell-slot-card' : 'spell-slot-card empty';
+    resourceCard.innerHTML = `
+      <div class="spell-slot-level">${resource.name}</div>
+      <div class="spell-slot-count">${resource.current}/${resource.max}</div>
+    `;
+
+    // Add click to manually adjust resource
+    resourceCard.addEventListener('click', () => {
+      adjustResource(resource);
+    });
+    resourceCard.style.cursor = 'pointer';
+
+    resourcesGrid.appendChild(resourceCard);
+  });
+
+  container.innerHTML = '';
+  container.appendChild(resourcesGrid);
+
+  const note = document.createElement('p');
+  note.style.cssText = 'text-align: center; color: #95a5a6; font-size: 0.85em; margin-top: 10px;';
+  note.textContent = 'Click a resource to manually adjust';
+  container.appendChild(note);
+}
+
+function adjustResource(resource) {
+  const newValue = prompt(`Adjust ${resource.name}\n\nCurrent: ${resource.current}/${resource.max}\n\nEnter new current value (0-${resource.max}):`);
+
+  if (newValue === null) return; // Cancelled
+
+  const parsed = parseInt(newValue);
+  if (isNaN(parsed) || parsed < 0 || parsed > resource.max) {
+    alert(`Please enter a number between 0 and ${resource.max}`);
+    return;
+  }
+
+  resource.current = parsed;
+  saveCharacterData();
+  buildSheet(characterData);
+
+  showNotification(`✅ ${resource.name} updated to ${resource.current}/${resource.max}`);
+}
+
 function buildSpellSlotsDisplay() {
   const container = document.getElementById('spell-slots-container');
 
@@ -828,7 +887,53 @@ function showDeathSavesModal() {
 
   // Roll death save button
   document.getElementById('roll-death-save').addEventListener('click', () => {
-    roll('Death Save', '1d20');
+    // Roll 1d20 locally to determine outcome
+    const rollResult = Math.floor(Math.random() * 20) + 1;
+    console.log(`🎲 Death Save rolled: ${rollResult}`);
+
+    // Determine outcome based on D&D 5e rules
+    let message = '';
+    let isSuccess = false;
+
+    if (rollResult === 20) {
+      // Natural 20: regain 1 HP (represented as 2 successes in death saves)
+      if (characterData.deathSaves.successes < 3) {
+        characterData.deathSaves.successes += 2;
+        if (characterData.deathSaves.successes > 3) characterData.deathSaves.successes = 3;
+      }
+      message = `💚 NAT 20! Death Save Success x2 (${characterData.deathSaves.successes}/3)`;
+      isSuccess = true;
+    } else if (rollResult === 1) {
+      // Natural 1: counts as 2 failures
+      if (characterData.deathSaves.failures < 3) {
+        characterData.deathSaves.failures += 2;
+        if (characterData.deathSaves.failures > 3) characterData.deathSaves.failures = 3;
+      }
+      message = `💀 NAT 1! Death Save Failure x2 (${characterData.deathSaves.failures}/3)`;
+    } else if (rollResult >= 10) {
+      // Success
+      if (characterData.deathSaves.successes < 3) {
+        characterData.deathSaves.successes++;
+      }
+      message = `✓ Death Save Success (${characterData.deathSaves.successes}/3)`;
+      isSuccess = true;
+    } else {
+      // Failure
+      if (characterData.deathSaves.failures < 3) {
+        characterData.deathSaves.failures++;
+      }
+      message = `✗ Death Save Failure (${characterData.deathSaves.failures}/3)`;
+    }
+
+    // Save updated death saves
+    saveCharacterData();
+    showNotification(message);
+
+    // Send roll result to Roll20 (show result in name since we rolled locally)
+    roll(`Death Save: ${rollResult}`, '1d20', rollResult);
+
+    // Rebuild sheet to show updated death saves
+    buildSheet(characterData);
     modal.remove();
   });
 
@@ -1884,8 +1989,8 @@ function resolveVariablesInFormula(formula) {
   return resolvedFormula;
 }
 
-function roll(name, formula) {
-  console.log('🎲 Rolling:', name, formula);
+function roll(name, formula, prerolledResult = null) {
+  console.log('🎲 Rolling:', name, formula, prerolledResult ? `(prerolled: ${prerolledResult})` : '');
 
   // Resolve any variables in the formula
   const resolvedFormula = resolveVariablesInFormula(formula);
@@ -1895,13 +2000,20 @@ function roll(name, formula) {
     // Format: "🔵 CharacterName rolls Initiative"
     const rollName = `${colorBanner}${characterData.name} rolls ${name}`;
 
-    window.opener.postMessage({
+    // If we have a prerolled result (e.g., from death saves), include it
+    const messageData = {
       action: 'rollFromPopout',
       name: rollName,
       formula: resolvedFormula,
       color: characterData.notificationColor,
       characterName: characterData.name
-    }, '*');
+    };
+
+    if (prerolledResult !== null) {
+      messageData.prerolledResult = prerolledResult;
+    }
+
+    window.opener.postMessage(messageData, '*');
 
     showNotification(`🎲 Rolling ${name}...`);
   } else {
@@ -1956,6 +2068,25 @@ function takeShortRest() {
 
   // Handle Hit Dice spending for HP restoration
   spendHitDice();
+
+  // Restore class resources that recharge on short rest
+  // Most resources restore on short rest (Ki, Channel Divinity, Action Surge, etc.)
+  // Notable exceptions: Sorcery Points and Rage restore on long rest only
+  if (characterData.resources && characterData.resources.length > 0) {
+    characterData.resources.forEach(resource => {
+      const lowerName = resource.name.toLowerCase();
+
+      // Long rest only resources
+      if (lowerName.includes('sorcery') || lowerName.includes('rage')) {
+        console.log(`⏭️ Skipping ${resource.name} (long rest only)`);
+        return;
+      }
+
+      // Restore all other resources
+      resource.current = resource.max;
+      console.log(`✅ Restored ${resource.name} (${resource.current}/${resource.max})`);
+    });
+  }
 
   // Reset limited uses for short rest abilities
   if (characterData.actions) {
@@ -2129,6 +2260,14 @@ function takeLongRest() {
     }
   }
 
+  // Restore all class resources (Ki, Sorcery Points, Rage, etc.)
+  if (characterData.resources && characterData.resources.length > 0) {
+    characterData.resources.forEach(resource => {
+      resource.current = resource.max;
+      console.log(`✅ Restored ${resource.name} (${resource.current}/${resource.max})`);
+    });
+  }
+
   // Restore all class resources
   if (characterData.otherVariables) {
     Object.keys(characterData.otherVariables).forEach(key => {
@@ -2210,6 +2349,23 @@ if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initCollapsibleSections);
 } else {
   initCollapsibleSections();
+}
+
+// Add close button event listener (CSP-compliant, no inline onclick)
+function initCloseButton() {
+  const closeBtn = document.getElementById('close-btn');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      window.close();
+    });
+  }
+}
+
+// Initialize close button when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initCloseButton);
+} else {
+  initCloseButton();
 }
 
 console.log('✅ Popup script fully loaded');
