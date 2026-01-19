@@ -427,7 +427,7 @@
               description = prop.description;
             }
           }
-          
+
           // Also check for summary field
           if (!description && prop.summary) {
             if (typeof prop.summary === 'object' && prop.summary.text) {
@@ -438,7 +438,20 @@
               description = prop.summary;
             }
           }
-          
+
+          // Debug: Log all available fields to find source info
+          console.log('🔍 Spell property fields:', Object.keys(prop));
+
+          // Determine source (from parent, tags, or other fields)
+          let source = '';
+          if (prop.parent) {
+            source = prop.parent;
+          } else if (prop.tags && prop.tags.length > 0) {
+            source = prop.tags.join(', ');
+          } else if (prop.libraryTags && prop.libraryTags.length > 0) {
+            source = prop.libraryTags.join(', ');
+          }
+
           characterData.spells.push({
             name: prop.name || 'Unnamed Spell',
             level: prop.level || 0,
@@ -448,7 +461,8 @@
             components: prop.components || '',
             duration: prop.duration || '',
             description: description,
-            prepared: prop.prepared || false
+            prepared: prop.prepared || false,
+            source: source
           });
           break;
 

@@ -153,6 +153,39 @@
     .rest-btn.short:hover {
       background: #e67e22;
     }
+    .spell-slots-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .spell-slot-card {
+      background: #e8f5ff;
+      border: 2px solid #3498db;
+      border-radius: 6px;
+      padding: 10px;
+      text-align: center;
+      font-size: 0.9em;
+    }
+    .spell-slot-card.empty {
+      opacity: 0.5;
+      border-color: #bdc3c7;
+      background: #ecf0f1;
+    }
+    .spell-slot-level {
+      font-weight: bold;
+      color: #2c3e50;
+      font-size: 0.85em;
+    }
+    .spell-slot-count {
+      font-size: 1.3em;
+      font-weight: bold;
+      color: #3498db;
+      margin: 5px 0;
+    }
+    .spell-slot-card.empty .spell-slot-count {
+      color: #95a5a6;
+    }
   </style>
 </head>
 <body>
@@ -180,6 +213,11 @@
     <div class="section">
       <h3>🎯 Skills</h3>
       <div class="grid" id="skills-grid"></div>
+    </div>
+
+    <div class="section">
+      <h3>✨ Spell Slots</h3>
+      <div id="spell-slots-container"></div>
     </div>
 
     <div class="section">
