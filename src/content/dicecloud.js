@@ -392,15 +392,17 @@
         case 'class':
           // Only add class name once, even if there are multiple classLevel entries
           if (prop.name) {
-            const normalizedClassName = prop.name.toLowerCase().trim();
-            console.log(`📚 Found class property: "${prop.name}" (normalized: "${normalizedClassName}")`);
+            // Remove [Multiclass] suffix before normalizing
+            const cleanName = prop.name.replace(/\s*\[Multiclass\]/i, '').trim();
+            const normalizedClassName = cleanName.toLowerCase().trim();
+            console.log(`📚 Found class property: "${prop.name}" (cleaned: "${cleanName}", normalized: "${normalizedClassName}")`);
             if (!uniqueClasses.has(normalizedClassName)) {
               console.log(`  ✅ Adding class (not in set yet)`);
               uniqueClasses.add(normalizedClassName);
               if (characterData.class) {
-                characterData.class += ` / ${prop.name}`;
+                characterData.class += ` / ${cleanName}`;
               } else {
-                characterData.class = prop.name;
+                characterData.class = cleanName;
               }
             } else {
               console.log(`  ⏭️  Skipping class (already in set:`, Array.from(uniqueClasses), ')');
@@ -413,15 +415,17 @@
           characterData.level += 1;
           // Also add the class name if not already added
           if (prop.name) {
-            const normalizedClassName = prop.name.toLowerCase().trim();
-            console.log(`📊 Found classLevel property: "${prop.name}" (normalized: "${normalizedClassName}")`);
+            // Remove [Multiclass] suffix before normalizing
+            const cleanName = prop.name.replace(/\s*\[Multiclass\]/i, '').trim();
+            const normalizedClassName = cleanName.toLowerCase().trim();
+            console.log(`📊 Found classLevel property: "${prop.name}" (cleaned: "${cleanName}", normalized: "${normalizedClassName}")`);
             if (!uniqueClasses.has(normalizedClassName)) {
               console.log(`  ✅ Adding class from classLevel (not in set yet)`);
               uniqueClasses.add(normalizedClassName);
               if (characterData.class) {
-                characterData.class += ` / ${prop.name}`;
+                characterData.class += ` / ${cleanName}`;
               } else {
-                characterData.class = prop.name;
+                characterData.class = cleanName;
               }
             } else {
               console.log(`  ⏭️  Skipping classLevel (already in set:`, Array.from(uniqueClasses), ')');
@@ -491,24 +495,32 @@
           // Determine source (from parent, tags, or ancestors)
           let source = 'Unknown Source';
 
+          // Extract parent ID (handle both string and object formats)
+          const parentId = typeof prop.parent === 'object' ? prop.parent?.id : prop.parent;
+
           // Debug: Log parent and ancestors info for ALL spells to diagnose the issue
           console.log(`🔍 Spell "${prop.name}" debug:`, {
             parent: prop.parent,
-            parentInMap: prop.parent ? propertyIdToName.has(prop.parent) : false,
-            parentName: prop.parent ? propertyIdToName.get(prop.parent) : null,
+            parentId: parentId,
+            parentInMap: parentId ? propertyIdToName.has(parentId) : false,
+            parentName: parentId ? propertyIdToName.get(parentId) : null,
             ancestors: prop.ancestors,
-            ancestorsInMap: prop.ancestors ? prop.ancestors.map(id => ({
-              id,
-              inMap: propertyIdToName.has(id),
-              name: propertyIdToName.get(id)
-            })) : [],
+            ancestorsInMap: prop.ancestors ? prop.ancestors.map(ancestor => {
+              const ancestorId = typeof ancestor === 'object' ? ancestor.id : ancestor;
+              return {
+                ancestor,
+                ancestorId,
+                inMap: propertyIdToName.has(ancestorId),
+                name: propertyIdToName.get(ancestorId)
+              };
+            }) : [],
             tags: prop.tags,
             libraryTags: prop.libraryTags
           });
 
           // Try to get parent name from the map
-          if (prop.parent && propertyIdToName.has(prop.parent)) {
-            source = propertyIdToName.get(prop.parent);
+          if (parentId && propertyIdToName.has(parentId)) {
+            source = propertyIdToName.get(parentId);
             console.log(`✅ Found source from parent for "${prop.name}": ${source}`);
           }
           // Fallback to ancestors if parent lookup failed
@@ -516,7 +528,10 @@
             // Try ALL ancestors from closest to farthest until we find one with a name
             let found = false;
             for (let i = prop.ancestors.length - 1; i >= 0 && !found; i--) {
-              const ancestorId = prop.ancestors[i];
+              const ancestor = prop.ancestors[i];
+              // Extract ID from ancestor (handle both string and object formats)
+              const ancestorId = typeof ancestor === 'object' ? ancestor.id : ancestor;
+
               if (ancestorId && propertyIdToName.has(ancestorId)) {
                 source = propertyIdToName.get(ancestorId);
                 console.log(`✅ Found source from ancestor[${i}] for "${prop.name}": ${source}`);
@@ -525,20 +540,36 @@
             }
             if (!found) {
               console.log(`❌ No source found in ${prop.ancestors.length} ancestors for "${prop.name}"`);
-              console.log(`   Checked ancestors:`, prop.ancestors.map(id => `${id} (${propertyIdToName.get(id) || 'not in map'})`));
             }
           }
-          // Fallback to tags
-          else if (prop.tags && prop.tags.length > 0) {
+          // Fallback to libraryTags - parse class names from tags like "clericSpell"
+          if (source === 'Unknown Source' && prop.libraryTags && prop.libraryTags.length > 0) {
+            // Look for tags ending in "Spell" (like "clericSpell", "wizardSpell")
+            const classSpellTags = prop.libraryTags.filter(tag =>
+              tag.toLowerCase().endsWith('spell') &&
+              tag.toLowerCase() !== 'spell'
+            );
+
+            if (classSpellTags.length > 0) {
+              // Extract class names and capitalize them
+              const classNames = classSpellTags.map(tag => {
+                // Remove "Spell" suffix and capitalize
+                const className = tag.replace(/Spell$/i, '');
+                return className.charAt(0).toUpperCase() + className.slice(1);
+              });
+
+              source = classNames.join(' / ');
+              console.log(`✅ Found source from libraryTags for "${prop.name}": ${source}`);
+            }
+          }
+          // Fallback to regular tags
+          else if (source === 'Unknown Source' && prop.tags && prop.tags.length > 0) {
             source = prop.tags.join(', ');
             console.log(`✅ Found source from tags for "${prop.name}": ${source}`);
           }
-          // Fallback to libraryTags
-          else if (prop.libraryTags && prop.libraryTags.length > 0) {
-            source = prop.libraryTags.join(', ');
-            console.log(`✅ Found source from libraryTags for "${prop.name}": ${source}`);
-          } else {
-            console.log(`❌ No source found for "${prop.name}"`)
+
+          if (source === 'Unknown Source') {
+            console.log(`❌ No source found for "${prop.name}"`);
           }
 
           characterData.spells.push({
