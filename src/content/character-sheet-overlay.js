@@ -1618,13 +1618,62 @@
     overlayVisible = false;
   }
 
+  /**
+   * Announces a message to Roll20 chat
+   */
+  function announceToRoll20(message) {
+    try {
+      const chatInput = document.querySelector('#textchat-input textarea');
+      if (chatInput) {
+        chatInput.value = message;
+        chatInput.focus();
+
+        const sendButton = document.querySelector('#textchat-input .btn');
+        if (sendButton) {
+          sendButton.click();
+          console.log('✅ Message posted to Roll20 chat:', message);
+          showNotification('Spell announced to chat!', 'success');
+          return true;
+        } else {
+          console.error('❌ Could not find Roll20 chat send button');
+          return false;
+        }
+      } else {
+        console.error('❌ Could not find Roll20 chat input');
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Error posting to Roll20 chat:', error);
+      return false;
+    }
+  }
+
   // Listen for messages from popout window
   window.addEventListener('message', (event) => {
     if (event.data.action === 'rollFromPopout') {
       console.log('🎲 Received roll from popout:', event.data);
-      
+
       // Handle the roll from popout
       rollSimultaneously(event.data.name, event.data.formula);
+    } else if (event.data.action === 'updateCharacterData') {
+      console.log('💾 Received character data update from popup:', event.data.data);
+
+      // Save updated character data to storage
+      chrome.runtime.sendMessage({
+        action: 'storeCharacterData',
+        data: event.data.data
+      }, (response) => {
+        if (response && response.success) {
+          console.log('✅ Character data updated successfully');
+        } else {
+          console.error('❌ Failed to update character data');
+        }
+      });
+    } else if (event.data.action === 'announceSpell') {
+      console.log('✨ Announcing spell cast:', event.data);
+
+      // Announce to Roll20 chat
+      announceToRoll20(event.data.message);
     }
   });
 
