@@ -531,6 +531,11 @@
 
             console.log(`🔘 Toggle "${prop.name}" has ${toggleChildren.length} children:`, toggleChildren.map(c => c.name));
 
+            // Debug: Log child types
+            toggleChildren.forEach(child => {
+              console.log(`🔘   Child "${child.name}" has type: ${child.type}`);
+            });
+
             // Process each child (features, damage, etc.)
             toggleChildren.forEach(child => {
               if (child.type === 'feature' || child.type === 'damage') {
