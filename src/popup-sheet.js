@@ -2438,10 +2438,45 @@ function resolveVariablesInFormula(formula) {
           return num;
         }
 
-        // Try to resolve as variable
+        // Try to resolve as simple variable
         const varVal = getVariableValue(trimmed);
         console.log(`  🔍 Variable lookup result: ${varVal}`);
-        if (varVal !== null && typeof varVal === 'number') return varVal;
+        if (varVal !== null && typeof varVal === 'number') {
+          console.log(`  ✅ Resolved as variable: ${varVal}`);
+          return varVal;
+        }
+
+        // Try to evaluate as expression (e.g., "strength.modifier")
+        let evalExpression = trimmed;
+        const varPattern = /[a-zA-Z_][a-zA-Z0-9_.]*/g;
+        let varMatch;
+        const replacements = [];
+
+        while ((varMatch = varPattern.exec(trimmed)) !== null) {
+          const varName = varMatch[0];
+          const value = getVariableValue(varName);
+          if (value !== null && typeof value === 'number') {
+            replacements.push({ name: varName, value: value });
+          }
+        }
+
+        // Sort by length (longest first) to avoid partial replacements
+        replacements.sort((a, b) => b.name.length - a.name.length);
+
+        for (const {name, value} of replacements) {
+          evalExpression = evalExpression.replace(new RegExp(name.replace(/\./g, '\\.'), 'g'), value);
+        }
+
+        // Try to evaluate
+        try {
+          if (/^[\d\s+\-*/().]+$/.test(evalExpression)) {
+            const result = eval(evalExpression);
+            console.log(`  ✅ Evaluated expression "${trimmed}" = ${result}`);
+            return result;
+          }
+        } catch (e) {
+          console.log(`  ❌ Failed to evaluate: "${trimmed}"`, e);
+        }
 
         console.log(`  ❌ Could not resolve: "${trimmed}"`);
         return null;
