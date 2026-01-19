@@ -43,8 +43,19 @@ function buildSheet(data) {
   console.log('📊 Character data received:', data);
   console.log('✨ Spell slots data:', data.spellSlots);
 
-  // Character name and info
-  document.getElementById('char-name').textContent = `🎲 ${data.name || 'Character'}`;
+  // Character name and info with color picker
+  const charNameEl = document.getElementById('char-name');
+  charNameEl.innerHTML = `
+    <div style="display: flex; align-items: center; justify-content: center; gap: 15px;">
+      <span>🎲 ${data.name || 'Character'}</span>
+      <div style="display: flex; gap: 5px; align-items: center;">
+        <span style="font-size: 0.8em; opacity: 0.8;">🎨</span>
+        <div id="color-palette" style="display: flex; gap: 5px;">
+          ${createColorPalette(data.notificationColor || '#3498db')}
+        </div>
+      </div>
+    </div>
+  `;
 
   // Initialize hit dice if needed
   initializeHitDice();
@@ -59,16 +70,26 @@ function buildSheet(data) {
       <div><strong>Race:</strong> ${raceName}</div>
       <div><strong>Hit Dice:</strong> ${data.hitDice.current}/${data.hitDice.max} ${data.hitDice.type}</div>
     </div>
-    <div style="text-align: center;">
-      <div id="hp-display" style="display: inline-block; padding: 15px 30px; background: #e74c3c; color: white; border-radius: 8px; cursor: pointer; font-size: 1.2em; font-weight: bold; transition: all 0.2s;">
+    <div style="text-align: center; margin-bottom: 15px;">
+      <div id="hp-display" style="display: inline-block; padding: 15px 30px; background: #e74c3c; color: white; border-radius: 8px; cursor: pointer; font-size: 1.2em; font-weight: bold; transition: all 0.2s; margin-right: 15px;">
         <div style="font-size: 0.8em; margin-bottom: 5px;">Hit Points</div>
         <div style="font-size: 1.5em;">${data.hitPoints.current} / ${data.hitPoints.max}</div>
+      </div>
+      <div id="initiative-button" style="display: inline-block; padding: 15px 30px; background: #3498db; color: white; border-radius: 8px; cursor: pointer; font-size: 1.2em; font-weight: bold; transition: all 0.2s;">
+        <div style="font-size: 0.8em; margin-bottom: 5px;">Initiative</div>
+        <div style="font-size: 1.5em;">+${data.initiative || 0}</div>
       </div>
     </div>
   `;
 
   // Add click handler for HP display
   document.getElementById('hp-display').addEventListener('click', showHPModal);
+
+  // Add click handler for initiative button
+  document.getElementById('initiative-button').addEventListener('click', () => {
+    const initiativeBonus = data.initiative || 0;
+    roll('Initiative', `1d20+${initiativeBonus}`);
+  });
 
   // Update HP display color based on percentage
   const hpPercent = (data.hitPoints.current / data.hitPoints.max) * 100;
@@ -142,6 +163,9 @@ function buildSheet(data) {
   } else {
     spellsContainer.innerHTML = '<p style="text-align: center; color: #666;">No spells available</p>';
   }
+
+  // Initialize color palette after sheet is built
+  initColorPalette();
 
   console.log('✅ Sheet built successfully');
 }
@@ -370,9 +394,11 @@ function showHPModal() {
 
       // Announce to Roll20 chat with fancy formatting
       if (window.opener && !window.opener.closed) {
+        const colorBanner = getColoredBanner();
         window.opener.postMessage({
           action: 'announceSpell',
-          message: `&{template:default} {{name=💚 Healing}} {{Character=${characterData.name}}} {{HP Restored=${actualHealing}}} {{Current HP=${characterData.hitPoints.current}/${maxHP}}}`
+          message: `&{template:default} {{name=${colorBanner}💚 Healing}} {{Character=${characterData.name}}} {{HP Restored=${actualHealing}}} {{Current HP=${characterData.hitPoints.current}/${maxHP}}}`,
+          color: characterData.notificationColor
         }, '*');
       }
     } else {
@@ -382,9 +408,11 @@ function showHPModal() {
 
       // Announce to Roll20 chat with fancy formatting
       if (window.opener && !window.opener.closed) {
+        const colorBanner = getColoredBanner();
         window.opener.postMessage({
           action: 'announceSpell',
-          message: `&{template:default} {{name=💔 Damage}} {{Character=${characterData.name}}} {{Damage Taken=${actualDamage}}} {{Current HP=${characterData.hitPoints.current}/${maxHP}}}`
+          message: `&{template:default} {{name=${colorBanner}💔 Damage}} {{Character=${characterData.name}}} {{Damage Taken=${actualDamage}}} {{Current HP=${characterData.hitPoints.current}/${maxHP}}}`,
+          color: characterData.notificationColor
         }, '*');
       }
     }
@@ -817,9 +845,33 @@ function useClassResource(resource, spell) {
   return true;
 }
 
+function getColoredBanner() {
+  // Get the character's notification color
+  const color = characterData.notificationColor || '#3498db';
+  const colorName = getColorName(color);
+
+  // Return a colored indicator using HTML span
+  return `<span style="color: ${color}; font-weight: bold;">⬤</span> `;
+}
+
+function getColorName(hexColor) {
+  const colorMap = {
+    '#3498db': 'Blue',
+    '#e74c3c': 'Red',
+    '#27ae60': 'Green',
+    '#9b59b6': 'Purple',
+    '#e67e22': 'Orange',
+    '#1abc9c': 'Teal',
+    '#e91e63': 'Pink',
+    '#f1c40f': 'Yellow'
+  };
+  return colorMap[hexColor] || 'Blue';
+}
+
 function announceSpellCast(spell, resourceUsed) {
-  // Build a fancy formatted message using Roll20 template syntax
-  let message = `&{template:default} {{name=${characterData.name} casts ${spell.name}!}}`;
+  // Build a fancy formatted message using Roll20 template syntax with custom color
+  const colorBanner = getColoredBanner();
+  let message = `&{template:default} {{name=${colorBanner}${characterData.name} casts ${spell.name}!}}`;
 
   // Add resource usage if applicable
   if (resourceUsed) {
@@ -864,7 +916,8 @@ function announceSpellCast(spell, resourceUsed) {
       action: 'announceSpell',
       spellName: spell.name,
       characterName: characterData.name,
-      message: message
+      message: message,
+      color: characterData.notificationColor
     }, '*');
   }
 
@@ -874,6 +927,55 @@ function announceSpellCast(spell, resourceUsed) {
       roll(spell.name, spell.formula);
     }, 500);
   }
+}
+
+function createColorPalette(selectedColor) {
+  const colors = [
+    { name: 'Blue', value: '#3498db' },
+    { name: 'Red', value: '#e74c3c' },
+    { name: 'Green', value: '#27ae60' },
+    { name: 'Purple', value: '#9b59b6' },
+    { name: 'Orange', value: '#e67e22' },
+    { name: 'Teal', value: '#1abc9c' },
+    { name: 'Pink', value: '#e91e63' },
+    { name: 'Yellow', value: '#f1c40f' }
+  ];
+
+  return colors.map(color => {
+    const isSelected = color.value === selectedColor;
+    return `
+      <div class="color-swatch"
+           data-color="${color.value}"
+           style="width: 24px; height: 24px; border-radius: 50%; background: ${color.value}; cursor: pointer; transition: all 0.2s; border: ${isSelected ? '3px solid white' : '2px solid rgba(255,255,255,0.3)'}; box-shadow: ${isSelected ? '0 0 8px rgba(255,255,255,0.8)' : '0 2px 4px rgba(0,0,0,0.2)'};"
+           title="${color.name}"></div>
+    `;
+  }).join('');
+}
+
+function initColorPalette() {
+  // Set default color if not set
+  if (!characterData.notificationColor) {
+    characterData.notificationColor = '#3498db';
+  }
+
+  // Add click handlers to color swatches
+  document.querySelectorAll('.color-swatch').forEach(swatch => {
+    swatch.addEventListener('click', (e) => {
+      const newColor = e.target.dataset.color;
+      characterData.notificationColor = newColor;
+
+      // Update all swatches
+      document.querySelectorAll('.color-swatch').forEach(s => {
+        const isSelected = s.dataset.color === newColor;
+        s.style.border = isSelected ? '3px solid white' : '2px solid rgba(255,255,255,0.3)';
+        s.style.boxShadow = isSelected ? '0 0 8px rgba(255,255,255,0.8)' : '0 2px 4px rgba(0,0,0,0.2)';
+      });
+
+      // Save to storage
+      saveCharacterData();
+      showNotification(`🎨 Notification color changed to ${e.target.title}!`);
+    });
+  });
 }
 
 function saveCharacterData() {
@@ -891,10 +993,13 @@ function roll(name, formula) {
   console.log('🎲 Rolling:', name, formula);
 
   if (window.opener && !window.opener.closed) {
+    const colorBanner = getColoredBanner();
     window.opener.postMessage({
       action: 'rollFromPopout',
-      name: name,
-      formula: formula
+      name: `${colorBanner}${name}`,
+      formula: formula,
+      color: characterData.notificationColor,
+      characterName: characterData.name
     }, '*');
 
     showNotification(`🎲 Rolling ${name}...`);
@@ -959,9 +1064,11 @@ function takeShortRest() {
 
   // Announce to Roll20 with fancy formatting
   if (window.opener && !window.opener.closed) {
+    const colorBanner = getColoredBanner();
     window.opener.postMessage({
       action: 'announceSpell',
-      message: `&{template:default} {{name=☕ Short Rest}} {{Character=${characterData.name}}} {{=Short rest complete. Resources recharged!}}`
+      message: `&{template:default} {{name=${colorBanner}☕ Short Rest}} {{Character=${characterData.name}}} {{=Short rest complete. Resources recharged!}}`,
+      color: characterData.notificationColor
     }, '*');
   }
 }
@@ -1052,9 +1159,11 @@ function spendHitDice() {
 
     // Announce the roll with fancy formatting
     if (window.opener && !window.opener.closed) {
+      const colorBanner = getColoredBanner();
       window.opener.postMessage({
         action: 'announceSpell',
-        message: `&{template:default} {{name=🎲 Hit Die}} {{Character=${characterData.name}}} {{Roll=${hitDie}: ${roll} + ${conMod} CON}} {{HP Restored=${healing}}} {{Current HP=${characterData.hitPoints.current}/${characterData.hitPoints.max}}}`
+        message: `&{template:default} {{name=${colorBanner}🎲 Hit Die}} {{Character=${characterData.name}}} {{Roll=${hitDie}: ${roll} + ${conMod} CON}} {{HP Restored=${healing}}} {{Current HP=${characterData.hitPoints.current}/${characterData.hitPoints.max}}}`,
+        color: characterData.notificationColor
       }, '*');
     }
   }
@@ -1148,9 +1257,11 @@ function takeLongRest() {
 
   // Announce to Roll20 with fancy formatting
   if (window.opener && !window.opener.closed) {
+    const colorBanner = getColoredBanner();
     window.opener.postMessage({
       action: 'announceSpell',
-      message: `&{template:default} {{name=🌙 Long Rest}} {{Character=${characterData.name}}} {{=Long rest complete!}} {{HP=${characterData.hitPoints.current}/${characterData.hitPoints.max} (Fully Restored)}} {{=All spell slots and resources restored!}}`
+      message: `&{template:default} {{name=${colorBanner}🌙 Long Rest}} {{Character=${characterData.name}}} {{=Long rest complete!}} {{HP=${characterData.hitPoints.current}/${characterData.hitPoints.max} (Fully Restored)}} {{=All spell slots and resources restored!}}`,
+      color: characterData.notificationColor
     }, '*');
   }
 }
