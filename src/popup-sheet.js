@@ -589,6 +589,21 @@ function buildActionsDisplay(container, actions) {
           return; // Not enough resources
         }
 
+        // Check if description contains a dice formula to roll
+        if (action.description) {
+          const resolvedDesc = resolveVariablesInFormula(action.description);
+          const dicePattern = /(\d+d\d+(?:[+\-]\d+)?)/gi;
+          const matches = resolvedDesc.match(dicePattern);
+          if (matches && matches.length > 0) {
+            // Roll the first dice formula found in the description
+            const diceFormula = matches[0];
+            console.log(`🎲 Found dice formula in description: ${diceFormula}`);
+            roll(action.name, diceFormula);
+            // Don't announce separately since roll already announces
+            return;
+          }
+        }
+
         announceAction(action);
       });
       buttonsDiv.appendChild(useBtn);
@@ -2414,6 +2429,7 @@ function resolveVariablesInFormula(formula) {
     if (characterData.otherVariables.hasOwnProperty(varPath)) {
       const val = characterData.otherVariables[varPath];
       if (typeof val === 'number') return val;
+      if (typeof val === 'boolean') return val;
       if (typeof val === 'object' && val.value !== undefined) return val.value;
       if (typeof val === 'string') return val;
     }
@@ -2423,6 +2439,7 @@ function resolveVariablesInFormula(formula) {
     if (characterData.otherVariables.hasOwnProperty(camelCase)) {
       const val = characterData.otherVariables[camelCase];
       if (typeof val === 'number') return val;
+      if (typeof val === 'boolean') return val;
       if (typeof val === 'object' && val.value !== undefined) return val.value;
     }
 
@@ -2437,6 +2454,7 @@ function resolveVariablesInFormula(formula) {
       if (characterData.otherVariables.hasOwnProperty(alt)) {
         const val = characterData.otherVariables[alt];
         if (typeof val === 'number') return val;
+        if (typeof val === 'boolean') return val;
         if (typeof val === 'object' && val.value !== undefined) return val.value;
       }
     }
@@ -2697,30 +2715,61 @@ function resolveVariablesInFormula(formula) {
       // Evaluate the condition
       let conditionResult = false;
       try {
-        // Replace variables in condition
-        let evalCondition = condition;
-        const varPattern = /[a-zA-Z_][a-zA-Z0-9_.]*/g;
-        let varMatch;
-        const replacements = [];
-
-        while ((varMatch = varPattern.exec(condition)) !== null) {
-          const varName = varMatch[0];
-          const value = getVariableValue(varName);
-          if (value !== null && typeof value === 'number') {
-            replacements.push({ name: varName, value: value });
+        // Check if condition is just a simple variable name
+        const simpleVarPattern = /^[a-zA-Z_][a-zA-Z0-9_.]*$/;
+        if (simpleVarPattern.test(condition.trim())) {
+          const varValue = getVariableValue(condition.trim());
+          if (varValue !== null) {
+            // Convert to boolean: numbers, strings, booleans
+            conditionResult = Boolean(varValue);
+          } else {
+            // Variable doesn't exist, treat as false
+            conditionResult = false;
           }
-        }
+          console.log(`✅ Evaluated simple variable condition: ${condition} = ${conditionResult}`);
+        } else {
+          // Complex condition with operators
+          // Replace variables in condition
+          let evalCondition = condition;
+          const varPattern = /[a-zA-Z_][a-zA-Z0-9_.]*/g;
+          let varMatch;
+          const replacements = [];
 
-        // Sort by length (longest first) to avoid partial replacements
-        replacements.sort((a, b) => b.name.length - a.name.length);
+          while ((varMatch = varPattern.exec(condition)) !== null) {
+            const varName = varMatch[0];
+            // Skip reserved words
+            if (['true', 'false', 'null', 'undefined'].includes(varName.toLowerCase())) {
+              continue;
+            }
+            const value = getVariableValue(varName);
+            if (value !== null) {
+              // Handle numbers, strings, and booleans
+              if (typeof value === 'number') {
+                replacements.push({ name: varName, value: value });
+              } else if (typeof value === 'boolean') {
+                replacements.push({ name: varName, value: value });
+              } else if (typeof value === 'string') {
+                // Convert string to boolean for condition evaluation
+                const boolValue = value !== '' && value !== '0' && value.toLowerCase() !== 'false';
+                replacements.push({ name: varName, value: boolValue });
+              }
+            } else {
+              // Variable doesn't exist, replace with false
+              replacements.push({ name: varName, value: false });
+            }
+          }
 
-        for (const {name, value} of replacements) {
-          evalCondition = evalCondition.replace(new RegExp(name.replace(/\./g, '\\.'), 'g'), value);
-        }
+          // Sort by length (longest first) to avoid partial replacements
+          replacements.sort((a, b) => b.name.length - a.name.length);
 
-        // Evaluate condition
-        if (/^[\d\s+\-*/><=!&|()]+$/.test(evalCondition)) {
-          conditionResult = eval(evalCondition);
+          for (const {name, value} of replacements) {
+            evalCondition = evalCondition.replace(new RegExp(name.replace(/\./g, '\\.'), 'g'), value);
+          }
+
+          // Evaluate condition
+          if (/^[\w\s+\-*/><=!&|()\.]+$/.test(evalCondition)) {
+            conditionResult = eval(evalCondition);
+          }
         }
       } catch (e) {
         console.log(`⚠️ Failed to evaluate ternary condition: ${condition}`, e);
