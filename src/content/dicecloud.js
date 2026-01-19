@@ -709,9 +709,8 @@
           break;
 
         case 'action':
-          // Extract attack actions (weapons, unarmed strikes, etc.)
-          // Only include actions that have attack rolls (actual combat actions)
-          if (prop.name && prop.attackRoll) {
+          // Extract all actions (attacks, bonus actions, reactions, etc.)
+          if (prop.name && !prop.inactive && !prop.disabled) {
             // Handle description - it might be an object with a 'text' or 'value' field
             let description = '';
             if (prop.description) {
@@ -786,8 +785,11 @@
               }
             }
 
-            // Only add actions that have valid formulas (skip inactive for now)
-            if (attackRoll && !prop.inactive && !prop.disabled) {
+            // Add action if it has attack roll OR if it's a non-attack action (bonus action, reaction, etc.)
+            const validActionTypes = ['action', 'bonus', 'reaction', 'free', 'legendary', 'lair', 'other'];
+            const hasValidActionType = prop.actionType && validActionTypes.includes(prop.actionType.toLowerCase());
+
+            if (attackRoll || hasValidActionType || description) {
               const action = {
                 name: prop.name,
                 actionType: prop.actionType || 'other',
@@ -800,10 +802,15 @@
               };
 
               characterData.actions.push(action);
-              console.log(`⚔️ Added action: ${action.name} (attack: ${attackRoll}, damage: ${damage} ${damageType})`);
-            } else if (prop.inactive || prop.disabled) {
-              console.log(`⏭️ Skipped action: ${prop.name} (inactive: ${!!prop.inactive}, disabled: ${!!prop.disabled})`);
+
+              if (attackRoll) {
+                console.log(`⚔️ Added attack action: ${action.name} (attack: ${attackRoll}, damage: ${damage} ${damageType})`);
+              } else {
+                console.log(`✨ Added non-attack action: ${action.name} (${prop.actionType || 'other'})`);
+              }
             }
+          } else if (prop.inactive || prop.disabled) {
+            console.log(`⏭️ Skipped action: ${prop.name} (inactive: ${!!prop.inactive}, disabled: ${!!prop.disabled})`);
           }
           break;
       }
