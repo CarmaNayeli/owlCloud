@@ -1817,41 +1817,56 @@ function getKiPointsResource() {
   return kiResource || null;
 }
 
-function getKiCostFromAction(action) {
-  if (!action || !action.description) return 0;
-
-  const lowerDesc = action.description.toLowerCase();
-
-  // Match patterns like "spend 1 ki point", "costs 2 ki points", etc.
-  const kiPattern = /(?:spend|cost|use)s?\s+(\d+)\s+ki\s+point/i;
-  const match = lowerDesc.match(kiPattern);
-
-  if (match) {
-    const cost = parseInt(match[1]);
-    console.log(`💨 Ki cost detected for ${action.name}: ${cost} ki points`);
-    return cost;
+function getResourceCostsFromAction(action) {
+  // Use DiceCloud's structured resource consumption data instead of regex parsing
+  if (!action || !action.resources || !action.resources.attributesConsumed) {
+    return [];
   }
 
-  console.log(`💨 No Ki cost detected for ${action.name}`);
+  const costs = action.resources.attributesConsumed.map(consumed => {
+    const quantity = consumed.quantity?.value || 0;
+    return {
+      name: consumed.statName || '',
+      variableName: consumed.variableName || '',
+      quantity: quantity
+    };
+  });
+
+  if (costs.length > 0) {
+    console.log(`💰 Resource costs for ${action.name}:`, costs);
+  }
+
+  return costs;
+}
+
+// Legacy functions for backwards compatibility (now use structured data)
+function getKiCostFromAction(action) {
+  const costs = getResourceCostsFromAction(action);
+  const kiCost = costs.find(c =>
+    c.variableName === 'kiPoints' ||
+    c.name.toLowerCase().includes('ki point')
+  );
+
+  if (kiCost) {
+    console.log(`💨 Ki cost for ${action.name}: ${kiCost.quantity} ki points`);
+    return kiCost.quantity;
+  }
+
   return 0;
 }
 
 function getSorceryPointCostFromAction(action) {
-  if (!action || !action.description) return 0;
+  const costs = getResourceCostsFromAction(action);
+  const sorceryCost = costs.find(c =>
+    c.variableName === 'sorceryPoints' ||
+    c.name.toLowerCase().includes('sorcery point')
+  );
 
-  const lowerDesc = action.description.toLowerCase();
-
-  // Match patterns like "spend 1 sorcery point", "costs 2 sorcery points", etc.
-  const sorceryPattern = /(?:spend|cost|use)s?\s+(\d+)\s+sorcery\s+point/i;
-  const match = lowerDesc.match(sorceryPattern);
-
-  if (match) {
-    const cost = parseInt(match[1]);
-    console.log(`✨ Sorcery Point cost detected for ${action.name}: ${cost} SP`);
-    return cost;
+  if (sorceryCost) {
+    console.log(`✨ Sorcery Point cost for ${action.name}: ${sorceryCost.quantity} SP`);
+    return sorceryCost.quantity;
   }
 
-  console.log(`✨ No Sorcery Point cost detected for ${action.name}`);
   return 0;
 }
 
