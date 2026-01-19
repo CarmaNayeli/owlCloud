@@ -347,8 +347,12 @@
     console.log(`📋 Built property ID map with ${propertyIdToName.size} entries`);
 
     // Debug: Show sample entries from the map
-    const sampleEntries = Array.from(propertyIdToName.entries()).slice(0, 5);
+    const sampleEntries = Array.from(propertyIdToName.entries()).slice(0, 10);
     console.log('📋 Sample property ID map entries:', sampleEntries);
+
+    // Debug: Show all class-type entries in the map
+    const classEntries = properties.filter(p => p.type === 'class' && p._id && p.name);
+    console.log('📋 Class entries in map:', classEntries.map(p => ({ id: p._id, name: p.name, type: p.type })));
 
     // Parse properties for classes, race, features, spells, etc.
     // Track unique classes to avoid duplicates
@@ -389,13 +393,17 @@
           // Only add class name once, even if there are multiple classLevel entries
           if (prop.name) {
             const normalizedClassName = prop.name.toLowerCase().trim();
+            console.log(`📚 Found class property: "${prop.name}" (normalized: "${normalizedClassName}")`);
             if (!uniqueClasses.has(normalizedClassName)) {
+              console.log(`  ✅ Adding class (not in set yet)`);
               uniqueClasses.add(normalizedClassName);
               if (characterData.class) {
                 characterData.class += ` / ${prop.name}`;
               } else {
                 characterData.class = prop.name;
               }
+            } else {
+              console.log(`  ⏭️  Skipping class (already in set:`, Array.from(uniqueClasses), ')');
             }
           }
           break;
@@ -406,13 +414,17 @@
           // Also add the class name if not already added
           if (prop.name) {
             const normalizedClassName = prop.name.toLowerCase().trim();
+            console.log(`📊 Found classLevel property: "${prop.name}" (normalized: "${normalizedClassName}")`);
             if (!uniqueClasses.has(normalizedClassName)) {
+              console.log(`  ✅ Adding class from classLevel (not in set yet)`);
               uniqueClasses.add(normalizedClassName);
               if (characterData.class) {
                 characterData.class += ` / ${prop.name}`;
               } else {
                 characterData.class = prop.name;
               }
+            } else {
+              console.log(`  ⏭️  Skipping classLevel (already in set:`, Array.from(uniqueClasses), ')');
             }
           }
           break;
@@ -479,19 +491,20 @@
           // Determine source (from parent, tags, or ancestors)
           let source = 'Unknown Source';
 
-          // Debug: Log parent and ancestors info for the first spell
-          if (characterData.spells.length === 0) {
-            console.log('🔍 First spell debug info:');
-            console.log('  - Spell name:', prop.name);
-            console.log('  - Parent ID:', prop.parent);
-            console.log('  - Parent exists in map?', prop.parent ? propertyIdToName.has(prop.parent) : 'N/A');
-            console.log('  - Ancestors:', prop.ancestors);
-            if (prop.ancestors && prop.ancestors.length > 0) {
-              console.log('  - Ancestor IDs in map?', prop.ancestors.map(id => `${id}: ${propertyIdToName.has(id)}`));
-            }
-            console.log('  - Tags:', prop.tags);
-            console.log('  - LibraryTags:', prop.libraryTags);
-          }
+          // Debug: Log parent and ancestors info for ALL spells to diagnose the issue
+          console.log(`🔍 Spell "${prop.name}" debug:`, {
+            parent: prop.parent,
+            parentInMap: prop.parent ? propertyIdToName.has(prop.parent) : false,
+            parentName: prop.parent ? propertyIdToName.get(prop.parent) : null,
+            ancestors: prop.ancestors,
+            ancestorsInMap: prop.ancestors ? prop.ancestors.map(id => ({
+              id,
+              inMap: propertyIdToName.has(id),
+              name: propertyIdToName.get(id)
+            })) : [],
+            tags: prop.tags,
+            libraryTags: prop.libraryTags
+          });
 
           // Try to get parent name from the map
           if (prop.parent && propertyIdToName.has(prop.parent)) {
@@ -512,6 +525,7 @@
             }
             if (!found) {
               console.log(`❌ No source found in ${prop.ancestors.length} ancestors for "${prop.name}"`);
+              console.log(`   Checked ancestors:`, prop.ancestors.map(id => `${id} (${propertyIdToName.get(id) || 'not in map'})`));
             }
           }
           // Fallback to tags
