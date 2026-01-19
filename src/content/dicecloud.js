@@ -836,10 +836,19 @@
                   // Add effects (modifiers) to build complete formula
                   if (damageProp.amount.effects && Array.isArray(damageProp.amount.effects)) {
                     for (const effect of damageProp.amount.effects) {
-                      if (effect.operation === 'add' && effect.amount && effect.amount.value !== undefined) {
-                        const modifier = effect.amount.value;
-                        if (modifier !== 0) {
-                          damage += modifier >= 0 ? `+${modifier}` : `${modifier}`;
+                      if (effect.operation === 'add' && effect.amount) {
+                        // Skip dice formula calculations (like "3d6" from Sneak Attack toggle)
+                        // These are handled by separate action buttons
+                        if (effect.amount.calculation) {
+                          console.log(`⏭️ Skipping dice formula effect in weapon damage: ${effect.amount.calculation} (handled by separate action)`);
+                          continue;
+                        }
+                        // Only add numeric modifiers (like +4 from Dex)
+                        if (effect.amount.value !== undefined) {
+                          const modifier = effect.amount.value;
+                          if (modifier !== 0) {
+                            damage += modifier >= 0 ? `+${modifier}` : `${modifier}`;
+                          }
                         }
                       }
                     }
