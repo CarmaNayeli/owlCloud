@@ -814,6 +814,12 @@
         case 'action':
           // Extract all actions (attacks, bonus actions, reactions, etc.)
           if (prop.name && !prop.inactive && !prop.disabled) {
+            // DEBUG: Log all properties of this action to see what DiceCloud provides
+            console.log(`🔍 ACTION DEBUG: "${prop.name}"`, {
+              keys: Object.keys(prop),
+              fullObject: prop
+            });
+
             // Handle description - it might be in 'summary' or 'description' field
             let description = '';
             if (prop.summary) {
