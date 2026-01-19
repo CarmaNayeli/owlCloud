@@ -498,8 +498,9 @@ function buildActionsDisplay(container, actions) {
       buttonsDiv.appendChild(attackBtn);
     }
 
-    // Damage button (if damage exists)
-    if (action.damage) {
+    // Damage button (if damage exists and is a valid dice formula)
+    const isValidDiceFormula = action.damage && /\dd/.test(action.damage); // Check for dice formula
+    if (isValidDiceFormula) {
       const damageBtn = document.createElement('button');
       damageBtn.className = 'damage-btn';
       // Use different text for healing vs damage vs features
@@ -611,7 +612,9 @@ function buildActionsDisplay(container, actions) {
     }
 
     // Use button for non-attack actions (bonus actions, reactions, etc.)
-    if (!action.attackRoll && !action.damage && action.description) {
+    // Only show if there's no attack roll AND (no damage OR damage is invalid/descriptive text)
+    const hasValidDamage = action.damage && /\dd/.test(action.damage); // Check for dice formula (e.g., "1d6", "2d8")
+    if (!action.attackRoll && !hasValidDamage && action.description) {
       const useBtn = document.createElement('button');
       useBtn.className = 'use-btn';
       useBtn.textContent = '✨ Use';
