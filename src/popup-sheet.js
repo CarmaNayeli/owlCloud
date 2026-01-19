@@ -48,12 +48,12 @@ function buildSheet(data) {
   const currentColorEmoji = getColorEmoji(data.notificationColor || '#3498db');
   charNameEl.innerHTML = `
     <div style="display: flex; align-items: center; justify-content: center; gap: 15px;">
-      <span>🎲 ${data.name || 'Character'}</span>
+      <span>${data.name || 'Character'}</span>
       <div style="display: flex; gap: 5px; align-items: center; position: relative;">
         <button id="color-toggle" style="background: none; border: none; cursor: pointer; font-size: 1.2em; padding: 5px; display: flex; align-items: center; gap: 3px;" title="Change notification color">
           ${currentColorEmoji} 🎨
         </button>
-        <div id="color-palette" style="display: none; position: absolute; left: 100%; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.8); padding: 8px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 1000; grid-template-columns: repeat(4, 1fr); gap: 5px; width: 120px;">
+        <div id="color-palette" style="display: none; position: absolute; left: 100%; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.9); padding: 10px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 1000; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 150px;">
           ${createColorPalette(data.notificationColor || '#3498db')}
         </div>
       </div>
@@ -970,7 +970,7 @@ function createColorPalette(selectedColor) {
     return `
       <div class="color-swatch"
            data-color="${color.value}"
-           style="font-size: 1.8em; cursor: pointer; transition: all 0.2s; opacity: ${isSelected ? '1' : '0.6'}; transform: ${isSelected ? 'scale(1.2)' : 'scale(1)'}; filter: ${isSelected ? 'drop-shadow(0 0 4px white)' : 'none'};"
+           style="font-size: 1.5em; cursor: pointer; transition: all 0.2s; opacity: ${isSelected ? '1' : '0.85'}; transform: ${isSelected ? 'scale(1.15)' : 'scale(1)'}; filter: ${isSelected ? 'drop-shadow(0 0 4px white)' : 'none'}; text-align: center;"
            title="${color.name}">${color.emoji}</div>
     `;
   }).join('');
