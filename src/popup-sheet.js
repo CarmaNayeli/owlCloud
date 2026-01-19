@@ -486,6 +486,7 @@ function createSpellCard(spell, index) {
     ${spell.range ? `<div><strong>Range:</strong> ${spell.range}</div>` : ''}
     ${spell.duration ? `<div><strong>Duration:</strong> ${spell.duration}</div>` : ''}
     ${spell.school ? `<div><strong>School:</strong> ${spell.school}</div>` : ''}
+    ${spell.source ? `<div><strong>Source:</strong> ${spell.source}</div>` : ''}
     ${spell.description ? `<div style="margin-top: 10px;">${spell.description}</div>` : ''}
     ${spell.formula ? `<button class="roll-btn">🎲 Roll ${spell.formula}</button>` : ''}
   `;
