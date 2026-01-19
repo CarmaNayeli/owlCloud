@@ -1422,7 +1422,9 @@ function announceAction(action) {
 
   // Add uses if available
   if (action.uses) {
-    const usesText = `${action.usesUsed || 0} / ${action.uses}`;
+    const usesUsed = action.usesUsed || 0;
+    const usesTotal = action.uses.total || action.uses.value || action.uses;
+    const usesText = `${usesUsed} / ${usesTotal}`;
     message += ` {{Uses=${usesText}}}`;
   }
 
