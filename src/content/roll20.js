@@ -6,7 +6,7 @@
 (function() {
   'use strict';
 
-  console.log('RollCloud: Roll20 content script loaded');
+  debug.log('RollCloud: Roll20 content script loaded');
 
   /**
    * Posts a message to Roll20 chat
@@ -23,18 +23,18 @@
         const sendButton = document.querySelector('#textchat-input .btn');
         if (sendButton) {
           sendButton.click();
-          console.log('✅ Message posted to Roll20 chat:', message);
+          debug.log('✅ Message posted to Roll20 chat:', message);
           return true;
         } else {
-          console.error('❌ Could not find Roll20 chat send button');
+          debug.error('❌ Could not find Roll20 chat send button');
           return false;
         }
       } else {
-        console.error('❌ Could not find Roll20 chat input');
+        debug.error('❌ Could not find Roll20 chat input');
         return false;
       }
     } catch (error) {
-      console.error('❌ Error posting to Roll20 chat:', error);
+      debug.error('❌ Error posting to Roll20 chat:', error);
       return false;
     }
   }
@@ -43,7 +43,7 @@
    * Handles roll messages from Dice Cloud
    */
   function handleDiceCloudRoll(rollData) {
-    console.log('🎲 Handling Dice Cloud roll:', rollData);
+    debug.log('🎲 Handling Dice Cloud roll:', rollData);
 
     // Use pre-formatted message if it exists (for spells, actions, etc.)
     // Otherwise format the roll data
@@ -53,9 +53,9 @@
     const success = postChatMessage(formattedMessage);
 
     if (success) {
-      console.log('✅ Roll successfully posted to Roll20');
+      debug.log('✅ Roll successfully posted to Roll20');
     } else {
-      console.error('❌ Failed to post roll to Roll20');
+      debug.error('❌ Failed to post roll to Roll20');
     }
   }
 
@@ -80,7 +80,7 @@
     } else if (request.action === 'rollFromPopout') {
       // Skip immediate posting - wait for the actual result from Dice Cloud
       // This prevents duplicate rolls (one from request, one from result)
-      console.log('🔄 Roll request received, waiting for Dice Cloud result...');
+      debug.log('🔄 Roll request received, waiting for Dice Cloud result...');
       sendResponse({ success: true });
     } else if (request.action === 'announceSpell') {
       // Handle spell/action announcements relayed from background script (Firefox)
@@ -113,7 +113,7 @@
           sendResponse({ success: true });
         }
       } catch (error) {
-        console.error('Error showing character sheet:', error);
+        debug.error('Error showing character sheet:', error);
         sendResponse({ success: false, error: error.message });
       }
     }
@@ -131,7 +131,7 @@
     } else if (event.data.action === 'rollFromPopout') {
       // Skip immediate posting - wait for the actual result from Dice Cloud
       // This prevents duplicate rolls (one from request, one from result)
-      console.log('🔄 Roll request received from popup, waiting for Dice Cloud result...');
+      debug.log('🔄 Roll request received from popup, waiting for Dice Cloud result...');
     } else if (event.data.action === 'announceSpell') {
       // Handle spell/action announcements with pre-formatted messages
       if (event.data.message) {
@@ -142,5 +142,5 @@
     }
   });
 
-  console.log('✅ Roll20 script ready - listening for roll announcements');
+  debug.log('✅ Roll20 script ready - listening for roll announcements');
 })();
