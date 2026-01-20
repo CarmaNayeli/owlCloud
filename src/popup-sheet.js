@@ -1,5 +1,37 @@
 console.log('✅ Popup HTML loaded');
 
+// Initialize theme manager
+if (typeof ThemeManager !== 'undefined') {
+  ThemeManager.init().then(() => {
+    console.log('🎨 Theme system initialized');
+
+    // Set up theme button click handlers
+    document.addEventListener('DOMContentLoaded', () => {
+      const themeButtons = document.querySelectorAll('.theme-btn');
+      themeButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const theme = btn.dataset.theme;
+          ThemeManager.setTheme(theme);
+
+          // Update active state
+          themeButtons.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+        });
+      });
+
+      // Set initial active button based on current theme
+      const currentTheme = ThemeManager.getCurrentTheme();
+      const activeBtn = document.querySelector(`[data-theme="${currentTheme}"]`);
+      if (activeBtn) {
+        themeButtons.forEach(b => b.classList.remove('active'));
+        activeBtn.classList.add('active');
+      }
+    });
+  });
+} else {
+  console.warn('⚠️ ThemeManager not available');
+}
+
 // Store character data globally so we can update it
 let characterData = null;
 
