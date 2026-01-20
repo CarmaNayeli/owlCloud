@@ -406,21 +406,59 @@ If dice rolls aren't being forwarded from DiceCloud to Roll20:
 
 ## Future Enhancements
 
-### Planned
-- [ ] Improved roll detection (more robust parsing)
-- [ ] Support for advantage/disadvantage rolls
-- [ ] Critical hit detection and highlighting
-- [ ] Roll type detection (attack, skill check, save, etc.)
-- [ ] Custom roll formatting options
+### Recently Completed ✅
+- [x] Support for advantage/disadvantage rolls (Roll Settings Panel in overlay)
+- [x] Roll type detection (attack, skill check, save, spell casting)
+- [x] Roll history and statistics (Statistics Panel with total/average/crits, History Panel with last 20 rolls)
+- [x] Critical hit detection (tracked in Roll Statistics Panel)
+- [x] Firefox support (Manifest V2 compatibility)
+
+### High Priority
+- [ ] **Long/Short Rest Buttons** - Auto-restore HP, spell slots, hit dice, and resources
+- [ ] **Concentration Monitor** - Track active concentration spells with save prompts
+- [ ] **Temporary HP Manager** - Track temp HP separately from regular HP
+- [ ] **Multiple Character Profiles** - Quick-switch between characters without re-syncing
+- [ ] **Hotkey System** - Keyboard shortcuts for common rolls and actions
+- [ ] **Initiative Auto-Roller** - Roll initiative for all party members at once
+- [ ] **Custom Roll Macros** - Create and save frequently-used custom rolls
+
+### Combat & Resources
+- [ ] **Action Economy Tracker** - Track action/bonus action/reaction usage per turn
+- [ ] **Condition/Buff Manager** - Apply and track conditions (blessed, poisoned, hasted, etc.)
+- [ ] **Death Save Counter** - Visual death save tracker with auto-reset on healing
+- [ ] **Ammunition Tracker** - Track arrows, bolts with auto-decrement on attacks
+- [ ] **Consumable Manager** - Quick-use buttons for potions, scrolls, etc.
+- [ ] **Attunement Tracker** - Track attuned magic items (3-item limit)
+
+### Spell Enhancements
+- [ ] **Spell Slot Visual Upgrade** - Extend visual spell slot manager to all levels (currently 1-3)
+- [ ] **Upcasting Calculator** - Auto-calculate damage when casting at higher levels
+- [ ] **Spell Preparation Manager** - Track prepared vs. known spells
+- [ ] **Ritual Casting Indicator** - Mark spells that can be cast as rituals
+- [ ] **Concentration Warning** - Alert when casting new concentration spell
+
+### Quality of Life
+- [ ] **Improved roll detection** - More robust parsing for DiceCloud UI changes
+- [ ] **Overlay Resize/Collapse** - Minimize sections or entire overlay for space
+- [ ] **Custom Roll Formatting** - Different Roll20 template support and custom formats
+- [ ] **Import/Export Settings** - Backup and restore extension configuration
+- [ ] **Dark Theme Improvements** - Enhanced dark mode with custom color schemes
+
+### Advanced Features
+- [ ] **Bi-directional Sync** - Update Dice Cloud from Roll20 HP/resource changes
+- [ ] **Party HP Overview** - See all party members' HP in one view
+- [ ] **Extended Analytics** - Success rates by roll type, damage-per-round calculations
+- [ ] **Character Comparison** - Side-by-side stats for multiple characters
+- [ ] **Campaign Journal** - Track session summaries and key moments
+- [ ] **Quest Tracker** - Track active quests and objectives
 
 ### Under Consideration
-- [x] Firefox support (Manifest V2 compatibility) ✅ **COMPLETED**
-- [ ] Support for different Roll20 character sheet templates
-- [ ] Bi-directional sync (Roll20 → Dice Cloud)
-- [ ] Multiple character profiles
-- [ ] Custom field mapping
-- [ ] Import/export character data as JSON
-- [ ] Roll history and statistics
+- [ ] Support for different Roll20 character sheet templates (Pathfinder, etc.)
+- [ ] Custom field mapping for non-standard sheets
+- [ ] D&D Beyond integration (similar to Beyond20)
+- [ ] Foundry VTT support
+- [ ] Voice commands for rolling
+- [ ] Mobile-friendly overlay for tablet use
 
 ## Contributing
 
