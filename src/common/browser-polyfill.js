@@ -25,23 +25,49 @@ if (typeof browser !== 'undefined' && browser.runtime) {
       sendMessage: (message, callback) => {
         // If callback is provided, use callback-based API
         if (typeof callback === 'function') {
-          chrome.runtime.sendMessage(message, callback);
+          try {
+            chrome.runtime.sendMessage(message, callback);
+          } catch (error) {
+            // Handle "Extension context invalidated" error in Chrome
+            console.error('❌ Extension context error:', error.message);
+            callback(null);
+          }
           return;
         }
         // Otherwise return a Promise
         return new Promise((resolve, reject) => {
-          chrome.runtime.sendMessage(message, (response) => {
-            if (chrome.runtime.lastError) {
-              reject(new Error(chrome.runtime.lastError.message));
-            } else {
-              resolve(response);
-            }
-          });
+          try {
+            chrome.runtime.sendMessage(message, (response) => {
+              if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+              } else {
+                resolve(response);
+              }
+            });
+          } catch (error) {
+            // Handle "Extension context invalidated" error in Chrome
+            console.error('❌ Extension context error:', error.message);
+            reject(error);
+          }
         });
       },
       onMessage: chrome.runtime.onMessage,
-      getURL: chrome.runtime.getURL,
-      id: chrome.runtime.id,
+      getURL: (path) => {
+        try {
+          return chrome.runtime.getURL(path);
+        } catch (error) {
+          console.error('❌ Extension context error:', error.message);
+          return null;
+        }
+      },
+      get id() {
+        try {
+          return chrome.runtime.id;
+        } catch (error) {
+          console.error('❌ Extension context error:', error.message);
+          return null;
+        }
+      },
       get lastError() {
         return chrome.runtime.lastError;
       }
@@ -109,18 +135,30 @@ if (typeof browser !== 'undefined' && browser.runtime) {
       sendMessage: (tabId, message, callback) => {
         // If callback is provided, use callback-based API
         if (typeof callback === 'function') {
-          chrome.tabs.sendMessage(tabId, message, callback);
+          try {
+            chrome.tabs.sendMessage(tabId, message, callback);
+          } catch (error) {
+            // Handle "Extension context invalidated" error in Chrome
+            console.error('❌ Extension context error:', error.message);
+            callback(null);
+          }
           return;
         }
         // Otherwise return a Promise
         return new Promise((resolve, reject) => {
-          chrome.tabs.sendMessage(tabId, message, (response) => {
-            if (chrome.runtime.lastError) {
-              reject(new Error(chrome.runtime.lastError.message));
-            } else {
-              resolve(response);
-            }
-          });
+          try {
+            chrome.tabs.sendMessage(tabId, message, (response) => {
+              if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+              } else {
+                resolve(response);
+              }
+            });
+          } catch (error) {
+            // Handle "Extension context invalidated" error in Chrome
+            console.error('❌ Extension context error:', error.message);
+            reject(error);
+          }
         });
       },
       create: (createProperties) => {
