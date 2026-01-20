@@ -3,7 +3,12 @@
  * Handles data storage, API authentication, and communication between Dice Cloud and Roll20
  */
 
-console.log('RollCloud: Background script starting...');
+// Import debug utility for Chrome service workers
+if (typeof importScripts === 'function') {
+  importScripts('common/debug.js');
+}
+
+debug.log('RollCloud: Background script starting...');
 
 // Detect browser and use appropriate API
 // For Firefox, use the native Promise-based 'browser' API
@@ -12,13 +17,13 @@ const browserAPI = (typeof browser !== 'undefined' && browser.runtime) ? browser
 
 // Detect which browser we're running on
 const isFirefox = typeof browser !== 'undefined';
-console.log('RollCloud: Background script initialized on', isFirefox ? 'Firefox' : 'Chrome');
+debug.log('RollCloud: Background script initialized on', isFirefox ? 'Firefox' : 'Chrome');
 
 const API_BASE = 'https://dicecloud.com/api';
 
 // Listen for messages from content scripts and popup
 browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log('Background received message:', request);
+  debug.log('Background received message:', request);
 
   // Handle async operations and call sendResponse when done
   // This pattern keeps the message port open until sendResponse is called
@@ -77,20 +82,20 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
           break;
 
         case 'relayRollToRoll20':
-          console.log('📡 Relaying roll from popup to Roll20:', request.roll);
+          debug.log('📡 Relaying roll from popup to Roll20:', request.roll);
           await sendRollToAllRoll20Tabs(request.roll);
-          console.log('✅ Roll relayed successfully');
+          debug.log('✅ Roll relayed successfully');
           response = { success: true };
           break;
 
         default:
-          console.warn('Unknown action:', request.action);
+          debug.warn('Unknown action:', request.action);
           response = { success: false, error: 'Unknown action' };
       }
 
       sendResponse(response);
     } catch (error) {
-      console.error('Error handling message:', error);
+      debug.error('Error handling message:', error);
       sendResponse({ success: false, error: error.message });
     }
   })();
@@ -130,10 +135,10 @@ async function loginToDiceCloud(username, password) {
       username: username
     });
 
-    console.log('Successfully logged in to DiceCloud');
+    debug.log('Successfully logged in to DiceCloud');
     return data;
   } catch (error) {
-    console.error('Failed to login to DiceCloud:', error);
+    debug.error('Failed to login to DiceCloud:', error);
     throw error;
   }
 }
@@ -154,7 +159,7 @@ async function getApiToken() {
       const expiryDate = new Date(result.tokenExpires);
       const now = new Date();
       if (now >= expiryDate) {
-        console.warn('API token has expired');
+        debug.warn('API token has expired');
         await logout();
         return null;
       }
@@ -162,7 +167,7 @@ async function getApiToken() {
 
     return result.diceCloudToken;
   } catch (error) {
-    console.error('Failed to retrieve API token:', error);
+    debug.error('Failed to retrieve API token:', error);
     throw error;
   }
 }
@@ -194,7 +199,7 @@ async function checkLoginStatus() {
       tokenExpires: result.tokenExpires
     };
   } catch (error) {
-    console.error('Failed to check login status:', error);
+    debug.error('Failed to check login status:', error);
     throw error;
   }
 }
@@ -205,9 +210,9 @@ async function checkLoginStatus() {
 async function logout() {
   try {
     await browserAPI.storage.local.remove(['diceCloudToken', 'diceCloudUserId', 'tokenExpires', 'username']);
-    console.log('Logged out successfully');
+    debug.log('Logged out successfully');
   } catch (error) {
-    console.error('Failed to logout:', error);
+    debug.error('Failed to logout:', error);
     throw error;
   }
 }
@@ -221,9 +226,9 @@ async function storeCharacterData(characterData) {
       characterData: characterData,
       timestamp: Date.now()
     });
-    console.log('Character data stored successfully:', characterData);
+    debug.log('Character data stored successfully:', characterData);
   } catch (error) {
-    console.error('Failed to store character data:', error);
+    debug.error('Failed to store character data:', error);
     throw error;
   }
 }
@@ -235,12 +240,12 @@ async function getCharacterData() {
   try {
     const result = await browserAPI.storage.local.get(['characterData', 'timestamp']);
     if (result.characterData) {
-      console.log('Retrieved character data:', result.characterData);
+      debug.log('Retrieved character data:', result.characterData);
       return result.characterData;
     }
     return null;
   } catch (error) {
-    console.error('Failed to retrieve character data:', error);
+    debug.error('Failed to retrieve character data:', error);
     throw error;
   }
 }
@@ -251,9 +256,9 @@ async function getCharacterData() {
 async function clearCharacterData() {
   try {
     await browserAPI.storage.local.remove(['characterData', 'timestamp']);
-    console.log('Character data cleared successfully');
+    debug.log('Character data cleared successfully');
   } catch (error) {
-    console.error('Failed to clear character data:', error);
+    debug.error('Failed to clear character data:', error);
     throw error;
   }
 }
@@ -281,10 +286,10 @@ async function rollInDiceCloudAndForward(rollData) {
       throw new Error('Failed to roll in Dice Cloud');
     }
 
-    console.log(' Roll initiated in Dice Cloud, will be forwarded automatically');
+    debug.log(' Roll initiated in Dice Cloud, will be forwarded automatically');
     return response;
   } catch (error) {
-    console.error('Failed to roll in Dice Cloud:', error);
+    debug.error('Failed to roll in Dice Cloud:', error);
     throw error;
   }
 }
@@ -298,7 +303,7 @@ async function sendRollToAllRoll20Tabs(rollData) {
     const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
 
     if (tabs.length === 0) {
-      console.warn('No Roll20 tabs found');
+      debug.warn('No Roll20 tabs found');
       return;
     }
 
@@ -311,9 +316,9 @@ async function sendRollToAllRoll20Tabs(rollData) {
     });
 
     await Promise.all(promises);
-    console.log(`Roll sent to ${tabs.length} Roll20 tab(s)`);
+    debug.log(`Roll sent to ${tabs.length} Roll20 tab(s)`);
   } catch (error) {
-    console.error('Failed to send roll to Roll20 tabs:', error);
+    debug.error('Failed to send roll to Roll20 tabs:', error);
     throw error;
   }
 }
@@ -323,8 +328,8 @@ async function sendRollToAllRoll20Tabs(rollData) {
  */
 browserAPI.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'install') {
-    console.log('Extension installed');
+    debug.log('Extension installed');
   } else if (details.reason === 'update') {
-    console.log('Extension updated to version', browserAPI.runtime.getManifest().version);
+    debug.log('Extension updated to version', browserAPI.runtime.getManifest().version);
   }
 });

@@ -4,39 +4,133 @@
   <title>RollCloud Character Sheet</title>
   <meta charset="UTF-8">
   <style>
+    /* CSS Variables for Theming */
+    :root {
+      /* Light theme (default) */
+      --bg-primary: #f5f5f5;
+      --bg-secondary: #ffffff;
+      --bg-tertiary: #f0f0f0;
+      --bg-card: #f0fff4;
+      --bg-card-hover: #e8f5e8;
+      --bg-spell: #fff3cd;
+      --bg-action: #e3f2fd;
+      --bg-resource: #f3e5f5;
+      --bg-feature: #fef5e7;
+
+      --text-primary: #2C3E50;
+      --text-secondary: #666666;
+      --text-muted: #999999;
+      --text-inverse: #ffffff;
+
+      --border-color: #ddd;
+      --border-card: #2D8B83;
+      --border-spell: #f39c12;
+      --border-action: #2196f3;
+
+      --accent-primary: #2D8B83;
+      --accent-success: #27ae60;
+      --accent-danger: #E74C3C;
+      --accent-warning: #f39c12;
+      --accent-info: #2196f3;
+
+      --shadow: rgba(0,0,0,0.1);
+      --shadow-hover: rgba(0,0,0,0.15);
+    }
+
+    /* Dark theme */
+    html.theme-dark,
+    html[data-theme="dark"] {
+      --bg-primary: #1a1a1a;
+      --bg-secondary: #2d2d2d;
+      --bg-tertiary: #3a3a3a;
+      --bg-card: #1e3a33;
+      --bg-card-hover: #2a4940;
+      --bg-spell: #3d3520;
+      --bg-action: #1e2f3d;
+      --bg-resource: #2e1f33;
+      --bg-feature: #3d3620;
+
+      --text-primary: #e0e0e0;
+      --text-secondary: #b0b0b0;
+      --text-muted: #808080;
+      --text-inverse: #1a1a1a;
+
+      --border-color: #444;
+      --border-card: #3ea895;
+      --border-spell: #f5a623;
+      --border-action: #42a5f5;
+
+      --accent-primary: #3ea895;
+      --accent-success: #2ecc71;
+      --accent-danger: #e74c3c;
+      --accent-warning: #f5a623;
+      --accent-info: #42a5f5;
+
+      --shadow: rgba(0,0,0,0.3);
+      --shadow-hover: rgba(0,0,0,0.4);
+    }
+
     body {
       font-family: Arial, sans-serif;
       margin: 20px;
-      background: #f5f5f5;
+      background: var(--bg-primary);
+      color: var(--text-primary);
     }
     .container {
       max-width: 800px;
       margin: 0 auto;
-      background: white;
+      background: var(--bg-secondary);
       padding: 20px;
       border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 10px var(--shadow);
     }
     .header {
       text-align: center;
       margin-bottom: 20px;
       padding-bottom: 10px;
-      border-bottom: 2px solid #2D8B83;
+      border-bottom: 2px solid var(--accent-primary);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
     .close-btn {
-      float: right;
-      background: #E74C3C;
-      color: white;
+      background: var(--accent-danger);
+      color: var(--text-inverse);
       border: none;
       padding: 5px 10px;
       border-radius: 4px;
       cursor: pointer;
     }
+    .theme-switcher {
+      display: flex;
+      gap: 5px;
+      align-items: center;
+    }
+    .theme-btn {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.85em;
+      transition: all 0.2s;
+    }
+    .theme-btn:hover {
+      background: var(--accent-primary);
+      color: var(--text-inverse);
+      border-color: var(--accent-primary);
+    }
+    .theme-btn.active {
+      background: var(--accent-primary);
+      color: var(--text-inverse);
+      border-color: var(--accent-primary);
+    }
     .section {
       margin-bottom: 25px;
     }
     .section h3 {
-      color: #2C3E50;
+      color: var(--text-primary);
       margin-bottom: 10px;
       cursor: pointer;
       user-select: none;
@@ -48,7 +142,7 @@
       transition: background 0.2s;
     }
     .section h3:hover {
-      background: #f0f0f0;
+      background: var(--bg-tertiary);
     }
     .section h3::after {
       content: '▼';
@@ -74,8 +168,8 @@
       gap: 10px;
     }
     .card {
-      background: #f0fff4;
-      border: 1px solid #2D8B83;
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
       border-radius: 4px;
       padding: 15px;
       text-align: center;
@@ -87,16 +181,17 @@
       font-size: 0.95em;
     }
     .card:hover {
-      background: #e8f5e8;
+      background: var(--bg-card-hover);
       transform: translateY(-2px);
+      box-shadow: 0 4px 8px var(--shadow-hover);
     }
     .bonus {
-      color: #2D8B83;
+      color: var(--accent-primary);
       font-weight: bold;
     }
     .spell-card {
-      background: #fff3cd;
-      border: 1px solid #f39c12;
+      background: var(--bg-spell);
+      border: 1px solid var(--border-spell);
       margin-bottom: 10px;
       padding: 10px;
       border-radius: 4px;
@@ -108,7 +203,7 @@
       padding: 5px;
     }
     .spell-header:hover {
-      background: #fef5e7;
+      background: var(--bg-feature);
     }
     .spell-description {
       display: none;
@@ -129,14 +224,14 @@
       max-height: 300px;
       overflow-y: auto;
       font-size: 0.9em;
-      color: #666;
+      color: var(--text-secondary);
     }
     .action-description.expanded {
       display: block;
     }
     .toggle-btn {
-      background: #2D8B83;
-      color: white;
+      background: var(--accent-primary);
+      color: var(--text-inverse);
       border: none;
       padding: 3px 8px;
       border-radius: 3px;
@@ -329,9 +424,17 @@
 </head>
 <body>
   <div class="container">
-    <button class="close-btn" id="close-btn">✕ Close</button>
     <div class="header">
-      <h2 id="char-name">🎲 Character Sheet</h2>
+      <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 15px;">
+        <div class="theme-switcher">
+          <span style="font-size: 0.85em; color: var(--text-secondary); margin-right: 5px;">Theme:</span>
+          <button class="theme-btn" id="theme-light" data-theme="light">☀️ Light</button>
+          <button class="theme-btn" id="theme-dark" data-theme="dark">🌙 Dark</button>
+          <button class="theme-btn active" id="theme-system" data-theme="system">💻 Auto</button>
+        </div>
+        <button class="close-btn" id="close-btn">✕ Close</button>
+      </div>
+      <h2 id="char-name" style="text-align: center;">🎲 Character Sheet</h2>
       <div id="char-info"></div>
       <div class="rest-buttons">
         <button class="rest-btn short" id="short-rest-btn">☕ Short Rest</button>
@@ -397,6 +500,8 @@
   </div>
 
   <script src="common/browser-polyfill.js"></script>
+  <script src="common/debug.js"></script>
+  <script src="common/theme-manager.js"></script>
   <script src="popup-sheet.js"></script>
 </body>
 </html>
