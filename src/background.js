@@ -16,110 +16,78 @@ const API_BASE = 'https://dicecloud.com/api';
 browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('Background received message:', request);
 
-  // MV3 requires returning a Promise instead of using sendResponse + return true
-  // Handle the request and return a Promise
-  const handleRequest = async () => {
-    switch (request.action) {
-      case 'storeCharacterData':
-        try {
+  // Use an async IIFE and call sendResponse for both MV2/MV3 compatibility
+  (async () => {
+    try {
+      let response;
+
+      switch (request.action) {
+        case 'storeCharacterData':
           await storeCharacterData(request.data);
-          return { success: true };
-        } catch (error) {
-          console.error('Error storing character data:', error);
-          return { success: false, error: error.message };
-        }
+          response = { success: true };
+          break;
 
-      case 'getCharacterData':
-        try {
+        case 'getCharacterData':
           const data = await getCharacterData();
-          return { success: true, data };
-        } catch (error) {
-          console.error('Error retrieving character data:', error);
-          return { success: false, error: error.message };
-        }
+          response = { success: true, data };
+          break;
 
-      case 'clearCharacterData':
-        try {
+        case 'clearCharacterData':
           await clearCharacterData();
-          return { success: true };
-        } catch (error) {
-          console.error('Error clearing character data:', error);
-          return { success: false, error: error.message };
-        }
+          response = { success: true };
+          break;
 
-      case 'loginToDiceCloud':
-        try {
+        case 'loginToDiceCloud':
           const authData = await loginToDiceCloud(request.username, request.password);
-          return { success: true, authData };
-        } catch (error) {
-          console.error('Error logging in to DiceCloud:', error);
-          return { success: false, error: error.message };
-        }
+          response = { success: true, authData };
+          break;
 
-      case 'getApiToken':
-        try {
+        case 'getApiToken':
           const token = await getApiToken();
-          return { success: true, token };
-        } catch (error) {
-          console.error('Error retrieving API token:', error);
-          return { success: false, error: error.message };
-        }
+          response = { success: true, token };
+          break;
 
-      case 'logout':
-        try {
+        case 'logout':
           await logout();
-          return { success: true };
-        } catch (error) {
-          console.error('Error logging out:', error);
-          return { success: false, error: error.message };
-        }
+          response = { success: true };
+          break;
 
-      case 'checkLoginStatus':
-        try {
+        case 'checkLoginStatus':
           const status = await checkLoginStatus();
-          return { success: true, ...status };
-        } catch (error) {
-          console.error('Error checking login status:', error);
-          return { success: false, error: error.message };
-        }
+          response = { success: true, ...status };
+          break;
 
-      case 'rollInDiceCloudAndForward':
-        try {
+        case 'rollInDiceCloudAndForward':
           await rollInDiceCloudAndForward(request.roll);
-          return { success: true };
-        } catch (error) {
-          console.error('Error rolling in Dice Cloud and forwarding:', error);
-          return { success: false, error: error.message };
-        }
+          response = { success: true };
+          break;
 
-      case 'sendRollToRoll20':
-        try {
+        case 'sendRollToRoll20':
           await sendRollToAllRoll20Tabs(request.roll);
-          return { success: true };
-        } catch (error) {
-          console.error('Error sending roll to Roll20:', error);
-          return { success: false, error: error.message };
-        }
+          response = { success: true };
+          break;
 
-      case 'relayRollToRoll20':
-        try {
+        case 'relayRollToRoll20':
           console.log('📡 Relaying roll from popup to Roll20:', request.roll);
           await sendRollToAllRoll20Tabs(request.roll);
           console.log('✅ Roll relayed successfully');
-          return { success: true };
-        } catch (error) {
-          console.error('❌ Error relaying roll to Roll20:', error);
-          return { success: false, error: error.message };
-        }
+          response = { success: true };
+          break;
 
-      default:
-        console.warn('Unknown action:', request.action);
-        return { success: false, error: 'Unknown action' };
+        default:
+          console.warn('Unknown action:', request.action);
+          response = { success: false, error: 'Unknown action' };
+      }
+
+      sendResponse(response);
+    } catch (error) {
+      console.error('Error handling message:', error);
+      sendResponse({ success: false, error: error.message });
     }
-  };
+  })();
 
-  // Return the Promise for MV3 compatibility
-  return handleRequest();
+  // Return true to indicate async response
+  return true;
 });
 
 /**
