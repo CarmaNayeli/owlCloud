@@ -18,7 +18,9 @@ const browserAPI = (typeof self !== 'undefined' && typeof self.browserAPI !== 'u
   ? self.browserAPI
   : (typeof browser !== 'undefined' && browser.runtime ? browser : chrome);
 
-console.log('RollCloud: Background script initialized on', browserAPI === browser ? 'Firefox' : 'Chrome');
+// Detect which browser we're running on
+const isFirefox = typeof browser !== 'undefined' && browserAPI === browser;
+console.log('RollCloud: Background script initialized on', isFirefox ? 'Firefox' : 'Chrome');
 
 const API_BASE = 'https://dicecloud.com/api';
 
@@ -26,78 +28,66 @@ const API_BASE = 'https://dicecloud.com/api';
 browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('Background received message:', request);
 
-  // Use an async IIFE and call sendResponse for both MV2/MV3 compatibility
-  (async () => {
+  // Handle the message asynchronously and return a Promise
+  // Chrome MV3 supports returning Promises directly from the listener
+  const handleMessage = async () => {
     try {
-      let response;
-
       switch (request.action) {
         case 'storeCharacterData':
           await storeCharacterData(request.data);
-          response = { success: true };
-          break;
+          return { success: true };
 
         case 'getCharacterData':
           const data = await getCharacterData();
-          response = { success: true, data };
-          break;
+          return { success: true, data };
 
         case 'clearCharacterData':
           await clearCharacterData();
-          response = { success: true };
-          break;
+          return { success: true };
 
         case 'loginToDiceCloud':
           const authData = await loginToDiceCloud(request.username, request.password);
-          response = { success: true, authData };
-          break;
+          return { success: true, authData };
 
         case 'getApiToken':
           const token = await getApiToken();
-          response = { success: true, token };
-          break;
+          return { success: true, token };
 
         case 'logout':
           await logout();
-          response = { success: true };
-          break;
+          return { success: true };
 
         case 'checkLoginStatus':
           const status = await checkLoginStatus();
-          response = { success: true, ...status };
-          break;
+          return { success: true, ...status };
 
         case 'rollInDiceCloudAndForward':
           await rollInDiceCloudAndForward(request.roll);
-          response = { success: true };
-          break;
+          return { success: true };
 
         case 'sendRollToRoll20':
           await sendRollToAllRoll20Tabs(request.roll);
-          response = { success: true };
-          break;
+          return { success: true };
 
         case 'relayRollToRoll20':
           console.log('📡 Relaying roll from popup to Roll20:', request.roll);
           await sendRollToAllRoll20Tabs(request.roll);
           console.log('✅ Roll relayed successfully');
-          response = { success: true };
-          break;
+          return { success: true };
 
         default:
           console.warn('Unknown action:', request.action);
-          response = { success: false, error: 'Unknown action' };
+          return { success: false, error: 'Unknown action' };
       }
-
-      sendResponse(response);
     } catch (error) {
       console.error('Error handling message:', error);
-      sendResponse({ success: false, error: error.message });
+      return { success: false, error: error.message };
     }
-  })();
+  };
 
-  // Return true to indicate async response
-  return true;
+  // Return the Promise - Chrome MV3 will handle it correctly
+  // The polyfill ensures compatibility with both Chrome and Firefox
+  return handleMessage();
 });
 
 /**
