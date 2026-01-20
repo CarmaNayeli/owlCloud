@@ -1489,16 +1489,10 @@ function showDeathSavesModal() {
   });
 }
 
+// ===== CARD CREATION =====
+// Moved to modules/card-creator.js - using wrapper for compatibility
 function createCard(title, main, sub, onClick) {
-  const card = document.createElement('div');
-  card.className = 'card';
-  card.innerHTML = `
-    <strong>${title}</strong><br>
-    <span class="bonus">${main}</span><br>
-    ${sub ? `<span class="bonus">${sub}</span>` : ''}
-  `;
-  card.addEventListener('click', onClick);
-  return card;
+  return window.CardCreator.createCard(title, main, sub, onClick);
 }
 
 function createSpellCard(spell, index) {
@@ -2030,45 +2024,18 @@ function useClassResource(resource, spell) {
   return true;
 }
 
+// ===== COLOR UTILITIES =====
+// Moved to modules/color-utils.js - using wrapper functions for compatibility
 function getColorEmoji(color) {
-  const colorEmojiMap = {
-    '#3498db': '🔵', // Blue
-    '#e74c3c': '🔴', // Red
-    '#27ae60': '🟢', // Green
-    '#9b59b6': '🟣', // Purple
-    '#e67e22': '🟠', // Orange
-    '#1abc9c': '🔷', // Teal/Cyan
-    '#e91e63': '🩷', // Pink
-    '#f1c40f': '🟡', // Yellow
-    '#95a5a6': '⚪', // Grey
-    '#34495e': '⚫', // Black
-    '#8b4513': '🟤'  // Brown
-  };
-  return colorEmojiMap[color] || '🔵';
+  return window.ColorUtils.getColorEmoji(color);
 }
 
 function getColoredBanner() {
-  // Get the character's notification color
-  const color = characterData.notificationColor || '#3498db';
-  const emoji = getColorEmoji(color);
-  return `${emoji} `;
+  return window.ColorUtils.getColoredBanner(characterData);
 }
 
 function getColorName(hexColor) {
-  const colorMap = {
-    '#3498db': 'Blue',
-    '#e74c3c': 'Red',
-    '#27ae60': 'Green',
-    '#9b59b6': 'Purple',
-    '#e67e22': 'Orange',
-    '#1abc9c': 'Teal',
-    '#e91e63': 'Pink',
-    '#f1c40f': 'Yellow',
-    '#95a5a6': 'Grey',
-    '#34495e': 'Black',
-    '#8b4513': 'Brown'
-  };
-  return colorMap[hexColor] || 'Blue';
+  return window.ColorUtils.getColorName(hexColor);
 }
 
 function announceSpellCast(spell, resourceUsed) {
