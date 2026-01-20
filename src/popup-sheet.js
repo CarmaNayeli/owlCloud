@@ -1667,10 +1667,13 @@ function showUpcastChoice(spell, originalLevel) {
       const disabledStyle = !canAfford ? 'opacity: 0.5; cursor: not-allowed;' : '';
 
       dropdownHTML += `
-          <label style="display: flex; align-items: center; padding: 10px; background: white; border-radius: 6px; cursor: pointer; ${disabledStyle}" title="${meta.description}">
-            <input type="checkbox" class="metamagic-option" data-name="${meta.name}" data-cost="${cost}" ${!canAfford ? 'disabled' : ''} style="margin-right: 10px; width: 18px; height: 18px; cursor: pointer;">
-            <span style="flex: 1; color: #2c3e50;">${meta.name}</span>
-            <span style="color: #9b59b6; font-weight: bold;">${cost} SP</span>
+          <label style="display: flex; flex-direction: column; padding: 10px; background: white; border-radius: 6px; cursor: pointer; ${disabledStyle}">
+            <div style="display: flex; align-items: center; width: 100%;">
+              <input type="checkbox" class="metamagic-option" data-name="${meta.name}" data-cost="${cost}" ${!canAfford ? 'disabled' : ''} style="margin-right: 10px; width: 18px; height: 18px; cursor: pointer;">
+              <span style="flex: 1; color: #2c3e50; font-weight: bold;">${meta.name}</span>
+              <span style="color: #9b59b6; font-weight: bold;">${cost} SP</span>
+            </div>
+            ${meta.description ? `<div style="margin-left: 28px; margin-top: 4px; font-size: 0.9em; color: #7f8c8d; line-height: 1.3;">${meta.description}</div>` : ''}
           </label>
       `;
     });
