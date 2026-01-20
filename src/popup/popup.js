@@ -61,6 +61,8 @@ function initializePopup() {
   // DOM Elements - Main Interface
   const usernameDisplay = document.getElementById('usernameDisplay');
   const logoutBtn = document.getElementById('logoutBtn');
+  const characterSelector = document.getElementById('characterSelector');
+  const characterSelect = document.getElementById('characterSelect');
   const statusIcon = document.getElementById('statusIcon');
   const statusText = document.getElementById('statusText');
   const characterInfo = document.getElementById('characterInfo');
@@ -80,6 +82,7 @@ function initializePopup() {
 
   // Event Listeners - Main Interface
   logoutBtn.addEventListener('click', handleLogout);
+  characterSelect.addEventListener('change', handleCharacterChange);
   syncBtn.addEventListener('click', handleSync);
   showSheetBtn.addEventListener('click', handleShowSheet);
   clearBtn.addEventListener('click', handleClear);
@@ -191,19 +194,76 @@ function initializePopup() {
   }
 
   /**
-   * Loads character data from storage and updates UI
+   * Loads all character profiles and populates dropdown
    */
   async function loadCharacterData() {
     try {
-      const response = await browserAPI.runtime.sendMessage({ action: 'getCharacterData' });
-      if (response.success && response.data) {
-        displayCharacterData(response.data);
+      // Get all character profiles
+      const profilesResponse = await browserAPI.runtime.sendMessage({ action: 'getAllCharacterProfiles' });
+      const profiles = profilesResponse.success ? profilesResponse.profiles : {};
+
+      // Get the active character
+      const activeResponse = await browserAPI.runtime.sendMessage({ action: 'getCharacterData' });
+      const activeCharacter = activeResponse.success ? activeResponse.data : null;
+
+      // Populate character dropdown
+      const characterIds = Object.keys(profiles);
+      if (characterIds.length > 0) {
+        characterSelect.innerHTML = '';
+        characterIds.forEach(id => {
+          const char = profiles[id];
+          const option = document.createElement('option');
+          option.value = id;
+          option.textContent = `${char.name || 'Unknown'} (${char.class || 'No Class'} ${char.level || '?'})`;
+          if (activeCharacter && (char.characterId === activeCharacter.characterId || char._id === activeCharacter._id || id === (activeCharacter.characterId || activeCharacter._id))) {
+            option.selected = true;
+          }
+          characterSelect.appendChild(option);
+        });
+
+        // Show character selector if there are multiple characters
+        if (characterIds.length > 1) {
+          characterSelector.classList.remove('hidden');
+        } else {
+          characterSelector.classList.add('hidden');
+        }
+      } else {
+        characterSelect.innerHTML = '<option value="">No characters synced</option>';
+        characterSelector.classList.add('hidden');
+      }
+
+      // Display active character data
+      if (activeCharacter) {
+        displayCharacterData(activeCharacter);
       } else {
         clearCharacterDisplay();
       }
     } catch (error) {
       console.error('Error loading character data:', error);
       clearCharacterDisplay();
+    }
+  }
+
+  /**
+   * Handles character selection change
+   */
+  async function handleCharacterChange() {
+    try {
+      const selectedId = characterSelect.value;
+      if (!selectedId) return;
+
+      // Set this character as active
+      await browserAPI.runtime.sendMessage({
+        action: 'setActiveCharacter',
+        characterId: selectedId
+      });
+
+      // Reload character data
+      await loadCharacterData();
+      showSuccess('Switched to selected character');
+    } catch (error) {
+      console.error('Error changing character:', error);
+      showError('Failed to switch character');
     }
   }
 
@@ -319,9 +379,25 @@ function initializePopup() {
   async function handleClear() {
     try {
       clearBtn.disabled = true;
-      await browserAPI.runtime.sendMessage({ action: 'clearCharacterData' });
-      clearCharacterDisplay();
-      showSuccess('Character data cleared');
+
+      // Get currently selected character ID
+      const selectedId = characterSelect.value;
+
+      if (selectedId) {
+        // Clear specific character
+        await browserAPI.runtime.sendMessage({
+          action: 'clearCharacterData',
+          characterId: selectedId
+        });
+        showSuccess('Character data cleared');
+      } else {
+        // Clear all if no character is selected
+        await browserAPI.runtime.sendMessage({ action: 'clearCharacterData' });
+        showSuccess('All character data cleared');
+      }
+
+      // Reload to update UI
+      await loadCharacterData();
     } catch (error) {
       console.error('Error clearing data:', error);
       showError('Error clearing data');

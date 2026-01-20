@@ -38,13 +38,24 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
           break;
 
         case 'getCharacterData': {
-          const data = await getCharacterData();
+          const data = await getCharacterData(request.characterId);
           response = { success: true, data };
           break;
         }
 
+        case 'getAllCharacterProfiles': {
+          const profiles = await getAllCharacterProfiles();
+          response = { success: true, profiles };
+          break;
+        }
+
+        case 'setActiveCharacter':
+          await setActiveCharacter(request.characterId);
+          response = { success: true };
+          break;
+
         case 'clearCharacterData':
-          await clearCharacterData();
+          await clearCharacterData(request.characterId);
           response = { success: true };
           break;
 
@@ -218,15 +229,30 @@ async function logout() {
 }
 
 /**
- * Stores character data in browserAPI.storage
+ * Stores character data in browserAPI.storage (supports multiple profiles)
  */
 async function storeCharacterData(characterData) {
   try {
+    // Get character ID from the data
+    const characterId = characterData.characterId || characterData._id || 'default';
+
+    // Get existing profiles
+    const result = await browserAPI.storage.local.get(['characterProfiles', 'activeCharacterId']);
+    const characterProfiles = result.characterProfiles || {};
+
+    // Store this character's data
+    characterProfiles[characterId] = characterData;
+
+    // Set active character to this one if none is set
+    const activeCharacterId = result.activeCharacterId || characterId;
+
     await browserAPI.storage.local.set({
-      characterData: characterData,
+      characterProfiles: characterProfiles,
+      activeCharacterId: activeCharacterId,
       timestamp: Date.now()
     });
-    debug.log('Character data stored successfully:', characterData);
+
+    debug.log(`Character data stored successfully for ID: ${characterId}`, characterData);
   } catch (error) {
     debug.error('Failed to store character data:', error);
     throw error;
@@ -235,14 +261,53 @@ async function storeCharacterData(characterData) {
 
 /**
  * Retrieves character data from browserAPI.storage
+ * If characterId is provided, returns that specific character
+ * Otherwise returns the active character
  */
-async function getCharacterData() {
+async function getCharacterData(characterId = null) {
   try {
-    const result = await browserAPI.storage.local.get(['characterData', 'timestamp']);
-    if (result.characterData) {
-      debug.log('Retrieved character data:', result.characterData);
+    const result = await browserAPI.storage.local.get(['characterProfiles', 'activeCharacterId', 'characterData']);
+
+    // Migration: if old single characterData exists, migrate it
+    if (result.characterData && !result.characterProfiles) {
+      debug.log('Migrating old single character data to profiles...');
+      const charId = result.characterData.characterId || result.characterData._id || 'default';
+      const characterProfiles = {};
+      characterProfiles[charId] = result.characterData;
+
+      await browserAPI.storage.local.set({
+        characterProfiles: characterProfiles,
+        activeCharacterId: charId
+      });
+
+      // Remove old storage
+      await browserAPI.storage.local.remove('characterData');
+
       return result.characterData;
     }
+
+    // Get character profiles
+    const characterProfiles = result.characterProfiles || {};
+
+    // If specific character ID requested, return it
+    if (characterId) {
+      return characterProfiles[characterId] || null;
+    }
+
+    // Otherwise return active character
+    const activeCharacterId = result.activeCharacterId;
+    if (activeCharacterId && characterProfiles[activeCharacterId]) {
+      debug.log('Retrieved active character data:', characterProfiles[activeCharacterId]);
+      return characterProfiles[activeCharacterId];
+    }
+
+    // Fallback: return first available character
+    const characterIds = Object.keys(characterProfiles);
+    if (characterIds.length > 0) {
+      debug.log('No active character, returning first available:', characterProfiles[characterIds[0]]);
+      return characterProfiles[characterIds[0]];
+    }
+
     return null;
   } catch (error) {
     debug.error('Failed to retrieve character data:', error);
@@ -251,12 +316,54 @@ async function getCharacterData() {
 }
 
 /**
- * Clears stored character data
+ * Gets all character profiles
  */
-async function clearCharacterData() {
+async function getAllCharacterProfiles() {
   try {
-    await browserAPI.storage.local.remove(['characterData', 'timestamp']);
-    debug.log('Character data cleared successfully');
+    const result = await browserAPI.storage.local.get(['characterProfiles']);
+    return result.characterProfiles || {};
+  } catch (error) {
+    debug.error('Failed to retrieve character profiles:', error);
+    throw error;
+  }
+}
+
+/**
+ * Sets the active character
+ */
+async function setActiveCharacter(characterId) {
+  try {
+    await browserAPI.storage.local.set({
+      activeCharacterId: characterId
+    });
+    debug.log(`Active character set to: ${characterId}`);
+  } catch (error) {
+    debug.error('Failed to set active character:', error);
+    throw error;
+  }
+}
+
+/**
+ * Clears stored character data (all profiles or specific profile)
+ */
+async function clearCharacterData(characterId = null) {
+  try {
+    if (characterId) {
+      // Clear specific character
+      const result = await browserAPI.storage.local.get(['characterProfiles']);
+      const characterProfiles = result.characterProfiles || {};
+      delete characterProfiles[characterId];
+
+      await browserAPI.storage.local.set({
+        characterProfiles: characterProfiles
+      });
+
+      debug.log(`Character profile cleared for ID: ${characterId}`);
+    } else {
+      // Clear all characters
+      await browserAPI.storage.local.remove(['characterProfiles', 'activeCharacterId', 'timestamp']);
+      debug.log('All character data cleared successfully');
+    }
   } catch (error) {
     debug.error('Failed to clear character data:', error);
     throw error;
