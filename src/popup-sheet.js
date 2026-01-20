@@ -512,7 +512,7 @@ function buildActionsDisplay(container, actions) {
     }
 
     // Damage button (if damage exists and is a valid dice formula)
-    const isValidDiceFormula = action.damage && /\dd/.test(action.damage); // Check for dice formula
+    const isValidDiceFormula = action.damage && (/\d+d/.test(action.damage) || /\d+d/.test(action.damage.replace(/\s*\+\s*/g, '+'))); // Check for dice formula
     if (isValidDiceFormula) {
       const damageBtn = document.createElement('button');
       damageBtn.className = 'damage-btn';
@@ -841,6 +841,10 @@ function buildCompanionsDisplay(companions) {
   container.innerHTML = '';
 
   companions.forEach(companion => {
+    console.log('🔍 DEBUG: Companion object in popup:', companion);
+    console.log('🔍 DEBUG: Companion abilities:', companion.abilities);
+    console.log('🔍 DEBUG: Companion abilities keys:', Object.keys(companion.abilities));
+
     const companionCard = document.createElement('div');
     companionCard.className = 'action-card';
     companionCard.style.background = '#e8f5e9';
@@ -941,7 +945,7 @@ function buildCompanionsDisplay(companions) {
         e.stopPropagation();
         const name = btn.dataset.name;
         const bonus = parseInt(btn.dataset.bonus);
-        roll(name, `1d20+${bonus}`);
+        roll(`${name} - Attack`, `1d20+${bonus}`);
       });
     });
 
@@ -950,7 +954,7 @@ function buildCompanionsDisplay(companions) {
         e.stopPropagation();
         const name = btn.dataset.name;
         const damage = btn.dataset.damage;
-        roll(name, damage);
+        roll(`${name} - Damage`, damage);
       });
     });
 
