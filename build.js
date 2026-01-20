@@ -13,6 +13,7 @@ const ROOT = __dirname;
 const DIST = path.join(ROOT, 'dist');
 const BUILD_CHROME = path.join(DIST, 'chrome');
 const BUILD_FIREFOX = path.join(DIST, 'firefox');
+const BUILD_SAFARI = path.join(DIST, 'safari');
 
 // Files and directories to include in the build
 const INCLUDE = [
@@ -46,6 +47,7 @@ if (fs.existsSync(DIST)) {
 fs.mkdirSync(DIST, { recursive: true });
 fs.mkdirSync(BUILD_CHROME, { recursive: true });
 fs.mkdirSync(BUILD_FIREFOX, { recursive: true });
+fs.mkdirSync(BUILD_SAFARI, { recursive: true });
 
 /**
  * Copy directory recursively
@@ -127,6 +129,36 @@ function buildFirefox() {
 }
 
 /**
+ * Build Safari package
+ */
+function buildSafari() {
+  console.log('📦 Building Safari package (Manifest V2)...');
+
+  // Copy included files
+  INCLUDE.forEach(item => {
+    const srcPath = path.join(ROOT, item);
+    const destPath = path.join(BUILD_SAFARI, item);
+
+    if (fs.existsSync(srcPath)) {
+      const stat = fs.statSync(srcPath);
+      if (stat.isDirectory()) {
+        copyDir(srcPath, destPath);
+      } else {
+        fs.copyFileSync(srcPath, destPath);
+      }
+    }
+  });
+
+  // Copy Safari-specific manifest (Manifest V2)
+  fs.copyFileSync(
+    path.join(ROOT, 'manifest_safari.json'),
+    path.join(BUILD_SAFARI, 'manifest.json')
+  );
+
+  console.log('   ✅ Safari package built to dist/safari/');
+}
+
+/**
  * Create zip archives
  */
 function createZips() {
@@ -146,12 +178,18 @@ function createZips() {
     execSync(`zip -r ../rollcloud-firefox.zip . -x "*.DS_Store"`, { stdio: 'inherit' });
     console.log('   ✅ Firefox zip: dist/rollcloud-firefox.zip');
 
+    // Create Safari zip
+    process.chdir(BUILD_SAFARI);
+    execSync(`zip -r ../rollcloud-safari.zip . -x "*.DS_Store"`, { stdio: 'inherit' });
+    console.log('   ✅ Safari zip: dist/rollcloud-safari.zip');
+
     process.chdir(ROOT);
   } catch (error) {
     console.log('   ⚠️  zip command not found, skipping zip creation');
     console.log('   📁 You can manually zip the directories:');
     console.log('      - dist/chrome/');
     console.log('      - dist/firefox/');
+    console.log('      - dist/safari/');
   }
 }
 
@@ -163,22 +201,26 @@ function showSummary() {
   console.log('📂 Output:');
   console.log('   Chrome (MV3):  dist/chrome/');
   console.log('   Firefox (MV2): dist/firefox/');
+  console.log('   Safari (MV2):  dist/safari/');
 
   if (fs.existsSync(path.join(DIST, 'rollcloud-chrome.zip'))) {
     console.log('\n📦 Zip files:');
     console.log('   dist/rollcloud-chrome.zip');
     console.log('   dist/rollcloud-firefox.zip');
+    console.log('   dist/rollcloud-safari.zip');
   }
 
   console.log('\n🚀 Next steps:');
   console.log('   Chrome:  chrome://extensions/ → Load unpacked → dist/chrome/');
   console.log('   Firefox: about:debugging → Load Temporary Add-on → dist/firefox/manifest.json');
+  console.log('   Safari:  See SAFARI.md for conversion and testing instructions');
 }
 
 // Run build
 try {
   buildChrome();
   buildFirefox();
+  buildSafari();
   createZips();
   showSummary();
 } catch (error) {
