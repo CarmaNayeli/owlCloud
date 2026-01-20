@@ -1656,9 +1656,12 @@ function showUpcastChoice(spell, originalLevel) {
   // Add metamagic options if available
   if (hasMetamagic) {
     dropdownHTML += `
-      <div style="margin-bottom: 25px; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 2px solid #9b59b6;">
-        <label style="display: block; margin-bottom: 10px; font-weight: bold; color: #9b59b6;">✨ Metamagic (Sorcery Points: ${sorceryPoints.current}/${sorceryPoints.max})</label>
-        <div id="metamagic-container" style="display: flex; flex-direction: column; gap: 8px;">
+      <div style="margin-bottom: 20px; padding: 12px; background: #f8f9fa; border-radius: 8px; border: 2px solid #9b59b6;">
+        <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; margin-bottom: 8px;" onclick="document.getElementById('metamagic-container').style.display = document.getElementById('metamagic-container').style.display === 'none' ? 'flex' : 'none'; this.querySelector('.toggle-arrow').textContent = document.getElementById('metamagic-container').style.display === 'none' ? '▶' : '▼';">
+          <label style="font-weight: bold; color: #9b59b6; cursor: pointer;">✨ Metamagic (Sorcery Points: ${sorceryPoints.current}/${sorceryPoints.max})</label>
+          <span class="toggle-arrow" style="color: #9b59b6; font-size: 0.8em;">▼</span>
+        </div>
+        <div id="metamagic-container" style="display: flex; flex-direction: column; gap: 6px;">
     `;
 
     metamagicOptions.forEach((meta, index) => {
@@ -1667,20 +1670,17 @@ function showUpcastChoice(spell, originalLevel) {
       const disabledStyle = !canAfford ? 'opacity: 0.5; cursor: not-allowed;' : '';
 
       dropdownHTML += `
-          <label style="display: flex; flex-direction: column; padding: 10px; background: white; border-radius: 6px; cursor: pointer; ${disabledStyle}">
-            <div style="display: flex; align-items: center; width: 100%;">
-              <input type="checkbox" class="metamagic-option" data-name="${meta.name}" data-cost="${cost}" ${!canAfford ? 'disabled' : ''} style="margin-right: 10px; width: 18px; height: 18px; cursor: pointer;">
-              <span style="flex: 1; color: #2c3e50; font-weight: bold;">${meta.name}</span>
-              <span style="color: #9b59b6; font-weight: bold;">${cost} SP</span>
-            </div>
-            ${meta.description ? `<div style="margin-left: 28px; margin-top: 4px; font-size: 0.9em; color: #7f8c8d; line-height: 1.3;">${meta.description}</div>` : ''}
+          <label style="display: flex; align-items: center; padding: 8px; background: white; border-radius: 4px; cursor: pointer; ${disabledStyle}" title="${meta.description || ''}">
+            <input type="checkbox" class="metamagic-option" data-name="${meta.name}" data-cost="${cost}" ${!canAfford ? 'disabled' : ''} style="margin-right: 8px; width: 16px; height: 16px; cursor: pointer; flex-shrink: 0;">
+            <span style="flex: 1; color: #2c3e50; font-size: 0.95em;">${meta.name}</span>
+            <span style="color: #9b59b6; font-weight: bold; font-size: 0.9em;">${cost} SP</span>
           </label>
       `;
     });
 
     dropdownHTML += `
         </div>
-        <div id="metamagic-cost" style="margin-top: 10px; text-align: right; font-weight: bold; color: #2c3e50;">Total Cost: 0 SP</div>
+        <div id="metamagic-cost" style="margin-top: 8px; text-align: right; font-weight: bold; color: #2c3e50; font-size: 0.9em;">Total Cost: 0 SP</div>
       </div>
     `;
   }
