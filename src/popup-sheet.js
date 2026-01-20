@@ -107,22 +107,26 @@ function buildSheet(data) {
   debug.log('📊 Character data received:', data);
   debug.log('✨ Spell slots data:', data.spellSlots);
 
-  // Character name and info with color picker
+  // Character name
   const charNameEl = document.getElementById('char-name');
+  charNameEl.textContent = data.name || 'Character';
+
+  // Update color picker emoji in systems bar
   const currentColorEmoji = getColorEmoji(data.notificationColor || '#3498db');
-  charNameEl.innerHTML = `
-    <div style="display: flex; align-items: center; justify-content: center; gap: 15px;">
-      <span>${data.name || 'Character'}</span>
-      <div style="display: flex; gap: 5px; align-items: center; position: relative;">
-        <button id="color-toggle" style="background: none; border: none; cursor: pointer; font-size: 1.2em; padding: 5px; display: flex; align-items: center; gap: 3px;" title="Change notification color">
-          ${currentColorEmoji} 🎨
-        </button>
-        <div id="color-palette" style="display: none; position: absolute; left: 100%; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.9); padding: 12px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 1000; grid-template-columns: repeat(4, 1fr); gap: 10px; width: 180px;">
-          ${createColorPalette(data.notificationColor || '#3498db')}
-        </div>
-      </div>
-    </div>
-  `;
+  const colorEmojiEl = document.getElementById('color-emoji');
+  if (colorEmojiEl) {
+    colorEmojiEl.textContent = currentColorEmoji;
+  }
+
+  // Populate color palette in systems bar
+  const colorPaletteEl = document.getElementById('color-palette');
+  if (colorPaletteEl) {
+    colorPaletteEl.innerHTML = createColorPalette(data.notificationColor || '#3498db');
+    colorPaletteEl.style.display = 'grid';
+    colorPaletteEl.style.gridTemplateColumns = 'repeat(4, 1fr)';
+    colorPaletteEl.style.gap = '10px';
+    colorPaletteEl.style.width = '180px';
+  }
 
   // Initialize hit dice if needed
   initializeHitDice();
@@ -182,51 +186,50 @@ function buildSheet(data) {
     }
   }
 
-  document.getElementById('char-info').innerHTML = `
-    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center; margin-bottom: 15px; color: var(--text-primary);">
-      <div><strong>Class:</strong> ${data.class || 'Unknown'}</div>
-      <div><strong>Level:</strong> ${data.level || 1}</div>
-      <div><strong>Race:</strong> ${raceName}</div>
-      <div><strong>Hit Dice:</strong> ${data.hitDice.current}/${data.hitDice.max} ${data.hitDice.type}</div>
-    </div>
-    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; text-align: center; margin-bottom: 15px;">
-      <div style="padding: 10px; background: var(--bg-tertiary); border-radius: 6px;">
-        <div style="font-size: 0.8em; color: var(--text-secondary); margin-bottom: 3px;">Armor Class</div>
-        <div style="font-size: 1.3em; font-weight: bold; color: var(--text-primary);">${data.armorClass || 10}</div>
-      </div>
-      <div style="padding: 10px; background: var(--bg-tertiary); border-radius: 6px;">
-        <div style="font-size: 0.8em; color: var(--text-secondary); margin-bottom: 3px;">Speed</div>
-        <div style="font-size: 1.3em; font-weight: bold; color: var(--text-primary);">${data.speed || 30} ft</div>
-      </div>
-      <div style="padding: 10px; background: var(--bg-tertiary); border-radius: 6px;">
-        <div style="font-size: 0.8em; color: var(--text-secondary); margin-bottom: 3px;">Proficiency</div>
-        <div style="font-size: 1.3em; font-weight: bold; color: var(--text-primary);">+${data.proficiencyBonus || 0}</div>
-      </div>
-      <div id="death-saves-display" style="padding: 10px; background: ${(data.deathSaves.successes > 0 || data.deathSaves.failures > 0) ? 'var(--bg-action)' : 'var(--bg-tertiary)'}; border-radius: 6px; cursor: pointer; transition: all 0.3s;">
-        <div style="font-size: 0.8em; color: var(--text-secondary); margin-bottom: 3px;">Death Saves</div>
-        <div style="font-size: 0.9em; font-weight: bold; color: var(--text-primary);">
-          <span style="color: var(--accent-success);">✓${data.deathSaves.successes || 0}</span> /
-          <span style="color: var(--accent-danger);">✗${data.deathSaves.failures || 0}</span>
-        </div>
-      </div>
-      <div id="inspiration-display" style="padding: 10px; background: ${data.inspiration ? '#fff9c4' : 'var(--bg-tertiary)'}; border-radius: 6px; cursor: pointer; transition: all 0.3s;">
-        <div style="font-size: 0.8em; color: var(--text-secondary); margin-bottom: 3px;">Inspiration</div>
-        <div style="font-size: 1.3em; font-weight: bold; color: ${data.inspiration ? '#f57f17' : 'var(--text-muted)'};">
-          ${data.inspiration ? '⭐ Active' : '☆ None'}
-        </div>
-      </div>
-    </div>
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; max-width: 600px; margin: 0 auto 15px auto;">
-      <div id="hp-display" style="padding: 15px 20px; background: var(--accent-danger); color: var(--text-inverse); border-radius: 8px; cursor: pointer; font-weight: bold; transition: all 0.2s; text-align: center;">
-        <div style="font-size: 0.8em; margin-bottom: 5px;">Hit Points</div>
-        <div style="font-size: 1.5em;">${data.hitPoints.current}${data.temporaryHP > 0 ? `+${data.temporaryHP}` : ''} / ${data.hitPoints.max}</div>
-      </div>
-      <div id="initiative-button" style="padding: 15px 20px; background: var(--accent-info); color: var(--text-inverse); border-radius: 8px; cursor: pointer; font-weight: bold; transition: all 0.2s; text-align: center;">
-        <div style="font-size: 0.8em; margin-bottom: 5px;">Initiative</div>
-        <div style="font-size: 1.5em;">+${data.initiative || 0}</div>
-      </div>
-    </div>
+  // Layer 1: Class, Level, Race, Hit Dice
+  document.getElementById('char-class').textContent = data.class || 'Unknown';
+  document.getElementById('char-level').textContent = data.level || 1;
+  document.getElementById('char-race').textContent = raceName;
+  document.getElementById('char-hit-dice').textContent = `${data.hitDice.current}/${data.hitDice.max} ${data.hitDice.type}`;
+
+  // Layer 2: AC, Speed, Proficiency, Death Saves, Inspiration
+  document.getElementById('char-ac').textContent = data.armorClass || 10;
+  document.getElementById('char-speed').textContent = `${data.speed || 30} ft`;
+  document.getElementById('char-proficiency').textContent = `+${data.proficiencyBonus || 0}`;
+
+  // Death Saves
+  const deathSavesDisplay = document.getElementById('death-saves-display');
+  const deathSavesValue = document.getElementById('death-saves-value');
+  deathSavesValue.innerHTML = `
+    <span style="color: var(--accent-success);">✓${data.deathSaves.successes || 0}</span> /
+    <span style="color: var(--accent-danger);">✗${data.deathSaves.failures || 0}</span>
   `;
+  if (data.deathSaves.successes > 0 || data.deathSaves.failures > 0) {
+    deathSavesDisplay.style.background = 'var(--bg-action)';
+  } else {
+    deathSavesDisplay.style.background = 'var(--bg-tertiary)';
+  }
+
+  // Inspiration
+  const inspirationDisplay = document.getElementById('inspiration-display');
+  const inspirationValue = document.getElementById('inspiration-value');
+  if (data.inspiration) {
+    inspirationValue.textContent = '⭐ Active';
+    inspirationValue.style.color = '#f57f17';
+    inspirationDisplay.style.background = '#fff9c4';
+  } else {
+    inspirationValue.textContent = '☆ None';
+    inspirationValue.style.color = 'var(--text-muted)';
+    inspirationDisplay.style.background = 'var(--bg-tertiary)';
+  }
+
+  // Layer 3: Hit Points
+  const hpValue = document.getElementById('hp-value');
+  hpValue.textContent = `${data.hitPoints.current}${data.temporaryHP > 0 ? `+${data.temporaryHP}` : ''} / ${data.hitPoints.max}`;
+
+  // Initiative
+  const initiativeValue = document.getElementById('initiative-value');
+  initiativeValue.textContent = `+${data.initiative || 0}`;
 
   // Add click handler for HP display
   document.getElementById('hp-display').addEventListener('click', showHPModal);
@@ -2905,7 +2908,10 @@ function initColorPalette() {
 
       // Update the toggle button emoji
       const newEmoji = getColorEmoji(newColor);
-      toggleBtn.innerHTML = `${newEmoji} 🎨`;
+      const colorEmojiEl = document.getElementById('color-emoji');
+      if (colorEmojiEl) {
+        colorEmojiEl.textContent = newEmoji;
+      }
 
       // Close the palette
       palette.style.display = 'none';
