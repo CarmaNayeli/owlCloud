@@ -981,6 +981,17 @@
               name.toLowerCase() === prop.name.toLowerCase()
             );
 
+            // If this is a metamagic action, add it to features (NOT actions)
+            if (isMetamagic) {
+              const metamagicFeature = {
+                name: prop.name,
+                description: description,
+                uses: prop.uses
+              };
+              characterData.features.push(metamagicFeature);
+              console.log(`🔮 Added metamagic action to features: ${prop.name}`);
+            }
+
             // Add action if it has attack roll OR if it's a non-attack action (bonus action, reaction, etc.)
             // BUT skip metamagic features (they're handled in spell casting UI)
             const validActionTypes = ['action', 'bonus', 'reaction', 'free', 'legendary', 'lair', 'other'];
