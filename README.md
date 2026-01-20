@@ -76,9 +76,24 @@ Download the pre-built extension for your browser:
 #### 🧭 Safari
 [Download RollCloud for Safari](../../releases/latest/download/rollcloud-safari.zip)
 
-1. Download the Safari version
-2. Extract the ZIP file
-3. See [SAFARI.md](SAFARI.md) for Safari-specific installation instructions
+**Prerequisites:**
+- macOS with Safari 14.0 or later
+- Xcode (download from Mac App Store)
+
+**Installation Steps:**
+
+1. Download and extract the Safari version
+2. Open Terminal and navigate to the extracted folder
+3. Convert to Safari App Extension:
+   ```bash
+   xcrun safari-web-extension-converter . --app-name RollCloud
+   ```
+4. Follow the prompts to create an Xcode project
+5. Open the generated Xcode project
+6. Build and run the project (⌘R)
+7. Enable the extension in Safari preferences
+
+For detailed instructions, troubleshooting, and distribution info, see [SAFARI.md](SAFARI.md)
 
 ---
 
