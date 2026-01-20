@@ -365,6 +365,9 @@
     // Track unique classes to avoid duplicates
     const uniqueClasses = new Set();
 
+    // Track unique resources to avoid duplicates (DiceCloud can have duplicate resource entries)
+    const uniqueResources = new Set();
+
     // Debug: Log all property types to see what's available
     const propertyTypes = new Set();
     let raceFound = false;
@@ -1095,8 +1098,17 @@
               resource.current = Math.max(0, baseValue - damageValue);
             }
 
-            characterData.resources.push(resource);
-            console.log(`💎 Added resource: ${resource.name} (${resource.current}/${resource.max})`);
+            // Use variableName or name as unique key (variableName is more reliable in DiceCloud)
+            const resourceKey = (prop.variableName || prop.name).toLowerCase();
+
+            // Only add if we haven't seen this resource before
+            if (!uniqueResources.has(resourceKey)) {
+              uniqueResources.add(resourceKey);
+              characterData.resources.push(resource);
+              console.log(`💎 Added resource: ${resource.name} (${resource.current}/${resource.max})`);
+            } else {
+              console.log(`  ⏭️  Skipping duplicate resource: ${resource.name}`);
+            }
           }
           break;
       }
