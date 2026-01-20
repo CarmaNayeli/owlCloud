@@ -183,45 +183,45 @@ function buildSheet(data) {
   }
 
   document.getElementById('char-info').innerHTML = `
-    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center; margin-bottom: 15px;">
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center; margin-bottom: 15px; color: var(--text-primary);">
       <div><strong>Class:</strong> ${data.class || 'Unknown'}</div>
       <div><strong>Level:</strong> ${data.level || 1}</div>
       <div><strong>Race:</strong> ${raceName}</div>
       <div><strong>Hit Dice:</strong> ${data.hitDice.current}/${data.hitDice.max} ${data.hitDice.type}</div>
     </div>
-    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center; margin-bottom: 15px;">
-      <div style="padding: 10px; background: #ecf0f1; border-radius: 6px;">
-        <div style="font-size: 0.8em; color: #666; margin-bottom: 3px;">Armor Class</div>
-        <div style="font-size: 1.3em; font-weight: bold; color: #2c3e50;">${data.armorClass || 10}</div>
+    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; text-align: center; margin-bottom: 15px;">
+      <div style="padding: 10px; background: var(--bg-tertiary); border-radius: 6px;">
+        <div style="font-size: 0.8em; color: var(--text-secondary); margin-bottom: 3px;">Armor Class</div>
+        <div style="font-size: 1.3em; font-weight: bold; color: var(--text-primary);">${data.armorClass || 10}</div>
       </div>
-      <div style="padding: 10px; background: #ecf0f1; border-radius: 6px;">
-        <div style="font-size: 0.8em; color: #666; margin-bottom: 3px;">Speed</div>
-        <div style="font-size: 1.3em; font-weight: bold; color: #2c3e50;">${data.speed || 30} ft</div>
+      <div style="padding: 10px; background: var(--bg-tertiary); border-radius: 6px;">
+        <div style="font-size: 0.8em; color: var(--text-secondary); margin-bottom: 3px;">Speed</div>
+        <div style="font-size: 1.3em; font-weight: bold; color: var(--text-primary);">${data.speed || 30} ft</div>
       </div>
-      <div style="padding: 10px; background: #ecf0f1; border-radius: 6px;">
-        <div style="font-size: 0.8em; color: #666; margin-bottom: 3px;">Proficiency</div>
-        <div style="font-size: 1.3em; font-weight: bold; color: #2c3e50;">+${data.proficiencyBonus || 0}</div>
+      <div style="padding: 10px; background: var(--bg-tertiary); border-radius: 6px;">
+        <div style="font-size: 0.8em; color: var(--text-secondary); margin-bottom: 3px;">Proficiency</div>
+        <div style="font-size: 1.3em; font-weight: bold; color: var(--text-primary);">+${data.proficiencyBonus || 0}</div>
       </div>
-      <div id="death-saves-display" style="padding: 10px; background: ${(data.deathSaves.successes > 0 || data.deathSaves.failures > 0) ? '#ffe5e5' : '#ecf0f1'}; border-radius: 6px; cursor: pointer;">
-        <div style="font-size: 0.8em; color: #666; margin-bottom: 3px;">Death Saves</div>
-        <div style="font-size: 0.9em; font-weight: bold; color: #2c3e50;">
-          <span style="color: #27ae60;">✓${data.deathSaves.successes || 0}</span> /
-          <span style="color: #e74c3c;">✗${data.deathSaves.failures || 0}</span>
+      <div id="death-saves-display" style="padding: 10px; background: ${(data.deathSaves.successes > 0 || data.deathSaves.failures > 0) ? 'var(--bg-action)' : 'var(--bg-tertiary)'}; border-radius: 6px; cursor: pointer; transition: all 0.3s;">
+        <div style="font-size: 0.8em; color: var(--text-secondary); margin-bottom: 3px;">Death Saves</div>
+        <div style="font-size: 0.9em; font-weight: bold; color: var(--text-primary);">
+          <span style="color: var(--accent-success);">✓${data.deathSaves.successes || 0}</span> /
+          <span style="color: var(--accent-danger);">✗${data.deathSaves.failures || 0}</span>
         </div>
       </div>
-      <div id="inspiration-display" style="padding: 10px; background: ${data.inspiration ? '#fff9c4' : '#ecf0f1'}; border-radius: 6px; cursor: pointer; transition: all 0.3s;">
-        <div style="font-size: 0.8em; color: #666; margin-bottom: 3px;">Inspiration</div>
-        <div style="font-size: 1.3em; font-weight: bold; color: ${data.inspiration ? '#f57f17' : '#95a5a6'};">
+      <div id="inspiration-display" style="padding: 10px; background: ${data.inspiration ? '#fff9c4' : 'var(--bg-tertiary)'}; border-radius: 6px; cursor: pointer; transition: all 0.3s;">
+        <div style="font-size: 0.8em; color: var(--text-secondary); margin-bottom: 3px;">Inspiration</div>
+        <div style="font-size: 1.3em; font-weight: bold; color: ${data.inspiration ? '#f57f17' : 'var(--text-muted)'};">
           ${data.inspiration ? '⭐ Active' : '☆ None'}
         </div>
       </div>
     </div>
-    <div style="text-align: center; margin-bottom: 15px;">
-      <div id="hp-display" style="display: inline-block; padding: 15px 30px; background: #e74c3c; color: white; border-radius: 8px; cursor: pointer; font-size: 1.2em; font-weight: bold; transition: all 0.2s; margin-right: 15px;">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; max-width: 600px; margin: 0 auto 15px auto;">
+      <div id="hp-display" style="padding: 15px 20px; background: var(--accent-danger); color: var(--text-inverse); border-radius: 8px; cursor: pointer; font-weight: bold; transition: all 0.2s; text-align: center;">
         <div style="font-size: 0.8em; margin-bottom: 5px;">Hit Points</div>
         <div style="font-size: 1.5em;">${data.hitPoints.current}${data.temporaryHP > 0 ? `+${data.temporaryHP}` : ''} / ${data.hitPoints.max}</div>
       </div>
-      <div id="initiative-button" style="display: inline-block; padding: 15px 30px; background: #3498db; color: white; border-radius: 8px; cursor: pointer; font-size: 1.2em; font-weight: bold; transition: all 0.2s;">
+      <div id="initiative-button" style="padding: 15px 20px; background: var(--accent-info); color: var(--text-inverse); border-radius: 8px; cursor: pointer; font-weight: bold; transition: all 0.2s; text-align: center;">
         <div style="font-size: 0.8em; margin-bottom: 5px;">Initiative</div>
         <div style="font-size: 1.5em;">+${data.initiative || 0}</div>
       </div>
@@ -247,11 +247,11 @@ function buildSheet(data) {
   const hpPercent = (data.hitPoints.current / data.hitPoints.max) * 100;
   const hpDisplay = document.getElementById('hp-display');
   if (hpPercent > 50) {
-    hpDisplay.style.background = '#27ae60';
+    hpDisplay.style.background = 'var(--accent-success)';
   } else if (hpPercent > 25) {
-    hpDisplay.style.background = '#f39c12';
+    hpDisplay.style.background = 'var(--accent-warning)';
   } else {
-    hpDisplay.style.background = '#e74c3c';
+    hpDisplay.style.background = 'var(--accent-danger)';
   }
 
   // Resources
@@ -898,8 +898,8 @@ function buildCompanionsDisplay(companions) {
 
     const companionCard = document.createElement('div');
     companionCard.className = 'action-card';
-    companionCard.style.background = '#e8f5e9';
-    companionCard.style.borderColor = '#4caf50';
+    companionCard.style.background = 'var(--bg-card)';
+    companionCard.style.borderColor = 'var(--border-card)';
 
     // Header with name and basic info
     const header = document.createElement('div');
@@ -909,7 +909,7 @@ function buildCompanionsDisplay(companions) {
     const nameDiv = document.createElement('div');
     nameDiv.innerHTML = `
       <div class="action-name">🐾 ${companion.name}</div>
-      <div style="font-size: 0.85em; color: #666; font-style: italic;">
+      <div style="font-size: 0.85em; color: var(--text-secondary); font-style: italic;">
         ${companion.size} ${companion.type}${companion.alignment ? ', ' + companion.alignment : ''}
       </div>
     `;
@@ -921,7 +921,7 @@ function buildCompanionsDisplay(companions) {
     const statsDiv = document.createElement('div');
     statsDiv.className = 'action-description expanded';
     statsDiv.style.display = 'block';
-    statsDiv.style.background = '#fff';
+    statsDiv.style.background = 'var(--bg-secondary)';
     statsDiv.style.padding = '12px';
     statsDiv.style.borderRadius = '4px';
     statsDiv.style.marginTop = '10px';
@@ -937,15 +937,15 @@ function buildCompanionsDisplay(companions) {
 
     // Abilities
     if (Object.keys(companion.abilities).length > 0) {
-      statsHTML += '<div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; text-align: center; margin: 10px 0; padding: 8px; background: #f5f5f5; border-radius: 4px;">';
+      statsHTML += '<div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; text-align: center; margin: 10px 0; padding: 8px; background: var(--bg-tertiary); border-radius: 4px;">';
       ['str', 'dex', 'con', 'int', 'wis', 'cha'].forEach(ability => {
         if (companion.abilities[ability]) {
           const abil = companion.abilities[ability];
           statsHTML += `
             <div>
-              <div style="font-weight: bold; font-size: 0.75em; color: #666;">${ability.toUpperCase()}</div>
-              <div style="font-size: 1.1em;">${abil.score}</div>
-              <div style="font-size: 0.9em; color: #4caf50;">(${abil.modifier >= 0 ? '+' : ''}${abil.modifier})</div>
+              <div style="font-weight: bold; font-size: 0.75em; color: var(--text-secondary);">${ability.toUpperCase()}</div>
+              <div style="font-size: 1.1em; color: var(--text-primary);">${abil.score}</div>
+              <div style="font-size: 0.9em; color: var(--accent-success);">(${abil.modifier >= 0 ? '+' : ''}${abil.modifier})</div>
             </div>
           `;
         }
@@ -954,27 +954,27 @@ function buildCompanionsDisplay(companions) {
     }
 
     // Senses, Languages, PB
-    if (companion.senses) statsHTML += `<div style="margin: 5px 0;"><strong>Senses:</strong> ${companion.senses}</div>`;
-    if (companion.languages) statsHTML += `<div style="margin: 5px 0;"><strong>Languages:</strong> ${companion.languages}</div>`;
-    if (companion.proficiencyBonus) statsHTML += `<div style="margin: 5px 0;"><strong>Proficiency Bonus:</strong> +${companion.proficiencyBonus}</div>`;
+    if (companion.senses) statsHTML += `<div style="margin: 5px 0; color: var(--text-primary);"><strong>Senses:</strong> ${companion.senses}</div>`;
+    if (companion.languages) statsHTML += `<div style="margin: 5px 0; color: var(--text-primary);"><strong>Languages:</strong> ${companion.languages}</div>`;
+    if (companion.proficiencyBonus) statsHTML += `<div style="margin: 5px 0; color: var(--text-primary);"><strong>Proficiency Bonus:</strong> +${companion.proficiencyBonus}</div>`;
 
     // Features
     if (companion.features && companion.features.length > 0) {
-      statsHTML += '<div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #ddd;">';
+      statsHTML += '<div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-color);">';
       companion.features.forEach(feature => {
-        statsHTML += `<div style="margin: 8px 0;"><strong>${feature.name}.</strong> ${feature.description}</div>`;
+        statsHTML += `<div style="margin: 8px 0; color: var(--text-primary);"><strong>${feature.name}.</strong> ${feature.description}</div>`;
       });
       statsHTML += '</div>';
     }
 
     // Actions with attack buttons
     if (companion.actions && companion.actions.length > 0) {
-      statsHTML += '<div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #ddd;"><strong>Actions</strong></div>';
+      statsHTML += '<div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-color); color: var(--text-primary);"><strong>Actions</strong></div>';
       companion.actions.forEach(action => {
         statsHTML += `
-          <div style="margin: 10px 0; padding: 8px; background: #ffe5e5; border: 1px solid #e74c3c; border-radius: 4px;">
+          <div style="margin: 10px 0; padding: 8px; background: var(--bg-action); border: 1px solid var(--accent-danger); border-radius: 4px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-              <div>
+              <div style="color: var(--text-primary);">
                 <strong>${action.name}.</strong> Melee Weapon Attack: +${action.attackBonus} to hit, ${action.reach}. <em>Hit:</em> ${action.damage}
               </div>
               <div style="display: flex; gap: 8px;">
