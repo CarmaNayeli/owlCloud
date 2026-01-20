@@ -2,6 +2,8 @@
 
 A powerful browser extension that seamlessly integrates Dice Cloud with Roll20. Import your D&D character data using the official DiceCloud REST API, forward dice rolls in real-time, track roll statistics, and enhance your tabletop gaming experience with advanced features like advantage/disadvantage controls and animated roll notifications.
 
+**Quick Download:** [Firefox](../../releases/latest/download/rollcloud-firefox.zip) | [Chrome](../../releases/latest/download/rollcloud-chrome.zip) | [Safari](../../releases/latest/download/rollcloud-safari.zip)
+
 ## Features
 
 ### Character Import
@@ -49,7 +51,40 @@ The extension uses DiceCloud's standardized variable names and property types to
 
 ## Installation
 
-### Quick Install (Recommended)
+### Download Pre-Built Extension (Easiest)
+
+Download the pre-built extension for your browser:
+
+#### 🦊 Firefox
+[Download RollCloud for Firefox](../../releases/latest/download/rollcloud-firefox.zip)
+
+1. Download the Firefox version
+2. Extract the ZIP file
+3. Navigate to `about:debugging#/runtime/this-firefox`
+4. Click "Load Temporary Add-on"
+5. Select any file from the extracted folder
+
+#### 🌐 Chrome / Edge / Brave
+[Download RollCloud for Chrome](../../releases/latest/download/rollcloud-chrome.zip)
+
+1. Download the Chrome version
+2. Extract the ZIP file
+3. Navigate to `chrome://extensions/` (or `edge://extensions/` for Edge)
+4. Enable "Developer mode" toggle in the top-right
+5. Click "Load unpacked" and select the extracted folder
+
+#### 🧭 Safari
+[Download RollCloud for Safari](../../releases/latest/download/rollcloud-safari.zip)
+
+1. Download the Safari version
+2. Extract the ZIP file
+3. See [SAFARI.md](SAFARI.md) for Safari-specific installation instructions
+
+---
+
+### Build From Source (Advanced)
+
+If you prefer to build the extension yourself:
 
 1. Clone this repository:
    ```bash
