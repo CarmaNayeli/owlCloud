@@ -116,6 +116,23 @@
     </footer>
   </div>
 
+  <!-- Slot Selection Modal -->
+  <div id="slotModal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>📦 Choose Character Slot</h3>
+        <button id="closeSlotModal" class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-help">Select which slot to save this character to:</p>
+        <div id="slotGrid" class="slot-grid">
+          <!-- Slots will be dynamically populated here -->
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="../common/browser-polyfill.js"></script>
   <script src="../common/debug.js"></script>
   <script src="popup.js"></script>
