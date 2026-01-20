@@ -5,21 +5,13 @@
 
 console.log('RollCloud: Background script starting...');
 
-// Import browser polyfill for service worker (Chrome MV3)
-try {
-  importScripts('src/common/browser-polyfill.js');
-  console.log('✅ Browser polyfill loaded in service worker');
-} catch (e) {
-  console.log('ℹ️ importScripts not available or failed:', e.message);
-}
-
-// Detect browser API (prefer polyfilled version from importScripts)
-const browserAPI = (typeof self !== 'undefined' && typeof self.browserAPI !== 'undefined')
-  ? self.browserAPI
-  : (typeof browser !== 'undefined' && browser.runtime ? browser : chrome);
+// Detect browser and use appropriate API
+// For Firefox, use the native Promise-based 'browser' API
+// For Chrome, use native 'chrome' API directly (no polyfill needed in service worker)
+const browserAPI = (typeof browser !== 'undefined' && browser.runtime) ? browser : chrome;
 
 // Detect which browser we're running on
-const isFirefox = typeof browser !== 'undefined' && browserAPI === browser;
+const isFirefox = typeof browser !== 'undefined';
 console.log('RollCloud: Background script initialized on', isFirefox ? 'Firefox' : 'Chrome');
 
 const API_BASE = 'https://dicecloud.com/api';
