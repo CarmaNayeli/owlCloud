@@ -1738,7 +1738,8 @@
         const syncButton = document.getElementById('dc-sync-btn');
         if (syncButton) {
           syncButton.style.display = '';
-          localStorage.removeItem('dc-sync-btn_hidden');
+          sessionStorage.removeItem('dc-sync-btn_hidden');
+          localStorage.removeItem('dc-sync-btn_hidden'); // Also clear old localStorage value if it exists
           showNotification('Sync button shown', 'success');
           sendResponse({ success: true });
         } else {
@@ -3099,8 +3100,8 @@
       button.style.bottom = 'auto'; // Remove bottom positioning when custom positioned
     }
 
-    // Load saved visibility
-    const savedVisibility = localStorage.getItem(`${storageKey}_hidden`);
+    // Load saved visibility (sessionStorage instead of localStorage so button reappears on reload)
+    const savedVisibility = sessionStorage.getItem(`${storageKey}_hidden`);
     if (savedVisibility === 'true') {
       button.style.display = 'none';
     }
@@ -3185,7 +3186,7 @@
       });
       hideOption.addEventListener('click', () => {
         button.style.display = 'none';
-        localStorage.setItem(`${storageKey}_hidden`, 'true');
+        sessionStorage.setItem(`${storageKey}_hidden`, 'true');
         menu.remove();
         showNotification('Button hidden. Reload page to show it again.', 'info');
       });
