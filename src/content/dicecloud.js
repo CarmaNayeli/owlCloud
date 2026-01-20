@@ -1327,6 +1327,20 @@
    * Parses a companion stat block from description text
    */
   function parseCompanionStatBlock(name, description) {
+    // Convert description to string if it's an object
+    let descText = description;
+    if (typeof description === 'object' && description !== null) {
+      descText = description.text || description.value || '';
+    } else if (typeof description !== 'string') {
+      console.log(`⚠️ Companion "${name}" has invalid description type:`, typeof description);
+      return null;
+    }
+
+    if (!descText || descText.trim() === '') {
+      console.log(`⚠️ Companion "${name}" has empty description`);
+      return null;
+    }
+
     const companion = {
       name: name,
       size: '',
@@ -1341,11 +1355,11 @@
       proficiencyBonus: 0,
       features: [],
       actions: [],
-      rawDescription: description
+      rawDescription: descText
     };
 
     // Parse size and type (e.g., "Small beast, neutral")
-    const sizeTypeMatch = description.match(/(Tiny|Small|Medium|Large|Huge|Gargantuan)\s+(\w+),\s*(\w+)/i);
+    const sizeTypeMatch = descText.match(/(Tiny|Small|Medium|Large|Huge|Gargantuan)\s+(\w+),\s*(\w+)/i);
     if (sizeTypeMatch) {
       companion.size = sizeTypeMatch[1];
       companion.type = sizeTypeMatch[2];
@@ -1353,22 +1367,22 @@
     }
 
     // Parse AC (e.g., "Armor Class 15")
-    const acMatch = description.match(/Armor Class\s+(\d+)/i);
+    const acMatch = descText.match(/Armor Class\s+(\d+)/i);
     if (acMatch) companion.ac = parseInt(acMatch[1]);
 
     // Parse HP (e.g., "Hit Points 16 (3d6)")
-    const hpMatch = description.match(/Hit Points\s+([\d\+\-d()]+)/i);
+    const hpMatch = descText.match(/Hit Points\s+([\d\+\-d()]+)/i);
     if (hpMatch) companion.hp = hpMatch[1];
 
     // Parse Speed (e.g., "Speed 10 ft., fly 60 ft.")
-    const speedMatch = description.match(/Speed\s+([^•\n]+)/i);
+    const speedMatch = descText.match(/Speed\s+([^•\n]+)/i);
     if (speedMatch) companion.speed = speedMatch[1].trim();
 
     // Parse Abilities (STR, DEX, CON, INT, WIS, CHA)
     const abilities = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
     abilities.forEach(ability => {
       const regex = new RegExp(ability + '\\s+(\\d+)\\s*\\(([+\\-]\\d+)\\)', 'i');
-      const match = description.match(regex);
+      const match = descText.match(regex);
       if (match) {
         companion.abilities[ability.toLowerCase()] = {
           score: parseInt(match[1]),
@@ -1378,21 +1392,21 @@
     });
 
     // Parse Senses
-    const sensesMatch = description.match(/Senses\s+([^•\n]+)/i);
+    const sensesMatch = descText.match(/Senses\s+([^•\n]+)/i);
     if (sensesMatch) companion.senses = sensesMatch[1].trim();
 
     // Parse Languages
-    const languagesMatch = description.match(/Languages\s+([^•\n]+)/i);
+    const languagesMatch = descText.match(/Languages\s+([^•\n]+)/i);
     if (languagesMatch) companion.languages = languagesMatch[1].trim();
 
     // Parse Proficiency Bonus
-    const pbMatch = description.match(/Proficiency Bonus\s+(\d+)/i);
+    const pbMatch = descText.match(/Proficiency Bonus\s+(\d+)/i);
     if (pbMatch) companion.proficiencyBonus = parseInt(pbMatch[1]);
 
     // Parse special features (e.g., "Flyby.", "Primal Bond.")
     const featurePattern = /\*\*?([^*\n.]+)\.\*\*?\s*([^*\n]+)/gi;
     let featureMatch;
-    while ((featureMatch = featurePattern.exec(description)) !== null) {
+    while ((featureMatch = featurePattern.exec(descText)) !== null) {
       companion.features.push({
         name: featureMatch[1].trim(),
         description: featureMatch[2].trim()
@@ -1400,7 +1414,7 @@
     }
 
     // Parse Actions section
-    const actionsMatch = description.match(/Actions\s+([\s\S]+)/i);
+    const actionsMatch = descText.match(/Actions\s+([\s\S]+)/i);
     if (actionsMatch) {
       const actionsText = actionsMatch[1];
 
