@@ -184,6 +184,7 @@
         failures: (creature.deathSave && creature.deathSave.fail) || 0
       },
       resources: [],  // Ki Points, Sorcery Points, Rage, etc.
+      companions: [],  // NEW: Store companion creatures (Animal Companions, Find Familiar, etc.)
       kingdom: {},
       army: {},
       otherVariables: {}
@@ -364,6 +365,9 @@
     // Track unique classes to avoid duplicates
     const uniqueClasses = new Set();
 
+    // Track unique resources to avoid duplicates (DiceCloud can have duplicate resource entries)
+    const uniqueResources = new Set();
+
     // Debug: Log all property types to see what's available
     const propertyTypes = new Set();
     let raceFound = false;
@@ -435,7 +439,8 @@
       switch (prop.type) {
         case 'class':
           // Only add class name once, even if there are multiple classLevel entries
-          if (prop.name) {
+          // Skip inactive or disabled classes
+          if (prop.name && !prop.inactive && !prop.disabled) {
             // Remove [Multiclass] suffix before normalizing
             const cleanName = prop.name.replace(/\s*\[Multiclass\]/i, '').trim();
             const normalizedClassName = cleanName.toLowerCase().trim();
@@ -451,10 +456,20 @@
             } else {
               console.log(`  ⏭️  Skipping class (already in set:`, Array.from(uniqueClasses), ')');
             }
+          } else if (prop.name && (prop.inactive || prop.disabled)) {
+            console.log(`  ⏭️  Skipping inactive/disabled class: ${prop.name}`);
           }
           break;
 
         case 'classLevel':
+          // Skip inactive or disabled class levels
+          if (prop.inactive || prop.disabled) {
+            if (prop.name) {
+              console.log(`  ⏭️  Skipping inactive/disabled classLevel: ${prop.name}`);
+            }
+            break;
+          }
+
           // Count each classLevel entry as 1 level
           characterData.level += 1;
           // Also add the class name if not already added
@@ -1026,7 +1041,9 @@
         case 'attribute':
           // Extract resources like Ki Points, Sorcery Points, Rage, etc.
           // These are attributes with attributeType === 'resource' or 'healthBar'
-          if (prop.name && (prop.attributeType === 'resource' || prop.attributeType === 'healthBar')) {
+          // Skip inactive or disabled resources
+          if (prop.name && (prop.attributeType === 'resource' || prop.attributeType === 'healthBar') &&
+              !prop.inactive && !prop.disabled) {
             // Skip hit points (already extracted) and Font of Magic trackers (not actual resources)
             const lowerName = prop.name.toLowerCase();
             if (lowerName.includes('hit point') || lowerName === 'hp' ||
@@ -1094,8 +1111,17 @@
               resource.current = Math.max(0, baseValue - damageValue);
             }
 
-            characterData.resources.push(resource);
-            console.log(`💎 Added resource: ${resource.name} (${resource.current}/${resource.max})`);
+            // Use variableName or name as unique key (variableName is more reliable in DiceCloud)
+            const resourceKey = (prop.variableName || prop.name).toLowerCase();
+
+            // Only add if we haven't seen this resource before
+            if (!uniqueResources.has(resourceKey)) {
+              uniqueResources.add(resourceKey);
+              characterData.resources.push(resource);
+              console.log(`💎 Added resource: ${resource.name} (${resource.current}/${resource.max})`);
+            } else {
+              console.log(`  ⏭️  Skipping duplicate resource: ${resource.name}`);
+            }
           }
           break;
       }
@@ -1103,6 +1129,9 @@
 
     // Debug: Log all property types found
     console.log('🔍 All property types found in character:', Array.from(propertyTypes).sort());
+
+    // Extract companions from features (Animal Companions, Familiars, Summons, etc.)
+    extractCompanions(characterData, apiData);
 
     // Second pass: look for subrace as a child of the race property
     if (racePropertyId && raceName) {
@@ -1256,6 +1285,145 @@
 
     console.log('Parsed character data:', characterData);
     return characterData;
+  }
+
+  /**
+   * Extracts companion creatures from features
+   */
+  function extractCompanions(characterData, apiData) {
+    console.log('🐾 Searching for companion creatures in features...');
+
+    // Look for features that appear to be companions
+    // Common patterns: "Companion:", "Beast of", "Familiar", "Summon", "Mount"
+    const companionPatterns = [
+      /companion/i,
+      /beast of/i,
+      /familiar/i,
+      /summon/i,
+      /mount/i,
+      /steel defender/i,
+      /homunculus/i,
+      /drake/i
+    ];
+
+    characterData.features.forEach(feature => {
+      const isCompanion = companionPatterns.some(pattern => pattern.test(feature.name));
+
+      if (isCompanion && feature.description) {
+        console.log(`🐾 Found potential companion: ${feature.name}`);
+
+        const companion = parseCompanionStatBlock(feature.name, feature.description);
+        if (companion) {
+          characterData.companions.push(companion);
+          console.log(`✅ Added companion: ${companion.name}`);
+        }
+      }
+    });
+
+    console.log(`🐾 Total companions found: ${characterData.companions.length}`);
+  }
+
+  /**
+   * Parses a companion stat block from description text
+   */
+  function parseCompanionStatBlock(name, description) {
+    const companion = {
+      name: name,
+      size: '',
+      type: '',
+      alignment: '',
+      ac: 0,
+      hp: '',
+      speed: '',
+      abilities: {},
+      senses: '',
+      languages: '',
+      proficiencyBonus: 0,
+      features: [],
+      actions: [],
+      rawDescription: description
+    };
+
+    // Parse size and type (e.g., "Small beast, neutral")
+    const sizeTypeMatch = description.match(/(Tiny|Small|Medium|Large|Huge|Gargantuan)\s+(\w+),\s*(\w+)/i);
+    if (sizeTypeMatch) {
+      companion.size = sizeTypeMatch[1];
+      companion.type = sizeTypeMatch[2];
+      companion.alignment = sizeTypeMatch[3];
+    }
+
+    // Parse AC (e.g., "Armor Class 15")
+    const acMatch = description.match(/Armor Class\s+(\d+)/i);
+    if (acMatch) companion.ac = parseInt(acMatch[1]);
+
+    // Parse HP (e.g., "Hit Points 16 (3d6)")
+    const hpMatch = description.match(/Hit Points\s+([\d\+\-d()]+)/i);
+    if (hpMatch) companion.hp = hpMatch[1];
+
+    // Parse Speed (e.g., "Speed 10 ft., fly 60 ft.")
+    const speedMatch = description.match(/Speed\s+([^•\n]+)/i);
+    if (speedMatch) companion.speed = speedMatch[1].trim();
+
+    // Parse Abilities (STR, DEX, CON, INT, WIS, CHA)
+    const abilities = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
+    abilities.forEach(ability => {
+      const regex = new RegExp(ability + '\\s+(\\d+)\\s*\\(([+\\-]\\d+)\\)', 'i');
+      const match = description.match(regex);
+      if (match) {
+        companion.abilities[ability.toLowerCase()] = {
+          score: parseInt(match[1]),
+          modifier: parseInt(match[2])
+        };
+      }
+    });
+
+    // Parse Senses
+    const sensesMatch = description.match(/Senses\s+([^•\n]+)/i);
+    if (sensesMatch) companion.senses = sensesMatch[1].trim();
+
+    // Parse Languages
+    const languagesMatch = description.match(/Languages\s+([^•\n]+)/i);
+    if (languagesMatch) companion.languages = languagesMatch[1].trim();
+
+    // Parse Proficiency Bonus
+    const pbMatch = description.match(/Proficiency Bonus\s+(\d+)/i);
+    if (pbMatch) companion.proficiencyBonus = parseInt(pbMatch[1]);
+
+    // Parse special features (e.g., "Flyby.", "Primal Bond.")
+    const featurePattern = /\*\*?([^*\n.]+)\.\*\*?\s*([^*\n]+)/gi;
+    let featureMatch;
+    while ((featureMatch = featurePattern.exec(description)) !== null) {
+      companion.features.push({
+        name: featureMatch[1].trim(),
+        description: featureMatch[2].trim()
+      });
+    }
+
+    // Parse Actions section
+    const actionsMatch = description.match(/Actions\s+([\s\S]+)/i);
+    if (actionsMatch) {
+      const actionsText = actionsMatch[1];
+
+      // Parse attack actions (e.g., "Shred. Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 1d4 + 3 + 2 slashing damage.")
+      const attackPattern = /(\w+)\.\s*Melee Weapon Attack:\s*\+(\d+)\s*to hit,\s*reach\s*([\d\s]+ft\.,?).*?Hit:\s*([^.]+)/gi;
+      let attackMatch;
+      while ((attackMatch = attackPattern.exec(actionsText)) !== null) {
+        companion.actions.push({
+          name: attackMatch[1].trim(),
+          type: 'attack',
+          attackBonus: parseInt(attackMatch[2]),
+          reach: attackMatch[3].trim(),
+          damage: attackMatch[4].trim()
+        });
+      }
+    }
+
+    // Only return if we found at least some stats
+    if (companion.ac > 0 || companion.hp || Object.keys(companion.abilities).length > 0) {
+      return companion;
+    }
+
+    return null;
   }
 
   /**

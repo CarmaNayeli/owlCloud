@@ -268,6 +268,11 @@ function buildSheet(data) {
     actionsContainer.innerHTML = '<p style="text-align: center; color: #666;">No actions available</p>';
   }
 
+  // Companions (Animal Companions, Familiars, Summons, etc.)
+  if (data.companions && data.companions.length > 0) {
+    buildCompanionsDisplay(data.companions);
+  }
+
   // Spells - organized by source then level
   const spellsContainer = document.getElementById('spells-container');
   if (data.spells && data.spells.length > 0) {
@@ -823,6 +828,133 @@ function buildActionsDisplay(container, actions) {
     }
 
     container.appendChild(actionCard);
+  });
+}
+
+function buildCompanionsDisplay(companions) {
+  const container = document.getElementById('companions-container');
+  const section = document.getElementById('companions-section');
+
+  // Show the companions section
+  section.style.display = 'block';
+
+  container.innerHTML = '';
+
+  companions.forEach(companion => {
+    const companionCard = document.createElement('div');
+    companionCard.className = 'action-card';
+    companionCard.style.background = '#e8f5e9';
+    companionCard.style.borderColor = '#4caf50';
+
+    // Header with name and basic info
+    const header = document.createElement('div');
+    header.className = 'action-header';
+    header.style.cursor = 'pointer';
+
+    const nameDiv = document.createElement('div');
+    nameDiv.innerHTML = `
+      <div class="action-name">🐾 ${companion.name}</div>
+      <div style="font-size: 0.85em; color: #666; font-style: italic;">
+        ${companion.size} ${companion.type}${companion.alignment ? ', ' + companion.alignment : ''}
+      </div>
+    `;
+
+    header.appendChild(nameDiv);
+    companionCard.appendChild(header);
+
+    // Stats block
+    const statsDiv = document.createElement('div');
+    statsDiv.className = 'action-description expanded';
+    statsDiv.style.display = 'block';
+    statsDiv.style.background = '#fff';
+    statsDiv.style.padding = '12px';
+    statsDiv.style.borderRadius = '4px';
+    statsDiv.style.marginTop = '10px';
+
+    let statsHTML = '<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px;">';
+
+    // AC, HP, Speed
+    if (companion.ac) statsHTML += `<div><strong>AC:</strong> ${companion.ac}</div>`;
+    if (companion.hp) statsHTML += `<div><strong>HP:</strong> ${companion.hp}</div>`;
+    if (companion.speed) statsHTML += `<div style="grid-column: span 3;"><strong>Speed:</strong> ${companion.speed}</div>`;
+
+    statsHTML += '</div>';
+
+    // Abilities
+    if (Object.keys(companion.abilities).length > 0) {
+      statsHTML += '<div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; text-align: center; margin: 10px 0; padding: 8px; background: #f5f5f5; border-radius: 4px;">';
+      ['str', 'dex', 'con', 'int', 'wis', 'cha'].forEach(ability => {
+        if (companion.abilities[ability]) {
+          const abil = companion.abilities[ability];
+          statsHTML += `
+            <div>
+              <div style="font-weight: bold; font-size: 0.75em; color: #666;">${ability.toUpperCase()}</div>
+              <div style="font-size: 1.1em;">${abil.score}</div>
+              <div style="font-size: 0.9em; color: #4caf50;">(${abil.modifier >= 0 ? '+' : ''}${abil.modifier})</div>
+            </div>
+          `;
+        }
+      });
+      statsHTML += '</div>';
+    }
+
+    // Senses, Languages, PB
+    if (companion.senses) statsHTML += `<div style="margin: 5px 0;"><strong>Senses:</strong> ${companion.senses}</div>`;
+    if (companion.languages) statsHTML += `<div style="margin: 5px 0;"><strong>Languages:</strong> ${companion.languages}</div>`;
+    if (companion.proficiencyBonus) statsHTML += `<div style="margin: 5px 0;"><strong>Proficiency Bonus:</strong> +${companion.proficiencyBonus}</div>`;
+
+    // Features
+    if (companion.features && companion.features.length > 0) {
+      statsHTML += '<div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #ddd;">';
+      companion.features.forEach(feature => {
+        statsHTML += `<div style="margin: 8px 0;"><strong>${feature.name}.</strong> ${feature.description}</div>`;
+      });
+      statsHTML += '</div>';
+    }
+
+    // Actions with attack buttons
+    if (companion.actions && companion.actions.length > 0) {
+      statsHTML += '<div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #ddd;"><strong>Actions</strong></div>';
+      companion.actions.forEach(action => {
+        statsHTML += `
+          <div style="margin: 10px 0; padding: 8px; background: #ffe5e5; border: 1px solid #e74c3c; border-radius: 4px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <strong>${action.name}.</strong> Melee Weapon Attack: +${action.attackBonus} to hit, ${action.reach}. <em>Hit:</em> ${action.damage}
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button class="attack-btn companion-attack-btn" data-name="${companion.name} - ${action.name}" data-bonus="${action.attackBonus}">⚔️ Attack</button>
+                <button class="damage-btn companion-damage-btn" data-name="${companion.name} - ${action.name}" data-damage="${action.damage}">💥 Damage</button>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    statsDiv.innerHTML = statsHTML;
+    companionCard.appendChild(statsDiv);
+
+    // Add event listeners for attack/damage buttons
+    companionCard.querySelectorAll('.companion-attack-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const name = btn.dataset.name;
+        const bonus = parseInt(btn.dataset.bonus);
+        roll(name, `1d20+${bonus}`);
+      });
+    });
+
+    companionCard.querySelectorAll('.companion-damage-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const name = btn.dataset.name;
+        const damage = btn.dataset.damage;
+        roll(name, damage);
+      });
+    });
+
+    container.appendChild(companionCard);
   });
 }
 
