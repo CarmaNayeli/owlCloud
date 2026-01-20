@@ -414,6 +414,7 @@ If dice rolls aren't being forwarded from DiceCloud to Roll20:
 - [x] Firefox support (Manifest V2 compatibility)
 - [x] Long/Short Rest buttons (Auto-restore HP, spell slots, hit dice, class resources)
 - [x] Concentration indicators (Spells marked with 🧠 Concentration tag)
+- [x] Death Save Counter (Visual tracker with roll button, auto-reset on healing, follows RAW)
 
 ### High Priority - Mechanics & Character Features
 
@@ -437,7 +438,6 @@ If dice rolls aren't being forwarded from DiceCloud to Roll20:
 
 #### Combat Mechanics
 - [ ] **Temporary HP Manager** - Track temp HP separately from regular HP
-- [ ] **Death Save Counter** - Visual death save tracker with auto-reset on healing
 - [ ] **Action Economy Tracker** - Track action/bonus action/reaction usage per turn
 - [ ] **Condition/Buff Manager** - Apply and track conditions (blessed, poisoned, hasted, etc.)
 - [ ] **Reaction Prompts** - Notify when Shield, Counterspell, or opportunity attacks apply
