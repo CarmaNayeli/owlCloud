@@ -261,6 +261,43 @@ footer {
   color: #5a67d8;
 }
 
+/* Character Selector Styles */
+.character-selector {
+  padding: 12px;
+  background: #e3f2fd;
+  border-radius: 6px;
+  margin-bottom: 15px;
+  border-left: 4px solid #2196f3;
+}
+
+.character-selector label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1565c0;
+  margin-bottom: 8px;
+}
+
+.character-dropdown {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #90caf9;
+  border-radius: 4px;
+  font-size: 14px;
+  background: white;
+  cursor: pointer;
+  transition: border-color 0.3s;
+}
+
+.character-dropdown:focus {
+  outline: none;
+  border-color: #2196f3;
+}
+
+.character-dropdown:hover {
+  border-color: #2196f3;
+}
+
 /* Instructions Styles */
 .instructions {
   background: #f8f9fa;
