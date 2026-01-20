@@ -16,125 +16,110 @@ const API_BASE = 'https://dicecloud.com/api';
 browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('Background received message:', request);
 
-  switch (request.action) {
-    case 'storeCharacterData':
-      storeCharacterData(request.data)
-        .then(() => {
-          sendResponse({ success: true });
-        })
-        .catch((error) => {
+  // MV3 requires returning a Promise instead of using sendResponse + return true
+  // Handle the request and return a Promise
+  const handleRequest = async () => {
+    switch (request.action) {
+      case 'storeCharacterData':
+        try {
+          await storeCharacterData(request.data);
+          return { success: true };
+        } catch (error) {
           console.error('Error storing character data:', error);
-          sendResponse({ success: false, error: error.message });
-        });
-      return true; // Keep channel open for async response
+          return { success: false, error: error.message };
+        }
 
-    case 'getCharacterData':
-      getCharacterData()
-        .then((data) => {
-          sendResponse({ success: true, data });
-        })
-        .catch((error) => {
+      case 'getCharacterData':
+        try {
+          const data = await getCharacterData();
+          return { success: true, data };
+        } catch (error) {
           console.error('Error retrieving character data:', error);
-          sendResponse({ success: false, error: error.message });
-        });
-      return true;
+          return { success: false, error: error.message };
+        }
 
-    case 'clearCharacterData':
-      clearCharacterData()
-        .then(() => {
-          sendResponse({ success: true });
-        })
-        .catch((error) => {
+      case 'clearCharacterData':
+        try {
+          await clearCharacterData();
+          return { success: true };
+        } catch (error) {
           console.error('Error clearing character data:', error);
-          sendResponse({ success: false, error: error.message });
-        });
-      return true;
+          return { success: false, error: error.message };
+        }
 
-    case 'loginToDiceCloud':
-      loginToDiceCloud(request.username, request.password)
-        .then((authData) => {
-          sendResponse({ success: true, authData });
-        })
-        .catch((error) => {
+      case 'loginToDiceCloud':
+        try {
+          const authData = await loginToDiceCloud(request.username, request.password);
+          return { success: true, authData };
+        } catch (error) {
           console.error('Error logging in to DiceCloud:', error);
-          sendResponse({ success: false, error: error.message });
-        });
-      return true;
+          return { success: false, error: error.message };
+        }
 
-    case 'getApiToken':
-      getApiToken()
-        .then((token) => {
-          sendResponse({ success: true, token });
-        })
-        .catch((error) => {
+      case 'getApiToken':
+        try {
+          const token = await getApiToken();
+          return { success: true, token };
+        } catch (error) {
           console.error('Error retrieving API token:', error);
-          sendResponse({ success: false, error: error.message });
-        });
-      return true;
+          return { success: false, error: error.message };
+        }
 
-    case 'logout':
-      logout()
-        .then(() => {
-          sendResponse({ success: true });
-        })
-        .catch((error) => {
+      case 'logout':
+        try {
+          await logout();
+          return { success: true };
+        } catch (error) {
           console.error('Error logging out:', error);
-          sendResponse({ success: false, error: error.message });
-        });
-      return true;
+          return { success: false, error: error.message };
+        }
 
-    case 'checkLoginStatus':
-      checkLoginStatus()
-        .then((status) => {
-          sendResponse({ success: true, ...status });
-        })
-        .catch((error) => {
+      case 'checkLoginStatus':
+        try {
+          const status = await checkLoginStatus();
+          return { success: true, ...status };
+        } catch (error) {
           console.error('Error checking login status:', error);
-          sendResponse({ success: false, error: error.message });
-        });
-      return true;
+          return { success: false, error: error.message };
+        }
 
-    case 'rollInDiceCloudAndForward':
-      rollInDiceCloudAndForward(request.roll)
-        .then(() => {
-          sendResponse({ success: true });
-        })
-        .catch((error) => {
+      case 'rollInDiceCloudAndForward':
+        try {
+          await rollInDiceCloudAndForward(request.roll);
+          return { success: true };
+        } catch (error) {
           console.error('Error rolling in Dice Cloud and forwarding:', error);
-          sendResponse({ success: false, error: error.message });
-        });
-      return true;
+          return { success: false, error: error.message };
+        }
 
-    case 'sendRollToRoll20':
-      // Forward roll from DiceCloud to all Roll20 tabs
-      sendRollToAllRoll20Tabs(request.roll)
-        .then(() => {
-          sendResponse({ success: true });
-        })
-        .catch((error) => {
+      case 'sendRollToRoll20':
+        try {
+          await sendRollToAllRoll20Tabs(request.roll);
+          return { success: true };
+        } catch (error) {
           console.error('Error sending roll to Roll20:', error);
-          sendResponse({ success: false, error: error.message });
-        });
-      return true;
+          return { success: false, error: error.message };
+        }
 
-    case 'relayRollToRoll20':
-      // Relay roll from popup window to Roll20 tabs (Firefox fallback)
-      console.log('📡 Relaying roll from popup to Roll20:', request.roll);
-      sendRollToAllRoll20Tabs(request.roll)
-        .then(() => {
+      case 'relayRollToRoll20':
+        try {
+          console.log('📡 Relaying roll from popup to Roll20:', request.roll);
+          await sendRollToAllRoll20Tabs(request.roll);
           console.log('✅ Roll relayed successfully');
-          sendResponse({ success: true });
-        })
-        .catch((error) => {
+          return { success: true };
+        } catch (error) {
           console.error('❌ Error relaying roll to Roll20:', error);
-          sendResponse({ success: false, error: error.message });
-        });
-      return true;
+          return { success: false, error: error.message };
+        }
 
-    default:
-      console.warn('Unknown action:', request.action);
-      sendResponse({ success: false, error: 'Unknown action' });
-  }
+      default:
+        console.warn('Unknown action:', request.action);
+        return { success: false, error: 'Unknown action' };
+    }
+  };
+
+  // Return the Promise for MV3 compatibility
+  return handleRequest();
 });
 
 /**
