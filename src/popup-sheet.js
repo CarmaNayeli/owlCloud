@@ -71,22 +71,148 @@ debug.log('✅ Waiting for character data via postMessage...');
 setTimeout(() => {
   if (!characterData) {
     debug.log('⏱️ No data received via postMessage, loading from storage...');
-    browserAPI.runtime.sendMessage({ action: 'getCharacterData' }, (response) => {
-      if (browserAPI.runtime.lastError) {
-        debug.error('❌ Extension context error:', browserAPI.runtime.lastError);
-        return;
-      }
-
-      if (response && response.data) {
-        debug.log('✅ Character data loaded from storage:', response.data.name);
-        characterData = response.data;
-        buildSheet(characterData);
-      } else {
-        debug.error('❌ No character data found in storage');
-      }
-    });
+    loadCharacterWithTabs();
   }
 }, 1000);
+
+// Load character data and build tabs
+async function loadCharacterWithTabs() {
+  try {
+    // Get all character profiles
+    const profilesResponse = await browserAPI.runtime.sendMessage({ action: 'getAllCharacterProfiles' });
+    const profiles = profilesResponse.success ? profilesResponse.profiles : {};
+
+    // Get active character
+    const activeResponse = await browserAPI.runtime.sendMessage({ action: 'getCharacterData' });
+    const activeCharacter = activeResponse.success ? activeResponse.data : null;
+
+    // Build character tabs
+    buildCharacterTabs(profiles, activeCharacter);
+
+    // Load active character
+    if (activeCharacter) {
+      characterData = activeCharacter;
+      buildSheet(characterData);
+    } else {
+      debug.error('❌ No character data found in storage');
+    }
+  } catch (error) {
+    debug.error('❌ Failed to load characters:', error);
+  }
+}
+
+// Build character tabs UI
+function buildCharacterTabs(profiles, activeCharacter) {
+  const tabsContainer = document.getElementById('character-tabs');
+  if (!tabsContainer) return;
+
+  tabsContainer.innerHTML = '';
+  const maxSlots = 10; // Support up to 10 character slots (matches main's implementation)
+
+  const activeId = activeCharacter ? (activeCharacter.characterId || activeCharacter._id) : null;
+
+  // Create tabs for each slot
+  for (let slotNum = 1; slotNum <= maxSlots; slotNum++) {
+    const slotId = `slot-${slotNum}`;
+    // Find character in this slot using slotId as key
+    const charInSlot = profiles[slotId];
+
+    const tab = document.createElement('div');
+    tab.className = 'character-tab';
+    tab.dataset.slotId = slotId;
+
+    if (charInSlot) {
+      const isActive = slotId === activeId ||
+                       (charInSlot.characterId && charInSlot.characterId === activeId) ||
+                       (charInSlot._id && charInSlot._id === activeId);
+
+      if (isActive) {
+        tab.classList.add('active');
+      }
+
+      tab.innerHTML = `
+        <span class="slot-number">${slotNum}</span>
+        <span class="char-name">${charInSlot.name || 'Unknown'}</span>
+        <span class="close-tab" title="Clear slot">✕</span>
+      `;
+
+      // Click to switch character
+      tab.addEventListener('click', (e) => {
+        if (!e.target.classList.contains('close-tab')) {
+          switchToCharacter(slotId);
+        }
+      });
+
+      // Close button
+      const closeBtn = tab.querySelector('.close-tab');
+      closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        clearCharacterSlot(slotId, slotNum);
+      });
+    } else {
+      // Empty slot
+      tab.classList.add('empty');
+      tab.innerHTML = `
+        <span class="slot-number">${slotNum}</span>
+        <span class="char-name">Empty Slot</span>
+      `;
+    }
+
+    tabsContainer.appendChild(tab);
+  }
+}
+
+// Switch to a different character
+async function switchToCharacter(characterId) {
+  try {
+    // Set active character
+    await browserAPI.runtime.sendMessage({
+      action: 'setActiveCharacter',
+      characterId: characterId
+    });
+
+    // Reload the sheet
+    const response = await browserAPI.runtime.sendMessage({
+      action: 'getCharacterData',
+      characterId: characterId
+    });
+
+    if (response && response.data) {
+      characterData = response.data;
+      buildSheet(characterData);
+
+      // Reload tabs to update active state
+      loadCharacterWithTabs();
+
+      showNotification(`✅ Switched to ${response.data.name}`);
+    }
+  } catch (error) {
+    debug.error('❌ Failed to switch character:', error);
+    showNotification('❌ Failed to switch character', 'error');
+  }
+}
+
+// Clear a character slot
+async function clearCharacterSlot(slotId, slotNum) {
+  if (!confirm(`Clear slot ${slotNum}? This will remove this character from the slot.`)) {
+    return;
+  }
+
+  try {
+    await browserAPI.runtime.sendMessage({
+      action: 'clearCharacterData',
+      characterId: slotId
+    });
+
+    showNotification(`✅ Slot ${slotNum} cleared`);
+
+    // Reload tabs
+    loadCharacterWithTabs();
+  } catch (error) {
+    debug.error('❌ Failed to clear slot:', error);
+    showNotification('❌ Failed to clear slot', 'error');
+  }
+}
 
 // Add event listeners for rest buttons
 document.addEventListener('DOMContentLoaded', () => {
