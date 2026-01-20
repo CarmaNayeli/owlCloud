@@ -490,8 +490,7 @@ If dice rolls aren't being forwarded from DiceCloud to Roll20:
 ### Under Consideration
 - [ ] Support for different Roll20 character sheet templates (Pathfinder, etc.)
 - [ ] Custom field mapping for non-standard sheets
-- [ ] D&D Beyond integration (similar to Beyond20)
-- [ ] Foundry VTT support
+- [ ] Foundry VTT support (open-source VTT alternative)
 - [ ] Mobile-friendly overlay for tablet use
 
 ### Visual/Polish (Low Priority)
