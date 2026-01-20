@@ -221,12 +221,8 @@ function initializePopup() {
           characterSelect.appendChild(option);
         });
 
-        // Show character selector if there are multiple characters
-        if (characterIds.length > 1) {
-          characterSelector.classList.remove('hidden');
-        } else {
-          characterSelector.classList.add('hidden');
-        }
+        // Always show character selector when characters exist
+        characterSelector.classList.remove('hidden');
       } else {
         characterSelect.innerHTML = '<option value="">No characters synced</option>';
         characterSelector.classList.add('hidden');
