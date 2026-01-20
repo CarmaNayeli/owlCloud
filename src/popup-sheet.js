@@ -132,6 +132,11 @@ function buildSheet(data) {
     data.temporaryHP = 0;
   }
 
+  // Initialize inspiration if needed
+  if (data.inspiration === undefined) {
+    data.inspiration = false;
+  }
+
   // Capitalize race name - handle both string and object formats
   let raceName = 'Unknown';
   if (data.race) {
@@ -204,6 +209,12 @@ function buildSheet(data) {
           <span style="color: #e74c3c;">✗${data.deathSaves.failures || 0}</span>
         </div>
       </div>
+      <div id="inspiration-display" style="padding: 10px; background: ${data.inspiration ? '#fff9c4' : '#ecf0f1'}; border-radius: 6px; cursor: pointer; transition: all 0.3s;">
+        <div style="font-size: 0.8em; color: #666; margin-bottom: 3px;">Inspiration</div>
+        <div style="font-size: 1.3em; font-weight: bold; color: ${data.inspiration ? '#f57f17' : '#95a5a6'};">
+          ${data.inspiration ? '⭐ Active' : '☆ None'}
+        </div>
+      </div>
     </div>
     <div style="text-align: center; margin-bottom: 15px;">
       <div id="hp-display" style="display: inline-block; padding: 15px 30px; background: #e74c3c; color: white; border-radius: 8px; cursor: pointer; font-size: 1.2em; font-weight: bold; transition: all 0.2s; margin-right: 15px;">
@@ -228,6 +239,9 @@ function buildSheet(data) {
 
   // Add click handler for death saves display
   document.getElementById('death-saves-display').addEventListener('click', showDeathSavesModal);
+
+  // Add click handler for inspiration display
+  document.getElementById('inspiration-display').addEventListener('click', toggleInspiration);
 
   // Update HP display color based on percentage
   const hpPercent = (data.hitPoints.current / data.hitPoints.max) * 100;
@@ -1395,6 +1409,48 @@ function showHPModal() {
       modal.remove();
     }
   });
+}
+
+function toggleInspiration() {
+  if (!characterData) return;
+
+  // Toggle inspiration
+  characterData.inspiration = !characterData.inspiration;
+
+  const action = characterData.inspiration ? 'gained' : 'spent';
+  const emoji = characterData.inspiration ? '⭐' : '✨';
+
+  debug.log(`${emoji} Inspiration ${action}`);
+  showNotification(`${emoji} Inspiration ${action}!`);
+
+  // Announce to Roll20
+  const colorBanner = getColoredBanner();
+  const messageData = {
+    action: 'announceSpell',
+    message: `&{template:default} {{name=${colorBanner}${characterData.name} ${characterData.inspiration ? 'gains' : 'spends'} Inspiration}} {{${emoji}=${characterData.inspiration ? 'You now have Inspiration! Use it to gain advantage on an attack roll, saving throw, or ability check.' : 'Inspiration spent. You can earn it again from your DM!'}}}`,
+    color: characterData.notificationColor
+  };
+
+  // Send to Roll20
+  if (window.opener && !window.opener.closed) {
+    try {
+      window.opener.postMessage(messageData, '*');
+    } catch (error) {
+      debug.warn('⚠️ Could not send via window.opener:', error.message);
+      browserAPI.runtime.sendMessage({
+        action: 'relayRollToRoll20',
+        roll: messageData
+      });
+    }
+  } else {
+    browserAPI.runtime.sendMessage({
+      action: 'relayRollToRoll20',
+      roll: messageData
+    });
+  }
+
+  saveCharacterData();
+  buildSheet(characterData);
 }
 
 function showDeathSavesModal() {
@@ -3694,8 +3750,11 @@ function takeShortRest() {
   // Clear temporary HP (RAW: temp HP doesn't persist through rest)
   if (characterData.temporaryHP > 0) {
     characterData.temporaryHP = 0;
-    console.log('✅ Cleared temporary HP');
+    debug.log('✅ Cleared temporary HP');
   }
+
+  // Note: Inspiration is NOT restored on short rest (DM grants it)
+  debug.log(`ℹ️ Inspiration status unchanged (${characterData.inspiration ? 'active' : 'none'})`);
 
   // Restore Warlock Pact Magic slots (they recharge on short rest)
   if (characterData.otherVariables) {
@@ -3915,8 +3974,12 @@ function takeLongRest() {
   // Clear temporary HP (RAW: temp HP doesn't persist through rest)
   if (characterData.temporaryHP > 0) {
     characterData.temporaryHP = 0;
-    console.log('✅ Cleared temporary HP');
+    debug.log('✅ Cleared temporary HP');
   }
+
+  // Note: Inspiration is NOT automatically restored on long rest
+  // It must be granted by the DM, so we don't touch it here
+  debug.log(`ℹ️ Inspiration status unchanged (${characterData.inspiration ? 'active' : 'none'})`);
 
   // Restore hit dice (half of max, minimum 1)
   const hitDiceRestored = Math.max(1, Math.floor(characterData.hitDice.max / 2));
