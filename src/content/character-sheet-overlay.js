@@ -1722,9 +1722,9 @@
   // Listen for messages from popout window
   window.addEventListener('message', (event) => {
     if (event.data.action === 'rollFromPopout') {
-      // Skip re-processing - the roll request has already been sent to background
-      // This prevents duplicate rolls (roll20.js will handle the result from Dice Cloud)
-      console.log('🔄 Roll request from popout acknowledged, waiting for Dice Cloud result...');
+      console.log('🎲 Received roll from popout:', event.data);
+      // Handle the roll from popout
+      rollSimultaneously(event.data.name, event.data.formula);
     } else if (event.data.action === 'updateCharacterData') {
       console.log('💾 Received character data update from popup:', event.data.data);
 
