@@ -4,14 +4,14 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('🚀 Popup DOMContentLoaded fired');
-  console.log('🔍 browserAPI check:', typeof browserAPI);
-  console.log('🔍 window.browserAPI check:', typeof window.browserAPI);
-  console.log('🔍 chrome check:', typeof chrome);
+  debug.log('🚀 Popup DOMContentLoaded fired');
+  debug.log('🔍 browserAPI check:', typeof browserAPI);
+  debug.log('🔍 window.browserAPI check:', typeof window.browserAPI);
+  debug.log('🔍 chrome check:', typeof chrome);
 
   // Check if browserAPI is available
   if (typeof browserAPI === 'undefined' && typeof window.browserAPI === 'undefined') {
-    console.error('❌ FATAL: browserAPI is not defined!');
+    debug.error('❌ FATAL: browserAPI is not defined!');
     document.body.innerHTML = `
       <div style="padding: 20px; color: red; font-family: Arial;">
         <h2>Error: Browser API Not Loaded</h2>
@@ -33,7 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
   try {
     initializePopup();
   } catch (error) {
-    console.error('❌ Popup initialization error:', error);
+    debug.error('❌ Popup initialization error:', error);
     document.body.innerHTML = `
       <div style="padding: 20px; color: red; font-family: Arial;">
         <h2>Initialization Error</h2>
@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializePopup() {
-  console.log('📋 Initializing popup UI...');
+  debug.log('📋 Initializing popup UI...');
 
   // DOM Elements - Sections
   const loginSection = document.getElementById('loginSection');
@@ -101,7 +101,7 @@ function initializePopup() {
         showLoginSection();
       }
     } catch (error) {
-      console.error('Error checking login status:', error);
+      debug.error('Error checking login status:', error);
       showLoginSection();
     }
   }
@@ -156,7 +156,7 @@ function initializePopup() {
         showLoginError(response.error || 'Login failed');
       }
     } catch (error) {
-      console.error('Login error:', error);
+      debug.error('Login error:', error);
       showLoginError('Login failed: ' + error.message);
     } finally {
       loginBtn.disabled = false;
@@ -173,7 +173,7 @@ function initializePopup() {
       showLoginSection();
       clearCharacterDisplay();
     } catch (error) {
-      console.error('Logout error:', error);
+      debug.error('Logout error:', error);
     }
   }
 
@@ -239,7 +239,7 @@ function initializePopup() {
         clearCharacterDisplay();
       }
     } catch (error) {
-      console.error('Error loading character data:', error);
+      debug.error('Error loading character data:', error);
       clearCharacterDisplay();
     }
   }
@@ -329,7 +329,7 @@ function initializePopup() {
         showError(response?.error || 'Failed to sync character data');
       }
     } catch (error) {
-      console.error('Error syncing character:', error);
+      debug.error('Error syncing character:', error);
       showError('Error: ' + error.message);
     } finally {
       syncBtn.disabled = false;
@@ -365,7 +365,7 @@ function initializePopup() {
         showError('Failed to open character sheet');
       }
     } catch (error) {
-      console.error('Error showing character sheet:', error);
+      debug.error('Error showing character sheet:', error);
       showError('Error: ' + error.message);
     } finally {
       showSheetBtn.disabled = false;
@@ -399,7 +399,7 @@ function initializePopup() {
       // Reload to update UI
       await loadCharacterData();
     } catch (error) {
-      console.error('Error clearing data:', error);
+      debug.error('Error clearing data:', error);
       showError('Error clearing data');
     } finally {
       clearBtn.disabled = false;

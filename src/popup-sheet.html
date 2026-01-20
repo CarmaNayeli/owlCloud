@@ -32,6 +32,8 @@
       --accent-danger: #E74C3C;
       --accent-warning: #f39c12;
       --accent-info: #2196f3;
+      --accent-purple: #9b59b6;
+      --accent-purple-dark: #8e44ad;
 
       --shadow: rgba(0,0,0,0.1);
       --shadow-hover: rgba(0,0,0,0.15);
@@ -65,6 +67,8 @@
       --accent-danger: #e74c3c;
       --accent-warning: #f5a623;
       --accent-info: #42a5f5;
+      --accent-purple: #b19cd9;
+      --accent-purple-dark: #9b7fc8;
 
       --shadow: rgba(0,0,0,0.3);
       --shadow-hover: rgba(0,0,0,0.4);
@@ -209,7 +213,7 @@
       display: none;
       margin-top: 10px;
       padding-top: 10px;
-      border-top: 1px solid #f39c12;
+      border-top: 1px solid var(--border-spell);
       max-height: 300px;
       overflow-y: auto;
     }
@@ -220,7 +224,7 @@
       display: none;
       margin-top: 10px;
       padding-top: 10px;
-      border-top: 1px solid #e74c3c;
+      border-top: 1px solid var(--accent-danger);
       max-height: 300px;
       overflow-y: auto;
       font-size: 0.9em;
@@ -239,8 +243,8 @@
       font-size: 0.85em;
     }
     .cast-btn {
-      background: #9b59b6;
-      color: white;
+      background: var(--accent-purple);
+      color: var(--text-inverse);
       border: none;
       padding: 3px 10px;
       border-radius: 3px;
@@ -249,12 +253,12 @@
       font-weight: bold;
     }
     .cast-btn:hover {
-      background: #8e44ad;
+      background: var(--accent-purple-dark);
       transform: translateY(-1px);
     }
     .roll-btn {
-      background: #27AE60;
-      color: white;
+      background: var(--accent-success);
+      color: var(--text-inverse);
       border: none;
       padding: 5px 10px;
       border-radius: 4px;
@@ -268,8 +272,8 @@
       justify-content: center;
     }
     .rest-btn {
-      background: #3498db;
-      color: white;
+      background: var(--accent-info);
+      color: var(--text-inverse);
       border: none;
       padding: 10px 20px;
       border-radius: 6px;
@@ -283,16 +287,16 @@
       box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     }
     .rest-btn.long {
-      background: #2ecc71;
+      background: var(--accent-success);
     }
     .rest-btn.long:hover {
-      background: #27ae60;
+      background: var(--accent-success);
     }
     .rest-btn.short {
-      background: #f39c12;
+      background: var(--accent-warning);
     }
     .rest-btn.short:hover {
-      background: #e67e22;
+      background: var(--accent-warning);
     }
     .spell-slots-grid {
       display: grid;
@@ -301,8 +305,8 @@
       margin-top: 10px;
     }
     .spell-slot-card {
-      background: #e8f5ff;
-      border: 2px solid #3498db;
+      background: var(--bg-action);
+      border: 2px solid var(--accent-info);
       border-radius: 6px;
       padding: 10px;
       text-align: center;
@@ -310,26 +314,26 @@
     }
     .spell-slot-card.empty {
       opacity: 0.5;
-      border-color: #bdc3c7;
-      background: #ecf0f1;
+      border-color: var(--border-color);
+      background: var(--bg-tertiary);
     }
     .spell-slot-level {
       font-weight: bold;
-      color: #2c3e50;
+      color: var(--text-primary);
       font-size: 0.85em;
     }
     .spell-slot-count {
       font-size: 1.3em;
       font-weight: bold;
-      color: #3498db;
+      color: var(--accent-info);
       margin: 5px 0;
     }
     .spell-slot-card.empty .spell-slot-count {
-      color: #95a5a6;
+      color: var(--text-muted);
     }
     .action-card {
-      background: #ffe5e5;
-      border: 1px solid #e74c3c;
+      background: var(--bg-action);
+      border: 1px solid var(--accent-danger);
       margin-bottom: 10px;
       padding: 10px;
       border-radius: 4px;
@@ -349,8 +353,8 @@
       gap: 8px;
     }
     .attack-btn {
-      background: #e74c3c;
-      color: white;
+      background: var(--accent-danger);
+      color: var(--text-inverse);
       border: none;
       padding: 5px 12px;
       border-radius: 3px;
@@ -359,12 +363,12 @@
       font-weight: bold;
     }
     .attack-btn:hover {
-      background: #c0392b;
+      background: var(--accent-danger);
       transform: translateY(-1px);
     }
     .damage-btn {
-      background: #e67e22;
-      color: white;
+      background: var(--accent-warning);
+      color: var(--text-inverse);
       border: none;
       padding: 5px 12px;
       border-radius: 3px;
@@ -373,12 +377,12 @@
       font-weight: bold;
     }
     .damage-btn:hover {
-      background: #d35400;
+      background: var(--accent-warning);
       transform: translateY(-1px);
     }
     .use-btn {
-      background: #9b59b6;
-      color: white;
+      background: var(--accent-purple);
+      color: var(--text-inverse);
       border: none;
       padding: 5px 12px;
       border-radius: 3px;
@@ -387,13 +391,13 @@
       font-weight: bold;
     }
     .use-btn:hover {
-      background: #8e44ad;
+      background: var(--accent-purple-dark);
       transform: translateY(-1px);
     }
     .concentration-tag {
       display: inline-block;
-      background: #3498db;
-      color: white;
+      background: var(--accent-info);
+      color: var(--text-inverse);
       padding: 2px 8px;
       border-radius: 12px;
       font-size: 0.75em;
@@ -402,8 +406,8 @@
     }
     .ritual-tag {
       display: inline-block;
-      background: #9b59b6;
-      color: white;
+      background: var(--accent-purple);
+      color: var(--text-inverse);
       padding: 2px 8px;
       border-radius: 12px;
       font-size: 0.75em;
@@ -412,8 +416,8 @@
     }
     .uses-badge {
       display: inline-block;
-      background: #2ecc71;
-      color: white;
+      background: var(--accent-success);
+      color: var(--text-inverse);
       padding: 2px 8px;
       border-radius: 12px;
       font-size: 0.8em;
@@ -502,6 +506,8 @@
   <script src="common/browser-polyfill.js"></script>
   <script src="common/debug.js"></script>
   <script src="common/theme-manager.js"></script>
+  <script src="modules/color-utils.js"></script>
+  <script src="modules/card-creator.js"></script>
   <script src="popup-sheet.js"></script>
 </body>
 </html>
