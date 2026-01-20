@@ -1133,6 +1133,19 @@
     // Extract companions from features (Animal Companions, Familiars, Summons, etc.)
     extractCompanions(characterData, apiData);
 
+    // 🔍 DEBUG: Check what companion data exists
+    console.log('🔍 DEBUG: Checking for companions');
+    console.log('📊 Properties with type=creature:', 
+      apiData.creatureProperties.filter(p => p.type === 'creature').map(p => ({
+        name: p.name,
+        type: p.type,
+        tags: p.tags
+      }))
+    );
+    console.log('📊 Features with "companion" in name:', 
+      characterData.features.filter(f => /companion|beast/i.test(f.name)).map(f => f.name)
+    );
+
     // Second pass: look for subrace as a child of the race property
     if (racePropertyId && raceName) {
       console.log('🔍 Looking for subrace children of race property ID:', racePropertyId);
@@ -1291,6 +1304,7 @@
    * Extracts companion creatures from features
    */
   function extractCompanions(characterData, apiData) {
+    console.log('🐾🐾🐾 extractCompanions FUNCTION STARTED 🐾🐾🐾');
     console.log('🐾 Searching for companion creatures in features...');
 
     // Look for features that appear to be companions
@@ -1306,16 +1320,30 @@
       /drake/i
     ];
 
-    characterData.features.forEach(feature => {
+    console.log('🐾 Total features to check:', characterData.features.length);
+
+    characterData.features.forEach((feature, index) => {
       const isCompanion = companionPatterns.some(pattern => pattern.test(feature.name));
 
-      if (isCompanion && feature.description) {
-        console.log(`🐾 Found potential companion: ${feature.name}`);
+      if (isCompanion) {
+        console.log(`🐾 Found potential companion: ${feature.name} (index ${index})`);
+        console.log(`🔍 DEBUG: Feature object keys:`, Object.keys(feature));
+        console.log(`🔍 DEBUG: Has description:`, !!feature.description);
+        console.log(`🔍 DEBUG: Description value:`, feature.description);
+        
+        if (feature.description) {
+          console.log(`🔍 DEBUG: Companion description:`, feature.description);
 
-        const companion = parseCompanionStatBlock(feature.name, feature.description);
-        if (companion) {
-          characterData.companions.push(companion);
-          console.log(`✅ Added companion: ${companion.name}`);
+          const companion = parseCompanionStatBlock(feature.name, feature.description);
+          if (companion) {
+            characterData.companions.push(companion);
+            console.log(`✅ Added companion: ${companion.name}`);
+          } else {
+            console.log(`❌ Failed to parse companion: ${feature.name} - no valid stat block found`);
+          }
+        } else {
+          console.log(`⚠️ Companion ${feature.name} has no description - skipping (no stat block)`);
+          // Don't add companions without descriptions/stat blocks
         }
       }
     });
@@ -1330,7 +1358,7 @@
     // Convert description to string if it's an object
     let descText = description;
     if (typeof description === 'object' && description !== null) {
-      descText = description.text || description.value || '';
+      descText = description.value || description.text || '';
     } else if (typeof description !== 'string') {
       console.log(`⚠️ Companion "${name}" has invalid description type:`, typeof description);
       return null;
@@ -1340,6 +1368,8 @@
       console.log(`⚠️ Companion "${name}" has empty description`);
       return null;
     }
+
+    console.log(`🔍 DEBUG: Parsing companion "${name}" with description:`, descText);
 
     const companion = {
       name: name,
@@ -1364,79 +1394,235 @@
       companion.size = sizeTypeMatch[1];
       companion.type = sizeTypeMatch[2];
       companion.alignment = sizeTypeMatch[3];
+      console.log(`✅ Parsed size/type: ${companion.size} ${companion.type}, ${companion.alignment}`);
     }
 
-    // Parse AC (e.g., "Armor Class 15")
-    const acMatch = descText.match(/Armor Class\s+(\d+)/i);
-    if (acMatch) companion.ac = parseInt(acMatch[1]);
-
-    // Parse HP (e.g., "Hit Points 16 (3d6)")
-    const hpMatch = descText.match(/Hit Points\s+([\d\+\-d()]+)/i);
-    if (hpMatch) companion.hp = hpMatch[1];
-
-    // Parse Speed (e.g., "Speed 10 ft., fly 60 ft.")
-    const speedMatch = descText.match(/Speed\s+([^•\n]+)/i);
-    if (speedMatch) companion.speed = speedMatch[1].trim();
-
-    // Parse Abilities (STR, DEX, CON, INT, WIS, CHA)
-    const abilities = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
-    abilities.forEach(ability => {
-      const regex = new RegExp(ability + '\\s+(\\d+)\\s*\\(([+\\-]\\d+)\\)', 'i');
-      const match = descText.match(regex);
-      if (match) {
-        companion.abilities[ability.toLowerCase()] = {
-          score: parseInt(match[1]),
-          modifier: parseInt(match[2])
-        };
+    // Parse AC - try multiple patterns including markdown
+    const acPatterns = [
+      /\*\*AC\*\*\s+(\d+)/i,
+      /\*\*Armor Class\*\*\s+\*\*(\d+)\*\*/i,
+      /AC\s+(\d+)/i,
+      /Armor Class\s+(\d+)/i
+    ];
+    for (const pattern of acPatterns) {
+      const acMatch = descText.match(pattern);
+      if (acMatch) {
+        companion.ac = parseInt(acMatch[1]);
+        console.log(`✅ Parsed AC: ${companion.ac}`);
+        break;
       }
-    });
+    }
 
-    // Parse Senses
-    const sensesMatch = descText.match(/Senses\s+([^•\n]+)/i);
-    if (sensesMatch) companion.senses = sensesMatch[1].trim();
+    // Parse HP - try multiple patterns including markdown
+    const hpPatterns = [
+      /\*\*HP\*\*\s+(\d+\s*\([^)]+\))/i,
+      /\*\*Hit Points\*\*\s+\*\*(\d+\s*\([^)]+\))\*\*/i,
+      /\*\*Hit Points\*\*\s+(\d+\s*\([^)]+\))/i,
+      /HP\s+(\d+\s*\([^)]+\))/i,
+      /Hit Points\s+(\d+\s*\([^)]+\))/i
+    ];
+    for (const pattern of hpPatterns) {
+      const hpMatch = descText.match(pattern);
+      if (hpMatch) {
+        companion.hp = hpMatch[1];
+        console.log(`✅ Parsed HP: ${companion.hp}`);
+        break;
+      }
+    }
 
-    // Parse Languages
-    const languagesMatch = descText.match(/Languages\s+([^•\n]+)/i);
-    if (languagesMatch) companion.languages = languagesMatch[1].trim();
+    // Parse Speed - try multiple patterns
+    const speedPatterns = [
+      /Speed\s+([^•\n]+)/i,
+      /\*\*Speed\*\*\s+([^•\n]+)/i
+    ];
+    for (const pattern of speedPatterns) {
+      const speedMatch = descText.match(pattern);
+      if (speedMatch) {
+        companion.speed = speedMatch[1].trim();
+        console.log(`✅ Parsed Speed: ${companion.speed}`);
+        break;
+      }
+    }
 
-    // Parse Proficiency Bonus
-    const pbMatch = descText.match(/Proficiency Bonus\s+(\d+)/i);
-    if (pbMatch) companion.proficiencyBonus = parseInt(pbMatch[1]);
+    // Parse Abilities (STR, DEX, CON, INT, WIS, CHA) - handle markdown table format
+    const abilities = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
+    
+    // Try to find the ability values row in the markdown table
+    // Look for a line that starts with | and has 6 columns with ability scores
+    const lines = descText.split('\n');
+    let abilityLine = null;
+    
+    console.log(`🔍 DEBUG: Checking ${lines.length} lines for ability table`);
+    for (const line of lines) {
+      if (line.match(/^>?\s*\|\s*\d+\s*\([+\-]\d+\)\s*\|\s*\d+\s*\([+\-]\d+\)\s*\|\s*\d+\s*\([+\-]\d+\)\s*\|\s*\d+\s*\([+\-]\d+\)\s*\|\s*\d+\s*\([+\-]\d+\)\s*\|\s*\d+\s*\([+\-]\d+\)\s*\|/)) {
+        abilityLine = line;
+        console.log(`🔍 DEBUG: Found matching ability line`);
+      }
+    }
+    
+    if (abilityLine) {
+      console.log(`🔍 Found ability line: ${abilityLine}`);
+      // Extract the 6 ability values from the table row - simpler approach
+      // Remove the >| prefix and split by |
+      const cleanLine = abilityLine.replace(/^>\|/, '');
+      const abilityValues = cleanLine.split('|').filter(val => val.trim());
+      
+      console.log(`🔍 Split ability values:`, abilityValues);
+      
+      if (abilityValues.length >= 6) {
+        // Take the last 6 values (in case there are extra columns)
+        const abilityScores = abilityValues.slice(-6);
+        console.log(`🔍 Using ability scores:`, abilityScores);
+        
+        abilities.forEach((ability, index) => {
+          if (index < abilityScores.length) {
+            const abilityText = abilityScores[index].trim();
+            console.log(`🔍 DEBUG: Processing ${ability} with text: "${abilityText}"`);
+            const abilityMatch = abilityText.match(/(\d+)\s*\(([+\-]\d+)\)/);
+            console.log(`🔍 DEBUG: ${ability} regex result:`, abilityMatch);
+            if (abilityMatch) {
+              companion.abilities[ability.toLowerCase()] = {
+                score: parseInt(abilityMatch[1]),
+                modifier: parseInt(abilityMatch[2])
+              };
+              console.log(`✅ Parsed ${ability}: ${abilityMatch[1]} (${abilityMatch[2]})`);
+            } else {
+              console.log(`❌ Failed to parse ${ability} from "${abilityText}"`);
+            }
+          }
+        });
+      } else {
+        console.log(`❌ Not enough ability values found. Found ${abilityValues.length} values`);
+      }
+    } else {
+      console.log(`❌ No ability line found, trying fallback`);
+      // Fallback to original format
+      abilities.forEach(ability => {
+        const regex = new RegExp(ability + '\\s+(\\d+)\\s*\\(([+\\-]\\d+)\\)', 'i');
+        const match = descText.match(regex);
+        if (match) {
+          companion.abilities[ability.toLowerCase()] = {
+            score: parseInt(match[1]),
+            modifier: parseInt(match[2])
+          };
+          console.log(`✅ Parsed ${ability}: ${match[1]} (${match[2]})`);
+        }
+      });
+    }
+
+    // Parse Senses - try multiple patterns
+    const sensesPatterns = [
+      /Senses\s+([^•\n]+)/i,
+      /\*\*Senses\*\*\s+([^•\n]+)/i
+    ];
+    for (const pattern of sensesPatterns) {
+      const sensesMatch = descText.match(pattern);
+      if (sensesMatch) {
+        companion.senses = sensesMatch[1].trim();
+        console.log(`✅ Parsed Senses: ${companion.senses}`);
+        break;
+      }
+    }
+
+    // Parse Languages - try multiple patterns
+    const languagesPatterns = [
+      /Languages\s+([^•\n]+)/i,
+      /\*\*Languages\*\*\s+([^•\n]+)/i
+    ];
+    for (const pattern of languagesPatterns) {
+      const languagesMatch = descText.match(pattern);
+      if (languagesMatch) {
+        companion.languages = languagesMatch[1].trim();
+        console.log(`✅ Parsed Languages: ${companion.languages}`);
+        break;
+      }
+    }
+
+    // Parse Proficiency Bonus - try multiple patterns
+    const pbPatterns = [
+      /Proficiency Bonus\s+(\d+)/i,
+      /\*\*Proficiency Bonus\*\*\s+(\d+)/i
+    ];
+    for (const pattern of pbPatterns) {
+      const pbMatch = descText.match(pattern);
+      if (pbMatch) {
+        companion.proficiencyBonus = parseInt(pbMatch[1]);
+        console.log(`✅ Parsed Proficiency Bonus: ${companion.proficiencyBonus}`);
+        break;
+      }
+    }
 
     // Parse special features (e.g., "Flyby.", "Primal Bond.")
-    const featurePattern = /\*\*?([^*\n.]+)\.\*\*?\s*([^*\n]+)/gi;
+    const featurePattern = /\*\*\*([^*\n.]+)\.\*\*\*\s*([^*\n]+)/gi;
     let featureMatch;
     while ((featureMatch = featurePattern.exec(descText)) !== null) {
       companion.features.push({
         name: featureMatch[1].trim(),
         description: featureMatch[2].trim()
       });
+      console.log(`✅ Parsed Feature: ${featureMatch[1].trim()}`);
     }
 
     // Parse Actions section
-    const actionsMatch = descText.match(/Actions\s+([\s\S]+)/i);
+    const actionsMatch = descText.match(/###?\s*Actions\s+([\s\S]+)/i);
     if (actionsMatch) {
       const actionsText = actionsMatch[1];
+      console.log(`🔍 DEBUG: Found actions section:`, actionsText);
 
-      // Parse attack actions (e.g., "Shred. Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 1d4 + 3 + 2 slashing damage.")
-      const attackPattern = /(\w+)\.\s*Melee Weapon Attack:\s*\+(\d+)\s*to hit,\s*reach\s*([\d\s]+ft\.,?).*?Hit:\s*([^.]+)/gi;
-      let attackMatch;
-      while ((attackMatch = attackPattern.exec(actionsText)) !== null) {
-        companion.actions.push({
-          name: attackMatch[1].trim(),
-          type: 'attack',
-          attackBonus: parseInt(attackMatch[2]),
-          reach: attackMatch[3].trim(),
-          damage: attackMatch[4].trim()
-        });
-      }
+      // Simple approach: extract attack data using basic string matching
+      const attackLines = actionsText.split('\n').filter(line => line.includes('***') && line.includes('Melee Weapon Attack'));
+      
+      attackLines.forEach(attackLine => {
+        console.log(`🔍 DEBUG: Processing attack line:`, attackLine);
+        
+        // Extract name (between *** and ***)
+        const nameMatch = attackLine.match(/\*\*\*(\w+)\.\*\*\*/);
+        // Extract attack bonus (between **+ and **)
+        const bonusMatch = attackLine.match(/\*\*(\+\d+)\*\*/);
+        // Extract reach (after "reach" and before comma)
+        const reachMatch = attackLine.match(/reach\s*([\d\s]+ft\.)/);
+        // Extract damage (after *Hit:* and **)
+        // Try multiple patterns for damage extraction
+        let damageMatch = attackLine.match(/\*?Hit:\*?\s*\*\*([^*]+?)\*\*/);
+        console.log(`🔍 DEBUG: Damage pattern 1 result:`, damageMatch);
+        if (!damageMatch) {
+          // Fallback: capture everything after Hit: and ** up to the next word
+          damageMatch = attackLine.match(/\*?Hit:\*?\s*\*\*([^*]+?)(?:\s+[a-z]+|$)/i);
+          console.log(`🔍 DEBUG: Damage pattern 2 result:`, damageMatch);
+        }
+        if (!damageMatch) {
+          // Another fallback: just capture after Hit: and **
+          damageMatch = attackLine.match(/\*?Hit:\*?\s*\*\*([^*]+)/);
+          console.log(`🔍 DEBUG: Damage pattern 3 result:`, damageMatch);
+        }
+        console.log(`🔍 DEBUG: Final damage match:`, damageMatch);
+        
+        if (nameMatch && bonusMatch && reachMatch && damageMatch) {
+          companion.actions.push({
+            name: nameMatch[1].trim(),
+            type: 'attack',
+            attackBonus: parseInt(bonusMatch[1]),
+            reach: reachMatch[1].trim(),
+            damage: damageMatch[1].trim()
+          });
+          console.log(`✅ Parsed Action: ${nameMatch[1].trim()}`);
+          console.log(`🔍 DEBUG: Parsed damage: "${damageMatch[1].trim()}"`);
+        } else {
+          console.log(`❌ Failed to parse attack. Matches:`, {nameMatch, bonusMatch, reachMatch, damageMatch});
+        }
+      });
+    } else {
+      console.log(`🔍 DEBUG: No actions section found`);
     }
 
     // Only return if we found at least some stats
     if (companion.ac > 0 || companion.hp || Object.keys(companion.abilities).length > 0) {
+      console.log(`✅ Successfully parsed companion "${name}"`);
+      console.log(`🔍 DEBUG: Final companion object:`, companion);
       return companion;
     }
 
+    console.log(`❌ Failed to parse any stats for companion "${name}"`);
     return null;
   }
 
