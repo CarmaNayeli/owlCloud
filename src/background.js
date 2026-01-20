@@ -5,8 +5,18 @@
 
 console.log('RollCloud: Background script starting...');
 
-// Detect browser API
-const browserAPI = typeof browser !== 'undefined' && browser.runtime ? browser : chrome;
+// Import browser polyfill for service worker (Chrome MV3)
+try {
+  importScripts('src/common/browser-polyfill.js');
+  console.log('✅ Browser polyfill loaded in service worker');
+} catch (e) {
+  console.log('ℹ️ importScripts not available or failed:', e.message);
+}
+
+// Detect browser API (prefer polyfilled version from importScripts)
+const browserAPI = (typeof self !== 'undefined' && typeof self.browserAPI !== 'undefined')
+  ? self.browserAPI
+  : (typeof browser !== 'undefined' && browser.runtime ? browser : chrome);
 
 console.log('RollCloud: Background script initialized on', browserAPI === browser ? 'Firefox' : 'Chrome');
 
