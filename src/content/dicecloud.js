@@ -3091,13 +3091,34 @@
     let isDragging = false;
     let startX, startY, initialLeft, initialTop;
 
-    // Load saved position
+    // Load saved position and validate it's within viewport
     const savedPosition = localStorage.getItem(`${storageKey}_position`);
     if (savedPosition) {
-      const { left, top } = JSON.parse(savedPosition);
-      button.style.left = left;
-      button.style.top = top;
-      button.style.bottom = 'auto'; // Remove bottom positioning when custom positioned
+      try {
+        const { left, top } = JSON.parse(savedPosition);
+        const leftPx = parseInt(left);
+        const topPx = parseInt(top);
+
+        // Validate position is within reasonable bounds
+        // Allow some negative values but not too far off screen
+        const isValidPosition =
+          !isNaN(leftPx) && !isNaN(topPx) &&
+          leftPx >= -100 && leftPx <= window.innerWidth - 50 &&
+          topPx >= -100 && topPx <= window.innerHeight - 50;
+
+        if (isValidPosition) {
+          button.style.left = left;
+          button.style.top = top;
+          button.style.bottom = 'auto';
+        } else {
+          // Invalid position, clear it and use default
+          console.log('🔄 Clearing invalid button position');
+          localStorage.removeItem(`${storageKey}_position`);
+        }
+      } catch (e) {
+        console.error('Error parsing saved position:', e);
+        localStorage.removeItem(`${storageKey}_position`);
+      }
     }
 
     // Load saved visibility (sessionStorage instead of localStorage so button reappears on reload)
