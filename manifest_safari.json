@@ -1,0 +1,54 @@
+{
+  "manifest_version": 2,
+  "name": "RollCloud: Dice Cloud Integration for Roll20",
+  "version": "1.0.0",
+  "description": "Seamlessly integrate Dice Cloud with Roll20 - import characters, forward dice rolls in real-time, and enhance your tabletop experience",
+  "browser_specific_settings": {
+    "safari": {
+      "strict_min_version": "14.0"
+    }
+  },
+  "permissions": [
+    "storage",
+    "activeTab",
+    "https://dicecloud.com/*",
+    "https://*.dicecloud.com/*",
+    "https://app.roll20.net/*",
+    "https://roll20.net/*"
+  ],
+  "background": {
+    "scripts": ["src/background.js"],
+    "persistent": false
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://dicecloud.com/*", "https://*.dicecloud.com/*"],
+      "js": ["src/common/browser-polyfill.js", "src/content/dicecloud.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://app.roll20.net/*"],
+      "js": ["src/common/browser-polyfill.js", "src/content/roll20.js", "src/content/character-sheet-overlay.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "browser_action": {
+    "default_popup": "src/popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "web_accessible_resources": [
+    "src/popup-sheet.html",
+    "src/popup-sheet.js"
+  ]
+}
