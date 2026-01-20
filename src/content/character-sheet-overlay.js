@@ -6,11 +6,12 @@
 (function() {
   'use strict';
 
-  console.log('🎲 RollCloud: Custom sheet overlay loaded');
+  debug.log('🎲 RollCloud: Custom sheet overlay loaded');
 
   let characterData = null;
   let overlayVisible = false;
   let overlayElement = null;
+  let activePopupWindow = null; // Track the currently open popup to ensure only one at a time
 
   // Roll statistics and history
   const rollStats = {
@@ -995,26 +996,26 @@
     if (closeBtn) {
       closeBtn.addEventListener('click', (e) => {
         e.preventDefault();
-        console.log('🔴 Close button clicked');
+        debug.log('🔴 Close button clicked');
         hideOverlay();
       });
     } else {
-      console.error('❌ Close button not found');
+      debug.error('❌ Close button not found');
     }
     
     if (popoutBtn) {
       popoutBtn.addEventListener('click', (e) => {
         e.preventDefault();
-        console.log('🔗 Pop out button clicked');
+        debug.log('🔗 Pop out button clicked');
         popOutCharacterSheet();
       });
     } else {
-      console.error('❌ Pop out button not found');
+      debug.error('❌ Pop out button not found');
     }
     
     if (syncBtn) {
       syncBtn.addEventListener('click', () => {
-        console.log('🔄 Manual sync triggered from character sheet');
+        debug.log('🔄 Manual sync triggered from character sheet');
         
         // Show loading state
         const originalText = syncBtn.innerHTML;
@@ -1031,7 +1032,7 @@
         }, 2000);
       });
     } else {
-      console.error('❌ Sync button not found');
+      debug.error('❌ Sync button not found');
     }
 
     // Add panel event listeners
@@ -1046,7 +1047,7 @@
    * Opens the character sheet in a popup window
    */
   function popOutCharacterSheet() {
-    console.log('🔗 Opening character sheet in popup...');
+    debug.log('🔗 Opening character sheet in popup...');
     showOverlay();
   }
 
@@ -1054,21 +1055,21 @@
    * Loads character data from extension storage
    */
   function loadCharacterData() {
-    console.log('🔄 Loading character data from storage...');
+    debug.log('🔄 Loading character data from storage...');
     browserAPI.runtime.sendMessage({ action: 'getCharacterData' }, (response) => {
       if (browserAPI.runtime.lastError) {
-        console.error('❌ Extension context error:', browserAPI.runtime.lastError);
+        debug.error('❌ Extension context error:', browserAPI.runtime.lastError);
         showNotification('Failed to load character data', 'error');
         return;
       }
 
       if (response && response.data) {
-        console.log('✅ Character data loaded:', response.data.name);
+        debug.log('✅ Character data loaded:', response.data.name);
         characterData = response.data;
 
         showNotification('Character data synced! 🎲', 'success');
       } else {
-        console.log('📋 No character data found');
+        debug.log('📋 No character data found');
         showNotification('No character data found. Please sync from Dice Cloud first.', 'error');
       }
     });
@@ -1078,7 +1079,7 @@
    * Posts spell description to Roll20 chat
    */
   function postSpellDescriptionToChat(spellName, spellLevel, spellDescription) {
-    console.log('🔮 Posting spell description to chat:', spellName);
+    debug.log('🔮 Posting spell description to chat:', spellName);
 
     const message = `/em casts **${spellName}** (Level ${spellLevel})\n${spellDescription || 'No description available'}`;
 
@@ -1100,7 +1101,7 @@
         e.stopPropagation();
         const roll = card.getAttribute('data-roll');
         const name = card.getAttribute('data-name');
-        console.log(`🎲 Clicked ability card: ${name} (${roll})`);
+        debug.log(`🎲 Clicked ability card: ${name} (${roll})`);
         rollSimultaneously(name, roll);
       });
     });
@@ -1109,25 +1110,25 @@
     document.querySelectorAll('.spell-card').forEach(card => {
       card.addEventListener('click', (e) => {
         e.stopPropagation();
-        console.log('🔮 Spell card clicked, checking data attributes...');
+        debug.log('🔮 Spell card clicked, checking data attributes...');
         
         const spellName = card.getAttribute('data-spell');
         const spellLevel = card.getAttribute('data-spell-level');
         const spellDescription = card.getAttribute('data-spell-description');
         const clickAction = card.getAttribute('data-click-action');
         
-        console.log(`🔮 Clicked spell: ${spellName} (Level ${spellLevel}) - Action: ${clickAction}`);
-        console.log('🔮 Spell description:', spellDescription);
+        debug.log(`🔮 Clicked spell: ${spellName} (Level ${spellLevel}) - Action: ${clickAction}`);
+        debug.log('🔮 Spell description:', spellDescription);
         
         // Always show the description first
-        console.log('🔮 Posting spell description to chat');
+        debug.log('🔮 Posting spell description to chat');
         postSpellDescriptionToChat(spellName, spellLevel, spellDescription);
         
         // Then roll if it's an attack spell
         if (clickAction === 'rollAttack') {
           // Create a spell attack roll (d20 + spell level + proficiency)
           const spellAttackRoll = `1d20+${parseInt(spellLevel) || 0}+${characterData.proficiencyBonus || 2}`;
-          console.log('🔮 Rolling spell attack:', spellAttackRoll);
+          debug.log('🔮 Rolling spell attack:', spellAttackRoll);
           rollSimultaneously(`${spellName} Spell Attack`, spellAttackRoll);
         }
       });
@@ -1139,7 +1140,7 @@
         e.stopPropagation();
         const skillName = card.querySelector('.skill-name').textContent;
         const skillBonus = card.querySelector('.skill-bonus').textContent;
-        console.log(`🎲 Clicked skill card: ${skillName} (${skillBonus})`);
+        debug.log(`🎲 Clicked skill card: ${skillName} (${skillBonus})`);
         rollSimultaneously(skillName, `1d20${skillBonus}`);
       });
     });
@@ -1150,7 +1151,7 @@
         e.stopPropagation();
         const saveName = card.querySelector('.save-name').textContent;
         const saveBonus = card.querySelector('.save-bonus').textContent;
-        console.log(` Clicked save card: ${saveName} (${saveBonus})`);
+        debug.log(` Clicked save card: ${saveName} (${saveBonus})`);
         rollSimultaneously(`${saveName} Save`, `1d20${saveBonus}`);
       });
     });
@@ -1169,7 +1170,7 @@
       initiativeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         const initiative = characterData.initiative || 0;
-        console.log(`🎲 Initiative check: 1d20+${initiative}`);
+        debug.log(`🎲 Initiative check: 1d20+${initiative}`);
         rollSimultaneously('Initiative Check', `1d20+${initiative}`);
       });
     }
@@ -1208,7 +1209,7 @@
       }
     });
     
-    console.log(`🎲 Roll mode set to: ${mode}`);
+    debug.log(`🎲 Roll mode set to: ${mode}`);
   }
 
   /**
@@ -1332,8 +1333,8 @@
    * Rolls in Dice Cloud and then forwards to Roll20
    */
   function rollSimultaneously(name, formula) {
-    console.log(`🎲 Rolling ${name} with formula ${formula}...`);
-    console.log('🔍 Debug: rollSimultaneously called');
+    debug.log(`🎲 Rolling ${name} with formula ${formula}...`);
+    debug.log('🔍 Debug: rollSimultaneously called');
     
     // Check advantage mode and modify formula for Roll20 syntax
     const advantageMode = rollStats.settings.advantageMode;
@@ -1342,24 +1343,24 @@
     if (advantageMode === 'advantage') {
       // Roll20 syntax for advantage: 2d20kh1 (keep highest)
       modifiedFormula = formula.replace(/^1d20/, '2d20kh1');
-      console.log(`🎲 Advantage mode: ${formula} → ${modifiedFormula}`);
+      debug.log(`🎲 Advantage mode: ${formula} → ${modifiedFormula}`);
     } else if (advantageMode === 'disadvantage') {
       // Roll20 syntax for disadvantage: 2d20kl1 (keep lowest)
       modifiedFormula = formula.replace(/^1d20/, '2d20kl1');
-      console.log(`🎲 Disadvantage mode: ${formula} → ${modifiedFormula}`);
+      debug.log(`🎲 Disadvantage mode: ${formula} → ${modifiedFormula}`);
     }
     
     // Check if we're in a popup window or in Roll20
     const isPopupWindow = window.opener !== null || window.location.hostname !== 'app.roll20.net';
-    console.log(`🔍 Debug: isPopupWindow: ${isPopupWindow}, hostname: ${window.location.hostname}`);
+    debug.log(`🔍 Debug: isPopupWindow: ${isPopupWindow}, hostname: ${window.location.hostname}`);
     
     if (isPopupWindow) {
       // In popup window - use background script to coordinate with Dice Cloud
-      console.log('📍 In popup window, using background script to roll in Dice Cloud');
+      debug.log('📍 In popup window, using background script to roll in Dice Cloud');
       showNotification(`Rolling ${name} in Dice Cloud... 🎲`, 'info');
       
       // Send to background script to find Dice Cloud tab and roll there
-      console.log('🔍 Debug: Sending message to background script');
+      debug.log('🔍 Debug: Sending message to background script');
       browserAPI.runtime.sendMessage({
         action: 'rollInDiceCloudAndForward',
         roll: {
@@ -1370,26 +1371,26 @@
           timestamp: Date.now()
         }
       }, (response) => {
-        console.log('🔍 Debug: Background script response:', response);
+        debug.log('🔍 Debug: Background script response:', response);
         if (browserAPI.runtime.lastError) {
-          console.error('❌ Background script error:', browserAPI.runtime.lastError);
+          debug.error('❌ Background script error:', browserAPI.runtime.lastError);
           showNotification('Failed to roll in Dice Cloud. Is Dice Cloud open?', 'error');
         } else if (response && response.success) {
-          console.log('✅ Roll initiated in Dice Cloud via background script');
+          debug.log('✅ Roll initiated in Dice Cloud via background script');
           showNotification(`${name} roll initiated in Dice Cloud! 🎲`, 'success');
           // Roll will be forwarded to Roll20 automatically via background script
         } else {
-          console.error('❌ Failed to roll in Dice Cloud:', response?.error);
+          debug.error('❌ Failed to roll in Dice Cloud:', response?.error);
           showNotification('Failed to roll in Dice Cloud. Is Dice Cloud open?', 'error');
         }
       });
     } else {
       // In Roll20 - use background script to coordinate with Dice Cloud tab
-      console.log('📍 In Roll20, using background script to roll in Dice Cloud');
+      debug.log('📍 In Roll20, using background script to roll in Dice Cloud');
       showNotification(`Rolling ${name} in Dice Cloud... 🎲`, 'info');
       
       // Send to background script to find Dice Cloud tab and roll there
-      console.log('🔍 Debug: Sending message to background script from Roll20');
+      debug.log('🔍 Debug: Sending message to background script from Roll20');
       browserAPI.runtime.sendMessage({
         action: 'rollInDiceCloudAndForward',
         roll: {
@@ -1400,15 +1401,15 @@
           timestamp: Date.now()
         }
       }, (response) => {
-        console.log('🔍 Debug: Background script response from Roll20:', response);
+        debug.log('🔍 Debug: Background script response from Roll20:', response);
         if (browserAPI.runtime.lastError) {
-          console.error('❌ Background script error:', browserAPI.runtime.lastError);
+          debug.error('❌ Background script error:', browserAPI.runtime.lastError);
           showNotification('Failed to roll in Dice Cloud. Is Dice Cloud open?', 'error');
         } else if (response && response.success) {
-          console.log('✅ Roll initiated in Dice Cloud via background script');
+          debug.log('✅ Roll initiated in Dice Cloud via background script');
           showNotification(`${name} roll initiated in Dice Cloud! 🎲`, 'success');
         } else {
-          console.error('❌ Failed to roll in Dice Cloud:', response?.error);
+          debug.error('❌ Failed to roll in Dice Cloud:', response?.error);
           showNotification('Failed to roll in Dice Cloud. Is Dice Cloud open?', 'error');
         }
       });
@@ -1435,7 +1436,7 @@
         const buttonText = button.textContent || button.innerText || '';
         if (buttonText.toLowerCase().includes(name.toLowerCase()) || 
             buttonText.toLowerCase().includes('roll')) {
-          console.log('🎯 Found potential roll button:', buttonText);
+          debug.log('🎯 Found potential roll button:', buttonText);
           found = true;
           button.click();
           resolve();
@@ -1449,7 +1450,7 @@
           const text = element.textContent || element.innerText || '';
           if (text.toLowerCase().includes(name.toLowerCase()) && 
               (element.tagName === 'BUTTON' || element.onclick)) {
-            console.log('🎯 Found roll element by text:', text);
+            debug.log('🎯 Found roll element by text:', text);
             element.click();
             resolve();
             return;
@@ -1478,9 +1479,9 @@
       roll: rollData
     }, (response) => {
       if (browserAPI.runtime.lastError) {
-        console.error('❌ Error sending roll to Roll20:', browserAPI.runtime.lastError);
+        debug.error('❌ Error sending roll to Roll20:', browserAPI.runtime.lastError);
       } else {
-        console.log('✅ Roll sent to Roll20 directly');
+        debug.log('✅ Roll sent to Roll20 directly');
         showNotification(`${name} roll sent to Roll20! 🎲`, 'success');
       }
     });
@@ -1501,18 +1502,18 @@
         const sendButton = document.querySelector('#textchat-input .btn');
         if (sendButton) {
           sendButton.click();
-          console.log('✅ Message posted to Roll20 chat:', message);
+          debug.log('✅ Message posted to Roll20 chat:', message);
           return true;
         } else {
-          console.error('❌ Could not find Roll20 chat send button');
+          debug.error('❌ Could not find Roll20 chat send button');
           return false;
         }
       } else {
-        console.error('❌ Could not find Roll20 chat input');
+        debug.error('❌ Could not find Roll20 chat input');
         return false;
       }
     } catch (error) {
-      console.error('❌ Error posting to Roll20 chat:', error);
+      debug.error('❌ Error posting to Roll20 chat:', error);
       return false;
     }
   }
@@ -1599,13 +1600,13 @@
     // Load character data first
     browserAPI.runtime.sendMessage({ action: 'getCharacterData' }, (response) => {
       if (browserAPI.runtime.lastError) {
-        console.error('❌ Extension context error:', browserAPI.runtime.lastError);
+        debug.error('❌ Extension context error:', browserAPI.runtime.lastError);
         showNotification('Extension context error. Please refresh the page.', 'error');
         return;
       }
 
       if (response && response.data) {
-        console.log('✅ Character data loaded for popup:', response.data.name);
+        debug.log('✅ Character data loaded for popup:', response.data.name);
 
         // Get the popup HTML file URL
         const popupURL = browserAPI.runtime.getURL('src/popup-sheet.html');
@@ -1616,16 +1617,16 @@
         // Set up message listener BEFORE opening the window to avoid race condition
         const messageHandler = (event) => {
           if (event.data && event.data.action === 'popupReady' && popupWindow && !messageSent) {
-            console.log('✅ Popup is ready, sending character data...');
+            debug.log('✅ Popup is ready, sending character data...');
             messageSent = true;
             try {
               popupWindow.postMessage({
                 action: 'initCharacterSheet',
                 data: response.data
               }, '*');
-              console.log('✅ Character data sent to popup via postMessage');
+              debug.log('✅ Character data sent to popup via postMessage');
             } catch (error) {
-              console.warn('⚠️ Could not send message to popup (Firefox security):', error.message);
+              debug.warn('⚠️ Could not send message to popup (Firefox security):', error.message);
               // The popup will use storage fallback if postMessage fails
             }
             // Clean up listener after a delay
@@ -1636,15 +1637,28 @@
         };
         window.addEventListener('message', messageHandler);
 
+        // Close any existing popup window before opening a new one
+        if (activePopupWindow && !activePopupWindow.closed) {
+          debug.log('📋 Closing existing popup window...');
+          try {
+            activePopupWindow.close();
+          } catch (error) {
+            debug.warn('⚠️ Could not close existing popup:', error.message);
+          }
+        }
+
         // Now open the popup window
         popupWindow = window.open(popupURL, 'rollcloud-character-sheet', 'width=900,height=700,scrollbars=yes,resizable=yes,menubar=no,toolbar=no,location=no,status=no');
 
         if (!popupWindow) {
-          console.error('❌ Failed to open popup window. Please allow popups for this site.');
+          debug.error('❌ Failed to open popup window. Please allow popups for this site.');
           showNotification('Failed to open popup window. Please allow popups for this site.', 'error');
           window.removeEventListener('message', messageHandler);
           return;
         }
+
+        // Store reference to the active popup
+        activePopupWindow = popupWindow;
 
         // Fallback: Send data after a delay if popup hasn't sent ready message
         // This handles cases where the popup loads faster than expected
@@ -1653,16 +1667,16 @@
             try {
               // Firefox can throw "dead object" error even when accessing .closed property
               if (!popupWindow.closed) {
-                console.log('⏱️ Fallback: Sending character data after timeout...');
+                debug.log('⏱️ Fallback: Sending character data after timeout...');
                 messageSent = true;
                 popupWindow.postMessage({
                   action: 'initCharacterSheet',
                   data: response.data
                 }, '*');
-                console.log('✅ Character data sent via fallback');
+                debug.log('✅ Character data sent via fallback');
               }
             } catch (error) {
-              console.warn('⚠️ Could not send fallback message to popup (Firefox security):', error.message);
+              debug.warn('⚠️ Could not send fallback message to popup (Firefox security):', error.message);
               // The popup will load data from storage if postMessage fails
             }
           }
@@ -1670,10 +1684,10 @@
 
         overlayVisible = true;
         showNotification('Character sheet opened! 🎲', 'success');
-        console.log('✅ Popup window opened successfully');
+        debug.log('✅ Popup window opened successfully');
 
       } else {
-        console.log('📋 No character data found');
+        debug.log('📋 No character data found');
         showNotification('No character data found. Please sync from Dice Cloud first.', 'error');
       }
     });
@@ -1702,19 +1716,19 @@
         const sendButton = document.querySelector('#textchat-input .btn');
         if (sendButton) {
           sendButton.click();
-          console.log('✅ Message posted to Roll20 chat:', message);
+          debug.log('✅ Message posted to Roll20 chat:', message);
           showNotification('Spell announced to chat!', 'success');
           return true;
         } else {
-          console.error('❌ Could not find Roll20 chat send button');
+          debug.error('❌ Could not find Roll20 chat send button');
           return false;
         }
       } else {
-        console.error('❌ Could not find Roll20 chat input');
+        debug.error('❌ Could not find Roll20 chat input');
         return false;
       }
     } catch (error) {
-      console.error('❌ Error posting to Roll20 chat:', error);
+      debug.error('❌ Error posting to Roll20 chat:', error);
       return false;
     }
   }
@@ -1722,11 +1736,11 @@
   // Listen for messages from popout window
   window.addEventListener('message', (event) => {
     if (event.data.action === 'rollFromPopout') {
-      console.log('🎲 Received roll from popout:', event.data);
+      debug.log('🎲 Received roll from popout:', event.data);
       // Handle the roll from popout
       rollSimultaneously(event.data.name, event.data.formula);
     } else if (event.data.action === 'updateCharacterData') {
-      console.log('💾 Received character data update from popup:', event.data.data);
+      debug.log('💾 Received character data update from popup:', event.data.data);
 
       // Save updated character data to storage
       browserAPI.runtime.sendMessage({
@@ -1734,13 +1748,13 @@
         data: event.data.data
       }, (response) => {
         if (response && response.success) {
-          console.log('✅ Character data updated successfully');
+          debug.log('✅ Character data updated successfully');
         } else {
-          console.error('❌ Failed to update character data');
+          debug.error('❌ Failed to update character data');
         }
       });
     } else if (event.data.action === 'announceSpell') {
-      console.log('✨ Announcing spell cast:', event.data);
+      debug.log('✨ Announcing spell cast:', event.data);
 
       // Announce to Roll20 chat
       announceToRoll20(event.data.message);
@@ -1903,7 +1917,7 @@
   function createToggleButton() {
     // Check if button already exists
     if (document.getElementById('rollcloud-sheet-toggle')) {
-      console.log('⚠️ Character sheet button already exists');
+      debug.log('⚠️ Character sheet button already exists');
       return;
     }
 
@@ -1954,7 +1968,7 @@
     // Make it draggable and add hide/show functionality
     makeButtonDraggable(button, 'rollcloud-sheet-toggle');
 
-    console.log('✅ Character sheet button created');
+    debug.log('✅ Character sheet button created');
   }
 
   // Listen for messages from background script
@@ -1962,7 +1976,7 @@
     if (request.action === 'postRollToChat') {
       // Handle roll from DiceCloud
       if (request.roll) {
-        console.log('🎲 Received roll in overlay:', request.roll);
+        debug.log('🎲 Received roll in overlay:', request.roll);
 
         // Only add to history if it's an actual roll (has a formula)
         // Announcements like spells/actions don't have formulas
@@ -1997,9 +2011,9 @@
   function initializeButton() {
     if (document.body) {
       createToggleButton();
-      console.log('✅ RollCloud character sheet toggle button added');
+      debug.log('✅ RollCloud character sheet toggle button added');
     } else {
-      console.log('⏳ Waiting for document.body...');
+      debug.log('⏳ Waiting for document.body...');
       setTimeout(initializeButton, 100);
     }
   }
@@ -2012,7 +2026,7 @@
     setTimeout(initializeButton, 1000);
   }
 
-  console.log('✅ RollCloud character sheet overlay script loaded');
+  debug.log('✅ RollCloud character sheet overlay script loaded');
 
 })();
    

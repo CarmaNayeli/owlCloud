@@ -17,7 +17,7 @@
     "https://roll20.net/*"
   ],
   "background": {
-    "scripts": ["src/background.js"],
+    "scripts": ["src/common/debug.js", "src/background.js"],
     "persistent": false
   },
   "content_scripts": [
