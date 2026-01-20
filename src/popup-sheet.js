@@ -1,9 +1,9 @@
-console.log('✅ Popup HTML loaded');
+debug.log('✅ Popup HTML loaded');
 
 // Initialize theme manager
 if (typeof ThemeManager !== 'undefined') {
   ThemeManager.init().then(() => {
-    console.log('🎨 Theme system initialized');
+    debug.log('🎨 Theme system initialized');
 
     // Set up theme button click handlers
     document.addEventListener('DOMContentLoaded', () => {
@@ -29,7 +29,7 @@ if (typeof ThemeManager !== 'undefined') {
     });
   });
 } else {
-  console.warn('⚠️ ThemeManager not available');
+  debug.warn('⚠️ ThemeManager not available');
 }
 
 // Store character data globally so we can update it
@@ -37,10 +37,10 @@ let characterData = null;
 
 // Listen for character data from parent window via postMessage
 window.addEventListener('message', (event) => {
-  console.log('✅ Received message in popup:', event.data);
+  debug.log('✅ Received message in popup:', event.data);
 
   if (event.data && event.data.action === 'initCharacterSheet') {
-    console.log('✅ Initializing character sheet with data:', event.data.data.name);
+    debug.log('✅ Initializing character sheet with data:', event.data.data.name);
     characterData = event.data.data;  // Store globally
     buildSheet(characterData);
   }
@@ -51,38 +51,38 @@ window.addEventListener('message', (event) => {
 function notifyParentReady() {
   try {
     if (window.opener && !window.opener.closed) {
-      console.log('✅ Sending ready message to parent window...');
+      debug.log('✅ Sending ready message to parent window...');
       window.opener.postMessage({ action: 'popupReady' }, '*');
     } else {
-      console.warn('⚠️ No parent window available, waiting for postMessage...');
+      debug.warn('⚠️ No parent window available, waiting for postMessage...');
     }
   } catch (error) {
-    console.warn('⚠️ Could not notify parent (this is normal):', error.message);
+    debug.warn('⚠️ Could not notify parent (this is normal):', error.message);
   }
 }
 
 // Send ready message after a short delay to ensure parent is listening
 setTimeout(notifyParentReady, 100);
 
-console.log('✅ Waiting for character data via postMessage...');
+debug.log('✅ Waiting for character data via postMessage...');
 
 // Fallback: If we don't receive data via postMessage within 1 second,
 // load directly from storage (Firefox sometimes blocks postMessage between windows)
 setTimeout(() => {
   if (!characterData) {
-    console.log('⏱️ No data received via postMessage, loading from storage...');
+    debug.log('⏱️ No data received via postMessage, loading from storage...');
     browserAPI.runtime.sendMessage({ action: 'getCharacterData' }, (response) => {
       if (browserAPI.runtime.lastError) {
-        console.error('❌ Extension context error:', browserAPI.runtime.lastError);
+        debug.error('❌ Extension context error:', browserAPI.runtime.lastError);
         return;
       }
 
       if (response && response.data) {
-        console.log('✅ Character data loaded from storage:', response.data.name);
+        debug.log('✅ Character data loaded from storage:', response.data.name);
         characterData = response.data;
         buildSheet(characterData);
       } else {
-        console.error('❌ No character data found in storage');
+        debug.error('❌ No character data found in storage');
       }
     });
   }
@@ -103,9 +103,9 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function buildSheet(data) {
-  console.log('Building character sheet...');
-  console.log('📊 Character data received:', data);
-  console.log('✨ Spell slots data:', data.spellSlots);
+  debug.log('Building character sheet...');
+  debug.log('📊 Character data received:', data);
+  debug.log('✨ Spell slots data:', data.spellSlots);
 
   // Character name and info with color picker
   const charNameEl = document.getElementById('char-name');
@@ -166,7 +166,7 @@ function buildSheet(data) {
       if (raceValue && typeof raceValue === 'string') {
         raceName = raceValue.charAt(0).toUpperCase() + raceValue.slice(1);
       } else {
-        console.warn('Could not extract race name from object:', data.race);
+        debug.warn('Could not extract race name from object:', data.race);
         raceName = 'Unknown Race';
       }
     }
@@ -316,7 +316,7 @@ function buildSheet(data) {
   // Initialize color palette after sheet is built
   initColorPalette();
 
-  console.log('✅ Sheet built successfully');
+  debug.log('✅ Sheet built successfully');
 }
 
 function buildSpellsBySource(container, spells) {
@@ -378,7 +378,7 @@ function buildSpellsBySource(container, spells) {
         const existingSpell = spellsByName[spellName];
         if (spell.source && !existingSpell.source.includes(spell.source)) {
           existingSpell.source += '; ' + spell.source;
-          console.log(`📚 Combined duplicate spell "${spellName}": ${existingSpell.source}`);
+          debug.log(`📚 Combined duplicate spell "${spellName}": ${existingSpell.source}`);
         }
       }
     });
@@ -406,7 +406,7 @@ function buildActionsDisplay(container, actions) {
   container.innerHTML = '';
 
   // DEBUG: Log all actions to see what we have
-  console.log('🔍 buildActionsDisplay called with actions:', actions.map(a => ({ name: a.name, damage: a.damage, actionType: a.actionType })));
+  debug.log('🔍 buildActionsDisplay called with actions:', actions.map(a => ({ name: a.name, damage: a.damage, actionType: a.actionType })));
 
   // Check if character has Sneak Attack available (from DiceCloud)
   // We only check if it EXISTS, not whether it's enabled on DiceCloud
@@ -416,13 +416,13 @@ function buildActionsDisplay(container, actions) {
     a.name === 'Sneak Attack' ||
     a.name.toLowerCase().includes('sneak attack')
   );
-  console.log('🎯 Sneak Attack search result:', sneakAttackAction);
+  debug.log('🎯 Sneak Attack search result:', sneakAttackAction);
   if (sneakAttackAction && sneakAttackAction.damage) {
     sneakAttackDamage = sneakAttackAction.damage;
 
     // Resolve variables in the damage formula for display
     const resolvedDamage = resolveVariablesInFormula(sneakAttackDamage);
-    console.log(`🎯 Sneak Attack damage: "${sneakAttackDamage}" resolved to "${resolvedDamage}"`);
+    debug.log(`🎯 Sneak Attack damage: "${sneakAttackDamage}" resolved to "${resolvedDamage}"`);
 
     // Add toggle section at the top of actions
     const toggleSection = document.createElement('div');
@@ -438,7 +438,7 @@ function buildActionsDisplay(container, actions) {
     checkbox.style.cssText = 'width: 18px; height: 18px; cursor: pointer;';
     checkbox.addEventListener('change', (e) => {
       sneakAttackEnabled = e.target.checked;
-      console.log(`🎯 Sneak Attack toggle on our sheet: ${sneakAttackEnabled ? 'ON' : 'OFF'} (independent of DiceCloud)`);
+      debug.log(`🎯 Sneak Attack toggle on our sheet: ${sneakAttackEnabled ? 'ON' : 'OFF'} (independent of DiceCloud)`);
     });
 
     const labelText = document.createElement('span');
@@ -457,7 +457,7 @@ function buildActionsDisplay(container, actions) {
   );
 
   if (hasElementalWeapon) {
-    console.log(`⚔️ Elemental Weapon spell found, adding toggle`);
+    debug.log(`⚔️ Elemental Weapon spell found, adding toggle`);
 
     // Add toggle section for Elemental Weapon
     const elementalToggleSection = document.createElement('div');
@@ -473,7 +473,7 @@ function buildActionsDisplay(container, actions) {
     elementalCheckbox.style.cssText = 'width: 18px; height: 18px; cursor: pointer;';
     elementalCheckbox.addEventListener('change', (e) => {
       elementalWeaponEnabled = e.target.checked;
-      console.log(`⚔️ Elemental Weapon toggle: ${elementalWeaponEnabled ? 'ON' : 'OFF'}`);
+      debug.log(`⚔️ Elemental Weapon toggle: ${elementalWeaponEnabled ? 'ON' : 'OFF'}`);
     });
 
     const elementalLabelText = document.createElement('span');
@@ -488,7 +488,7 @@ function buildActionsDisplay(container, actions) {
   actions.forEach((action, index) => {
     // Skip rendering standalone Sneak Attack button if it exists
     if ((action.name === 'Sneak Attack' || action.name.toLowerCase().includes('sneak attack')) && action.actionType === 'feature') {
-      console.log('⏭️ Skipping standalone Sneak Attack button (using toggle instead)');
+      debug.log('⏭️ Skipping standalone Sneak Attack button (using toggle instead)');
       return;
     }
 
@@ -499,7 +499,7 @@ function buildActionsDisplay(container, actions) {
       const sneakPattern = new RegExp(`\\+?${sneakAttackDamage.replace(/[+\-]/g, '')}`, 'g');
       const cleanedDamage = action.damage.replace(sneakPattern, '');
       if (cleanedDamage !== action.damage) {
-        console.log(`🧹 Cleaned weapon damage: "${action.damage}" -> "${cleanedDamage}"`);
+        debug.log(`🧹 Cleaned weapon damage: "${action.damage}" -> "${cleanedDamage}"`);
         action.damage = cleanedDamage;
       }
     }
@@ -580,7 +580,7 @@ function buildActionsDisplay(container, actions) {
           }
           kiResource.current -= kiCost;
           saveCharacterData();
-          console.log(`✨ Used ${kiCost} Ki points for ${action.name}. Remaining: ${kiResource.current}/${kiResource.max}`);
+          debug.log(`✨ Used ${kiCost} Ki points for ${action.name}. Remaining: ${kiResource.current}/${kiResource.max}`);
           showNotification(`✨ ${action.name}! (${kiResource.current}/${kiResource.max} Ki left)`);
           buildSheet(characterData); // Refresh display
         }
@@ -599,7 +599,7 @@ function buildActionsDisplay(container, actions) {
           }
           sorceryResource.current -= sorceryCost;
           saveCharacterData();
-          console.log(`✨ Used ${sorceryCost} Sorcery Points for ${action.name}. Remaining: ${sorceryResource.current}/${sorceryResource.max}`);
+          debug.log(`✨ Used ${sorceryCost} Sorcery Points for ${action.name}. Remaining: ${sorceryResource.current}/${sorceryResource.max}`);
           showNotification(`✨ ${action.name}! (${sorceryResource.current}/${sorceryResource.max} SP left)`);
           buildSheet(characterData); // Refresh display
         }
@@ -622,7 +622,7 @@ function buildActionsDisplay(container, actions) {
         // If damage formula is a bare variable that doesn't exist, try to extract from description
         const bareVarPattern = /^[a-zA-Z_][a-zA-Z0-9_.]*$/;
         if (bareVarPattern.test(damageFormula.trim()) && !characterData.otherVariables.hasOwnProperty(damageFormula.trim())) {
-          console.log(`⚠️ Damage variable "${damageFormula}" not found, attempting to extract from description`);
+          debug.log(`⚠️ Damage variable "${damageFormula}" not found, attempting to extract from description`);
           if (action.description) {
             const resolvedDesc = resolveVariablesInFormula(action.description);
             // Extract dice formulas from description (e.g., "5d6", "2d8+3", etc.)
@@ -630,9 +630,9 @@ function buildActionsDisplay(container, actions) {
             const matches = resolvedDesc.match(dicePattern);
             if (matches && matches.length > 0) {
               damageFormula = matches[0];
-              console.log(`✅ Extracted damage formula from description: ${damageFormula}`);
+              debug.log(`✅ Extracted damage formula from description: ${damageFormula}`);
             } else {
-              console.log(`⚠️ Could not extract damage formula from description`);
+              debug.log(`⚠️ Could not extract damage formula from description`);
             }
           }
         }
@@ -641,14 +641,14 @@ function buildActionsDisplay(container, actions) {
         if (sneakAttackEnabled && sneakAttackDamage && action.attackRoll) {
           damageFormula += `+${sneakAttackDamage}`;
           damageName += ' + Sneak Attack';
-          console.log(`🎯 Adding Sneak Attack to ${action.name}: ${damageFormula}`);
+          debug.log(`🎯 Adding Sneak Attack to ${action.name}: ${damageFormula}`);
         }
 
         // Add Elemental Weapon if toggle is enabled and this is a weapon attack
         if (elementalWeaponEnabled && elementalWeaponDamage && action.attackRoll) {
           damageFormula += `+${elementalWeaponDamage}`;
           damageName += ' + Elemental Weapon';
-          console.log(`⚔️ Adding Elemental Weapon to ${action.name}: ${damageFormula}`);
+          debug.log(`⚔️ Adding Elemental Weapon to ${action.name}: ${damageFormula}`);
         }
 
         roll(damageName, damageFormula);
@@ -697,7 +697,7 @@ function buildActionsDisplay(container, actions) {
           }
           kiResource.current -= kiCost;
           saveCharacterData();
-          console.log(`✨ Used ${kiCost} Ki points for ${action.name}. Remaining: ${kiResource.current}/${kiResource.max}`);
+          debug.log(`✨ Used ${kiCost} Ki points for ${action.name}. Remaining: ${kiResource.current}/${kiResource.max}`);
           showNotification(`✨ ${action.name}! (${kiResource.current}/${kiResource.max} Ki left)`);
           buildSheet(characterData); // Refresh display
         }
@@ -716,7 +716,7 @@ function buildActionsDisplay(container, actions) {
           }
           sorceryResource.current -= sorceryCost;
           saveCharacterData();
-          console.log(`✨ Used ${sorceryCost} Sorcery Points for ${action.name}. Remaining: ${sorceryResource.current}/${sorceryResource.max}`);
+          debug.log(`✨ Used ${sorceryCost} Sorcery Points for ${action.name}. Remaining: ${sorceryResource.current}/${sorceryResource.max}`);
           showNotification(`✨ ${action.name}! (${sorceryResource.current}/${sorceryResource.max} SP left)`);
           buildSheet(characterData); // Refresh display
         }
@@ -739,7 +739,7 @@ function buildActionsDisplay(container, actions) {
             if (diceFormula.startsWith('d')) {
               diceFormula = '1' + diceFormula;
             }
-            console.log(`🎲 Found dice formula in description: ${diceFormula}`);
+            debug.log(`🎲 Found dice formula in description: ${diceFormula}`);
             // Announce the action first, then roll
             announceAction(action);
             roll(action.name, diceFormula);
@@ -786,7 +786,7 @@ function buildActionsDisplay(container, actions) {
           }
           kiResource.current -= kiCost;
           saveCharacterData();
-          console.log(`✨ Used ${kiCost} Ki points for ${action.name}. Remaining: ${kiResource.current}/${kiResource.max}`);
+          debug.log(`✨ Used ${kiCost} Ki points for ${action.name}. Remaining: ${kiResource.current}/${kiResource.max}`);
           showNotification(`✨ ${action.name}! (${kiResource.current}/${kiResource.max} Ki left)`);
           buildSheet(characterData); // Refresh display
         }
@@ -805,7 +805,7 @@ function buildActionsDisplay(container, actions) {
           }
           sorceryResource.current -= sorceryCost;
           saveCharacterData();
-          console.log(`✨ Used ${sorceryCost} Sorcery Points for ${action.name}. Remaining: ${sorceryResource.current}/${sorceryResource.max}`);
+          debug.log(`✨ Used ${sorceryCost} Sorcery Points for ${action.name}. Remaining: ${sorceryResource.current}/${sorceryResource.max}`);
           showNotification(`✨ ${action.name}! (${sorceryResource.current}/${sorceryResource.max} SP left)`);
           buildSheet(characterData); // Refresh display
         }
@@ -873,9 +873,9 @@ function buildCompanionsDisplay(companions) {
   container.innerHTML = '';
 
   companions.forEach(companion => {
-    console.log('🔍 DEBUG: Companion object in popup:', companion);
-    console.log('🔍 DEBUG: Companion abilities:', companion.abilities);
-    console.log('🔍 DEBUG: Companion abilities keys:', Object.keys(companion.abilities));
+    debug.log('🔍 DEBUG: Companion object in popup:', companion);
+    debug.log('🔍 DEBUG: Companion abilities:', companion.abilities);
+    debug.log('🔍 DEBUG: Companion abilities keys:', Object.keys(companion.abilities));
 
     const companionCard = document.createElement('div');
     companionCard.className = 'action-card';
@@ -1030,7 +1030,7 @@ function buildResourcesDisplay() {
 
   if (!characterData || !characterData.resources || characterData.resources.length === 0) {
     container.innerHTML = '<p style="text-align: center; color: #666;">No class resources available</p>';
-    console.log('⚠️ No resources in character data');
+    debug.log('⚠️ No resources in character data');
     return;
   }
 
@@ -1086,7 +1086,7 @@ function buildSpellSlotsDisplay() {
 
   if (!characterData || !characterData.spellSlots) {
     container.innerHTML = '<p style="text-align: center; color: #666;">No spell slots available</p>';
-    console.log('⚠️ No spell slots in character data');
+    debug.log('⚠️ No spell slots in character data');
     return;
   }
 
@@ -1135,7 +1135,7 @@ function buildSpellSlotsDisplay() {
     container.appendChild(note);
   } else {
     container.innerHTML = '<p style="text-align: center; color: #666;">No spell slots available</p>';
-    console.log('⚠️ Character has 0 max slots for all levels');
+    debug.log('⚠️ Character has 0 max slots for all levels');
   }
 }
 
@@ -1268,7 +1268,7 @@ function showHPModal() {
         try {
           window.opener.postMessage(messageData, '*');
         } catch (error) {
-          console.warn('⚠️ Could not send via window.opener:', error.message);
+          debug.warn('⚠️ Could not send via window.opener:', error.message);
           // Fallback to background script relay
           browserAPI.runtime.sendMessage({
             action: 'relayRollToRoll20',
@@ -1300,7 +1300,7 @@ function showHPModal() {
         try {
           window.opener.postMessage(messageData, '*');
         } catch (error) {
-          console.warn('⚠️ Could not send via window.opener:', error.message);
+          debug.warn('⚠️ Could not send via window.opener:', error.message);
           // Fallback to background script relay
           browserAPI.runtime.sendMessage({
             action: 'relayRollToRoll20',
@@ -1396,7 +1396,7 @@ function showDeathSavesModal() {
   document.getElementById('roll-death-save').addEventListener('click', () => {
     // Roll 1d20 locally to determine outcome
     const rollResult = Math.floor(Math.random() * 20) + 1;
-    console.log(`🎲 Death Save rolled: ${rollResult}`);
+    debug.log(`🎲 Death Save rolled: ${rollResult}`);
 
     // Determine outcome based on D&D 5e rules
     let message = '';
@@ -1574,7 +1574,7 @@ function createSpellCard(spell, index) {
 }
 
 function castSpell(spell, index) {
-  console.log('✨ Attempting to cast:', spell.name, spell);
+  debug.log('✨ Attempting to cast:', spell.name, spell);
 
   if (!characterData) {
     showNotification('❌ Character data not available', 'error');
@@ -1583,7 +1583,7 @@ function castSpell(spell, index) {
 
   // Cantrips (level 0) don't need slots
   if (!spell.level || spell.level === 0 || spell.level === '0') {
-    console.log('✨ Casting cantrip (no resource needed)');
+    debug.log('✨ Casting cantrip (no resource needed)');
     announceSpellCast(spell);
     showNotification(`✨ Cast ${spell.name}!`);
     return;
@@ -1598,7 +1598,7 @@ function castSpell(spell, index) {
   const currentSlots = characterData.spellSlots?.[slotVar] || 0;
   const maxSlots = characterData.spellSlots?.[slotMaxVar] || 0;
 
-  console.log(`📊 Spell slots for level ${spellLevel}:`, { current: currentSlots, max: maxSlots });
+  debug.log(`📊 Spell slots for level ${spellLevel}:`, { current: currentSlots, max: maxSlots });
 
   // In D&D 5e, spells are cast using spell slots (not class resources like Ki or Sorcery Points)
   // Class resources are used for class features, and Sorcery Points are used for metamagic
@@ -1786,7 +1786,7 @@ function showUpcastChoice(spell, originalLevel) {
   // Check for metamagic options
   const metamagicOptions = getAvailableMetamagic();
   const sorceryPoints = getSorceryPointsResource();
-  console.log('🔮 Metamagic detection:', {
+  debug.log('🔮 Metamagic detection:', {
     metamagicOptions,
     sorceryPoints,
     hasMetamagic: metamagicOptions.length > 0 && sorceryPoints && sorceryPoints.current > 0
@@ -1984,7 +1984,7 @@ function castWithSlot(spell, slot, metamagicOptions = []) {
 
       // Deduct sorcery points
       sorceryPoints.current = Math.max(0, sorceryPoints.current - totalMetamagicCost);
-      console.log(`✨ Used ${totalMetamagicCost} sorcery points for metamagic. Remaining: ${sorceryPoints.current}/${sorceryPoints.max}`);
+      debug.log(`✨ Used ${totalMetamagicCost} sorcery points for metamagic. Remaining: ${sorceryPoints.current}/${sorceryPoints.max}`);
     }
   }
 
@@ -1999,7 +1999,7 @@ function castWithSlot(spell, slot, metamagicOptions = []) {
     resourceText += ` + ${metamagicNames.join(', ')} (${totalMetamagicCost} SP)`;
   }
 
-  console.log(`✅ Used spell slot. Remaining: ${characterData.spellSlots[slot.slotVar]}/${slot.max}`);
+  debug.log(`✅ Used spell slot. Remaining: ${characterData.spellSlots[slot.slotVar]}/${slot.max}`);
 
   let notificationText = `✨ Cast ${spell.name}! (${characterData.spellSlots[slot.slotVar]}/${slot.max} slots left)`;
   if (metamagicNames.length > 0) {
@@ -2023,7 +2023,7 @@ function useClassResource(resource, spell) {
   characterData.otherVariables[resource.varName] = resource.current - 1;
   saveCharacterData();
 
-  console.log(`✅ Used ${resource.name}. Remaining: ${characterData.otherVariables[resource.varName]}/${resource.max}`);
+  debug.log(`✅ Used ${resource.name}. Remaining: ${characterData.otherVariables[resource.varName]}/${resource.max}`);
   showNotification(`✨ Cast ${spell.name}! (${characterData.otherVariables[resource.varName]}/${resource.max} ${resource.name} left)`);
 
   buildSheet(characterData);
@@ -2126,22 +2126,22 @@ function announceSpellCast(spell, resourceUsed) {
   if (window.opener && !window.opener.closed) {
     try {
       window.opener.postMessage(messageData, '*');
-      console.log('✅ Spell announcement sent via window.opener');
+      debug.log('✅ Spell announcement sent via window.opener');
     } catch (error) {
-      console.warn('⚠️ Could not send via window.opener:', error.message);
+      debug.warn('⚠️ Could not send via window.opener:', error.message);
       // Fall through to background script relay
     }
   } else {
     // Fallback: Use background script to relay to Roll20 (Firefox)
-    console.log('📡 Using background script to relay spell announcement to Roll20...');
+    debug.log('📡 Using background script to relay spell announcement to Roll20...');
     browserAPI.runtime.sendMessage({
       action: 'relayRollToRoll20',
       roll: messageData
     }, (response) => {
       if (browserAPI.runtime.lastError) {
-        console.error('❌ Error relaying spell announcement:', browserAPI.runtime.lastError);
+        debug.error('❌ Error relaying spell announcement:', browserAPI.runtime.lastError);
       } else if (response && response.success) {
-        console.log('✅ Spell announcement relayed to Roll20');
+        debug.log('✅ Spell announcement relayed to Roll20');
       }
     });
   }
@@ -2170,12 +2170,12 @@ function getAvailableMetamagic() {
   };
 
   if (!characterData || !characterData.features) {
-    console.log('🔮 No characterData or features for metamagic detection');
+    debug.log('🔮 No characterData or features for metamagic detection');
     return [];
   }
 
   // DEBUG: Log all features to see what we have
-  console.log('🔮 All character features:', characterData.features.map(f => f.name));
+  debug.log('🔮 All character features:', characterData.features.map(f => f.name));
 
   // Find metamagic features (case-insensitive matching)
   const metamagicOptions = characterData.features.filter(feature => {
@@ -2192,7 +2192,7 @@ function getAvailableMetamagic() {
     }
 
     if (matchedName) {
-      console.log(`🔮 Found metamagic feature: "${name}" (matched as "${matchedName}")`);
+      debug.log(`🔮 Found metamagic feature: "${name}" (matched as "${matchedName}")`);
       feature._matchedName = matchedName; // Store for later use
       return true;
     }
@@ -2206,18 +2206,18 @@ function getAvailableMetamagic() {
     };
   });
 
-  console.log('🔮 Found metamagic options:', metamagicOptions.map(m => m.name));
+  debug.log('🔮 Found metamagic options:', metamagicOptions.map(m => m.name));
   return metamagicOptions;
 }
 
 function getSorceryPointsResource() {
   if (!characterData || !characterData.resources) {
-    console.log('🔮 No characterData or resources for sorcery points detection');
+    debug.log('🔮 No characterData or resources for sorcery points detection');
     return null;
   }
 
   // DEBUG: Log all resources to see what we have
-  console.log('🔮 All character resources:', characterData.resources.map(r => ({ name: r.name, current: r.current, max: r.max })));
+  debug.log('🔮 All character resources:', characterData.resources.map(r => ({ name: r.name, current: r.current, max: r.max })));
 
   // Find sorcery points in resources (flexible matching)
   const sorceryResource = characterData.resources.find(r => {
@@ -2228,13 +2228,13 @@ function getSorceryPointsResource() {
       lowerName === 'sorcery' ||
       lowerName.includes('sorcerer point');
     if (isSorceryPoints) {
-      console.log(`🔮 Found sorcery points resource: "${r.name}" (${r.current}/${r.max})`);
+      debug.log(`🔮 Found sorcery points resource: "${r.name}" (${r.current}/${r.max})`);
     }
     return isSorceryPoints;
   });
 
   if (!sorceryResource) {
-    console.log('🔮 No sorcery points resource found');
+    debug.log('🔮 No sorcery points resource found');
   }
 
   return sorceryResource || null;
@@ -2304,7 +2304,7 @@ function handleLayOnHands(action) {
   saveCharacterData();
 
   // Announce the healing
-  console.log(`💚 Used ${amount} Lay on Hands points. Remaining: ${layOnHandsPool.current}/${layOnHandsPool.max}`);
+  debug.log(`💚 Used ${amount} Lay on Hands points. Remaining: ${layOnHandsPool.current}/${layOnHandsPool.max}`);
 
   if (amount === 5) {
     // Might be curing disease/poison
@@ -2341,7 +2341,7 @@ function getResourceCostsFromAction(action) {
   });
 
   if (costs.length > 0) {
-    console.log(`💰 Resource costs for ${action.name}:`, costs);
+    debug.log(`💰 Resource costs for ${action.name}:`, costs);
   }
 
   return costs;
@@ -2356,7 +2356,7 @@ function getKiCostFromAction(action) {
   );
 
   if (kiCost) {
-    console.log(`💨 Ki cost for ${action.name}: ${kiCost.quantity} ki points`);
+    debug.log(`💨 Ki cost for ${action.name}: ${kiCost.quantity} ki points`);
     return kiCost.quantity;
   }
 
@@ -2371,7 +2371,7 @@ function getSorceryPointCostFromAction(action) {
   );
 
   if (sorceryCost) {
-    console.log(`✨ Sorcery Point cost for ${action.name}: ${sorceryCost.quantity} SP`);
+    debug.log(`✨ Sorcery Point cost for ${action.name}: ${sorceryCost.quantity} SP`);
     return sorceryCost.quantity;
   }
 
@@ -2394,7 +2394,7 @@ function decrementActionResources(action) {
     }
 
     if (!cost.variableName) {
-      console.log(`⚠️ Resource cost missing variableName for ${action.name}:`, cost);
+      debug.log(`⚠️ Resource cost missing variableName for ${action.name}:`, cost);
       continue;
     }
 
@@ -2402,7 +2402,7 @@ function decrementActionResources(action) {
     const resource = characterData.resources?.find(r => r.variableName === cost.variableName);
 
     if (!resource) {
-      console.log(`⚠️ Resource not found: ${cost.variableName} for ${action.name}`);
+      debug.log(`⚠️ Resource not found: ${cost.variableName} for ${action.name}`);
       continue;
     }
 
@@ -2427,7 +2427,7 @@ function decrementActionResources(action) {
 
     if (resource) {
       resource.current -= cost.quantity;
-      console.log(`✅ Used ${cost.quantity} ${cost.name || cost.variableName} for ${action.name}. Remaining: ${resource.current}/${resource.max}`);
+      debug.log(`✅ Used ${cost.quantity} ${cost.name || cost.variableName} for ${action.name}. Remaining: ${resource.current}/${resource.max}`);
       showNotification(`✅ Used ${action.name}! (${resource.current}/${resource.max} ${cost.name || cost.variableName} left)`);
     }
   }
@@ -2734,24 +2734,24 @@ function announceAction(action) {
     try {
       window.opener.postMessage(messageData, '*');
       showNotification(`✨ ${action.name} used!`);
-      console.log('✅ Action announcement sent via window.opener');
+      debug.log('✅ Action announcement sent via window.opener');
       return;
     } catch (error) {
-      console.warn('⚠️ Could not send via window.opener:', error.message);
+      debug.warn('⚠️ Could not send via window.opener:', error.message);
     }
   }
 
   // Fallback: Use background script to relay to Roll20 (Firefox)
-  console.log('📡 Using background script to relay action announcement to Roll20...');
+  debug.log('📡 Using background script to relay action announcement to Roll20...');
   browserAPI.runtime.sendMessage({
     action: 'relayRollToRoll20',
     roll: messageData
   }, (response) => {
     if (browserAPI.runtime.lastError) {
-      console.error('❌ Error relaying action announcement:', browserAPI.runtime.lastError);
+      debug.error('❌ Error relaying action announcement:', browserAPI.runtime.lastError);
       showNotification('❌ Failed to announce action');
     } else if (response && response.success) {
-      console.log('✅ Action announcement relayed to Roll20');
+      debug.log('✅ Action announcement relayed to Roll20');
       showNotification(`✨ ${action.name} used!`);
     }
   });
@@ -2844,7 +2844,7 @@ function saveCharacterData() {
       action: 'updateCharacterData',
       data: characterData
     }, '*');
-    console.log('💾 Sent character data update to parent window');
+    debug.log('💾 Sent character data update to parent window');
   }
 }
 
@@ -2853,11 +2853,11 @@ function resolveVariablesInFormula(formula) {
     return formula;
   }
 
-  console.log(`🔧 resolveVariablesInFormula called with: "${formula}"`);
+  debug.log(`🔧 resolveVariablesInFormula called with: "${formula}"`);
 
   // Check if characterData has otherVariables
   if (!characterData.otherVariables || typeof characterData.otherVariables !== 'object') {
-    console.log('⚠️ No otherVariables available for formula resolution');
+    debug.log('⚠️ No otherVariables available for formula resolution');
     return formula;
   }
 
@@ -2883,11 +2883,11 @@ function resolveVariablesInFormula(formula) {
       }
 
       if (value !== null && value !== undefined) {
-        console.log(`✅ Resolved bare variable: ${varName} = ${value}`);
+        debug.log(`✅ Resolved bare variable: ${varName} = ${value}`);
         return String(value);
       }
     }
-    console.log(`⚠️ Bare variable not found in otherVariables: ${varName}`);
+    debug.log(`⚠️ Bare variable not found in otherVariables: ${varName}`);
   }
 
   // Helper function to get variable value (handles dot notation like "bard.level")
@@ -2955,12 +2955,12 @@ function resolveVariablesInFormula(formula) {
       if (numericValue !== null) {
         resolvedFormula = resolvedFormula.replace(fullMatch, numericValue);
         variablesResolved.push(`${variableName}=${numericValue}`);
-        console.log(`✅ Resolved variable: ${variableName} = ${numericValue}`);
+        debug.log(`✅ Resolved variable: ${variableName} = ${numericValue}`);
       } else {
-        console.log(`⚠️ Could not extract numeric value from variable: ${variableName}`, variableValue);
+        debug.log(`⚠️ Could not extract numeric value from variable: ${variableName}`, variableValue);
       }
     } else {
-      console.log(`⚠️ Variable not found in otherVariables: ${variableName}`);
+      debug.log(`⚠️ Variable not found in otherVariables: ${variableName}`);
     }
   }
 
@@ -3016,10 +3016,10 @@ function resolveVariablesInFormula(formula) {
 
         resolvedFormula = resolvedFormula.replace(fullMatch, result);
         variablesResolved.push(`${funcName}{${expression}}=${result}`);
-        console.log(`✅ Resolved math function: ${funcName}{${expression}} = ${result}`);
+        debug.log(`✅ Resolved math function: ${funcName}{${expression}} = ${result}`);
       }
     } catch (e) {
-      console.log(`⚠️ Failed to evaluate ${funcName}{${expression}}`, e);
+      debug.log(`⚠️ Failed to evaluate ${funcName}{${expression}}`, e);
     }
   }
 
@@ -3066,7 +3066,7 @@ function resolveVariablesInFormula(formula) {
     return args;
   }
 
-  console.log(`🔍 Looking for max/min in formula: "${resolvedFormula}"`);
+  debug.log(`🔍 Looking for max/min in formula: "${resolvedFormula}"`);
 
   const maxMinPattern = /(max|min)\(/gi;
 
@@ -3078,31 +3078,31 @@ function resolveVariablesInFormula(formula) {
     // Find the matching closing parenthesis
     const closingParen = findMatchingParen(resolvedFormula, argsStart);
     if (closingParen === -1) {
-      console.log(`⚠️ No matching closing parenthesis for ${func} at position ${funcStart}`);
+      debug.log(`⚠️ No matching closing parenthesis for ${func} at position ${funcStart}`);
       continue;
     }
 
     const argsString = resolvedFormula.substring(argsStart, closingParen);
     const fullMatch = resolvedFormula.substring(funcStart, closingParen + 1);
-    console.log(`🔍 Found max/min match: ${func}(${argsString})`)
+    debug.log(`🔍 Found max/min match: ${func}(${argsString})`)
 
     try {
       const args = splitArgs(argsString).map(arg => {
         const trimmed = arg;
-        console.log(`🔍 Resolving arg: "${trimmed}"`);
+        debug.log(`🔍 Resolving arg: "${trimmed}"`);
 
         // Try to parse as number first
         const num = parseFloat(trimmed);
         if (!isNaN(num)) {
-          console.log(`  ✅ Parsed as number: ${num}`);
+          debug.log(`  ✅ Parsed as number: ${num}`);
           return num;
         }
 
         // Try to resolve as simple variable
         const varVal = getVariableValue(trimmed);
-        console.log(`  🔍 Variable lookup result: ${varVal}`);
+        debug.log(`  🔍 Variable lookup result: ${varVal}`);
         if (varVal !== null && typeof varVal === 'number') {
-          console.log(`  ✅ Resolved as variable: ${varVal}`);
+          debug.log(`  ✅ Resolved as variable: ${varVal}`);
           return varVal;
         }
 
@@ -3137,14 +3137,14 @@ function resolveVariablesInFormula(formula) {
         try {
           if (/^[\d\s+\-*/().Math]+$/.test(evalExpression)) {
             const result = eval(evalExpression);
-            console.log(`  ✅ Evaluated expression "${trimmed}" = ${result}`);
+            debug.log(`  ✅ Evaluated expression "${trimmed}" = ${result}`);
             return result;
           }
         } catch (e) {
-          console.log(`  ❌ Failed to evaluate: "${trimmed}"`, e);
+          debug.log(`  ❌ Failed to evaluate: "${trimmed}"`, e);
         }
 
-        console.log(`  ❌ Could not resolve: "${trimmed}"`);
+        debug.log(`  ❌ Could not resolve: "${trimmed}"`);
         return null;
       }).filter(v => v !== null);
 
@@ -3152,12 +3152,12 @@ function resolveVariablesInFormula(formula) {
         const result = func === 'max' ? Math.max(...args) : Math.min(...args);
         resolvedFormula = resolvedFormula.replace(fullMatch, result);
         variablesResolved.push(`${func}(...)=${result}`);
-        console.log(`✅ Resolved ${func} function: ${fullMatch} = ${result}`);
+        debug.log(`✅ Resolved ${func} function: ${fullMatch} = ${result}`);
         // Reset regex lastIndex since we modified the string
         maxMinPattern.lastIndex = 0;
       }
     } catch (e) {
-      console.log(`⚠️ Failed to resolve ${func} function: ${fullMatch}`, e);
+      debug.log(`⚠️ Failed to resolve ${func} function: ${fullMatch}`, e);
     }
   }
 
@@ -3181,7 +3181,7 @@ function resolveVariablesInFormula(formula) {
         const varValue = getVariableValue(condition);
         if (varValue !== null) {
           conditionResult = Boolean(varValue);
-          console.log(`✅ Evaluated parentheses ternary condition: ${condition} = ${conditionResult}`);
+          debug.log(`✅ Evaluated parentheses ternary condition: ${condition} = ${conditionResult}`);
         }
 
         // Choose the appropriate value
@@ -3190,7 +3190,7 @@ function resolveVariablesInFormula(formula) {
         // Replace the entire match with the chosen value
         resolvedFormula = resolvedFormula.replace(fullMatch, chosenValue);
         variablesResolved.push(`(${condition}?${trueValue}:${falseValue}) = ${chosenValue}`);
-        console.log(`✅ Resolved parentheses ternary: (${expression}) => ${chosenValue}`);
+        debug.log(`✅ Resolved parentheses ternary: (${expression}) => ${chosenValue}`);
 
         // Reset regex lastIndex since we modified the string
         parenTernaryPattern.lastIndex = 0;
@@ -3231,7 +3231,7 @@ function resolveVariablesInFormula(formula) {
             // Variable doesn't exist, treat as false
             conditionResult = false;
           }
-          console.log(`✅ Evaluated simple variable condition: ${condition} = ${conditionResult}`);
+          debug.log(`✅ Evaluated simple variable condition: ${condition} = ${conditionResult}`);
         } else {
           // Complex condition with operators
           // Replace variables in condition
@@ -3277,7 +3277,7 @@ function resolveVariablesInFormula(formula) {
           }
         }
       } catch (e) {
-        console.log(`⚠️ Failed to evaluate ternary condition: ${condition}`, e);
+        debug.log(`⚠️ Failed to evaluate ternary condition: ${condition}`, e);
       }
 
       // Evaluate the chosen branch
@@ -3387,10 +3387,10 @@ function resolveVariablesInFormula(formula) {
 
         resolvedFormula = resolvedFormula.replace(fullMatch, result);
         variablesResolved.push(`${condition} ? ... : ... = "${result}"`);
-        console.log(`✅ Resolved complex ternary: ${condition} (${conditionResult}) => "${result}"`);
+        debug.log(`✅ Resolved complex ternary: ${condition} (${conditionResult}) => "${result}"`);
         continue;
       } catch (e) {
-        console.log(`⚠️ Failed to resolve ternary expression: ${cleanExpr}`, e);
+        debug.log(`⚠️ Failed to resolve ternary expression: ${cleanExpr}`, e);
       }
     }
 
@@ -3399,7 +3399,7 @@ function resolveVariablesInFormula(formula) {
     if (simpleValue !== null) {
       resolvedFormula = resolvedFormula.replace(fullMatch, simpleValue);
       variablesResolved.push(`${cleanExpr}=${simpleValue}`);
-      console.log(`✅ Resolved variable: ${cleanExpr} = ${simpleValue}`);
+      debug.log(`✅ Resolved variable: ${cleanExpr} = ${simpleValue}`);
       continue;
     }
 
@@ -3432,7 +3432,7 @@ function resolveVariablesInFormula(formula) {
           if (result === undefined && indexValue > 0) {
             result = arrayValues[indexValue - 1];
             if (result !== undefined) {
-              console.log(`📊 Array index ${indexValue} out of bounds, using ${indexValue - 1} instead`);
+              debug.log(`📊 Array index ${indexValue} out of bounds, using ${indexValue - 1} instead`);
               indexValue = indexValue - 1;
             }
           }
@@ -3440,16 +3440,16 @@ function resolveVariablesInFormula(formula) {
           if (result !== undefined) {
             resolvedFormula = resolvedFormula.replace(fullMatch, result);
             variablesResolved.push(`array[${indexValue}]=${result}`);
-            console.log(`✅ Resolved array indexing: ${cleanExpr} = ${result}`);
+            debug.log(`✅ Resolved array indexing: ${cleanExpr} = ${result}`);
             continue;
           } else {
-            console.log(`⚠️ Array index ${indexValue} out of bounds (array length: ${arrayValues.length})`);
+            debug.log(`⚠️ Array index ${indexValue} out of bounds (array length: ${arrayValues.length})`);
           }
         } else {
-          console.log(`⚠️ Could not resolve index variable: ${indexPart}`);
+          debug.log(`⚠️ Could not resolve index variable: ${indexPart}`);
         }
       } catch (e) {
-        console.log(`⚠️ Failed to resolve array indexing: ${cleanExpr}`, e);
+        debug.log(`⚠️ Failed to resolve array indexing: ${cleanExpr}`, e);
       }
     }
 
@@ -3476,11 +3476,11 @@ function resolveVariablesInFormula(formula) {
           const result = func === 'max' ? Math.max(...args) : Math.min(...args);
           resolvedFormula = resolvedFormula.replace(fullMatch, result);
           variablesResolved.push(`${func}(...)=${result}`);
-          console.log(`✅ Resolved ${func} function: ${cleanExpr} = ${result}`);
+          debug.log(`✅ Resolved ${func} function: ${cleanExpr} = ${result}`);
           continue;
         }
       } catch (e) {
-        console.log(`⚠️ Failed to resolve ${cleanExpr}`, e);
+        debug.log(`⚠️ Failed to resolve ${cleanExpr}`, e);
       }
     }
 
@@ -3537,11 +3537,11 @@ function resolveVariablesInFormula(formula) {
 
           resolvedFormula = resolvedFormula.replace(fullMatch, result);
           variablesResolved.push(`${funcName}(${expression})=${result}`);
-          console.log(`✅ Resolved math function: ${funcName}(${expression}) = ${result}`);
+          debug.log(`✅ Resolved math function: ${funcName}(${expression}) = ${result}`);
           continue;
         }
       } catch (e) {
-        console.log(`⚠️ Failed to resolve ${cleanExpr}`, e);
+        debug.log(`⚠️ Failed to resolve ${cleanExpr}`, e);
       }
     }
 
@@ -3574,17 +3574,17 @@ function resolveVariablesInFormula(formula) {
         const result = eval(evalExpression);
         resolvedFormula = resolvedFormula.replace(fullMatch, Math.floor(result));
         variablesResolved.push(`${cleanExpr}=${Math.floor(result)}`);
-        console.log(`✅ Resolved expression: ${cleanExpr} = ${Math.floor(result)}`);
+        debug.log(`✅ Resolved expression: ${cleanExpr} = ${Math.floor(result)}`);
       } else {
-        console.log(`⚠️ Could not resolve expression: ${cleanExpr} (eval: ${evalExpression})`);
+        debug.log(`⚠️ Could not resolve expression: ${cleanExpr} (eval: ${evalExpression})`);
       }
     } catch (e) {
-      console.log(`⚠️ Failed to evaluate expression: ${cleanExpr}`, e);
+      debug.log(`⚠️ Failed to evaluate expression: ${cleanExpr}`, e);
     }
   }
 
   if (variablesResolved.length > 0) {
-    console.log(`🔧 Formula resolution: "${formula}" -> "${resolvedFormula}" (${variablesResolved.join(', ')})`);
+    debug.log(`🔧 Formula resolution: "${formula}" -> "${resolvedFormula}" (${variablesResolved.join(', ')})`);
   }
 
   // Strip remaining markdown formatting
@@ -3594,7 +3594,7 @@ function resolveVariablesInFormula(formula) {
 }
 
 function roll(name, formula, prerolledResult = null) {
-  console.log('🎲 Rolling:', name, formula, prerolledResult ? `(prerolled: ${prerolledResult})` : '');
+  debug.log('🎲 Rolling:', name, formula, prerolledResult ? `(prerolled: ${prerolledResult})` : '');
 
   // Resolve any variables in the formula
   const resolvedFormula = resolveVariablesInFormula(formula);
@@ -3621,27 +3621,27 @@ function roll(name, formula, prerolledResult = null) {
     try {
       window.opener.postMessage(messageData, '*');
       showNotification(`🎲 Rolling ${name}...`);
-      console.log('✅ Roll sent via window.opener');
+      debug.log('✅ Roll sent via window.opener');
       return;
     } catch (error) {
-      console.warn('⚠️ Could not send via window.opener:', error.message);
+      debug.warn('⚠️ Could not send via window.opener:', error.message);
     }
   }
 
   // Fallback: Use background script to relay to Roll20 (Firefox)
-  console.log('📡 Using background script to relay roll to Roll20...');
+  debug.log('📡 Using background script to relay roll to Roll20...');
   browserAPI.runtime.sendMessage({
     action: 'relayRollToRoll20',
     roll: messageData
   }, (response) => {
     if (browserAPI.runtime.lastError) {
-      console.error('❌ Error relaying roll:', browserAPI.runtime.lastError);
+      debug.error('❌ Error relaying roll:', browserAPI.runtime.lastError);
       showNotification('Failed to send roll. Please try from Roll20 page.', 'error');
     } else if (response && response.success) {
-      console.log('✅ Roll relayed to Roll20 via background script');
+      debug.log('✅ Roll relayed to Roll20 via background script');
       showNotification(`🎲 Rolling ${name}...`);
     } else {
-      console.error('❌ Failed to relay roll:', response?.error);
+      debug.error('❌ Failed to relay roll:', response?.error);
       showNotification('Failed to send roll. Make sure Roll20 tab is open.', 'error');
     }
   });
@@ -3665,22 +3665,22 @@ function takeShortRest() {
 
   if (!confirmed) return;
 
-  console.log('☕ Taking short rest...');
+  debug.log('☕ Taking short rest...');
 
   // Restore Warlock Pact Magic slots (they recharge on short rest)
   if (characterData.otherVariables) {
     if (characterData.otherVariables.pactMagicSlotsMax !== undefined) {
       characterData.otherVariables.pactMagicSlots = characterData.otherVariables.pactMagicSlotsMax;
-      console.log('✅ Restored Pact Magic slots');
+      debug.log('✅ Restored Pact Magic slots');
     }
 
     // Restore Ki points for Monk (short rest feature)
     if (characterData.otherVariables.kiMax !== undefined) {
       characterData.otherVariables.ki = characterData.otherVariables.kiMax;
-      console.log('✅ Restored Ki points');
+      debug.log('✅ Restored Ki points');
     } else if (characterData.otherVariables.kiPointsMax !== undefined) {
       characterData.otherVariables.kiPoints = characterData.otherVariables.kiPointsMax;
-      console.log('✅ Restored Ki points');
+      debug.log('✅ Restored Ki points');
     }
 
     // Restore Action Surge, Second Wind (short rest features)
@@ -3704,13 +3704,13 @@ function takeShortRest() {
 
       // Long rest only resources
       if (lowerName.includes('sorcery') || lowerName.includes('rage')) {
-        console.log(`⏭️ Skipping ${resource.name} (long rest only)`);
+        debug.log(`⏭️ Skipping ${resource.name} (long rest only)`);
         return;
       }
 
       // Restore all other resources
       resource.current = resource.max;
-      console.log(`✅ Restored ${resource.name} (${resource.current}/${resource.max})`);
+      debug.log(`✅ Restored ${resource.name} (${resource.current}/${resource.max})`);
     });
   }
 
@@ -3721,7 +3721,7 @@ function takeShortRest() {
       // Most limited use abilities in D&D 5e recharge on short rest
       if (action.uses && action.usesUsed > 0) {
         action.usesUsed = 0;
-        console.log(`✅ Reset uses for ${action.name}`);
+        debug.log(`✅ Reset uses for ${action.name}`);
       }
     });
   }
@@ -3730,7 +3730,7 @@ function takeShortRest() {
   buildSheet(characterData);
 
   showNotification('☕ Short Rest complete! Resources recharged.');
-  console.log('✅ Short rest complete');
+  debug.log('✅ Short rest complete');
 
   // Announce to Roll20 with fancy formatting
   const colorBanner = getColoredBanner();
@@ -3745,7 +3745,7 @@ function takeShortRest() {
     try {
       window.opener.postMessage(messageData, '*');
     } catch (error) {
-      console.warn('⚠️ Could not send via window.opener:', error.message);
+      debug.warn('⚠️ Could not send via window.opener:', error.message);
       // Fallback to background script relay
       browserAPI.runtime.sendMessage({
         action: 'relayRollToRoll20',
@@ -3843,7 +3843,7 @@ function spendHitDice() {
     const actualHealing = characterData.hitPoints.current - oldHP;
     totalHealed += actualHealing;
 
-    console.log(`🎲 Rolled ${hitDie}: ${roll} + ${conMod} = ${healing} HP (restored ${actualHealing})`);
+    debug.log(`🎲 Rolled ${hitDie}: ${roll} + ${conMod} = ${healing} HP (restored ${actualHealing})`);
 
     // Announce the roll with fancy formatting
     if (window.opener && !window.opener.closed) {
@@ -3873,14 +3873,14 @@ function takeLongRest() {
 
   if (!confirmed) return;
 
-  console.log('🌙 Taking long rest...');
+  debug.log('🌙 Taking long rest...');
 
   // Initialize hit dice if needed
   initializeHitDice();
 
   // Restore all HP
   characterData.hitPoints.current = characterData.hitPoints.max;
-  console.log('✅ Restored HP to max');
+  debug.log('✅ Restored HP to max');
 
   // Restore hit dice (half of max, minimum 1)
   const hitDiceRestored = Math.max(1, Math.floor(characterData.hitDice.max / 2));
@@ -3889,7 +3889,7 @@ function takeLongRest() {
     characterData.hitDice.current + hitDiceRestored,
     characterData.hitDice.max
   );
-  console.log(`✅ Restored ${characterData.hitDice.current - oldHitDice} hit dice (${characterData.hitDice.current}/${characterData.hitDice.max})`);
+  debug.log(`✅ Restored ${characterData.hitDice.current - oldHitDice} hit dice (${characterData.hitDice.current}/${characterData.hitDice.max})`);
 
   // Restore all spell slots
   if (characterData.spellSlots) {
@@ -3899,7 +3899,7 @@ function takeLongRest() {
 
       if (characterData.spellSlots[slotMaxVar] !== undefined) {
         characterData.spellSlots[slotVar] = characterData.spellSlots[slotMaxVar];
-        console.log(`✅ Restored level ${level} spell slots`);
+        debug.log(`✅ Restored level ${level} spell slots`);
       }
     }
   }
@@ -3908,7 +3908,7 @@ function takeLongRest() {
   if (characterData.resources && characterData.resources.length > 0) {
     characterData.resources.forEach(resource => {
       resource.current = resource.max;
-      console.log(`✅ Restored ${resource.name} (${resource.current}/${resource.max})`);
+      debug.log(`✅ Restored ${resource.name} (${resource.current}/${resource.max})`);
     });
   }
 
@@ -3920,7 +3920,7 @@ function takeLongRest() {
         const baseKey = key.replace('Max', '');
         if (characterData.otherVariables[baseKey] !== undefined) {
           characterData.otherVariables[baseKey] = characterData.otherVariables[key];
-          console.log(`✅ Restored ${baseKey}`);
+          debug.log(`✅ Restored ${baseKey}`);
         }
       }
     });
@@ -3950,7 +3950,7 @@ function takeLongRest() {
     characterData.actions.forEach(action => {
       if (action.uses && action.usesUsed > 0) {
         action.usesUsed = 0;
-        console.log(`✅ Reset uses for ${action.name}`);
+        debug.log(`✅ Reset uses for ${action.name}`);
       }
     });
   }
@@ -3959,7 +3959,7 @@ function takeLongRest() {
   buildSheet(characterData);
 
   showNotification('🌙 Long Rest complete! All resources restored.');
-  console.log('✅ Long rest complete');
+  debug.log('✅ Long rest complete');
 
   // Announce to Roll20 with fancy formatting
   const colorBanner = getColoredBanner();
@@ -3974,7 +3974,7 @@ function takeLongRest() {
     try {
       window.opener.postMessage(messageData, '*');
     } catch (error) {
-      console.warn('⚠️ Could not send via window.opener:', error.message);
+      debug.warn('⚠️ Could not send via window.opener:', error.message);
       // Fallback to background script relay
       browserAPI.runtime.sendMessage({
         action: 'relayRollToRoll20',
@@ -4030,4 +4030,4 @@ if (document.readyState === 'loading') {
   initCloseButton();
 }
 
-console.log('✅ Popup script fully loaded');
+debug.log('✅ Popup script fully loaded');
