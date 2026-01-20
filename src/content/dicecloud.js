@@ -545,6 +545,7 @@
           // Extract features from ALL toggles (enabled or disabled on DiceCloud)
           // Our sheet will have its own independent toggle to control when to use them
           console.log(`🔘 Found toggle: ${prop.name} (enabled on DiceCloud: ${prop.enabled})`);
+          console.log(`🔘 Toggle full object:`, prop);
 
             // Find child properties of this toggle
             const toggleChildren = apiData.creatureProperties.filter(child => {
@@ -552,6 +553,7 @@
             });
 
             console.log(`🔘 Toggle "${prop.name}" has ${toggleChildren.length} children:`, toggleChildren.map(c => c.name));
+            console.log(`🔘 Toggle children full objects:`, toggleChildren);
 
             // Debug: Log child types
             toggleChildren.forEach(child => {
@@ -628,6 +630,8 @@
                   damage: damageValue
                 };
 
+                console.log(`🔘 Created toggle feature: "${toggleFeature.name}" with damage: "${damageValue}", roll: "${rollValue}"`);
+
                 characterData.features.push(toggleFeature);
 
                 // Add to actions if it has roll/damage OR if it has actionType
@@ -640,10 +644,14 @@
                 const hasValidRoll = typeof toggleFeature.roll === 'string' && toggleFeature.roll.trim().length > 0;
                 const hasValidDamage = typeof toggleFeature.damage === 'string' && toggleFeature.damage.trim().length > 0;
 
+                console.log(`🔘 Checking "${toggleFeature.name}": hasValidRoll=${hasValidRoll}, hasValidDamage=${hasValidDamage}, hasValidActionType=${hasValidActionType}, type=${child.type}`);
+
                 // Only add to actions if:
                 // 1. It's NOT an effect (effects are passive modifiers like Guidance, Resistance)
                 // 2. AND it has rollable values OR a valid actionType
                 const shouldAddToActions = child.type !== 'effect' && (hasValidRoll || hasValidDamage || hasValidActionType);
+
+                console.log(`🔘 shouldAddToActions for "${toggleFeature.name}": ${shouldAddToActions}`);
 
                 if (shouldAddToActions) {
                   characterData.actions.push({
