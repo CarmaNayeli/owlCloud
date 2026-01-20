@@ -439,7 +439,8 @@
       switch (prop.type) {
         case 'class':
           // Only add class name once, even if there are multiple classLevel entries
-          if (prop.name) {
+          // Skip inactive or disabled classes
+          if (prop.name && !prop.inactive && !prop.disabled) {
             // Remove [Multiclass] suffix before normalizing
             const cleanName = prop.name.replace(/\s*\[Multiclass\]/i, '').trim();
             const normalizedClassName = cleanName.toLowerCase().trim();
@@ -455,10 +456,20 @@
             } else {
               console.log(`  ⏭️  Skipping class (already in set:`, Array.from(uniqueClasses), ')');
             }
+          } else if (prop.name && (prop.inactive || prop.disabled)) {
+            console.log(`  ⏭️  Skipping inactive/disabled class: ${prop.name}`);
           }
           break;
 
         case 'classLevel':
+          // Skip inactive or disabled class levels
+          if (prop.inactive || prop.disabled) {
+            if (prop.name) {
+              console.log(`  ⏭️  Skipping inactive/disabled classLevel: ${prop.name}`);
+            }
+            break;
+          }
+
           // Count each classLevel entry as 1 level
           characterData.level += 1;
           // Also add the class name if not already added
@@ -1030,7 +1041,9 @@
         case 'attribute':
           // Extract resources like Ki Points, Sorcery Points, Rage, etc.
           // These are attributes with attributeType === 'resource' or 'healthBar'
-          if (prop.name && (prop.attributeType === 'resource' || prop.attributeType === 'healthBar')) {
+          // Skip inactive or disabled resources
+          if (prop.name && (prop.attributeType === 'resource' || prop.attributeType === 'healthBar') &&
+              !prop.inactive && !prop.disabled) {
             // Skip hit points (already extracted) and Font of Magic trackers (not actual resources)
             const lowerName = prop.name.toLowerCase();
             if (lowerName.includes('hit point') || lowerName === 'hp' ||
