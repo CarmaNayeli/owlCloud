@@ -1377,21 +1377,7 @@
         } else if (response && response.success) {
           console.log('✅ Roll initiated in Dice Cloud via background script');
           showNotification(`${name} roll initiated in Dice Cloud! 🎲`, 'success');
-          
-          // Also send message to Roll20 via opener window for immediate display
-          if (window.opener && window.opener.postMessage) {
-            window.opener.postMessage({
-              action: 'postRollToChat',
-              roll: {
-                name: name,
-                formula: modifiedFormula,
-                originalFormula: formula,
-                advantageMode: advantageMode,
-                result: null, // Let Roll20 calculate the actual result
-                timestamp: Date.now()
-              }
-            }, '*');
-          }
+          // Roll will be forwarded to Roll20 automatically via background script
         } else {
           console.error('❌ Failed to roll in Dice Cloud:', response?.error);
           showNotification('Failed to roll in Dice Cloud. Is Dice Cloud open?', 'error');
