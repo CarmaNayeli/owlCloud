@@ -648,10 +648,12 @@
 
                 // Only add to actions if:
                 // 1. It's NOT an effect (effects are passive modifiers like Guidance, Resistance)
+                //    UNLESS it has damage (like Sneak Attack, Divine Smite, etc.)
                 // 2. AND it has rollable values OR a valid actionType
-                const shouldAddToActions = child.type !== 'effect' && (hasValidRoll || hasValidDamage || hasValidActionType);
+                const isDamageEffect = child.type === 'effect' && hasValidDamage;
+                const shouldAddToActions = (child.type !== 'effect' || isDamageEffect) && (hasValidRoll || hasValidDamage || hasValidActionType);
 
-                console.log(`🔘 shouldAddToActions for "${toggleFeature.name}": ${shouldAddToActions}`);
+                console.log(`🔘 shouldAddToActions for "${toggleFeature.name}": ${shouldAddToActions} (isDamageEffect=${isDamageEffect})`);
 
                 if (shouldAddToActions) {
                   characterData.actions.push({
