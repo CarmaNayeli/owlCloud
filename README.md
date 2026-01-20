@@ -406,21 +406,100 @@ If dice rolls aren't being forwarded from DiceCloud to Roll20:
 
 ## Future Enhancements
 
-### Planned
-- [ ] Improved roll detection (more robust parsing)
-- [ ] Support for advantage/disadvantage rolls
-- [ ] Critical hit detection and highlighting
-- [ ] Roll type detection (attack, skill check, save, etc.)
-- [ ] Custom roll formatting options
+### Recently Completed ✅
+- [x] Support for advantage/disadvantage rolls (Roll Settings Panel in overlay)
+- [x] Roll type detection (attack, skill check, save, spell casting)
+- [x] Roll history and statistics (Statistics Panel with total/average/crits, History Panel with last 20 rolls)
+- [x] Critical hit detection (tracked in Roll Statistics Panel)
+- [x] Firefox support (Manifest V2 compatibility)
+- [x] Long/Short Rest buttons (Auto-restore HP, spell slots, hit dice, class resources)
+- [x] Concentration indicators (Spells marked with 🧠 Concentration tag)
+- [x] Death Save Counter (Visual tracker with roll button, auto-reset on healing, follows RAW)
+
+### High Priority - Mechanics & Character Features
+
+#### Racial Traits
+- [ ] **Halfling Luck** - Reroll 1s on d20 rolls (attack, ability check, save)
+- [ ] **Elven Accuracy** - Roll 3d20 on advantage when using DEX/INT/WIS/CHA
+- [ ] **Lucky Feat** - Reroll d20 rolls up to 3 times per long rest with tracking
+- [ ] **Dwarven Resilience** - Advantage on poison saves (auto-apply)
+- [ ] **Gnome Cunning** - Advantage on INT/WIS/CHA saves vs magic (auto-apply)
+
+#### Class Features
+- [ ] **Reliable Talent** (Rogue 11+) - Automatic minimum of 10 on proficient skill checks
+- [ ] **Bardic Inspiration** - Track and apply inspiration dice (d6/d8/d10/d12)
+- [ ] **Portent Dice** (Divination Wizard) - Store and apply portent rolls
+- [ ] **Wild Magic Surge** - Auto-roll d20 and consult surge table on spell cast
+- [ ] **Divine Smite** - Quick-add smite damage to melee attacks
+- [ ] **Sneak Attack Tracker** - Auto-add sneak attack damage when conditions met
+- [ ] **Rage Damage Bonus** - Auto-apply rage damage to attacks
+- [ ] **Brutal Critical** (Barbarian) - Auto-add extra dice on crits
+- [ ] **Jack of All Trades** (Bard) - Auto-add half proficiency to non-proficient checks
+
+#### Combat Mechanics
+- [ ] **Temporary HP Manager** - Track temp HP separately from regular HP
+- [ ] **Action Economy Tracker** - Track action/bonus action/reaction usage per turn
+- [ ] **Condition/Buff Manager** - Apply and track conditions (blessed, poisoned, hasted, etc.)
+- [ ] **Reaction Prompts** - Notify when Shield, Counterspell, or opportunity attacks apply
+- [ ] **Concentration Save Prompts** - Auto-prompt for concentration saves when taking damage
+
+#### Resource Management
+- [ ] **Hit Dice Manager** - Better UI for spending hit dice (currently has basic support)
+- [ ] **Ammunition Tracker** - Track arrows, bolts with auto-decrement on attacks
+- [ ] **Consumable Manager** - Quick-use buttons for potions, scrolls, etc.
+- [ ] **Attunement Tracker** - Track attuned magic items (3-item limit)
+
+### Spell Mechanics
+- [ ] **Spell Slot Visual Upgrade** - Extend visual spell slot manager to all levels (currently 1-3)
+- [ ] **Upcasting Calculator** - Auto-calculate damage when casting at higher levels
+- [ ] **Active Concentration Tracker** - Track which spell you're concentrating on (with drop button)
+- [ ] **Spell Preparation Manager** - Track prepared vs. known spells
+- [ ] **Ritual Casting Indicator** - Mark spells that can be cast as rituals
+- [ ] **Metamagic Quick Apply** - Quick buttons for Twinned, Quickened, etc.
+- [ ] **Spell Attack Modifier** - Auto-add spell attack bonus to spell rolls
+
+### Additional Mechanics & Features
+- [ ] **Initiative Auto-Roller** - Roll initiative for all party members at once
+- [ ] **Custom Roll Macros** - Create and save frequently-used custom rolls
+- [ ] **Guidance/Bless Tracker** - Auto-add d4/d8 to rolls when active
+- [ ] **Inspiration Tracker** - Track and spend inspiration with button
+- [ ] **Two-Weapon Fighting** - Quick off-hand attack button
+- [ ] **Great Weapon Master/Sharpshooter** - Toggle -5/+10 for attacks
+- [ ] **Multiple Character Profiles** - Quick-switch between characters without re-syncing
+
+### Quality of Life
+- [ ] **Improved roll detection** - More robust parsing for DiceCloud UI changes
+- [ ] **Overlay Resize/Collapse** - Minimize sections or entire overlay for space
+- [ ] **Custom Roll Formatting** - Different Roll20 template support and custom formats
+- [ ] **Import/Export Settings** - Backup and restore extension configuration
+- [ ] **Hotkey System** - Keyboard shortcuts for common rolls and actions
+
+### Analytics & Tracking
+- [ ] **Extended Analytics** - Success rates by roll type, damage-per-round calculations
+- [ ] **Dice Fairness Checker** - Chi-square test for d20 fairness
+- [ ] **Session Statistics** - Per-session roll tracking with session boundaries
+- [ ] **Personal Best Tracker** - Highlight highest damage, longest streak, etc.
+
+### Advanced Features
+- [ ] **Bi-directional Sync** - Update Dice Cloud from Roll20 HP/resource changes
+- [ ] **Party HP Overview** - See all party members' HP in one view
+- [ ] **Character Comparison** - Side-by-side stats for multiple characters
+- [ ] **Campaign Journal** - Track session summaries and key moments
+- [ ] **Quest Tracker** - Track active quests and objectives
 
 ### Under Consideration
-- [x] Firefox support (Manifest V2 compatibility) ✅ **COMPLETED**
-- [ ] Support for different Roll20 character sheet templates
-- [ ] Bi-directional sync (Roll20 → Dice Cloud)
-- [ ] Multiple character profiles
-- [ ] Custom field mapping
-- [ ] Import/export character data as JSON
-- [ ] Roll history and statistics
+- [ ] Support for different Roll20 character sheet templates (Pathfinder, etc.)
+- [ ] Custom field mapping for non-standard sheets
+- [ ] Foundry VTT support (open-source VTT alternative)
+- [ ] Mobile-friendly overlay for tablet use
+
+### Visual/Polish (Low Priority)
+- [ ] Dice sound effects and animations
+- [ ] Critical hit celebration effects
+- [ ] Custom themes and color schemes
+- [ ] Damage type color-coding
+- [ ] Character portrait display
+- [ ] HP bar visualizations
 
 ## Contributing
 
