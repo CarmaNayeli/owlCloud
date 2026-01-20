@@ -635,6 +635,12 @@ function buildActionsDisplay(container, actions) {
           return;
         }
 
+        // Special handling for Lay on Hands
+        if (action.name.toLowerCase().includes('lay on hands')) {
+          handleLayOnHands(action);
+          return;
+        }
+
         // Check and decrement uses before announcing
         if (action.uses && !decrementActionUses(action)) {
           return; // No uses remaining
@@ -2076,6 +2082,79 @@ function getKiPointsResource() {
   });
 
   return kiResource || null;
+}
+
+function getLayOnHandsResource() {
+  if (!characterData || !characterData.resources) return null;
+
+  // Find Lay on Hands pool in resources
+  const layOnHandsResource = characterData.resources.find(r => {
+    const lowerName = r.name.toLowerCase();
+    return lowerName.includes('lay on hands') || lowerName === 'lay on hands pool';
+  });
+
+  return layOnHandsResource || null;
+}
+
+function handleLayOnHands(action) {
+  const layOnHandsPool = getLayOnHandsResource();
+
+  if (!layOnHandsPool) {
+    showNotification(`❌ No Lay on Hands pool resource found`, 'error');
+    return;
+  }
+
+  if (layOnHandsPool.current <= 0) {
+    showNotification(`❌ No Lay on Hands points remaining!`, 'error');
+    return;
+  }
+
+  // Prompt user for how many points to spend
+  const maxPoints = layOnHandsPool.current;
+  const amountStr = prompt(
+    `Lay on Hands\n\n` +
+    `Available Points: ${layOnHandsPool.current}/${layOnHandsPool.max}\n\n` +
+    `How many hit points do you want to restore?\n` +
+    `(Enter 1-${maxPoints}, or 5 to cure disease/poison)`
+  );
+
+  if (amountStr === null) return; // Cancelled
+
+  const amount = parseInt(amountStr);
+  if (isNaN(amount) || amount < 1) {
+    showNotification(`❌ Please enter a valid number`, 'error');
+    return;
+  }
+
+  if (amount > maxPoints) {
+    showNotification(`❌ Not enough points! You have ${maxPoints} remaining`, 'error');
+    return;
+  }
+
+  // Deduct points
+  layOnHandsPool.current -= amount;
+  saveCharacterData();
+
+  // Announce the healing
+  console.log(`💚 Used ${amount} Lay on Hands points. Remaining: ${layOnHandsPool.current}/${layOnHandsPool.max}`);
+
+  if (amount === 5) {
+    // Might be curing disease/poison
+    announceAction({
+      name: 'Lay on Hands',
+      description: `Restored ${amount} HP (or cured disease/poison)`
+    });
+    showNotification(`💚 Lay on Hands: ${amount} HP (${layOnHandsPool.current}/${layOnHandsPool.max} points left)`);
+  } else {
+    announceAction({
+      name: 'Lay on Hands',
+      description: `Restored ${amount} HP`
+    });
+    showNotification(`💚 Lay on Hands: Restored ${amount} HP (${layOnHandsPool.current}/${layOnHandsPool.max} points left)`);
+  }
+
+  // Refresh display to show updated pool
+  buildSheet(characterData);
 }
 
 function getResourceCostsFromAction(action) {
