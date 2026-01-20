@@ -33,7 +33,7 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
       switch (request.action) {
         case 'storeCharacterData':
-          await storeCharacterData(request.data);
+          await storeCharacterData(request.data, request.slotId);
           response = { success: true };
           break;
 
@@ -230,21 +230,23 @@ async function logout() {
 
 /**
  * Stores character data in browserAPI.storage (supports multiple profiles)
+ * @param {Object} characterData - Character data to store
+ * @param {string} slotId - Optional slot ID (e.g., 'slot-1'). If not provided, uses characterId from data.
  */
-async function storeCharacterData(characterData) {
+async function storeCharacterData(characterData, slotId) {
   try {
-    // Get character ID from the data
-    const characterId = characterData.characterId || characterData._id || 'default';
+    // Use slotId if provided, otherwise fall back to character ID from the data
+    const storageId = slotId || characterData.characterId || characterData._id || 'default';
 
     // Get existing profiles
     const result = await browserAPI.storage.local.get(['characterProfiles', 'activeCharacterId']);
     const characterProfiles = result.characterProfiles || {};
 
     // Store this character's data
-    characterProfiles[characterId] = characterData;
+    characterProfiles[storageId] = characterData;
 
     // Set active character to this one if none is set
-    const activeCharacterId = result.activeCharacterId || characterId;
+    const activeCharacterId = result.activeCharacterId || storageId;
 
     await browserAPI.storage.local.set({
       characterProfiles: characterProfiles,
@@ -252,7 +254,7 @@ async function storeCharacterData(characterData) {
       timestamp: Date.now()
     });
 
-    debug.log(`Character data stored successfully for ID: ${characterId}`, characterData);
+    debug.log(`Character data stored successfully for ID: ${storageId}`, characterData);
   } catch (error) {
     debug.error('Failed to store character data:', error);
     throw error;

@@ -2094,7 +2094,7 @@
 
     switch (request.action) {
       case 'syncCharacter':
-        syncCharacterData()
+        syncCharacterData(request.slotId)
           .then(() => {
             sendResponse({ success: true });
           })
@@ -3693,10 +3693,11 @@
 
   /**
    * Syncs character data to extension storage
+   * @param {string} slotId - Optional slot ID to save character to (e.g., 'slot-1')
    */
-  function syncCharacterData() {
-    debug.log('🔄 Starting character data sync...');
-    
+  function syncCharacterData(slotId) {
+    debug.log('🔄 Starting character data sync...', slotId ? `to ${slotId}` : '');
+
     const button = document.getElementById('dc-sync-btn');
     if (button) {
       button.innerHTML = '⏳ Syncing...';
@@ -3710,7 +3711,8 @@
           // Store in extension storage
           browserAPI.runtime.sendMessage({
             action: 'storeCharacterData',
-            data: characterData
+            data: characterData,
+            slotId: slotId
           }, (response) => {
             if (browserAPI.runtime.lastError) {
               debug.error('❌ Extension context error:', browserAPI.runtime.lastError);

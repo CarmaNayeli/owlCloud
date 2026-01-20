@@ -87,6 +87,9 @@ function initializePopup() {
   showSheetBtn.addEventListener('click', handleShowSheet);
   clearBtn.addEventListener('click', handleClear);
 
+  // Modal event listeners
+  document.getElementById('closeSlotModal').addEventListener('click', closeSlotModal);
+
   /**
    * Checks if the user is logged in and shows appropriate section
    */
@@ -298,33 +301,117 @@ function initializePopup() {
   }
 
   /**
-   * Handles sync button click
+   * Handles sync button click - opens slot selection modal
    */
   async function handleSync() {
     try {
-      syncBtn.disabled = true;
-      syncBtn.textContent = '⏳ Syncing...';
-      statusIcon.textContent = '⏳';
-      statusText.textContent = 'Syncing from Dice Cloud...';
-
       // Get current tab
       const [tab] = await browserAPI.tabs.query({ active: true, currentWindow: true });
 
       // Check if we're on Dice Cloud
       if (!tab.url || !(tab.url.includes('dicecloud.com'))) {
         showError('Please navigate to a Dice Cloud character sheet first');
-        syncBtn.disabled = false;
-        syncBtn.textContent = '🔄 Sync from Dice Cloud';
         return;
       }
 
-      // Send message to content script to sync data
-      const response = await browserAPI.tabs.sendMessage(tab.id, { action: 'syncCharacter' });
+      // Open slot selection modal
+      await showSlotSelectionModal(tab);
+    } catch (error) {
+      debug.error('Error opening slot selection:', error);
+      showError('Error: ' + error.message);
+    }
+  }
+
+  /**
+   * Shows the slot selection modal
+   */
+  async function showSlotSelectionModal(tab) {
+    const modal = document.getElementById('slotModal');
+    const slotGrid = document.getElementById('slotGrid');
+
+    // Get all character profiles
+    const profilesResponse = await browserAPI.runtime.sendMessage({ action: 'getAllCharacterProfiles' });
+    const profiles = profilesResponse.success ? profilesResponse.profiles : {};
+
+    // Create 10 slots
+    slotGrid.innerHTML = '';
+    const MAX_SLOTS = 10;
+
+    for (let i = 1; i <= MAX_SLOTS; i++) {
+      const slotId = `slot-${i}`;
+      const existingChar = profiles[slotId];
+
+      const slotCard = document.createElement('div');
+      slotCard.className = existingChar ? 'slot-card' : 'slot-card empty';
+      slotCard.dataset.slotId = slotId;
+
+      if (existingChar) {
+        slotCard.innerHTML = `
+          <div class="slot-header">
+            <span class="slot-number">Slot ${i}</span>
+            <span class="slot-badge occupied">Occupied</span>
+          </div>
+          <div class="slot-info">
+            <strong>${existingChar.name || 'Unknown'}</strong>
+          </div>
+          <div class="slot-details">
+            ${existingChar.class || 'No Class'} ${existingChar.level || '?'} • ${existingChar.race || 'Unknown Race'}
+          </div>
+        `;
+      } else {
+        slotCard.innerHTML = `
+          <div class="slot-header">
+            <span class="slot-number">Slot ${i}</span>
+            <span class="slot-badge empty">Empty</span>
+          </div>
+          <div class="slot-info empty-text">
+            Click to save character here
+          </div>
+        `;
+      }
+
+      // Add click handler
+      slotCard.addEventListener('click', () => handleSlotSelection(slotId, tab));
+
+      slotGrid.appendChild(slotCard);
+    }
+
+    // Show modal
+    modal.classList.remove('hidden');
+  }
+
+  /**
+   * Closes the slot selection modal
+   */
+  function closeSlotModal() {
+    const modal = document.getElementById('slotModal');
+    modal.classList.add('hidden');
+  }
+
+  /**
+   * Handles slot selection and performs sync
+   */
+  async function handleSlotSelection(slotId, tab) {
+    try {
+      // Close modal
+      closeSlotModal();
+
+      // Show syncing status
+      syncBtn.disabled = true;
+      syncBtn.textContent = '⏳ Syncing...';
+      statusIcon.textContent = '⏳';
+      statusText.textContent = 'Syncing from Dice Cloud...';
+
+      // Send message to content script to sync data with slot ID
+      const response = await browserAPI.tabs.sendMessage(tab.id, {
+        action: 'syncCharacter',
+        slotId: slotId
+      });
 
       if (response && response.success) {
         // Reload character data to display
         await loadCharacterData();
-        showSuccess('Character synced successfully!');
+        showSuccess(`Character synced to ${slotId.replace('slot-', 'Slot ')}!`);
       } else {
         showError(response?.error || 'Failed to sync character data');
       }
