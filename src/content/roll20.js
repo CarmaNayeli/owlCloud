@@ -78,8 +78,9 @@
       handleDiceCloudRoll(request.roll);
       sendResponse({ success: true });
     } else if (request.action === 'rollFromPopout') {
-      // Handle rolls relayed from background script (Firefox)
-      handleDiceCloudRoll(request);
+      // Skip immediate posting - wait for the actual result from Dice Cloud
+      // This prevents duplicate rolls (one from request, one from result)
+      console.log('🔄 Roll request received, waiting for Dice Cloud result...');
       sendResponse({ success: true });
     } else if (request.action === 'announceSpell') {
       // Handle spell/action announcements relayed from background script (Firefox)
@@ -128,8 +129,9 @@
       // Handle general chat messages (like spell descriptions)
       postChatMessage(event.data.message);
     } else if (event.data.action === 'rollFromPopout') {
-      // Handle rolls from the popup window (Chrome direct communication)
-      handleDiceCloudRoll(event.data);
+      // Skip immediate posting - wait for the actual result from Dice Cloud
+      // This prevents duplicate rolls (one from request, one from result)
+      console.log('🔄 Roll request received from popup, waiting for Dice Cloud result...');
     } else if (event.data.action === 'announceSpell') {
       // Handle spell/action announcements with pre-formatted messages
       if (event.data.message) {
