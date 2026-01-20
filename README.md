@@ -416,6 +416,7 @@ If dice rolls aren't being forwarded from DiceCloud to Roll20:
 - [x] Concentration indicators (Spells marked with 🧠 Concentration tag)
 - [x] Death Save Counter (Visual tracker with roll button, auto-reset on healing, follows RAW)
 - [x] Temporary HP Manager (Track temp HP separately, RAW damage/healing/stacking rules, clears on rest)
+- [x] Multiple Character Profiles (Sync and switch between multiple characters, dropdown selector, separate state)
 
 ### High Priority - Mechanics & Character Features
 
@@ -465,7 +466,6 @@ If dice rolls aren't being forwarded from DiceCloud to Roll20:
 - [ ] **Inspiration Tracker** - Track and spend inspiration with button
 - [ ] **Two-Weapon Fighting** - Quick off-hand attack button
 - [ ] **Great Weapon Master/Sharpshooter** - Toggle -5/+10 for attacks
-- [ ] **Multiple Character Profiles** - Quick-switch between characters without re-syncing
 
 ### Quality of Life
 - [ ] **Improved roll detection** - More robust parsing for DiceCloud UI changes
