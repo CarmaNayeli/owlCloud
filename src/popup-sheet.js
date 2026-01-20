@@ -127,6 +127,11 @@ function buildSheet(data) {
   // Initialize hit dice if needed
   initializeHitDice();
 
+  // Initialize temporary HP if needed
+  if (data.temporaryHP === undefined) {
+    data.temporaryHP = 0;
+  }
+
   // Capitalize race name - handle both string and object formats
   let raceName = 'Unknown';
   if (data.race) {
@@ -203,7 +208,7 @@ function buildSheet(data) {
     <div style="text-align: center; margin-bottom: 15px;">
       <div id="hp-display" style="display: inline-block; padding: 15px 30px; background: #e74c3c; color: white; border-radius: 8px; cursor: pointer; font-size: 1.2em; font-weight: bold; transition: all 0.2s; margin-right: 15px;">
         <div style="font-size: 0.8em; margin-bottom: 5px;">Hit Points</div>
-        <div style="font-size: 1.5em;">${data.hitPoints.current} / ${data.hitPoints.max}</div>
+        <div style="font-size: 1.5em;">${data.hitPoints.current}${data.temporaryHP > 0 ? `+${data.temporaryHP}` : ''} / ${data.hitPoints.max}</div>
       </div>
       <div id="initiative-button" style="display: inline-block; padding: 15px 30px; background: #3498db; color: white; border-radius: 8px; cursor: pointer; font-size: 1.2em; font-weight: bold; transition: all 0.2s;">
         <div style="font-size: 0.8em; margin-bottom: 5px;">Initiative</div>
@@ -1169,11 +1174,12 @@ function showHPModal() {
 
   const currentHP = characterData.hitPoints.current;
   const maxHP = characterData.hitPoints.max;
+  const tempHP = characterData.temporaryHP || 0;
 
   modalContent.innerHTML = `
     <h3 style="margin: 0 0 20px 0; color: #2c3e50; text-align: center;">Adjust Hit Points</h3>
     <div style="text-align: center; font-size: 1.2em; margin-bottom: 20px; color: #7f8c8d;">
-      Current: <strong>${currentHP} / ${maxHP}</strong>
+      Current: <strong>${currentHP}${tempHP > 0 ? `+${tempHP}` : ''} / ${maxHP}</strong>
     </div>
 
     <div style="margin-bottom: 20px;">
@@ -1183,12 +1189,15 @@ function showHPModal() {
 
     <div style="margin-bottom: 25px;">
       <label style="display: block; margin-bottom: 10px; font-weight: bold; color: #2c3e50;">Action:</label>
-      <div style="display: flex; gap: 10px;">
-        <button id="hp-toggle-heal" style="flex: 1; padding: 12px; font-size: 1em; font-weight: bold; border: 2px solid #27ae60; background: #27ae60; color: white; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
-          + Heal
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+        <button id="hp-toggle-heal" style="padding: 12px; font-size: 0.9em; font-weight: bold; border: 2px solid #27ae60; background: #27ae60; color: white; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+          💚 Heal
         </button>
-        <button id="hp-toggle-damage" style="flex: 1; padding: 12px; font-size: 1em; font-weight: bold; border: 2px solid #bdc3c7; background: white; color: #7f8c8d; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
-          - Damage
+        <button id="hp-toggle-damage" style="padding: 12px; font-size: 0.9em; font-weight: bold; border: 2px solid #bdc3c7; background: white; color: #7f8c8d; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+          💔 Damage
+        </button>
+        <button id="hp-toggle-temp" style="padding: 12px; font-size: 0.9em; font-weight: bold; border: 2px solid #bdc3c7; background: white; color: #7f8c8d; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+          🛡️ Temp HP
         </button>
       </div>
     </div>
@@ -1206,32 +1215,50 @@ function showHPModal() {
   modal.appendChild(modalContent);
   document.body.appendChild(modal);
 
-  // Toggle state
-  let isHealing = true;
+  // Toggle state: 'heal', 'damage', or 'temp'
+  let actionType = 'heal';
 
   const healBtn = document.getElementById('hp-toggle-heal');
   const damageBtn = document.getElementById('hp-toggle-damage');
+  const tempBtn = document.getElementById('hp-toggle-temp');
   const amountInput = document.getElementById('hp-amount');
 
-  // Toggle button handlers
-  healBtn.addEventListener('click', () => {
-    isHealing = true;
-    healBtn.style.background = '#27ae60';
-    healBtn.style.color = 'white';
-    healBtn.style.borderColor = '#27ae60';
-    damageBtn.style.background = 'white';
-    damageBtn.style.color = '#7f8c8d';
-    damageBtn.style.borderColor = '#bdc3c7';
-  });
-
-  damageBtn.addEventListener('click', () => {
-    isHealing = false;
-    damageBtn.style.background = '#e74c3c';
-    damageBtn.style.color = 'white';
-    damageBtn.style.borderColor = '#e74c3c';
+  // Helper function to reset all buttons
+  const resetButtons = () => {
     healBtn.style.background = 'white';
     healBtn.style.color = '#7f8c8d';
     healBtn.style.borderColor = '#bdc3c7';
+    damageBtn.style.background = 'white';
+    damageBtn.style.color = '#7f8c8d';
+    damageBtn.style.borderColor = '#bdc3c7';
+    tempBtn.style.background = 'white';
+    tempBtn.style.color = '#7f8c8d';
+    tempBtn.style.borderColor = '#bdc3c7';
+  };
+
+  // Toggle button handlers
+  healBtn.addEventListener('click', () => {
+    actionType = 'heal';
+    resetButtons();
+    healBtn.style.background = '#27ae60';
+    healBtn.style.color = 'white';
+    healBtn.style.borderColor = '#27ae60';
+  });
+
+  damageBtn.addEventListener('click', () => {
+    actionType = 'damage';
+    resetButtons();
+    damageBtn.style.background = '#e74c3c';
+    damageBtn.style.color = 'white';
+    damageBtn.style.borderColor = '#e74c3c';
+  });
+
+  tempBtn.addEventListener('click', () => {
+    actionType = 'temp';
+    resetButtons();
+    tempBtn.style.background = '#3498db';
+    tempBtn.style.color = 'white';
+    tempBtn.style.borderColor = '#3498db';
   });
 
   // Cancel button
@@ -1249,52 +1276,82 @@ function showHPModal() {
     }
 
     const oldHP = characterData.hitPoints.current;
+    const oldTempHP = characterData.temporaryHP || 0;
+    const colorBanner = getColoredBanner();
+    let messageData;
 
-    if (isHealing) {
+    if (actionType === 'heal') {
+      // Healing: increase current HP (up to max), doesn't affect temp HP (RAW)
       characterData.hitPoints.current = Math.min(currentHP + amount, maxHP);
       const actualHealing = characterData.hitPoints.current - oldHP;
-      showNotification(`💚 Healed ${actualHealing} HP! (${characterData.hitPoints.current}/${maxHP})`);
 
-      // Announce to Roll20 chat with fancy formatting
-      const colorBanner = getColoredBanner();
-      const messageData = {
-        action: 'announceSpell',
-        message: `&{template:default} {{name=${colorBanner}${characterData.name} regains HP}} {{💚 Healing=${actualHealing} HP}} {{Current HP=${characterData.hitPoints.current}/${maxHP}}}`,
-        color: characterData.notificationColor
-      };
-
-      // Try window.opener first (Chrome)
-      if (window.opener && !window.opener.closed) {
-        try {
-          window.opener.postMessage(messageData, '*');
-        } catch (error) {
-          console.warn('⚠️ Could not send via window.opener:', error.message);
-          // Fallback to background script relay
-          browserAPI.runtime.sendMessage({
-            action: 'relayRollToRoll20',
-            roll: messageData
-          });
-        }
-      } else {
-        // Fallback: Use background script to relay to Roll20 (Firefox)
-        browserAPI.runtime.sendMessage({
-          action: 'relayRollToRoll20',
-          roll: messageData
-        });
+      // Reset death saves on healing
+      if (actualHealing > 0 && (characterData.deathSaves.successes > 0 || characterData.deathSaves.failures > 0)) {
+        characterData.deathSaves.successes = 0;
+        characterData.deathSaves.failures = 0;
+        console.log('♻️ Death saves reset due to healing');
       }
-    } else {
-      characterData.hitPoints.current = Math.max(currentHP - amount, 0);
-      const actualDamage = oldHP - characterData.hitPoints.current;
-      showNotification(`💔 Took ${actualDamage} damage! (${characterData.hitPoints.current}/${maxHP})`);
 
-      // Announce to Roll20 chat with fancy formatting
-      const colorBanner = getColoredBanner();
-      const messageData = {
+      showNotification(`💚 Healed ${actualHealing} HP! (${characterData.hitPoints.current}${characterData.temporaryHP > 0 ? `+${characterData.temporaryHP}` : ''}/${maxHP})`);
+
+      messageData = {
         action: 'announceSpell',
-        message: `&{template:default} {{name=${colorBanner}${characterData.name} takes damage}} {{💔 Damage=${actualDamage} HP}} {{Current HP=${characterData.hitPoints.current}/${maxHP}}}`,
+        message: `&{template:default} {{name=${colorBanner}${characterData.name} regains HP}} {{💚 Healing=${actualHealing} HP}} {{Current HP=${characterData.hitPoints.current}${characterData.temporaryHP > 0 ? `+${characterData.temporaryHP}` : ''}/${maxHP}}}`,
         color: characterData.notificationColor
       };
+    } else if (actionType === 'damage') {
+      // Damage: deplete temp HP first, then current HP (RAW)
+      let remainingDamage = amount;
+      let tempHPLost = 0;
+      let actualDamage = 0;
 
+      if (characterData.temporaryHP > 0) {
+        tempHPLost = Math.min(characterData.temporaryHP, remainingDamage);
+        characterData.temporaryHP -= tempHPLost;
+        remainingDamage -= tempHPLost;
+      }
+
+      if (remainingDamage > 0) {
+        characterData.hitPoints.current = Math.max(currentHP - remainingDamage, 0);
+        actualDamage = oldHP - characterData.hitPoints.current;
+      }
+
+      const damageMsg = tempHPLost > 0
+        ? `💔 Took ${amount} damage! (${tempHPLost} temp HP${actualDamage > 0 ? ` + ${actualDamage} HP` : ''})`
+        : `💔 Took ${actualDamage} damage!`;
+
+      showNotification(`${damageMsg} (${characterData.hitPoints.current}${characterData.temporaryHP > 0 ? `+${characterData.temporaryHP}` : ''}/${maxHP})`);
+
+      const damageDetails = tempHPLost > 0
+        ? `{{Temp HP Lost=${tempHPLost}}}${actualDamage > 0 ? ` {{HP Lost=${actualDamage}}}` : ''}`
+        : `{{HP Lost=${actualDamage}}}`;
+
+      messageData = {
+        action: 'announceSpell',
+        message: `&{template:default} {{name=${colorBanner}${characterData.name} takes damage}} {{💔 Total Damage=${amount}}} ${damageDetails} {{Current HP=${characterData.hitPoints.current}${characterData.temporaryHP > 0 ? `+${characterData.temporaryHP}` : ''}/${maxHP}}}`,
+        color: characterData.notificationColor
+      };
+    } else if (actionType === 'temp') {
+      // Temp HP: RAW rules - new temp HP replaces old if higher, otherwise keep old
+      const newTempHP = amount;
+      if (newTempHP > oldTempHP) {
+        characterData.temporaryHP = newTempHP;
+        showNotification(`🛡️ Gained ${newTempHP} temp HP! (${characterData.hitPoints.current}+${characterData.temporaryHP}/${maxHP})`);
+
+        messageData = {
+          action: 'announceSpell',
+          message: `&{template:default} {{name=${colorBanner}${characterData.name} gains temp HP}} {{🛡️ Temp HP=${newTempHP}}} {{Current HP=${characterData.hitPoints.current}+${characterData.temporaryHP}/${maxHP}}}`,
+          color: characterData.notificationColor
+        };
+      } else {
+        showNotification(`⚠️ Kept ${oldTempHP} temp HP (higher than ${newTempHP})`);
+        modal.remove();
+        return; // Don't send message if temp HP wasn't gained
+      }
+    }
+
+    // Send message to Roll20
+    if (messageData) {
       // Try window.opener first (Chrome)
       if (window.opener && !window.opener.closed) {
         try {
@@ -3667,6 +3724,12 @@ function takeShortRest() {
 
   console.log('☕ Taking short rest...');
 
+  // Clear temporary HP (RAW: temp HP doesn't persist through rest)
+  if (characterData.temporaryHP > 0) {
+    characterData.temporaryHP = 0;
+    console.log('✅ Cleared temporary HP');
+  }
+
   // Restore Warlock Pact Magic slots (they recharge on short rest)
   if (characterData.otherVariables) {
     if (characterData.otherVariables.pactMagicSlotsMax !== undefined) {
@@ -3881,6 +3944,12 @@ function takeLongRest() {
   // Restore all HP
   characterData.hitPoints.current = characterData.hitPoints.max;
   console.log('✅ Restored HP to max');
+
+  // Clear temporary HP (RAW: temp HP doesn't persist through rest)
+  if (characterData.temporaryHP > 0) {
+    characterData.temporaryHP = 0;
+    console.log('✅ Cleared temporary HP');
+  }
 
   // Restore hit dice (half of max, minimum 1)
   const hitDiceRestored = Math.max(1, Math.floor(characterData.hitDice.max / 2));
