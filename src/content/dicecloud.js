@@ -521,7 +521,10 @@
             'Careful Spell', 'Distant Spell', 'Empowered Spell', 'Extended Spell',
             'Heightened Spell', 'Quickened Spell', 'Subtle Spell', 'Twinned Spell'
           ];
-          const isMetamagicFeature = metamagicFeatureNames.includes(feature.name);
+          // Use case-insensitive matching for metamagic features
+          const isMetamagicFeature = metamagicFeatureNames.some(name =>
+            name.toLowerCase() === feature.name.toLowerCase()
+          );
 
           // If feature has a roll/damage, also add it to actions for easy access
           // BUT skip metamagic features (they're handled in spell casting UI)
@@ -963,7 +966,10 @@
               'Careful Spell', 'Distant Spell', 'Empowered Spell', 'Extended Spell',
               'Heightened Spell', 'Quickened Spell', 'Subtle Spell', 'Twinned Spell'
             ];
-            const isMetamagic = metamagicNames.includes(prop.name);
+            // Use case-insensitive matching for metamagic features
+            const isMetamagic = metamagicNames.some(name =>
+              name.toLowerCase() === prop.name.toLowerCase()
+            );
 
             // Add action if it has attack roll OR if it's a non-attack action (bonus action, reaction, etc.)
             // BUT skip metamagic features (they're handled in spell casting UI)

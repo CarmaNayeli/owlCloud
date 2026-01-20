@@ -368,10 +368,18 @@ function buildActionsDisplay(container, actions) {
   // Clear container
   container.innerHTML = '';
 
+  // DEBUG: Log all actions to see what we have
+  console.log('🔍 buildActionsDisplay called with actions:', actions.map(a => ({ name: a.name, damage: a.damage, actionType: a.actionType })));
+
   // Check if character has Sneak Attack available (from DiceCloud)
   // We only check if it EXISTS, not whether it's enabled on DiceCloud
   // The toggle state on our sheet is independent and user-controlled
-  const sneakAttackAction = actions.find(a => a.name === 'Sneak Attack');
+  // Use flexible matching in case the name has slight variations
+  const sneakAttackAction = actions.find(a =>
+    a.name === 'Sneak Attack' ||
+    a.name.toLowerCase().includes('sneak attack')
+  );
+  console.log('🎯 Sneak Attack search result:', sneakAttackAction);
   if (sneakAttackAction && sneakAttackAction.damage) {
     sneakAttackDamage = sneakAttackAction.damage;
 
@@ -442,7 +450,7 @@ function buildActionsDisplay(container, actions) {
 
   actions.forEach((action, index) => {
     // Skip rendering standalone Sneak Attack button if it exists
-    if (action.name === 'Sneak Attack' && action.actionType === 'feature') {
+    if ((action.name === 'Sneak Attack' || action.name.toLowerCase().includes('sneak attack')) && action.actionType === 'feature') {
       console.log('⏭️ Skipping standalone Sneak Attack button (using toggle instead)');
       return;
     }
@@ -1659,10 +1667,13 @@ function showUpcastChoice(spell, originalLevel) {
       const disabledStyle = !canAfford ? 'opacity: 0.5; cursor: not-allowed;' : '';
 
       dropdownHTML += `
-          <label style="display: flex; align-items: center; padding: 10px; background: white; border-radius: 6px; cursor: pointer; ${disabledStyle}" title="${meta.description}">
-            <input type="checkbox" class="metamagic-option" data-name="${meta.name}" data-cost="${cost}" ${!canAfford ? 'disabled' : ''} style="margin-right: 10px; width: 18px; height: 18px; cursor: pointer;">
-            <span style="flex: 1; color: #2c3e50;">${meta.name}</span>
-            <span style="color: #9b59b6; font-weight: bold;">${cost} SP</span>
+          <label style="display: flex; flex-direction: column; padding: 10px; background: white; border-radius: 6px; cursor: pointer; ${disabledStyle}">
+            <div style="display: flex; align-items: center; width: 100%;">
+              <input type="checkbox" class="metamagic-option" data-name="${meta.name}" data-cost="${cost}" ${!canAfford ? 'disabled' : ''} style="margin-right: 10px; width: 18px; height: 18px; cursor: pointer;">
+              <span style="flex: 1; color: #2c3e50; font-weight: bold;">${meta.name}</span>
+              <span style="color: #9b59b6; font-weight: bold;">${cost} SP</span>
+            </div>
+            ${meta.description ? `<div style="margin-left: 28px; margin-top: 4px; font-size: 0.9em; color: #7f8c8d; line-height: 1.3;">${meta.description}</div>` : ''}
           </label>
       `;
     });
@@ -1989,15 +2000,34 @@ function getAvailableMetamagic() {
     return [];
   }
 
-  // Find metamagic features
+  // DEBUG: Log all features to see what we have
+  console.log('🔮 All character features:', characterData.features.map(f => f.name));
+
+  // Find metamagic features (case-insensitive matching)
   const metamagicOptions = characterData.features.filter(feature => {
     const name = feature.name.trim();
-    return metamagicCosts.hasOwnProperty(name);
+    // Try exact match first
+    let matchedName = null;
+    if (metamagicCosts.hasOwnProperty(name)) {
+      matchedName = name;
+    } else {
+      // Try case-insensitive match
+      matchedName = Object.keys(metamagicCosts).find(key =>
+        key.toLowerCase() === name.toLowerCase()
+      );
+    }
+
+    if (matchedName) {
+      console.log(`🔮 Found metamagic feature: "${name}" (matched as "${matchedName}")`);
+      feature._matchedName = matchedName; // Store for later use
+      return true;
+    }
+    return false;
   }).map(feature => {
-    const name = feature.name.trim();
+    const matchedName = feature._matchedName || feature.name.trim();
     return {
-      name: name,
-      cost: metamagicCosts[name],
+      name: matchedName,
+      cost: metamagicCosts[matchedName],
       description: feature.description || ''
     };
   });
@@ -2007,13 +2037,31 @@ function getAvailableMetamagic() {
 }
 
 function getSorceryPointsResource() {
-  if (!characterData || !characterData.resources) return null;
+  if (!characterData || !characterData.resources) {
+    console.log('🔮 No characterData or resources for sorcery points detection');
+    return null;
+  }
 
-  // Find sorcery points in resources
+  // DEBUG: Log all resources to see what we have
+  console.log('🔮 All character resources:', characterData.resources.map(r => ({ name: r.name, current: r.current, max: r.max })));
+
+  // Find sorcery points in resources (flexible matching)
   const sorceryResource = characterData.resources.find(r => {
-    const lowerName = r.name.toLowerCase();
-    return lowerName.includes('sorcery point') || lowerName === 'sorcery points';
+    const lowerName = r.name.toLowerCase().trim();
+    const isSorceryPoints =
+      lowerName.includes('sorcery point') ||
+      lowerName === 'sorcery points' ||
+      lowerName === 'sorcery' ||
+      lowerName.includes('sorcerer point');
+    if (isSorceryPoints) {
+      console.log(`🔮 Found sorcery points resource: "${r.name}" (${r.current}/${r.max})`);
+    }
+    return isSorceryPoints;
   });
+
+  if (!sorceryResource) {
+    console.log('🔮 No sorcery points resource found');
+  }
 
   return sorceryResource || null;
 }
