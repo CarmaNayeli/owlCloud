@@ -4463,13 +4463,14 @@ function updateActionEconomyAvailability() {
   const turnBasedActions = [actionIndicator, bonusActionIndicator, movementIndicator];
 
   if (isMyTurn) {
-    // Enable all actions on your turn
+    // Enable all actions on your turn - remove ALL inline styles to let CSS control everything
     [...turnBasedActions, reactionIndicator].forEach(indicator => {
       if (indicator) {
         indicator.dataset.disabled = 'false';
-        // Remove inline styles to let CSS data-used attribute work
-        indicator.style.opacity = '';
-        indicator.style.cursor = 'pointer';
+        // Remove all inline styles - let CSS [data-used] attribute fully control appearance
+        indicator.style.removeProperty('opacity');
+        indicator.style.removeProperty('cursor');
+        indicator.style.removeProperty('pointer-events');
       }
     });
   } else {
@@ -4477,17 +4478,20 @@ function updateActionEconomyAvailability() {
     turnBasedActions.forEach(indicator => {
       if (indicator) {
         indicator.dataset.disabled = 'true';
-        // Use inline opacity only when disabled (not your turn)
+        // Force disabled appearance with inline styles (overrides CSS)
         indicator.style.opacity = '0.3';
         indicator.style.cursor = 'not-allowed';
+        indicator.style.pointerEvents = 'auto'; // Still clickable for warning
       }
     });
 
     // Keep reaction enabled
     if (reactionIndicator) {
       reactionIndicator.dataset.disabled = 'false';
-      reactionIndicator.style.opacity = '';
-      reactionIndicator.style.cursor = 'pointer';
+      // Remove all inline styles for reaction
+      reactionIndicator.style.removeProperty('opacity');
+      reactionIndicator.style.removeProperty('cursor');
+      reactionIndicator.style.removeProperty('pointer-events');
     }
   }
 }

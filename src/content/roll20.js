@@ -554,7 +554,7 @@
     notifyCurrentTurn();
 
     // Announce combat start
-    postChatMessage('⚔️ Combat begins! Roll for initiative!');
+    postChatMessage('⚔️ Combat has begun! Round 1 starts!');
     announceTurn();
 
     debug.log('⚔️ Combat started!');
