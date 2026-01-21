@@ -513,9 +513,14 @@
       min-width: 400px;
       min-height: 400px;
       max-width: 800px;
-      padding: 15px;
-      max-height: 500px;
-      overflow-y: auto;
+      max-height: 80vh;
+      background: #2a2a2a;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      overflow: hidden;
+      z-index: 10000;
+      display: flex;
+      flex-direction: column;
     `;
 
     // Create tab content containers
@@ -657,6 +662,57 @@
         <p style="font-size: 0.85em; margin-top: 8px;">Combat actions will be logged here</p>
       </div>
       <div id="turn-history-list" style="display: flex; flex-direction: column; gap: 8px;"></div>
+    `;
+
+    // ===== CREATE HEADER =====
+    const header = document.createElement('div');
+    header.style.cssText = `
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px;
+      background: #1e1e1e;
+      border-bottom: 2px solid #4ECDC4;
+      cursor: move;
+      user-select: none;
+    `;
+    header.innerHTML = `
+      <div>
+        <h2 style="margin: 0; font-size: 1.2em; color: #4ECDC4;">👑 GM Panel</h2>
+        <div style="display: flex; align-items: center; gap: 15px; margin-top: 8px;">
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 0.9em; color: #aaa; cursor: pointer;">
+            <input type="checkbox" id="silent-rolls-toggle" style="width: 16px; height: 16px; cursor: pointer;" />
+            <span>🔇 Silent Rolls</span>
+          </label>
+        </div>
+      </div>
+      <button id="gm-panel-close" style="background: #e74c3c; color: #fff; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.9em;">✖</button>
+    `;
+
+    // ===== CREATE TAB NAVIGATION =====
+    const tabNav = document.createElement('div');
+    tabNav.style.cssText = `
+      display: flex;
+      gap: 0;
+      background: #1e1e1e;
+      border-bottom: 1px solid #34495e;
+    `;
+    tabNav.innerHTML = `
+      <button class="gm-tab-btn" data-tab="initiative" style="flex: 1; padding: 12px; background: #2a2a2a; color: #4ECDC4; border: none; border-bottom: 3px solid #4ECDC4; cursor: pointer; font-weight: bold; font-size: 0.9em; transition: all 0.2s;">⚔️ Initiative</button>
+      <button class="gm-tab-btn" data-tab="hidden-rolls" style="flex: 1; padding: 12px; background: transparent; color: #888; border: none; border-bottom: 3px solid transparent; cursor: pointer; font-weight: bold; font-size: 0.9em; transition: all 0.2s;">🎲 Hidden Rolls</button>
+      <button class="gm-tab-btn" data-tab="players" style="flex: 1; padding: 12px; background: transparent; color: #888; border: none; border-bottom: 3px solid transparent; cursor: pointer; font-weight: bold; font-size: 0.9em; transition: all 0.2s;">👥 Players</button>
+      <button class="gm-tab-btn" data-tab="history" style="flex: 1; padding: 12px; background: transparent; color: #888; border: none; border-bottom: 3px solid transparent; cursor: pointer; font-weight: bold; font-size: 0.9em; transition: all 0.2s;">📜 History</button>
+    `;
+
+    // ===== CREATE CONTENT WRAPPER =====
+    const contentWrapper = document.createElement('div');
+    contentWrapper.style.cssText = `
+      padding: 15px;
+      background: #2a2a2a;
+      color: #fff;
+      border-radius: 0 0 12px 12px;
+      overflow-y: auto;
+      flex: 1;
     `;
 
     // Assemble all tabs into content wrapper
