@@ -552,7 +552,7 @@ function buildSheet(data) {
   // Add click handler for initiative button
   initiativeNew.addEventListener('click', () => {
     const initiativeBonus = data.initiative || 0;
-    roll('Initiative', `1d20+${initiativeBonus}`);
+    rollWithBuffCheck('Initiative', `1d20+${initiativeBonus}`);
   });
 
   // Add click handler for death saves display
@@ -586,7 +586,7 @@ function buildSheet(data) {
     const score = data.attributes?.[ability] || 10;
     const mod = data.attributeMods?.[ability] || 0;
     const card = createCard(ability.substring(0, 3).toUpperCase(), score, `+${mod}`, () => {
-      roll(`${ability.charAt(0).toUpperCase() + ability.slice(1)}`, `1d20+${mod}`);
+      rollWithBuffCheck(`${ability.charAt(0).toUpperCase() + ability.slice(1)}`, `1d20+${mod}`);
     });
     abilitiesGrid.appendChild(card);
   });
@@ -597,7 +597,7 @@ function buildSheet(data) {
   abilities.forEach(ability => {
     const bonus = data.savingThrows?.[ability] || 0;
     const card = createCard(`${ability.substring(0, 3).toUpperCase()}`, `+${bonus}`, '', () => {
-      roll(`${ability.toUpperCase()} Save`, `1d20+${bonus}`);
+      rollWithBuffCheck(`${ability.toUpperCase()} Save`, `1d20+${bonus}`);
     });
     savesGrid.appendChild(card);
   });
@@ -624,7 +624,7 @@ function buildSheet(data) {
   sortedSkills.forEach(({ skill, bonus }) => {
     const displayName = skill.charAt(0).toUpperCase() + skill.slice(1).replace(/-/g, ' ');
     const card = createCard(displayName, `${bonus >= 0 ? '+' : ''}${bonus}`, '', () => {
-      roll(displayName, `1d20${bonus >= 0 ? '+' : ''}${bonus}`);
+      rollWithBuffCheck(displayName, `1d20${bonus >= 0 ? '+' : ''}${bonus}`);
     });
     skillsGrid.appendChild(card);
   });
@@ -1025,7 +1025,7 @@ function buildActionsDisplay(container, actions) {
         // Mark action as used for attacks
         markActionAsUsed('action');
         
-        roll(`${action.name} Attack`, formula);
+        rollWithBuffCheck(`${action.name} Attack`, formula);
       });
       buttonsDiv.appendChild(attackBtn);
     }
@@ -1546,7 +1546,7 @@ function buildCompanionsDisplay(companions) {
         e.stopPropagation();
         const name = btn.dataset.name;
         const bonus = parseInt(btn.dataset.bonus);
-        roll(`${name} - Attack`, `1d20+${bonus}`);
+        rollWithBuffCheck(`${name} - Attack`, `1d20+${bonus}`);
       });
     });
 
@@ -2325,7 +2325,7 @@ function createSpellCard(spell, index) {
       const afterCast = (spell, slot) => {
         const attackBonus = getSpellAttackBonus();
         const attackFormula = attackBonus >= 0 ? `1d20+${attackBonus}` : `1d20${attackBonus}`;
-        roll(`${spell.name} - Spell Attack`, attackFormula);
+        rollWithBuffCheck(`${spell.name} - Spell Attack`, attackFormula);
       };
       castSpell(spell, index, afterCast);
     });
@@ -4554,18 +4554,24 @@ function evaluateMathInFormula(formula) {
  * Apply active effect modifiers to a roll
  * @param {string} rollName - Name of the roll (e.g., "Attack", "Perception", "Strength Save")
  * @param {string} formula - Original formula
+ * @param {Array} optionalBuffsToApply - Optional buffs user chose to apply (e.g., ['Bardic Inspiration', 'Guidance'])
  * @returns {object} - { modifiedFormula, effectNotes }
  */
-function applyEffectModifiers(rollName, formula) {
+function applyEffectModifiers(rollName, formula, optionalBuffsToApply = []) {
   const rollLower = rollName.toLowerCase();
   let modifiedFormula = formula;
   const effectNotes = [];
 
-  // Combine all active effects
+  // Combine all active effects:
+  // 1. Auto-apply buffs (like Bless)
+  // 2. Optionally selected buffs (like Bardic Inspiration, Guidance)
   const allEffects = [
-    ...activeBuffs.map(name => ({ ...POSITIVE_EFFECTS.find(e => e.name === name), type: 'buff' })),
-    ...activeConditions.map(name => ({ ...NEGATIVE_EFFECTS.find(e => e.name === name), type: 'debuff' }))
-  ].filter(e => e && e.autoApply);
+    // Auto-apply buffs and debuffs
+    ...activeBuffs.map(name => ({ ...POSITIVE_EFFECTS.find(e => e.name === name), type: 'buff' })).filter(e => e && e.autoApply),
+    ...activeConditions.map(name => ({ ...NEGATIVE_EFFECTS.find(e => e.name === name), type: 'debuff' })).filter(e => e && e.autoApply),
+    // Optionally selected buffs (from pre-roll popup)
+    ...optionalBuffsToApply.map(name => ({ ...POSITIVE_EFFECTS.find(e => e.name === name), type: 'buff' })).filter(e => e)
+  ];
 
   debug.log(`🎲 Checking effects for roll: ${rollName}`, allEffects);
 
@@ -4648,15 +4654,255 @@ function applyEffectModifiers(rollName, formula) {
   return { modifiedFormula, effectNotes };
 }
 
-function roll(name, formula, prerolledResult = null) {
-  debug.log('🎲 Rolling:', name, formula, prerolledResult ? `(prerolled: ${prerolledResult})` : '');
+/**
+ * Wrapper function that checks for optional buffs before rolling
+ * This is the main entry point for all rolls
+ */
+function rollWithBuffCheck(name, formula, prerolledResult = null) {
+  debug.log('🎲 rollWithBuffCheck:', name, formula);
+
+  // Check if this is a d20 roll (ability checks, attacks, saves)
+  const isD20Roll = formula.includes('1d20') || formula.includes('d20');
+
+  if (!isD20Roll) {
+    // Not a d20 roll (damage, etc.) - roll immediately without checking buffs
+    debug.log('🎲 Not a d20 roll, rolling immediately');
+    roll(name, formula, prerolledResult, []);
+    return;
+  }
+
+  // Get applicable optional buffs for this roll type
+  const applicableBuffs = getApplicableOptionalBuffs(name);
+
+  if (applicableBuffs.length === 0) {
+    // No optional buffs available - roll immediately
+    debug.log('🎲 No optional buffs available, rolling immediately');
+    roll(name, formula, prerolledResult, []);
+    return;
+  }
+
+  // Show popup asking which buffs to apply
+  debug.log(`🎲 ${applicableBuffs.length} optional buff(s) available, showing popup`);
+  showOptionalBuffsPopup(name, formula, prerolledResult, applicableBuffs);
+}
+
+/**
+ * Get list of optional buffs that can be applied to this roll
+ */
+function getApplicableOptionalBuffs(rollName) {
+  const rollLower = rollName.toLowerCase();
+  const applicableBuffs = [];
+
+  for (const buffName of activeBuffs) {
+    const buff = POSITIVE_EFFECTS.find(e => e.name === buffName);
+
+    // Skip if buff doesn't exist or is auto-apply
+    if (!buff || buff.autoApply) continue;
+
+    // Check if this buff applies to this roll type
+    let applies = false;
+
+    // Bardic Inspiration: ability checks, attacks, saves
+    if (buff.name === 'Bardic Inspiration') {
+      applies = rollLower.includes('check') ||
+                rollLower.includes('attack') ||
+                rollLower.includes('save') ||
+                rollLower.includes('perception') ||
+                rollLower.includes('stealth') ||
+                rollLower.includes('investigation') ||
+                rollLower.includes('insight') ||
+                rollLower.includes('persuasion') ||
+                rollLower.includes('deception') ||
+                rollLower.includes('intimidation') ||
+                rollLower.includes('athletics') ||
+                rollLower.includes('acrobatics');
+    }
+
+    // Guidance: ability checks only
+    else if (buff.name === 'Guidance') {
+      applies = rollLower.includes('check') ||
+                rollLower.includes('perception') ||
+                rollLower.includes('stealth') ||
+                rollLower.includes('investigation') ||
+                rollLower.includes('insight') ||
+                rollLower.includes('persuasion') ||
+                rollLower.includes('deception') ||
+                rollLower.includes('intimidation') ||
+                rollLower.includes('athletics') ||
+                rollLower.includes('acrobatics');
+    }
+
+    if (applies) {
+      applicableBuffs.push(buff);
+    }
+  }
+
+  return applicableBuffs;
+}
+
+/**
+ * Show popup asking user which optional buffs to apply
+ */
+function showOptionalBuffsPopup(rollName, formula, prerolledResult, applicableBuffs) {
+  debug.log('✨ Showing optional buffs popup for:', rollName, applicableBuffs);
+
+  // Check if document.body exists
+  if (!document.body) {
+    debug.error('❌ document.body not available for optional buffs popup');
+    // Fall back to rolling without buffs
+    roll(rollName, formula, prerolledResult, []);
+    return;
+  }
+
+  // Get theme-aware colors
+  const colors = getPopupThemeColors();
+
+  // Create popup overlay
+  const popupOverlay = document.createElement('div');
+  popupOverlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  `;
+
+  // Create popup content
+  const popupContent = document.createElement('div');
+  popupContent.style.cssText = `
+    background: ${colors.background};
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 450px;
+    width: 90%;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    text-align: center;
+  `;
+
+  // Build buff selection checkboxes
+  let buffsHTML = '';
+  applicableBuffs.forEach((buff, index) => {
+    const die = buff.modifier.attack || buff.modifier.skill || buff.modifier.save || 'd8';
+    buffsHTML += `
+      <label style="
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        background: ${colors.infoBox};
+        border-radius: 8px;
+        margin-bottom: 8px;
+        cursor: pointer;
+        transition: background 0.2s;
+        border-left: 4px solid ${buff.color};
+      " onmouseover="this.style.background='${colors.border}'" onmouseout="this.style.background='${colors.infoBox}'">
+        <input type="checkbox" id="buff-${index}" checked style="width: 20px; height: 20px; cursor: pointer;">
+        <span style="font-size: 20px;">${buff.icon}</span>
+        <div style="flex: 1; text-align: left;">
+          <div style="font-weight: bold; color: ${colors.text};">${buff.name}</div>
+          <div style="font-size: 13px; color: ${colors.infoText};">Add ${die} to this roll</div>
+        </div>
+      </label>
+    `;
+  });
+
+  popupContent.innerHTML = `
+    <div style="font-size: 32px; margin-bottom: 16px;">✨</div>
+    <h2 style="margin: 0 0 8px 0; color: ${colors.heading};">Apply Buffs?</h2>
+    <p style="margin: 0 0 16px 0; color: ${colors.text};">
+      You're about to roll <strong>${rollName}</strong>
+    </p>
+    <div style="margin-bottom: 20px; padding: 12px; background: ${colors.infoBox}; border-radius: 8px; color: ${colors.text}; font-size: 14px;">
+      <strong>Formula:</strong> ${formula}
+    </div>
+    <div style="margin-bottom: 20px; text-align: left;">
+      <div style="font-weight: bold; margin-bottom: 10px; color: ${colors.text};">Available Buffs:</div>
+      ${buffsHTML}
+    </div>
+    <div style="display: flex; gap: 12px; justify-content: center;">
+      <button id="applyBuffsBtn" style="
+        background: #27ae60;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: bold;
+        font-size: 14px;
+        transition: background 0.2s;
+      ">🎲 Roll</button>
+      <button id="rollWithoutBuffsBtn" style="
+        background: #7f8c8d;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: bold;
+        font-size: 14px;
+        transition: background 0.2s;
+      ">Roll Without Buffs</button>
+    </div>
+  `;
+
+  popupOverlay.appendChild(popupContent);
+  document.body.appendChild(popupOverlay);
+
+  // Add event listeners
+  document.getElementById('applyBuffsBtn').addEventListener('click', () => {
+    // Get selected buffs
+    const selectedBuffs = [];
+    applicableBuffs.forEach((buff, index) => {
+      const checkbox = document.getElementById(`buff-${index}`);
+      if (checkbox && checkbox.checked) {
+        selectedBuffs.push(buff.name);
+      }
+    });
+
+    debug.log(`✅ Rolling with selected buffs: ${selectedBuffs.join(', ')}`);
+    document.body.removeChild(popupOverlay);
+    roll(rollName, formula, prerolledResult, selectedBuffs);
+  });
+
+  document.getElementById('rollWithoutBuffsBtn').addEventListener('click', () => {
+    debug.log('🎲 Rolling without buffs');
+    document.body.removeChild(popupOverlay);
+    roll(rollName, formula, prerolledResult, []);
+  });
+
+  // Close on overlay click
+  popupOverlay.addEventListener('click', (e) => {
+    if (e.target === popupOverlay) {
+      debug.log('🎲 Popup closed, rolling without buffs');
+      document.body.removeChild(popupOverlay);
+      roll(rollName, formula, prerolledResult, []);
+    }
+  });
+
+  debug.log('✨ Optional buffs popup displayed');
+}
+
+function roll(name, formula, prerolledResult = null, optionalBuffsToApply = []) {
+  debug.log('🎲 Rolling:', name, formula, prerolledResult ? `(prerolled: ${prerolledResult})` : '', `Optional buffs: ${optionalBuffsToApply.join(', ')}`);
 
   // Resolve any variables in the formula
   let resolvedFormula = resolveVariablesInFormula(formula);
 
-  // Apply active effect modifiers
-  const { modifiedFormula, effectNotes } = applyEffectModifiers(name, resolvedFormula);
+  // Apply active effect modifiers (auto-apply buffs + optionally selected buffs)
+  const { modifiedFormula, effectNotes } = applyEffectModifiers(name, resolvedFormula, optionalBuffsToApply);
   resolvedFormula = modifiedFormula;
+
+  // Remove consumed optional buffs (Bardic Inspiration, Guidance use once)
+  for (const buffName of optionalBuffsToApply) {
+    removeEffect(buffName, 'positive');
+    debug.log(`✅ Consumed ${buffName} buff`);
+  }
 
   const colorBanner = getColoredBanner();
   // Format: "🔵 CharacterName rolls Initiative"
@@ -6101,7 +6347,7 @@ window.addEventListener('message', (event) => {
       // Check if any racial traits trigger (use baseRoll for the actual d20 roll)
       const racialTraitTriggered = checkRacialTraits(baseRoll, rollType, rollName);
       const triggeredRacialTraits = [];
-      
+
       // Check if any feat traits trigger (use baseRoll for the actual d20 roll)
       const featTraitTriggered = checkFeatTraits(baseRoll, rollType, rollName);
       const triggeredFeatTraits = [];
@@ -6267,12 +6513,6 @@ function initClassFeatures() {
     activeFeatTraits.push(ReliableTalent);
   }
 
-  // Bardic Inspiration (Bard)
-  if (characterClass.includes('bard') && level >= 1) {
-    debug.log('🎵 Bard detected, adding Bardic Inspiration');
-    activeFeatTraits.push(BardicInspiration);
-  }
-
   // Jack of All Trades (Bard)
   if (characterClass.includes('bard') && level >= 2) {
     debug.log('🎵 Bard detected, adding Jack of All Trades');
@@ -6342,9 +6582,9 @@ function checkRacialTraits(rollResult, rollType, rollName) {
 function checkFeatTraits(rollResult, rollType, rollName) {
   debug.log(`🎖️ Checking feat traits for roll: ${rollResult} (${rollType}) - ${rollName}`);
   debug.log(`🎖️ Active feat traits count: ${activeFeatTraits.length}`);
-  
+
   let traitTriggered = false;
-  
+
   for (const trait of activeFeatTraits) {
     if (trait.onRoll && typeof trait.onRoll === 'function') {
       const result = trait.onRoll(rollResult, rollType, rollName);
@@ -6354,7 +6594,7 @@ function checkFeatTraits(rollResult, rollType, rollName) {
       }
     }
   }
-  
+
   return traitTriggered;
 }
 
@@ -6932,179 +7172,6 @@ function showWildMagicSurgePopup(d100Roll, effect) {
   }
 
   debug.log('🌀 Wild Magic Surge popup displayed');
-}
-
-// Bardic Inspiration Popup Functions
-function showBardicInspirationPopup(rollData) {
-  debug.log('🎵 Bardic Inspiration popup called with:', rollData);
-
-  // Check if document.body exists
-  if (!document.body) {
-    debug.error('❌ document.body not available for Bardic Inspiration popup');
-    showNotification('🎵 Bardic Inspiration available! (Popup failed to display)', 'info');
-    return;
-  }
-
-  debug.log('🎵 Creating Bardic Inspiration popup overlay...');
-
-  // Get theme-aware colors
-  const colors = getPopupThemeColors();
-
-  // Create popup overlay
-  const popupOverlay = document.createElement('div');
-  popupOverlay.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.8);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 10000;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  `;
-
-  // Create popup content
-  const popupContent = document.createElement('div');
-  popupContent.style.cssText = `
-    background: ${colors.background};
-    border-radius: 12px;
-    padding: 24px;
-    max-width: 450px;
-    width: 90%;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-    text-align: center;
-  `;
-
-  debug.log('🎵 Setting Bardic Inspiration popup content HTML...');
-
-  popupContent.innerHTML = `
-    <div style="font-size: 32px; margin-bottom: 16px;">🎵</div>
-    <h2 style="margin: 0 0 8px 0; color: ${colors.heading};">Bardic Inspiration!</h2>
-    <p style="margin: 0 0 16px 0; color: ${colors.text};">
-      Add a <strong>${rollData.inspirationDie}</strong> to this roll?
-    </p>
-    <div style="margin: 0 0 16px 0; padding: 12px; background: ${colors.infoBox}; border-radius: 8px; border-left: 4px solid #9b59b6; color: ${colors.text};">
-      <strong>Current Roll:</strong> ${rollData.rollName}<br>
-      <strong>Base Result:</strong> ${rollData.baseRoll}<br>
-      <strong>Inspiration Die:</strong> ${rollData.inspirationDie}<br>
-      <strong>Uses Left:</strong> ${rollData.usesRemaining}
-    </div>
-    <div style="margin-bottom: 16px; padding: 12px; background: ${colors.infoBox}; border-radius: 8px; color: ${colors.text}; font-size: 13px; text-align: left;">
-      <strong>💡 How it works:</strong><br>
-      • Roll the inspiration die and add it to your total<br>
-      • Can be used on ability checks, attack rolls, or saves<br>
-      • Only one inspiration die can be used per roll
-    </div>
-    <div style="display: flex; gap: 12px; justify-content: center;">
-      <button id="bardicUseBtn" style="
-        background: #9b59b6;
-        color: white;
-        border: none;
-        padding: 12px 24px;
-        border-radius: 8px;
-        cursor: pointer;
-        font-weight: bold;
-        font-size: 14px;
-        transition: background 0.2s;
-      ">🎲 Use Inspiration</button>
-      <button id="bardicDeclineBtn" style="
-        background: #7f8c8d;
-        color: white;
-        border: none;
-        padding: 12px 24px;
-        border-radius: 8px;
-        cursor: pointer;
-        font-weight: bold;
-        font-size: 14px;
-        transition: background 0.2s;
-      ">Decline</button>
-    </div>
-  `;
-
-  debug.log('🎵 Appending Bardic Inspiration popup to document.body...');
-
-  popupOverlay.appendChild(popupContent);
-  document.body.appendChild(popupOverlay);
-
-  // Add hover effects
-  const useBtn = document.getElementById('bardicUseBtn');
-  const declineBtn = document.getElementById('bardicDeclineBtn');
-
-  useBtn.addEventListener('mouseenter', () => {
-    useBtn.style.background = '#8e44ad';
-  });
-  useBtn.addEventListener('mouseleave', () => {
-    useBtn.style.background = '#9b59b6';
-  });
-
-  declineBtn.addEventListener('mouseenter', () => {
-    declineBtn.style.background = '#95a5a6';
-  });
-  declineBtn.addEventListener('mouseleave', () => {
-    declineBtn.style.background = '#7f8c8d';
-  });
-
-  // Add event listeners
-  useBtn.addEventListener('click', () => {
-    debug.log('🎵 User chose to use Bardic Inspiration');
-    performBardicInspirationRoll(rollData);
-    document.body.removeChild(popupOverlay);
-  });
-
-  declineBtn.addEventListener('click', () => {
-    debug.log('🎵 User declined Bardic Inspiration');
-    showNotification('Bardic Inspiration declined', 'info');
-    document.body.removeChild(popupOverlay);
-  });
-
-  // Close on overlay click
-  popupOverlay.addEventListener('click', (e) => {
-    if (e.target === popupOverlay) {
-      debug.log('🎵 User closed Bardic Inspiration popup');
-      document.body.removeChild(popupOverlay);
-    }
-  });
-
-  debug.log('🎵 Bardic Inspiration popup displayed');
-}
-
-function performBardicInspirationRoll(rollData) {
-  debug.log('🎵 Performing Bardic Inspiration roll with data:', rollData);
-
-  // Use one Bardic Inspiration use
-  const success = useBardicInspiration();
-  if (!success) {
-    debug.error('❌ Failed to use Bardic Inspiration (no uses left?)');
-    showNotification('❌ Failed to use Bardic Inspiration', 'error');
-    return;
-  }
-
-  // Roll the inspiration die
-  const dieSize = parseInt(rollData.inspirationDie.substring(1)); // "d6" -> 6
-  const inspirationRoll = Math.floor(Math.random() * dieSize) + 1;
-
-  debug.log(`🎵 Rolled ${rollData.inspirationDie}: ${inspirationRoll}`);
-
-  // Create the roll message
-  const inspirationMessage = `/roll ${rollData.inspirationDie}`;
-  const chatMessage = `🎵 Bardic Inspiration for ${rollData.rollName}: [[${inspirationRoll}]] (${rollData.inspirationDie})`;
-
-  // Show notification
-  showNotification(`🎵 Bardic Inspiration: +${inspirationRoll}!`, 'success');
-
-  // Post to Roll20 chat
-  browserAPI.runtime.sendMessage({
-    action: 'rollDice',
-    rollData: {
-      message: chatMessage,
-      characterName: characterData.name || 'Character'
-    }
-  });
-
-  debug.log('🎵 Bardic Inspiration roll complete');
 }
 
 // Elven Accuracy Popup
@@ -7822,114 +7889,8 @@ const WildMagicSurge = {
   }
 };
 
-// Bardic Inspiration (Bard)
-const BardicInspiration = {
-  name: 'Bardic Inspiration',
-  description: 'You can inspire others through stirring words or music. As a bonus action, grant an ally a Bardic Inspiration die they can add to an ability check, attack roll, or saving throw.',
-
-  onRoll: function(rollResult, rollType, rollName) {
-    debug.log(`🎵 Bardic Inspiration onRoll called with: ${rollResult}, ${rollType}, ${rollName}`);
-
-    // Check if it's a d20 roll (ability check, attack, or save)
-    if (rollType && rollType.includes('d20')) {
-      debug.log(`🎵 Bardic Inspiration: Checking if we should offer inspiration for ${rollName}`);
-
-      // Check if character has Bardic Inspiration uses available
-      const inspirationResource = getBardicInspirationResource();
-      if (!inspirationResource || inspirationResource.current <= 0) {
-        debug.log(`🎵 Bardic Inspiration: No uses available (${inspirationResource?.current || 0})`);
-        return false;
-      }
-
-      debug.log(`🎵 Bardic Inspiration: Has ${inspirationResource.current} uses available`);
-
-      // Get the inspiration die size based on bard level
-      const level = characterData.level || 1;
-      const inspirationDie = level < 5 ? 'd6' : level < 10 ? 'd8' : level < 15 ? 'd10' : 'd12';
-
-      // Offer Bardic Inspiration on any d20 roll
-      debug.log(`🎵 Bardic Inspiration: TRIGGERED! Offering ${inspirationDie}`);
-
-      // Show the Bardic Inspiration popup with error handling
-      try {
-        showBardicInspirationPopup({
-          rollResult: parseInt(rollResult),
-          baseRoll: parseInt(rollResult),
-          rollType: rollType,
-          rollName: rollName,
-          inspirationDie: inspirationDie,
-          usesRemaining: inspirationResource.current
-        });
-      } catch (error) {
-        debug.error('❌ Error showing Bardic Inspiration popup:', error);
-        // Fallback notification
-        showNotification(`🎵 Bardic Inspiration available! (${inspirationDie})`, 'info');
-      }
-
-      return true; // Trait triggered
-    }
-
-    debug.log(`🎵 Bardic Inspiration: No trigger - Type: ${rollType}`);
-    return false; // No trigger
-  }
-};
-
-function getBardicInspirationResource() {
-  if (!characterData || !characterData.resources) {
-    debug.log('🎵 No characterData or resources for Bardic Inspiration detection');
-    return null;
-  }
-
-  // Find Bardic Inspiration in resources (flexible matching)
-  const inspirationResource = characterData.resources.find(r => {
-    const lowerName = r.name.toLowerCase().trim();
-    return (
-      lowerName.includes('bardic inspiration') ||
-      lowerName === 'bardic inspiration' ||
-      lowerName === 'inspiration' ||
-      lowerName.includes('inspiration die') ||
-      lowerName.includes('inspiration dice')
-    );
-  });
-
-  if (inspirationResource) {
-    debug.log(`🎵 Found Bardic Inspiration resource: ${inspirationResource.name} (${inspirationResource.current}/${inspirationResource.max})`);
-  } else {
-    debug.log('🎵 No Bardic Inspiration resource found in character data');
-  }
-
-  return inspirationResource;
-}
-
-function useBardicInspiration() {
-  debug.log('🎵 useBardicInspiration called');
-  const inspirationResource = getBardicInspirationResource();
-  debug.log('🎵 Bardic Inspiration resource found:', inspirationResource);
-
-  if (!inspirationResource) {
-    debug.error('❌ No Bardic Inspiration resource found');
-    return false;
-  }
-
-  if (inspirationResource.current <= 0) {
-    debug.error(`❌ No Bardic Inspiration uses available (current: ${inspirationResource.current})`);
-    return false;
-  }
-
-  // Decrement Bardic Inspiration uses
-  const oldCurrent = inspirationResource.current;
-  inspirationResource.current--;
-
-  debug.log(`✅ Used Bardic Inspiration (${oldCurrent} → ${inspirationResource.current})`);
-
-  // Save to storage
-  browserAPI.storage.local.set({ characterData: characterData });
-
-  // Refresh resources display
-  buildResourcesDisplay();
-
-  return true;
-}
+// Note: Bardic Inspiration and Guidance are now checked PRE-ROLL via the optional buffs system
+// See rollWithBuffCheck() and showOptionalBuffsPopup() for the new implementation
 
 function getLuckyResource() {
   if (!characterData || !characterData.resources) {
