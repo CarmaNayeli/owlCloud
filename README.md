@@ -457,7 +457,6 @@ If the character sheet overlay isn't working properly:
 
 ### Additional Mechanics & Features
 - [ ] **Initiative Auto-Roller** - Roll initiative for all party members at once
-- [ ] **Custom Roll Macros** - Create and save frequently-used custom rolls
 - [ ] **Two-Weapon Fighting** - Quick off-hand attack button
 - [ ] **Great Weapon Master/Sharpshooter** - Toggle -5/+10 for attacks
 
