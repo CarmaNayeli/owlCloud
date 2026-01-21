@@ -570,10 +570,19 @@
         <div style="padding: 10px; background: ${isActive ? '#4ECDC4' : '#34495e'}; border: 2px solid ${isActive ? '#27ae60' : '#2c3e50'}; border-radius: 6px; display: flex; align-items: center; gap: 10px; ${isActive ? 'box-shadow: 0 0 15px rgba(78, 205, 196, 0.4);' : ''}">
           <div style="font-weight: bold; font-size: 1.2em; min-width: 30px; text-align: center;">${combatant.initiative}</div>
           <div style="flex: 1; font-weight: bold;">${combatant.name}</div>
-          <button onclick="window.rollcloudRemoveCombatant('${combatant.name}')" style="background: #e74c3c; color: #fff; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 0.85em;">✕</button>
+          <button class="rollcloud-remove-combatant" data-combatant-name="${combatant.name}" style="background: #e74c3c; color: #fff; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 0.85em;">✕</button>
         </div>
       `;
     }).join('');
+
+    // Attach event listeners to remove buttons (CSP-compliant)
+    const removeButtons = list.querySelectorAll('.rollcloud-remove-combatant');
+    removeButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        const name = button.getAttribute('data-combatant-name');
+        removeCombatant(name);
+      });
+    });
   }
 
   /**
@@ -609,9 +618,6 @@
 
     postChatMessage(`🎯 It's ${current.name}'s turn! (Initiative: ${current.initiative})`);
   }
-
-  // Expose remove function globally for onclick handlers
-  window.rollcloudRemoveCombatant = removeCombatant;
 
   /**
    * Chat monitoring for initiative rolls
@@ -663,6 +669,17 @@
     debug.log('📨 Chat message (text):', text);
     debug.log('📨 Chat message (html):', innerHTML);
 
+    // Skip our own announcements (turn changes, round starts, GM mode toggles)
+    // These start with specific emojis and should not be parsed as initiative rolls
+    const ownAnnouncementPrefixes = ['🎯', '⚔️', '👑'];
+    const trimmedText = text.trim();
+    for (const prefix of ownAnnouncementPrefixes) {
+      if (trimmedText.startsWith(prefix)) {
+        debug.log('⏭️ Skipping own announcement message');
+        return;
+      }
+    }
+
     // Check for Roll20's inline roll format in HTML
     // Look for dice rolls with "inlinerollresult" class
     const inlineRolls = messageNode.querySelectorAll('.inlinerollresult');
@@ -670,9 +687,27 @@
       // Check if message contains "initiative" keyword
       const lowerText = text.toLowerCase();
       if (lowerText.includes('initiative') || lowerText.includes('init')) {
-        // Extract character name - usually in a .by element or at start of message
-        const byElement = messageNode.querySelector('.by');
-        const characterName = byElement ? byElement.textContent.trim().replace(/:/g, '') : null;
+        let characterName = null;
+
+        // Try to extract from roll template caption first
+        const rollTemplate = messageNode.querySelector('.sheet-rolltemplate-default, .sheet-rolltemplate-custom');
+        if (rollTemplate) {
+          const caption = rollTemplate.querySelector('caption, .sheet-template-name, .charname');
+          if (caption) {
+            const captionText = caption.textContent.trim();
+            // Extract name from patterns like "🔵 Test 2 rolls Initiative" or "Name: Initiative"
+            const nameMatch = captionText.match(/^(?:🔵|🔴|⚪|⚫|🟢|🟡|🟠|🟣|🟤)?\s*(.+?)\s+(?:rolls?\s+)?[Ii]nitiative/i);
+            if (nameMatch) {
+              characterName = nameMatch[1].trim();
+            }
+          }
+        }
+
+        // Fallback: Extract character name from .by element (regular chat messages)
+        if (!characterName) {
+          const byElement = messageNode.querySelector('.by');
+          characterName = byElement ? byElement.textContent.trim().replace(/:/g, '') : null;
+        }
 
         // Get the roll result from the last inline roll
         const lastRoll = inlineRolls[inlineRolls.length - 1];
