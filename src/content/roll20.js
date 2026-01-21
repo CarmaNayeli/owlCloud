@@ -1116,6 +1116,33 @@
   };
 
   /**
+   * Create player header HTML
+   */
+  function createPlayerHeader(name, player, playerId) {
+    const hpPercent = player.maxHp > 0 ? (player.hp / player.maxHp) * 100 : 0;
+    const hpColor = hpPercent > 50 ? '#27ae60' : hpPercent > 25 ? '#f39c12' : '#e74c3c';
+    
+    return `
+      <div style="background: #34495e; border-radius: 8px; border-left: 4px solid ${hpColor}; overflow: hidden;">
+        <!-- Player Header (always visible) -->
+        <div onclick="togglePlayerDetails('${playerId}')" style="padding: 12px; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s;" onmouseover="this.style.background='#3d5a6e'" onmouseout="this.style.background='transparent'">
+          <div style="flex: 1;">
+            <div style="font-weight: bold; font-size: 1.1em; color: #4ECDC4; margin-bottom: 4px;">${name}</div>
+            <div style="display: flex; gap: 12px; font-size: 0.95em; color: #ccc;">
+              <span>HP: ${player.hp}/${player.maxHp}</span>
+              <span>AC: ${player.ac || '—'}</span>
+              <span>Init: ${player.initiative || '—'}</span>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span id="${playerId}-toggle" style="transition: transform 0.3s; transform: rotate(-90deg); color: #888; font-size: 1.1em;">▼</span>
+            <button onclick="event.stopPropagation(); deletePlayerFromGM('${name}')" style="padding: 4px 8px; background: #e74c3c; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8em; font-weight: bold;" title="Remove player">🗑️</button>
+          </div>
+        </div>
+    `;
+  }
+
+  /**
    * Update Player Overview Display
    */
   function updatePlayerOverviewDisplay() {
@@ -1144,24 +1171,11 @@
 
     playerOverviewList.innerHTML = players.map((name, index) => {
       const player = playerData[name];
+      const playerId = `player-${index}`;
       const hpPercent = player.maxHp > 0 ? (player.hp / player.maxHp) * 100 : 0;
       const hpColor = hpPercent > 50 ? '#27ae60' : hpPercent > 25 ? '#f39c12' : '#e74c3c';
-      const playerId = `player-${index}`;
 
-      return `
-        <div style="background: #34495e; border-radius: 8px; border-left: 4px solid ${hpColor}; overflow: hidden;">
-          <!-- Player Header (always visible) -->
-          <div onclick="togglePlayerDetails('${playerId}')" style="padding: 12px; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s;" onmouseover="this.style.background='#3d5a6e'" onmouseout="this.style.background='transparent'">
-            <div style="flex: 1;">
-              <div style="font-weight: bold; font-size: 1.1em; color: #4ECDC4; margin-bottom: 4px;">${name}</div>
-              <div style="display: flex; gap: 12px; font-size: 0.95em; color: #ccc;">
-                <span>HP: ${player.hp}/${player.maxHp}</span>
-                <span>AC: ${player.ac || '—'}</span>
-                <span>Init: ${player.initiative || '—'}</span>
-              </div>
-            </div>
-            <span id="${playerId}-toggle" style="transition: transform 0.3s; transform: rotate(-90deg); color: #888; font-size: 1.1em;">▼</span>
-          </div>
+      return createPlayerHeader(name, player, playerId) + `
 
           <!-- Detailed View (collapsible) -->
           <div id="${playerId}-details" style="max-height: 0; opacity: 0; overflow: hidden; transition: max-height 0.3s ease-out, opacity 0.3s ease-out;">
