@@ -796,7 +796,24 @@ function buildSpellsBySource(container, spells) {
         return false;
       }
     }
-    
+
+    // Filter by casting time
+    if (spellFilters.castingTime !== 'all') {
+      const castingTime = (spell.castingTime || '').toLowerCase();
+      if (spellFilters.castingTime === 'action') {
+        // Match "action" but exclude "bonus action" and "reaction"
+        if (!castingTime.includes('action') || castingTime.includes('bonus') || castingTime.includes('reaction')) {
+          return false;
+        }
+      }
+      if (spellFilters.castingTime === 'bonus' && !castingTime.includes('bonus')) {
+        return false;
+      }
+      if (spellFilters.castingTime === 'reaction' && !castingTime.includes('reaction')) {
+        return false;
+      }
+    }
+
     // Filter by search term
     if (spellFilters.search) {
       const searchLower = spellFilters.search;
@@ -908,6 +925,7 @@ let actionFilters = {
 let spellFilters = {
   level: 'all',
   category: 'all',
+  castingTime: 'all',
   search: ''
 };
 
@@ -1005,6 +1023,16 @@ function initializeFilters() {
     btn.addEventListener('click', () => {
       spellFilters.category = btn.dataset.filter;
       document.querySelectorAll('[data-type="spell-category"]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      rebuildSpells();
+    });
+  });
+
+  // Spell casting time filters
+  document.querySelectorAll('[data-type="spell-casting-time"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      spellFilters.castingTime = btn.dataset.filter;
+      document.querySelectorAll('[data-type="spell-casting-time"]').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       rebuildSpells();
     });
@@ -5004,9 +5032,20 @@ function checkOptionalEffects(rollName, formula, onApply) {
     }
 
     // Check for saving throw modifiers
-    if ((rollLower.includes('save') || rollLower.includes('strength') || rollLower.includes('dexterity')) &&
-        (effect.modifier.strSave || effect.modifier.dexSave)) {
+    if (rollLower.includes('save') && effect.modifier.save) {
       applicable = true;
+    }
+
+    // Special handling for Bardic Inspiration - applies to checks, attacks, and saves
+    if (effect.name.startsWith('Bardic Inspiration')) {
+      if (rollLower.includes('check') || rollLower.includes('perception') ||
+          rollLower.includes('stealth') || rollLower.includes('investigation') ||
+          rollLower.includes('insight') || rollLower.includes('persuasion') ||
+          rollLower.includes('deception') || rollLower.includes('intimidation') ||
+          rollLower.includes('athletics') || rollLower.includes('acrobatics') ||
+          rollLower.includes('attack') || rollLower.includes('save')) {
+        applicable = true;
+      }
     }
 
     if (applicable) {
@@ -5138,12 +5177,25 @@ function roll(name, formula, prerolledResult = null) {
     let finalFormula = modifiedFormula;
     
     // Add the chosen effect's modifier
-    if (chosenEffect.modifier.skill && name.toLowerCase().includes('check')) {
+    const rollLower = name.toLowerCase();
+    let modifierAdded = false;
+
+    if (chosenEffect.modifier.skill && (rollLower.includes('check') || rollLower.includes('perception') ||
+        rollLower.includes('stealth') || rollLower.includes('investigation') ||
+        rollLower.includes('insight') || rollLower.includes('persuasion') ||
+        rollLower.includes('deception') || rollLower.includes('intimidation') ||
+        rollLower.includes('athletics') || rollLower.includes('acrobatics'))) {
       finalFormula += ` + ${chosenEffect.modifier.skill}`;
       effectNotes.push(`[${chosenEffect.icon} ${chosenEffect.name}: ${chosenEffect.modifier.skill}]`);
-    } else if (chosenEffect.modifier.attack && name.toLowerCase().includes('attack')) {
+      modifierAdded = true;
+    } else if (chosenEffect.modifier.attack && rollLower.includes('attack')) {
       finalFormula += ` + ${chosenEffect.modifier.attack}`;
       effectNotes.push(`[${chosenEffect.icon} ${chosenEffect.name}: ${chosenEffect.modifier.attack}]`);
+      modifierAdded = true;
+    } else if (chosenEffect.modifier.save && rollLower.includes('save')) {
+      finalFormula += ` + ${chosenEffect.modifier.save}`;
+      effectNotes.push(`[${chosenEffect.icon} ${chosenEffect.name}: ${chosenEffect.modifier.save}]`);
+      modifierAdded = true;
     }
     
     // Remove the chosen effect from active effects since it's been used
@@ -5960,12 +6012,36 @@ const POSITIVE_EFFECTS = [
     autoApply: false // User choice required
   },
   {
-    name: 'Bardic Inspiration',
+    name: 'Bardic Inspiration (d6)',
     icon: '🎵',
     color: '#9b59b6',
-    description: '+d6/d8/d10/d12 to ability check, attack, or save',
+    description: 'Bard levels 1-4: +d6 to ability check, attack, or save',
+    modifier: { attack: 'd6', skill: 'd6', save: 'd6' },
+    autoApply: false
+  },
+  {
+    name: 'Bardic Inspiration (d8)',
+    icon: '🎵',
+    color: '#9b59b6',
+    description: 'Bard levels 5-9: +d8 to ability check, attack, or save',
     modifier: { attack: 'd8', skill: 'd8', save: 'd8' },
-    autoApply: false // Manual application
+    autoApply: false
+  },
+  {
+    name: 'Bardic Inspiration (d10)',
+    icon: '🎵',
+    color: '#9b59b6',
+    description: 'Bard levels 10-14: +d10 to ability check, attack, or save',
+    modifier: { attack: 'd10', skill: 'd10', save: 'd10' },
+    autoApply: false
+  },
+  {
+    name: 'Bardic Inspiration (d12)',
+    icon: '🎵',
+    color: '#9b59b6',
+    description: 'Bard levels 15-20: +d12 to ability check, attack, or save',
+    modifier: { attack: 'd12', skill: 'd12', save: 'd12' },
+    autoApply: false
   },
   {
     name: 'Haste',
