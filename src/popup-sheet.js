@@ -47,6 +47,24 @@ window.addEventListener('message', async (event) => {
 
     // Then build the sheet with character data
     buildSheet(characterData);
+
+    // Register this character with GM Initiative Tracker (if it exists)
+    // Use postMessage to avoid CORS issues - send character name only
+    if (window.opener) {
+      window.opener.postMessage({
+        action: 'registerPopup',
+        characterName: event.data.data.name
+      }, '*');
+      debug.log(`✅ Sent registration message for: ${event.data.data.name}`);
+      
+      // Check if it's currently this character's turn by reading recent chat
+      // Add a small delay to ensure combat system has processed start of combat
+      setTimeout(() => {
+        checkCurrentTurnFromChat(event.data.data.name);
+      }, 500);
+    } else {
+      debug.warn(`⚠️ No window.opener available for: ${event.data.data.name}`);
+    }
   }
 });
 
@@ -197,6 +215,29 @@ function buildCharacterTabs(profiles, activeCharacterId) {
   }
 }
 
+/**
+ * Check recent chat messages to see if it's currently this character's turn
+ * This handles the case where a character tab is switched after turn notifications were sent
+ */
+function checkCurrentTurnFromChat(characterName) {
+  try {
+    if (!window.opener) {
+      debug.warn('⚠️ No window.opener available for turn check');
+      return;
+    }
+
+    // Request recent chat messages from parent window
+    window.opener.postMessage({
+      action: 'checkCurrentTurn',
+      characterName: characterName
+    }, '*');
+    
+    debug.log(`🔍 Requested turn check for: ${characterName}`);
+  } catch (error) {
+    debug.warn('⚠️ Error checking current turn:', error);
+  }
+}
+
 // Switch to a different character
 async function switchToCharacter(characterId) {
   try {
@@ -224,6 +265,24 @@ async function switchToCharacter(characterId) {
       // Reload tabs to update active state (don't rebuild the sheet)
       debug.log(`🔄 Reloading tabs to update active state`);
       await loadAndBuildTabs();
+
+      // Register this character with GM Initiative Tracker (if it exists)
+      // Use postMessage to avoid CORS issues - send character name only
+      if (window.opener) {
+        window.opener.postMessage({
+          action: 'registerPopup',
+          characterName: response.data.name
+        }, '*');
+        debug.log(`✅ Sent registration message for: ${response.data.name}`);
+      } else {
+        debug.warn(`⚠️ No window.opener available for: ${response.data.name}`);
+      }
+
+      // Check if it's currently this character's turn by reading recent chat
+      // Add a small delay to ensure combat system has processed turn changes
+      setTimeout(() => {
+        checkCurrentTurnFromChat(response.data.name);
+      }, 500);
 
       showNotification(`✅ Switched to ${response.data.name}`);
     } else {
@@ -758,6 +817,10 @@ function buildActionsDisplay(container, actions) {
           const bonus = parseInt(formula);
           formula = bonus >= 0 ? `1d20+${bonus}` : `1d20${bonus}`;
         }
+        
+        // Mark action as used for attacks
+        markActionAsUsed('action');
+        
         roll(`${action.name} Attack`, formula);
       });
       buttonsDiv.appendChild(attackBtn);
@@ -871,6 +934,18 @@ function buildActionsDisplay(container, actions) {
           debug.log(`⚔️ Adding Elemental Weapon to ${action.name}: ${damageFormula}`);
         }
 
+        // Mark action as used based on action type
+        const actionType = action.actionType || 'action';
+        debug.log(`🎯 Action type for "${action.name}": "${actionType}"`);
+        
+        if (actionType === 'bonus action' || actionType === 'bonus' || actionType === 'Bonus Action' || actionType === 'Bonus') {
+          markActionAsUsed('bonus action');
+        } else if (actionType === 'reaction' || actionType === 'Reaction') {
+          markActionAsUsed('reaction');
+        } else {
+          markActionAsUsed('action');
+        }
+
         roll(damageName, damageFormula);
       });
       buttonsDiv.appendChild(damageBtn);
@@ -960,11 +1035,36 @@ function buildActionsDisplay(container, actions) {
               diceFormula = '1' + diceFormula;
             }
             debug.log(`🎲 Found dice formula in description: ${diceFormula}`);
+            
+            // Mark action as used based on action type
+            const actionType = action.actionType || 'action';
+            debug.log(`🎯 Action type for "${action.name}" (use button): "${actionType}"`);
+            
+            if (actionType === 'bonus action' || actionType === 'bonus' || actionType === 'Bonus Action' || actionType === 'Bonus') {
+              markActionAsUsed('bonus action');
+            } else if (actionType === 'reaction' || actionType === 'Reaction') {
+              markActionAsUsed('reaction');
+            } else {
+              markActionAsUsed('action');
+            }
+            
             // Announce the action first, then roll
             announceAction(action);
             roll(action.name, diceFormula);
             return;
           }
+        }
+
+        // Mark action as used even if no dice roll (for features that just announce)
+        const actionType = action.actionType || 'action';
+        debug.log(`🎯 Action type for "${action.name}" (no dice): "${actionType}"`);
+        
+        if (actionType === 'bonus action' || actionType === 'bonus' || actionType === 'Bonus Action' || actionType === 'Bonus') {
+          markActionAsUsed('bonus action');
+        } else if (actionType === 'reaction' || actionType === 'Reaction') {
+          markActionAsUsed('reaction');
+        } else {
+          markActionAsUsed('action');
         }
 
         announceAction(action);
@@ -1892,6 +1992,7 @@ function castSpell(spell, index) {
   // Cantrips (level 0) don't need slots
   if (!spell.level || spell.level === 0 || spell.level === '0') {
     debug.log('✨ Casting cantrip (no resource needed)');
+    markActionAsUsed(spell.castingTime);
     announceSpellCast(spell);
     showNotification(`✨ Cast ${spell.name}!`);
     return;
@@ -2296,6 +2397,9 @@ function castWithSlot(spell, slot, metamagicOptions = []) {
     }
   }
 
+  // Mark action as used based on casting time
+  markActionAsUsed(spell.castingTime);
+
   saveCharacterData();
 
   let resourceText = slot.level > parseInt(spell.level)
@@ -2329,6 +2433,10 @@ function useClassResource(resource, spell) {
   }
 
   characterData.otherVariables[resource.varName] = resource.current - 1;
+  
+  // Mark action as used based on casting time
+  markActionAsUsed(spell.castingTime);
+  
   saveCharacterData();
 
   debug.log(`✅ Used ${resource.name}. Remaining: ${characterData.otherVariables[resource.varName]}/${resource.max}`);
@@ -4494,13 +4602,24 @@ function updateActionEconomyAvailability() {
       reactionIndicator.style.removeProperty('pointer-events');
     }
   }
+
+  debug.log(`🔄 Action economy updated: isMyTurn=${isMyTurn}, actions=${turnBasedActions.length > 0 ? 'enabled' : 'disabled'}, reaction=${reactionIndicator ? 'enabled' : 'N/A'}`);
 }
 
 /**
  * Activate turn for this character
  */
 function activateTurn() {
+  debug.log('⚔️ Activating turn - setting isMyTurn = true');
   isMyTurn = true;
+  
+  // Reset reaction at the start of your turn (one reaction per round)
+  const reactionIndicator = document.getElementById('reaction-indicator');
+  if (reactionIndicator) {
+    reactionIndicator.dataset.used = 'false';
+    debug.log('🔄 Reaction restored (one per round limit)');
+  }
+  
   updateActionEconomyAvailability();
 
   // Add visual highlight effect
@@ -4508,6 +4627,7 @@ function activateTurn() {
   if (actionEconomy) {
     actionEconomy.style.boxShadow = '0 0 20px rgba(78, 205, 196, 0.6)';
     actionEconomy.style.border = '2px solid #4ECDC4';
+    debug.log('⚔️ Added visual highlight to action economy');
   }
 
   debug.log('⚔️ Turn activated! All actions available.');
@@ -4531,7 +4651,68 @@ function deactivateTurn() {
 }
 
 /**
- * Post action usage to Roll20 chat
+ * Mark action as used based on casting time
+ * This handles the action economy tracking for spells and abilities
+ */
+function markActionAsUsed(castingTime) {
+  if (!castingTime) {
+    debug.warn('⚠️ No casting time provided to markActionAsUsed');
+    return;
+  }
+  
+  const actionIndicator = document.getElementById('action-indicator');
+  const bonusActionIndicator = document.getElementById('bonus-action-indicator');
+  const movementIndicator = document.getElementById('movement-indicator');
+  const reactionIndicator = document.getElementById('reaction-indicator');
+  
+  // Normalize casting time for comparison (case insensitive)
+  const normalizedTime = castingTime.toLowerCase().trim();
+  
+  debug.log(`🎯 Marking action as used for casting time: "${castingTime}" (normalized: "${normalizedTime}")`);
+  debug.log(`🎯 Available indicators: Action=${!!actionIndicator}, Bonus=${!!bonusActionIndicator}, Movement=${!!movementIndicator}, Reaction=${!!reactionIndicator}`);
+  
+  // Mark appropriate action as used based on casting time
+  if (normalizedTime.includes('bonus')) {
+    if (bonusActionIndicator && bonusActionIndicator.dataset.used !== 'true') {
+      bonusActionIndicator.dataset.used = 'true';
+      debug.log(`🎯 Bonus Action used for casting`);
+      postActionToChat('Bonus Action', 'used');
+    } else {
+      debug.log(`⚠️ Bonus Action indicator not found or already used`);
+    }
+  } else if (normalizedTime.includes('movement') || normalizedTime.includes('move')) {
+    if (movementIndicator && movementIndicator.dataset.used !== 'true') {
+      movementIndicator.dataset.used = 'true';
+      debug.log(`🎯 Movement used for casting`);
+      postActionToChat('Movement', 'used');
+    } else {
+      debug.log(`⚠️ Movement indicator not found or already used`);
+    }
+  } else if (normalizedTime.includes('reaction')) {
+    // Reactions are limited to one per round
+    if (reactionIndicator && reactionIndicator.dataset.used !== 'true') {
+      reactionIndicator.dataset.used = 'true';
+      debug.log(`🎯 Reaction used for casting (one per round limit)`);
+      postActionToChat('Reaction', 'used');
+    } else {
+      debug.log(`⚠️ Reaction indicator not found or already used this round`);
+    }
+  } else {
+    // Default to action for anything else
+    if (actionIndicator && actionIndicator.dataset.used !== 'true') {
+      actionIndicator.dataset.used = 'true';
+      debug.log(`🎯 Action used for casting`);
+      postActionToChat('Action', 'used');
+    } else {
+      debug.log(`⚠️ Action indicator not found or already used`);
+    }
+  }
+  
+  // Update visual state
+  updateActionEconomyAvailability();
+}
+/**
+ * Post action usage to chat
  */
 function postActionToChat(actionLabel, state) {
   const emoji = state === 'used' ? '❌' : '✅';
@@ -4771,19 +4952,29 @@ function initGMMode() {
 window.addEventListener('message', (event) => {
   if (event.data && event.data.action === 'activateTurn') {
     debug.log('🎯 Your turn! Activating action economy...');
+    debug.log('🎯 Received activateTurn event:', event.data);
 
     // Activate turn state
     activateTurn();
 
-    // Reset action economy for new turn
-    const turnResetBtn = document.getElementById('turn-reset-btn');
-    if (turnResetBtn) {
-      turnResetBtn.click();
-    }
+    // Reset action economy for new turn (only reset actions, don't announce)
+    const actionIndicator = document.getElementById('action-indicator');
+    const bonusActionIndicator = document.getElementById('bonus-action-indicator');
+    const movementIndicator = document.getElementById('movement-indicator');
+    
+    [actionIndicator, bonusActionIndicator, movementIndicator].forEach(indicator => {
+      if (indicator) {
+        indicator.dataset.used = 'false';
+        debug.log(`🔄 Reset ${indicator.id} to unused`);
+      }
+    });
+    
+    debug.log('🔄 Turn reset: Action, Bonus Action, Movement restored (automatic)');
 
     showNotification('⚔️ Your turn!', 'success');
   } else if (event.data && event.data.action === 'deactivateTurn') {
     debug.log('⏸️ Turn ended. Deactivating action economy...');
+    debug.log('⏸️ Received deactivateTurn event:', event.data);
 
     // Deactivate turn state
     deactivateTurn();

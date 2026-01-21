@@ -358,6 +358,13 @@
     const prevBtn = document.getElementById('prev-turn-btn');
     const clearAllBtn = document.getElementById('clear-all-btn');
 
+    debug.log('🔍 GM Panel controls found:', {
+      startCombatBtn: !!startCombatBtn,
+      nextBtn: !!nextBtn,
+      prevBtn: !!prevBtn,
+      clearAllBtn: !!clearAllBtn
+    });
+
     if (startCombatBtn) startCombatBtn.addEventListener('click', startCombat);
     if (nextBtn) nextBtn.addEventListener('click', nextTurn);
     if (prevBtn) prevBtn.addEventListener('click', prevTurn);
@@ -651,10 +658,13 @@
     debug.log(`📋 Registered popups: ${Object.keys(characterPopups).map(n => `"${n}"`).join(', ')}`);
 
     // Helper function to normalize names for comparison
-    // Removes emoji prefixes and trims
+    // Removes emoji prefixes, "It's", "'s turn", and trims
     function normalizeName(name) {
-      // Remove common emoji prefixes (🔵, 🔴, etc.)
-      return name.replace(/^(?:🔵|🔴|⚪|⚫|🟢|🟡|🟠|🟣|🟤)\s*/, '').trim();
+      return name
+        .replace(/^(?:🔵|🔴|⚪|⚫|🟢|🟡|🟠|🟣|🟤)\s*/, '') // Remove emoji prefixes
+        .replace(/^It's\s+/i, '') // Remove "It's" prefix
+        .replace(/'s\s+turn.*$/i, '') // Remove "'s turn" suffix
+        .trim();
     }
 
     const normalizedCurrentName = normalizeName(current.name);
@@ -670,27 +680,27 @@
           // Strict match: names must be exactly equal after normalization
           const isTheirTurn = normalizedCharName === normalizedCurrentName;
 
+          debug.log(`🔍 Comparing: "${characterName}" (normalized: "${normalizedCharName}") vs "${current.name}" (normalized: "${normalizedCurrentName}") → ${isTheirTurn ? 'ACTIVATE' : 'DEACTIVATE'}`);
+          debug.log(`🔍 Raw comparison: "${characterName}" === "${current.name}" → ${characterName === current.name}`);
+
           popup.postMessage({
             action: isTheirTurn ? 'activateTurn' : 'deactivateTurn',
             combatant: current.name
           }, '*');
 
-          debug.log(`📤 "${characterName}" (normalized: "${normalizedCharName}") vs "${current.name}" (normalized: "${normalizedCurrentName}") → ${isTheirTurn ? 'ACTIVATE' : 'DEACTIVATE'}`);
+          debug.log(`📤 Sent ${isTheirTurn ? 'activateTurn' : 'deactivateTurn'} to "${characterName}"`);
         } else {
           // Clean up closed popups
           delete characterPopups[characterName];
           debug.log(`🗑️ Removed closed popup for ${characterName}`);
         }
       } catch (error) {
-        debug.warn(`⚠️ Could not notify ${characterName}:`, error);
+        debug.warn(`⚠️ Error sending message to popup "${characterName}":`, error);
         delete characterPopups[characterName];
       }
     });
   }
 
-  /**
-   * Announce current turn in Roll20 chat
-   */
   function announceTurn() {
     const current = getCurrentCombatant();
     if (!current) return;
@@ -753,7 +763,7 @@
     const ownAnnouncementPrefixes = ['🎯', '⚔️', '👑'];
     const trimmedText = text.trim();
     for (const prefix of ownAnnouncementPrefixes) {
-      if (trimmedText.startsWith(prefix)) {
+      if (trimmedText.includes(prefix)) {
         debug.log('⏭️ Skipping own announcement message');
         return;
       }
@@ -846,6 +856,78 @@
   };
 
   /**
+   * Check recent chat messages to see if it's currently this character's turn
+   */
+  function checkRecentChatForCurrentTurn(characterName, popupWindow) {
+    try {
+      const chatLog = document.getElementById('textchat');
+      if (!chatLog) {
+        debug.warn('⚠️ Roll20 chat not found for turn check');
+        return;
+      }
+
+      // Get recent messages (last 20 or so)
+      const messages = chatLog.querySelectorAll('.message');
+      const recentMessages = Array.from(messages).slice(-20);
+      
+      debug.log(`🔍 Checking recent ${recentMessages.length} messages for current turn of: ${characterName}`);
+
+      // Helper function to normalize names
+      function normalizeName(name) {
+        return name
+          .replace(/^(?:🔵|🔴|⚪|⚫|🟢|🟡|🟠|🟣|🟤)\s*/, '') // Remove emoji prefixes
+          .replace(/^It's\s+/i, '') // Remove "It's" prefix
+          .replace(/'s\s+turn.*$/i, '') // Remove "'s turn" suffix
+          .trim();
+      }
+
+      const normalizedCharacterName = normalizeName(characterName);
+
+      // Look for recent turn announcement
+      for (let i = recentMessages.length - 1; i >= 0; i--) {
+        const message = recentMessages[i];
+        const text = message.textContent || '';
+        
+        // Check for turn announcement pattern
+        const turnMatch = text.match(/🎯 It's (.+?)'s turn! \(Initiative: (\d+)\)/);
+        if (turnMatch) {
+          const announcedCharacter = normalizeName(turnMatch[1]);
+          const initiative = parseInt(turnMatch[2]);
+          
+          debug.log(`🔍 Found turn announcement: "${turnMatch[1]}" (normalized: "${announcedCharacter}") vs "${characterName}" (normalized: "${normalizedCharacterName}")`);
+          
+          if (announcedCharacter === normalizedCharacterName) {
+            debug.log(`✅ It's ${characterName}'s turn! Activating action economy...`);
+            
+            // Send activateTurn to this popup
+            popupWindow.postMessage({
+              action: 'activateTurn',
+              combatant: characterName
+            }, '*');
+            
+            return;
+          } else {
+            debug.log(`⏸️ It's ${turnMatch[1]}'s turn, not ${characterName}. Deactivating...`);
+            
+            // Send deactivateTurn to this popup
+            popupWindow.postMessage({
+              action: 'deactivateTurn',
+              combatant: characterName
+            }, '*');
+            
+            return;
+          }
+        }
+      }
+      
+      debug.log(`🔍 No recent turn announcement found for ${characterName}`);
+      
+    } catch (error) {
+      debug.warn('⚠️ Error checking recent chat for turn:', error);
+    }
+  }
+
+  /**
    * Listen for messages to toggle GM mode and post chat messages
    */
   window.addEventListener('message', (event) => {
@@ -855,6 +937,18 @@
       // Post message from character sheet popup to Roll20 chat
       postChatMessage(event.data.message);
       debug.log(`📨 Posted message from popup: ${event.data.message}`);
+    } else if (event.data && event.data.action === 'registerPopup') {
+      // Register popup from character sheet (CORS-safe fallback)
+      // Find the popup window that sent this message
+      if (event.source && event.data.characterName) {
+        characterPopups[event.data.characterName] = event.source;
+        debug.log(`✅ Registered popup via postMessage: ${event.data.characterName}`);
+      }
+    } else if (event.data && event.data.action === 'checkCurrentTurn') {
+      // Check if it's currently this character's turn by examining recent chat
+      if (event.data.characterName) {
+        checkRecentChatForCurrentTurn(event.data.characterName, event.source);
+      }
     }
   });
 

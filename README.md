@@ -21,6 +21,14 @@ A powerful browser extension that seamlessly integrates Dice Cloud with Roll20. 
 - **Multi-Tab Support**: Sends rolls to all open Roll20 tabs simultaneously
 - **Character Attribution**: Rolls appear under your character's name in Roll20
 
+### GM Combat Management (NEW!)
+- **GM Initiative Tracker**: Full combat management system with automatic turn detection
+- **Action Economy Tracking**: Automatic action/bonus action/reaction usage tracking per turn
+- **Turn-Based Visual Indicators**: Action economy lights up for current character, greys out for others
+- **Chat History Integration**: Checks recent chat messages when switching tabs or opening sheets
+- **D&D 5e Rules Compliance**: Enforces one reaction per round, proper action tracking
+- **Real-Time Turn Notifications**: Automatic turn detection and action economy activation
+
 ### User Experience
 - **User-Friendly Interface**: Clean popup UI and floating action buttons on both platforms
 - **Debug Tools**: Built-in debugging for troubleshooting roll detection
@@ -432,6 +440,14 @@ If dice rolls aren't being forwarded from DiceCloud to Roll20:
 - [x] Death Save Counter (Visual tracker with roll button, auto-reset on healing, follows RAW)
 - [x] Temporary HP Manager (Track temp HP separately, RAW damage/healing/stacking rules, clears on rest)
 - [x] Multiple Character Profiles (Sync and switch between multiple characters, dropdown selector, separate state)
+- [x] **GM Initiative Tracker** - Full combat management system with automatic turn detection
+- [x] **Action Economy Tracking** - Automatic action/bonus action/reaction usage tracking per turn
+- [x] **Turn-Based Visual Indicators** - Action economy lights up for current character, greys out for others
+- [x] **Chat History Turn Detection** - Checks recent chat messages when switching tabs or opening sheets
+- [x] **Reaction Per-Round Limits** - Enforces D&D 5e rule of one reaction per round
+- [x] **Bonus Action Detection** - Properly identifies and tracks bonus action usage
+- [x] **Movement Action Tracking** - Tracks movement-based actions
+- [x] **Spell Action Integration** - Automatic action tracking for spell casting times
 
 ### High Priority - Mechanics & Character Features
 
@@ -454,7 +470,6 @@ If dice rolls aren't being forwarded from DiceCloud to Roll20:
 - [ ] **Jack of All Trades** (Bard) - Auto-add half proficiency to non-proficient checks
 
 #### Combat Mechanics
-- [ ] **Action Economy Tracker** - Track action/bonus action/reaction usage per turn
 - [ ] **Condition/Buff Manager** - Apply and track conditions (blessed, poisoned, hasted, etc.)
 - [ ] **Reaction Prompts** - Notify when Shield, Counterspell, or opportunity attacks apply
 - [ ] **Concentration Save Prompts** - Auto-prompt for concentration saves when taking damage
