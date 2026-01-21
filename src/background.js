@@ -76,6 +76,26 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
           response = { success: true };
           break;
 
+        case 'rollResult':
+          // Forward roll result to Roll20 content script for popup forwarding
+          debug.log('🧬 Forwarding roll result to Roll20 for popup:', request);
+          
+          // Send to Roll20 content script to forward to popup
+          const roll20Tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
+          if (roll20Tabs.length > 0) {
+            await browserAPI.tabs.sendMessage(roll20Tabs[0].id, {
+              action: 'forwardToPopup',
+              rollResult: request.rollResult,
+              baseRoll: request.baseRoll,
+              rollType: request.rollType,
+              rollName: request.rollName,
+              checkRacialTraits: request.checkRacialTraits
+            });
+          }
+          
+          response = { success: true };
+          break;
+
         case 'checkLoginStatus': {
           const status = await checkLoginStatus();
           response = { success: true, ...status };
