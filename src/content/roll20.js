@@ -135,13 +135,17 @@
   function parseRoll20InlineRoll(inlineRollElement, originalRollData) {
     try {
       // Roll20 inline rolls have a title attribute with the full roll breakdown
-      // e.g., "Rolling 1d20+5 = (17)+5"
+      // e.g., "Rolling 1d20+5 = (<span class="basicdiceroll">17</span>)+5"
       const title = inlineRollElement.getAttribute('title') || '';
       debug.log('📊 Roll20 inline roll title:', title);
 
+      // Strip HTML tags from the title to get plain text
+      const plainTitle = title.replace(/<[^>]*>/g, '');
+      debug.log('📊 Plain title:', plainTitle);
+
       // Extract the base roll from parentheses in the title
-      // Format: "Rolling 1d20+5 = (17)+5" or "Rolling 1d20 = (1)"
-      const baseRollMatch = title.match(/=\s*\(\s*(\d+)\s*\)/);
+      // Format after stripping HTML: "Rolling 1d20+5 = (17)+5" or "Rolling 1d20 = (1)"
+      const baseRollMatch = plainTitle.match(/=\s*\(\s*(\d+)\s*\)/);
       const baseRoll = baseRollMatch ? parseInt(baseRollMatch[1]) : null;
 
       // Get the total from the visible text
