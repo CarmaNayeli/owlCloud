@@ -3644,6 +3644,211 @@
   }
 
   /**
+   * Creates and shows a slot selection modal on the DiceCloud page
+   * @returns {Promise<string>} The selected slot ID
+   */
+  function showSlotSelectionModal() {
+    return new Promise((resolve, reject) => {
+      // Check if modal already exists
+      let modal = document.getElementById('dc-slot-modal');
+      if (modal) {
+        modal.remove();
+      }
+
+      // Create modal overlay
+      modal = document.createElement('div');
+      modal.id = 'dc-slot-modal';
+      modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 100000;
+        backdrop-filter: blur(3px);
+      `;
+
+      // Create modal content
+      const modalContent = document.createElement('div');
+      modalContent.style.cssText = `
+        background: #2a2a2a;
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        max-width: 600px;
+        max-height: 80vh;
+        overflow-y: auto;
+        color: #fff;
+      `;
+
+      // Create header
+      const header = document.createElement('div');
+      header.style.cssText = `
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+      `;
+
+      const title = document.createElement('h2');
+      title.textContent = '📦 Choose Character Slot';
+      title.style.cssText = `
+        margin: 0;
+        font-size: 24px;
+        color: #4ECDC4;
+      `;
+
+      const closeBtn = document.createElement('button');
+      closeBtn.textContent = '✕';
+      closeBtn.style.cssText = `
+        background: transparent;
+        border: none;
+        color: #fff;
+        font-size: 28px;
+        cursor: pointer;
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        transition: background 0.2s;
+      `;
+      closeBtn.addEventListener('mouseenter', () => closeBtn.style.background = 'rgba(255, 255, 255, 0.1)');
+      closeBtn.addEventListener('mouseleave', () => closeBtn.style.background = 'transparent');
+      closeBtn.addEventListener('click', () => {
+        modal.remove();
+        reject(new Error('Slot selection cancelled'));
+      });
+
+      header.appendChild(title);
+      header.appendChild(closeBtn);
+
+      // Create help text
+      const helpText = document.createElement('p');
+      helpText.textContent = 'Select which slot to save this character to:';
+      helpText.style.cssText = `
+        margin: 0 0 20px 0;
+        color: #aaa;
+        font-size: 14px;
+      `;
+
+      // Create slot grid
+      const slotGrid = document.createElement('div');
+      slotGrid.style.cssText = `
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+      `;
+
+      // Get existing character profiles
+      browserAPI.runtime.sendMessage({ action: 'getAllCharacterProfiles' }, (response) => {
+        const profiles = response?.success ? response.profiles : {};
+        const MAX_SLOTS = 10;
+
+        for (let i = 1; i <= MAX_SLOTS; i++) {
+          const slotId = `slot-${i}`;
+          const existingChar = profiles[slotId];
+
+          const slotCard = document.createElement('div');
+          slotCard.style.cssText = `
+            background: ${existingChar ? '#3a3a3a' : '#252525'};
+            border: 2px solid ${existingChar ? '#4ECDC4' : '#404040'};
+            border-radius: 8px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+          `;
+
+          slotCard.addEventListener('mouseenter', () => {
+            slotCard.style.borderColor = '#4ECDC4';
+            slotCard.style.transform = 'translateY(-2px)';
+            slotCard.style.boxShadow = '0 4px 12px rgba(78, 205, 196, 0.3)';
+          });
+
+          slotCard.addEventListener('mouseleave', () => {
+            slotCard.style.borderColor = existingChar ? '#4ECDC4' : '#404040';
+            slotCard.style.transform = 'translateY(0)';
+            slotCard.style.boxShadow = 'none';
+          });
+
+          slotCard.addEventListener('click', () => {
+            modal.remove();
+            resolve(slotId);
+          });
+
+          const slotHeader = document.createElement('div');
+          slotHeader.style.cssText = `
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+          `;
+
+          const slotNumber = document.createElement('span');
+          slotNumber.textContent = `Slot ${i}`;
+          slotNumber.style.cssText = `
+            font-weight: bold;
+            color: #fff;
+            font-size: 14px;
+          `;
+
+          const slotBadge = document.createElement('span');
+          slotBadge.textContent = existingChar ? 'Occupied' : 'Empty';
+          slotBadge.style.cssText = `
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background: ${existingChar ? 'rgba(78, 205, 196, 0.2)' : 'rgba(255, 255, 255, 0.1)'};
+            color: ${existingChar ? '#4ECDC4' : '#999'};
+          `;
+
+          slotHeader.appendChild(slotNumber);
+          slotHeader.appendChild(slotBadge);
+
+          const slotInfo = document.createElement('div');
+          if (existingChar) {
+            slotInfo.innerHTML = `
+              <div style="font-weight: bold; margin-bottom: 4px; font-size: 16px;">${existingChar.name || 'Unknown'}</div>
+              <div style="font-size: 13px; color: #999;">${existingChar.class || 'No Class'} ${existingChar.level || '?'} • ${existingChar.race || 'Unknown'}</div>
+            `;
+          } else {
+            slotInfo.textContent = 'Click to save here';
+            slotInfo.style.cssText = `
+              color: #666;
+              font-size: 13px;
+              font-style: italic;
+            `;
+          }
+
+          slotCard.appendChild(slotHeader);
+          slotCard.appendChild(slotInfo);
+          slotGrid.appendChild(slotCard);
+        }
+      });
+
+      modalContent.appendChild(header);
+      modalContent.appendChild(helpText);
+      modalContent.appendChild(slotGrid);
+      modal.appendChild(modalContent);
+      document.body.appendChild(modal);
+
+      // Close modal when clicking overlay
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          modal.remove();
+          reject(new Error('Slot selection cancelled'));
+        }
+      });
+    });
+  }
+
+  /**
    * Creates the sync button for character data
    */
   function addSyncButton() {
@@ -3679,8 +3884,17 @@
       button.style.boxShadow = '0 4px 15px rgba(78, 205, 196, 0.2)';
     });
 
-    button.addEventListener('click', () => {
-      syncCharacterData();
+    button.addEventListener('click', async () => {
+      try {
+        // Show slot selection modal
+        const slotId = await showSlotSelectionModal();
+        // Sync with selected slot
+        await syncCharacterData(slotId);
+      } catch (error) {
+        if (error.message !== 'Slot selection cancelled') {
+          debug.error('❌ Error during sync:', error);
+        }
+      }
     });
 
     document.body.appendChild(button);
@@ -3694,6 +3908,7 @@
   /**
    * Syncs character data to extension storage
    * @param {string} slotId - Optional slot ID to save character to (e.g., 'slot-1')
+   * @returns {Promise<void>}
    */
   function syncCharacterData(slotId) {
     debug.log('🔄 Starting character data sync...', slotId ? `to ${slotId}` : '');
@@ -3704,11 +3919,21 @@
       button.disabled = true;
     }
 
-    // Start character extraction
-    extractCharacterData()
+    // Return the promise chain
+    return extractCharacterData()
       .then(characterData => {
-        if (characterData) {
-          // Store in extension storage
+        if (!characterData) {
+          debug.error('❌ No character data found to sync');
+          showNotification('No character data found. Make sure you have a character open.', 'error');
+          if (button) {
+            button.innerHTML = '🔄 Sync to RollCloud';
+            button.disabled = false;
+          }
+          throw new Error('No character data found');
+        }
+
+        // Store in extension storage - wrap callback in Promise
+        return new Promise((resolve, reject) => {
           browserAPI.runtime.sendMessage({
             action: 'storeCharacterData',
             data: characterData,
@@ -3721,6 +3946,7 @@
                 button.innerHTML = '🔄 Sync to RollCloud';
                 button.disabled = false;
               }
+              reject(new Error(browserAPI.runtime.lastError.message));
             } else {
               debug.log('✅ Character data synced to extension:', characterData.name);
               showNotification(`✅ ${characterData.name} synced to RollCloud! 🎲`, 'success');
@@ -3731,16 +3957,10 @@
                   button.innerHTML = '🔄 Sync to RollCloud';
                 }, 2000);
               }
+              resolve();
             }
           });
-        } else {
-          debug.error('❌ No character data found to sync');
-          showNotification('No character data found. Make sure you have a character open.', 'error');
-          if (button) {
-            button.innerHTML = '🔄 Sync to RollCloud';
-            button.disabled = false;
-          }
-        }
+        });
       })
       .catch(error => {
         debug.error('❌ Error during character extraction:', error);
@@ -3758,6 +3978,9 @@
           button.innerHTML = '🔄 Sync to RollCloud';
           button.disabled = false;
         }
+
+        // Re-throw to propagate error to caller
+        throw error;
       });
   }
 
