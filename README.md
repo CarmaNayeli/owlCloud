@@ -462,7 +462,6 @@ If the character sheet overlay isn't working properly:
 - [ ] **Great Weapon Master/Sharpshooter** - Toggle -5/+10 for attacks
 
 ### Quality of Life
-- [ ] **Overlay Resize/Collapse** - Minimize sections or entire overlay for space
 - [ ] **Custom Roll Formatting** - Different Roll20 template support and custom formats
 - [ ] **Import/Export Settings** - Backup and restore extension configuration
 - [ ] **Hotkey System** - Keyboard shortcuts for common rolls and actions
