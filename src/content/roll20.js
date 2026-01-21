@@ -595,24 +595,35 @@
     const current = getCurrentCombatant();
     if (!current) return;
 
-    debug.log(`🎯 Notifying turn for: ${current.name}`);
+    debug.log(`🎯 Notifying turn for: "${current.name}"`);
+    debug.log(`📋 Registered popups: ${Object.keys(characterPopups).map(n => `"${n}"`).join(', ')}`);
 
-    // Send activateTurn to all popup windows
-    // The popup will check if it matches the current combatant
+    // Helper function to normalize names for comparison
+    // Removes emoji prefixes and trims
+    function normalizeName(name) {
+      // Remove common emoji prefixes (🔵, 🔴, etc.)
+      return name.replace(/^(?:🔵|🔴|⚪|⚫|🟢|🟡|🟠|🟣|🟤)\s*/, '').trim();
+    }
+
+    const normalizedCurrentName = normalizeName(current.name);
+    debug.log(`🔍 Normalized current combatant: "${normalizedCurrentName}"`);
+
+    // Send activateTurn/deactivateTurn to all popup windows
     Object.keys(characterPopups).forEach(characterName => {
       const popup = characterPopups[characterName];
       try {
         if (popup && !popup.closed) {
-          const isTheirTurn = characterName === current.name ||
-                              current.name.includes(characterName) ||
-                              characterName.includes(current.name);
+          const normalizedCharName = normalizeName(characterName);
+
+          // Strict match: names must be exactly equal after normalization
+          const isTheirTurn = normalizedCharName === normalizedCurrentName;
 
           popup.postMessage({
             action: isTheirTurn ? 'activateTurn' : 'deactivateTurn',
             combatant: current.name
           }, '*');
 
-          debug.log(`📤 Sent ${isTheirTurn ? 'activateTurn' : 'deactivateTurn'} to ${characterName}`);
+          debug.log(`📤 "${characterName}" (normalized: "${normalizedCharName}") vs "${current.name}" (normalized: "${normalizedCurrentName}") → ${isTheirTurn ? 'ACTIVATE' : 'DEACTIVATE'}`);
         } else {
           // Clean up closed popups
           delete characterPopups[characterName];
