@@ -547,9 +547,9 @@
     `;
     tabNav.innerHTML = `
       <button class="gm-tab-btn active" data-tab="initiative" style="flex: 1; padding: 10px 8px; background: #2a2a2a; color: #4ECDC4; border: none; border-bottom: 3px solid #4ECDC4; cursor: pointer; font-weight: bold; font-size: 0.85em; transition: all 0.2s;">⚔️ Initiative</button>
-      <button class="gm-tab-btn" data-tab="hidden-rolls" style="flex: 1; padding: 10px 8px; background: transparent; color: #888; border: none; border-bottom: 3px solid transparent; cursor: pointer; font-weight: bold; font-size: 0.85em; transition: all 0.2s;">🎲 Hidden</button>
-      <button class="gm-tab-btn" data-tab="players" style="flex: 1; padding: 10px 8px; background: transparent; color: #888; border: none; border-bottom: 3px solid transparent; cursor: pointer; font-weight: bold; font-size: 0.85em; transition: all 0.2s;">👥 Players</button>
       <button class="gm-tab-btn" data-tab="history" style="flex: 1; padding: 10px 8px; background: transparent; color: #888; border: none; border-bottom: 3px solid transparent; cursor: pointer; font-weight: bold; font-size: 0.85em; transition: all 0.2s;">📜 History</button>
+      <button class="gm-tab-btn" data-tab="players" style="flex: 1; padding: 10px 8px; background: transparent; color: #888; border: none; border-bottom: 3px solid transparent; cursor: pointer; font-weight: bold; font-size: 0.85em; transition: all 0.2s;">👥 Players</button>
+      <button class="gm-tab-btn" data-tab="hidden-rolls" style="flex: 1; padding: 10px 8px; background: transparent; color: #888; border: none; border-bottom: 3px solid transparent; cursor: pointer; font-weight: bold; font-size: 0.85em; transition: all 0.2s;">🎲 Hidden</button>
     `;
 
     // Create content area wrapper
@@ -1631,6 +1631,7 @@
         mutation.addedNodes.forEach((node) => {
           if (node.nodeType === 1 && node.classList && node.classList.contains('message')) {
             checkForInitiativeRoll(node);
+            checkForPlayerRoll(node); // Track any character roll for player overview
           }
         });
       });
@@ -1641,7 +1642,7 @@
       subtree: true
     });
 
-    debug.log('👀 Monitoring Roll20 chat for initiative rolls');
+    debug.log('👀 Monitoring Roll20 chat for initiative rolls and player tracking');
   }
 
   function stopChatMonitoring() {
@@ -1745,6 +1746,110 @@
           addCombatant(name, initiative, 'chat');
           return;
         }
+      }
+    }
+  }
+
+  /**
+   * Check message for any character roll and track player
+   */
+  function checkForPlayerRoll(messageNode) {
+    const text = messageNode.textContent || '';
+
+    // Skip our own announcements
+    const ownAnnouncementPrefixes = ['🎯', '⚔️', '👑', '🔓', '⏸️', '▶️', '📋'];
+    const trimmedText = text.trim();
+    for (const prefix of ownAnnouncementPrefixes) {
+      if (trimmedText.includes(prefix)) {
+        return;
+      }
+    }
+
+    // Skip system messages
+    if (text.includes('created the character') ||
+        text.includes('Welcome to Roll20') ||
+        text.includes('has joined the game')) {
+      return;
+    }
+
+    // Check for inline rolls (indicates a character is rolling)
+    const inlineRolls = messageNode.querySelectorAll('.inlinerollresult');
+    if (inlineRolls.length === 0) {
+      return; // No rolls, skip
+    }
+
+    let characterName = null;
+
+    // Try to extract character name from roll template
+    const rollTemplate = messageNode.querySelector('.sheet-rolltemplate-default, .sheet-rolltemplate-custom, [class*="rolltemplate"]');
+    if (rollTemplate) {
+      const caption = rollTemplate.querySelector('caption, .sheet-template-name, .charname, [class*="charname"]');
+      if (caption) {
+        const captionText = caption.textContent.trim();
+        // Extract name from patterns like "🔵 Character Name rolls Attack" or "Character Name: Attack"
+        const nameMatch = captionText.match(/^(?:🔵|🔴|⚪|⚫|🟢|🟡|🟠|🟣|🟤)?\s*(.+?)\s*(?:rolls?\s+|\s*:\s*|$)/i);
+        if (nameMatch) {
+          characterName = nameMatch[1].trim();
+        }
+      }
+    }
+
+    // Fallback: Try to extract from message structure
+    if (!characterName) {
+      const byElement = messageNode.querySelector('.by');
+      if (byElement) {
+        characterName = byElement.textContent.trim();
+      }
+    }
+
+    // Fallback: Parse from message text
+    if (!characterName) {
+      // Pattern: "Character Name: roll result" or "Character Name rolls"
+      const patterns = [
+        /^(?:🔵|🔴|⚪|⚫|🟢|🟡|🟠|🟣|🟤)?\s*(.+?)\s*:/,
+        /^(?:🔵|🔴|⚪|⚫|🟢|🟡|🟠|🟣|🟤)?\s*(.+?)\s+rolls?/i
+      ];
+
+      for (const pattern of patterns) {
+        const match = text.match(pattern);
+        if (match) {
+          characterName = match[1].trim();
+          break;
+        }
+      }
+    }
+
+    // If we got a character name, track them
+    if (characterName && characterName.length > 0) {
+      // Skip obviously non-player names
+      const skipNames = ['gm', 'dm', 'roll20', 'system', 'the', 'a ', 'an '];
+      const lowerName = characterName.toLowerCase();
+      if (skipNames.some(skip => lowerName === skip || lowerName.startsWith(skip + ' '))) {
+        return;
+      }
+
+      // Add to player tracking if not already tracked
+      if (!playerData[characterName]) {
+        debug.log(`👥 New player detected from roll: ${characterName}`);
+
+        playerData[characterName] = {
+          hp: null, // Will be updated when popup sends data
+          maxHp: null,
+          ac: null,
+          passivePerception: null,
+          initiative: null,
+          conditions: [],
+          concentration: null,
+          deathSaves: null
+        };
+
+        updatePlayerOverviewDisplay();
+
+        // Log to turn history
+        logTurnAction({
+          action: 'turn',
+          description: `${characterName} detected in combat`
+        });
       }
     }
   }

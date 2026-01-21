@@ -50,9 +50,12 @@ window.addEventListener('message', async (event) => {
     
     // Initialize racial traits based on character data
     initRacialTraits();
-    
+
     // Initialize feat traits based on character data
     initFeatTraits();
+
+    // Initialize class features based on character data
+    initClassFeatures();
 
     // Initialize character cache with current data
     if (characterData && characterData.id) {
@@ -5271,26 +5274,128 @@ function initRacialTraits() {
   debug.log('🧬 Initializing racial traits...');
   debug.log('🧬 Character data:', characterData);
   debug.log('🧬 Character race:', characterData?.race);
-  
-  // Check if character is a Halfling
-  if (characterData && characterData.race && characterData.race.toLowerCase().includes('halfling')) {
+
+  // Reset racial traits
+  activeRacialTraits = [];
+
+  if (!characterData || !characterData.race) {
+    debug.log('🧬 No race data available');
+    return;
+  }
+
+  const race = characterData.race.toLowerCase();
+
+  // Halfling Luck
+  if (race.includes('halfling')) {
     debug.log('🧬 Halfling detected, adding Halfling Luck trait');
     activeRacialTraits.push(HalflingLuck);
-  } else {
-    debug.log('🧬 Not a Halfling or race data missing');
   }
-  
+
+  // Elven Accuracy (check for feat in features)
+  if (characterData.features && characterData.features.some(f =>
+    f.name && f.name.toLowerCase().includes('elven accuracy')
+  )) {
+    debug.log('🧝 Elven Accuracy feat detected');
+    activeRacialTraits.push(ElvenAccuracy);
+  }
+
+  // Dwarven Resilience
+  if (race.includes('dwarf')) {
+    debug.log('⛏️ Dwarf detected, adding Dwarven Resilience trait');
+    activeRacialTraits.push(DwarvenResilience);
+  }
+
+  // Gnome Cunning
+  if (race.includes('gnome')) {
+    debug.log('🎩 Gnome detected, adding Gnome Cunning trait');
+    activeRacialTraits.push(GnomeCunning);
+  }
+
   debug.log(`🧬 Initialized ${activeRacialTraits.length} racial traits`);
 }
 
 function initFeatTraits() {
   debug.log('🎖️ Initializing feat traits...');
   debug.log('🎖️ Character features:', characterData?.features);
-  
+
+  // Reset feat traits
+  activeFeatTraits = [];
+
+  if (!characterData || !characterData.features) {
+    debug.log('🎖️ No features data available');
+    return;
+  }
+
   // Lucky feat is now handled as an action, not a trait
   debug.log('🎖️ Lucky feat will be available as an action button');
-  
+
   debug.log(`🎖️ Initialized ${activeFeatTraits.length} feat traits`);
+}
+
+function initClassFeatures() {
+  debug.log('⚔️ Initializing class features...');
+  debug.log('⚔️ Character class:', characterData?.class);
+  debug.log('⚔️ Character level:', characterData?.level);
+
+  if (!characterData) {
+    debug.log('⚔️ No character data available');
+    return;
+  }
+
+  const characterClass = (characterData.class || '').toLowerCase();
+  const level = characterData.level || 1;
+
+  // Reliable Talent (Rogue 11+)
+  if (characterClass.includes('rogue') && level >= 11) {
+    debug.log('🎯 Rogue 11+ detected, adding Reliable Talent');
+    activeFeatTraits.push(ReliableTalent);
+  }
+
+  // Jack of All Trades (Bard)
+  if (characterClass.includes('bard') && level >= 2) {
+    debug.log('🎵 Bard detected, adding Jack of All Trades');
+    activeFeatTraits.push(JackOfAllTrades);
+  }
+
+  // Rage Damage Bonus (Barbarian)
+  if (characterClass.includes('barbarian')) {
+    debug.log('😡 Barbarian detected, adding Rage Damage Bonus');
+    activeFeatTraits.push(RageDamageBonus);
+  }
+
+  // Brutal Critical (Barbarian 9+)
+  if (characterClass.includes('barbarian') && level >= 9) {
+    debug.log('💥 Barbarian 9+ detected, adding Brutal Critical');
+    activeFeatTraits.push(BrutalCritical);
+  }
+
+  // Portent (Divination Wizard 2+)
+  if (characterClass.includes('wizard') && level >= 2) {
+    // Check for Divination subclass in features
+    const isDivination = characterData.features && characterData.features.some(f =>
+      f.name && (f.name.toLowerCase().includes('divination') || f.name.toLowerCase().includes('portent'))
+    );
+    if (isDivination) {
+      debug.log('🔮 Divination Wizard detected, adding Portent');
+      activeFeatTraits.push(PortentDice);
+      // Auto-roll portent dice
+      PortentDice.rollPortentDice();
+    }
+  }
+
+  // Wild Magic Surge (Wild Magic Sorcerer)
+  if (characterClass.includes('sorcerer')) {
+    // Check for Wild Magic subclass in features
+    const isWildMagic = characterData.features && characterData.features.some(f =>
+      f.name && f.name.toLowerCase().includes('wild magic')
+    );
+    if (isWildMagic) {
+      debug.log('🌀 Wild Magic Sorcerer detected, adding Wild Magic Surge');
+      activeFeatTraits.push(WildMagicSurge);
+    }
+  }
+
+  debug.log(`⚔️ Initialized ${activeFeatTraits.length} class feature traits`);
 }
 
 function checkRacialTraits(rollResult, rollType, rollName) {
@@ -5981,6 +6086,241 @@ const LuckyFeat = {
 
     debug.log(`🎖️ Lucky: No trigger - Roll: ${numericRollResult}, Type: ${rollType}`);
     return false; // No trigger
+  }
+};
+
+// ============================================================================
+// RACIAL TRAITS - ADDITIONAL
+// ============================================================================
+
+// Elven Accuracy
+const ElvenAccuracy = {
+  name: 'Elven Accuracy',
+  description: 'Whenever you have advantage on an attack roll using Dexterity, Intelligence, Wisdom, or Charisma, you can reroll one of the dice once.',
+
+  onRoll: function(rollResult, rollType, rollName) {
+    debug.log(`🧝 Elven Accuracy onRoll called with: ${rollResult}, ${rollType}, ${rollName}`);
+
+    // Check if it's an attack roll with advantage using DEX/INT/WIS/CHA
+    // This would need to be detected from the roll name/type
+    // For now, we'll trigger on advantage rolls
+    if (rollType && rollType.includes('advantage') && rollType.includes('attack')) {
+      debug.log(`🧝 Elven Accuracy: TRIGGERED! Offering to reroll one die`);
+      showNotification('🧝 Elven Accuracy: Roll 3d20, take highest!', 'info');
+      return true;
+    }
+
+    return false;
+  }
+};
+
+// Dwarven Resilience
+const DwarvenResilience = {
+  name: 'Dwarven Resilience',
+  description: 'You have advantage on saving throws against poison.',
+
+  onRoll: function(rollResult, rollType, rollName) {
+    debug.log(`⛏️ Dwarven Resilience onRoll called with: ${rollResult}, ${rollType}, ${rollName}`);
+
+    // Check if it's a poison save
+    const lowerRollName = rollName.toLowerCase();
+    if (rollType && rollType.includes('save') && lowerRollName.includes('poison')) {
+      debug.log(`⛏️ Dwarven Resilience: TRIGGERED! Auto-applying advantage`);
+      showNotification('⛏️ Dwarven Resilience: Advantage on poison saves!', 'success');
+      return true;
+    }
+
+    return false;
+  }
+};
+
+// Gnome Cunning
+const GnomeCunning = {
+  name: 'Gnome Cunning',
+  description: 'You have advantage on all Intelligence, Wisdom, and Charisma saving throws against magic.',
+
+  onRoll: function(rollResult, rollType, rollName) {
+    debug.log(`🎩 Gnome Cunning onRoll called with: ${rollResult}, ${rollType}, ${rollName}`);
+
+    // Check if it's an INT/WIS/CHA save against magic
+    const lowerRollName = rollName.toLowerCase();
+    const isMentalSave = lowerRollName.includes('intelligence') ||
+                         lowerRollName.includes('wisdom') ||
+                         lowerRollName.includes('charisma') ||
+                         lowerRollName.includes('int save') ||
+                         lowerRollName.includes('wis save') ||
+                         lowerRollName.includes('cha save');
+
+    const isMagic = lowerRollName.includes('spell') ||
+                    lowerRollName.includes('magic') ||
+                    lowerRollName.includes('charm') ||
+                    lowerRollName.includes('illusion');
+
+    if (rollType && rollType.includes('save') && isMentalSave && isMagic) {
+      debug.log(`🎩 Gnome Cunning: TRIGGERED! Auto-applying advantage`);
+      showNotification('🎩 Gnome Cunning: Advantage on mental saves vs magic!', 'success');
+      return true;
+    }
+
+    return false;
+  }
+};
+
+// ============================================================================
+// CLASS FEATURES
+// ============================================================================
+
+// Reliable Talent (Rogue 11+)
+const ReliableTalent = {
+  name: 'Reliable Talent',
+  description: 'Whenever you make an ability check that lets you add your proficiency bonus, you treat a d20 roll of 9 or lower as a 10.',
+
+  onRoll: function(rollResult, rollType, rollName) {
+    debug.log(`🎯 Reliable Talent onRoll called with: ${rollResult}, ${rollType}, ${rollName}`);
+
+    const numericRollResult = parseInt(rollResult);
+
+    // Check if it's a skill check (proficient skills would be marked somehow)
+    if (rollType && rollType.includes('skill') && numericRollResult < 10) {
+      debug.log(`🎯 Reliable Talent: TRIGGERED! Minimum roll is 10`);
+      showNotification(`🎯 Reliable Talent: ${numericRollResult} becomes 10!`, 'success');
+      return true;
+    }
+
+    return false;
+  }
+};
+
+// Jack of All Trades (Bard)
+const JackOfAllTrades = {
+  name: 'Jack of All Trades',
+  description: 'You can add half your proficiency bonus (rounded down) to any ability check you make that doesn\'t already include your proficiency bonus.',
+
+  onRoll: function(rollResult, rollType, rollName) {
+    debug.log(`🎵 Jack of All Trades onRoll called with: ${rollResult}, ${rollType}, ${rollName}`);
+
+    // This would need to check if the skill is non-proficient
+    // For now, we'll show a reminder
+    if (rollType && rollType.includes('skill')) {
+      const profBonus = characterData.proficiencyBonus || 2;
+      const halfProf = Math.floor(profBonus / 2);
+      debug.log(`🎵 Jack of All Trades: Reminder to add +${halfProf} if non-proficient`);
+      showNotification(`🎵 Jack: Add +${halfProf} if non-proficient`, 'info');
+      return true;
+    }
+
+    return false;
+  }
+};
+
+// Rage Damage Bonus (Barbarian)
+const RageDamageBonus = {
+  name: 'Rage',
+  description: 'While raging, you gain bonus damage on melee weapon attacks using Strength.',
+
+  onRoll: function(rollResult, rollType, rollName) {
+    debug.log(`😡 Rage Damage onRoll called with: ${rollResult}, ${rollType}, ${rollName}`);
+
+    // Check if character is raging (would need rage tracking)
+    const isRaging = characterData.conditions && characterData.conditions.some(c =>
+      c.toLowerCase().includes('rage') || c.toLowerCase().includes('raging')
+    );
+
+    if (isRaging && rollType && rollType.includes('attack')) {
+      const level = characterData.level || 1;
+      const rageDamage = level < 9 ? 2 : level < 16 ? 3 : 4;
+      debug.log(`😡 Rage Damage: TRIGGERED! Adding +${rageDamage} damage`);
+      showNotification(`😡 Rage: Add +${rageDamage} damage!`, 'success');
+      return true;
+    }
+
+    return false;
+  }
+};
+
+// Brutal Critical (Barbarian)
+const BrutalCritical = {
+  name: 'Brutal Critical',
+  description: 'You can roll one additional weapon damage die when determining the extra damage for a critical hit with a melee attack.',
+
+  onRoll: function(rollResult, rollType, rollName) {
+    debug.log(`💥 Brutal Critical onRoll called with: ${rollResult}, ${rollType}, ${rollName}`);
+
+    const numericRollResult = parseInt(rollResult);
+
+    // Check for natural 20 on melee attack
+    if (rollType && rollType.includes('attack') && numericRollResult === 20) {
+      const level = characterData.level || 1;
+      const extraDice = level < 13 ? 1 : level < 17 ? 2 : 3;
+      debug.log(`💥 Brutal Critical: TRIGGERED! Roll ${extraDice} extra weapon die/dice`);
+      showNotification(`💥 Brutal Critical: Roll ${extraDice} extra weapon die!`, 'success');
+      return true;
+    }
+
+    return false;
+  }
+};
+
+// Portent Dice (Divination Wizard)
+const PortentDice = {
+  name: 'Portent',
+  description: 'Roll two d20s and record the numbers. You can replace any attack roll, saving throw, or ability check made by you or a creature you can see with one of these rolls.',
+
+  portentRolls: [], // Store portent rolls for the day
+
+  rollPortentDice: function() {
+    const roll1 = Math.floor(Math.random() * 20) + 1;
+    const roll2 = Math.floor(Math.random() * 20) + 1;
+    this.portentRolls = [roll1, roll2];
+    debug.log(`🔮 Portent: Rolled ${roll1} and ${roll2}`);
+    showNotification(`🔮 Portent: You rolled ${roll1} and ${roll2}`, 'info');
+    return this.portentRolls;
+  },
+
+  usePortentRoll: function(index) {
+    if (index >= 0 && index < this.portentRolls.length) {
+      const roll = this.portentRolls.splice(index, 1)[0];
+      debug.log(`🔮 Portent: Used portent roll ${roll}`);
+      showNotification(`🔮 Portent: Applied roll of ${roll}`, 'success');
+      return roll;
+    }
+    return null;
+  },
+
+  onRoll: function(rollResult, rollType, rollName) {
+    // Portent is applied manually, not automatically triggered
+    if (this.portentRolls.length > 0) {
+      showNotification(`🔮 ${this.portentRolls.length} Portent dice available`, 'info');
+    }
+    return false;
+  }
+};
+
+// Wild Magic Surge (Wild Magic Sorcerer)
+const WildMagicSurge = {
+  name: 'Wild Magic Surge',
+  description: 'Immediately after you cast a sorcerer spell of 1st level or higher, the DM can have you roll a d20. If you roll a 1, roll on the Wild Magic Surge table.',
+
+  onSpellCast: function(spellLevel) {
+    if (spellLevel >= 1) {
+      const surgeRoll = Math.floor(Math.random() * 20) + 1;
+      debug.log(`🌀 Wild Magic: Rolled ${surgeRoll} for surge check`);
+
+      if (surgeRoll === 1) {
+        const surgeTableRoll = Math.floor(Math.random() * 100) + 1;
+        debug.log(`🌀 Wild Magic: SURGE! Rolling on table: ${surgeTableRoll}`);
+        showNotification(`🌀 Wild Magic Surge! Roll d100: ${surgeTableRoll}`, 'warning');
+        return true;
+      } else {
+        showNotification(`🌀 Wild Magic check: ${surgeRoll} (no surge)`, 'info');
+      }
+    }
+    return false;
+  },
+
+  onRoll: function(rollResult, rollType, rollName) {
+    // Wild Magic is triggered on spell cast, not regular rolls
+    return false;
   }
 };
 
