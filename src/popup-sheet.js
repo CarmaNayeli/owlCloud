@@ -5069,11 +5069,15 @@ let activeRacialTraits = [];
 
 function initRacialTraits() {
   debug.log('🧬 Initializing racial traits...');
+  debug.log('🧬 Character data:', characterData);
+  debug.log('🧬 Character race:', characterData?.race);
   
   // Check if character is a Halfling
   if (characterData && characterData.race && characterData.race.toLowerCase().includes('halfling')) {
     debug.log('🧬 Halfling detected, adding Halfling Luck trait');
     activeRacialTraits.push(HalflingLuck);
+  } else {
+    debug.log('🧬 Not a Halfling or race data missing');
   }
   
   debug.log(`🧬 Initialized ${activeRacialTraits.length} racial traits`);
@@ -5248,17 +5252,20 @@ const HalflingLuck = {
   
   onRoll: function(rollResult, rollType, rollName) {
     debug.log(`🧬 Halfling Luck onRoll called with: ${rollResult}, ${rollType}, ${rollName}`);
-    debug.log(`🧬 Halfling Luck DEBUG - rollType exists: ${!!rollType}, includes d20: ${rollType && rollType.includes('d20')}, rollResult === 1: ${rollResult === 1}`);
+    debug.log(`🧬 Halfling Luck DEBUG - rollType exists: ${!!rollType}, includes d20: ${rollType && rollType.includes('d20')}, rollResult === 1: ${parseInt(rollResult) === 1}`);
 
+    // Convert rollResult to number for comparison
+    const numericRollResult = parseInt(rollResult);
+    
     // Check if it's a d20 roll and the result is 1
-    if (rollType && rollType.includes('d20') && rollResult === 1) {
-      debug.log(`🧬 Halfling Luck: TRIGGERED! Roll was ${rollResult}`);
+    if (rollType && rollType.includes('d20') && numericRollResult === 1) {
+      debug.log(`🧬 Halfling Luck: TRIGGERED! Roll was ${numericRollResult}`);
 
       // Show the popup with error handling
       try {
         showHalflingLuckPopup({
-          rollResult: rollResult,
-          baseRoll: rollResult,
+          rollResult: numericRollResult,
+          baseRoll: numericRollResult,
           rollType: rollType,
           rollName: rollName
         });
@@ -5271,7 +5278,7 @@ const HalflingLuck = {
       return true; // Trait triggered
     }
 
-    debug.log(`🧬 Halfling Luck: No trigger - Roll: ${rollResult}, Type: ${rollType}`);
+    debug.log(`🧬 Halfling Luck: No trigger - Roll: ${numericRollResult}, Type: ${rollType}`);
     return false; // No trigger
   }
 };

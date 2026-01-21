@@ -366,12 +366,14 @@
     } else if (request.action === 'forwardToPopup') {
       // Forward roll result to popup for racial traits checking
       debug.log('🧬 Forwarding roll result to popup:', request);
+      debug.log('🧬 Available popups:', Object.keys(characterPopups));
       
       // Send to all registered popup windows
       Object.keys(characterPopups).forEach(characterName => {
         const popup = characterPopups[characterName];
         try {
           if (popup && !popup.closed) {
+            debug.log(`🧬 Sending to popup for ${characterName}:`, popup);
             popup.postMessage({
               action: 'rollResult',
               rollResult: request.rollResult,
