@@ -267,7 +267,7 @@
     `;
     addFormHeader.innerHTML = `
       <span>➕ Add Combatant</span>
-      <span id="add-form-toggle" style="transition: transform 0.3s;">▼</span>
+      <span id="add-form-toggle" style="transition: transform 0.3s; transform: rotate(-90deg);">▼</span>
     `;
 
     const addForm = document.createElement('div');
@@ -276,6 +276,8 @@
       display: block;
       transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
       overflow: hidden;
+      max-height: 0;
+      opacity: 0;
     `;
     addForm.innerHTML = `
       <input type="text" id="combatant-name-input" placeholder="Combatant name" style="width: 100%; padding: 8px; margin-bottom: 8px; border: 2px solid #34495e; border-radius: 4px; background: #34495e; color: #fff; font-size: 0.9em;" />
@@ -360,7 +362,7 @@
     const addFormHeader = gmPanel.querySelector('div[style*="cursor: pointer"]');
     const addForm = document.getElementById('add-combatant-form');
     const addFormToggle = document.getElementById('add-form-toggle');
-    let isFormCollapsed = false;
+    let isFormCollapsed = true; // Start collapsed
 
     if (addFormHeader && addForm && addFormToggle) {
       addFormHeader.addEventListener('click', () => {
@@ -756,11 +758,15 @@
   }
 
   /**
-   * Listen for messages to toggle GM mode
+   * Listen for messages to toggle GM mode and post chat messages
    */
   window.addEventListener('message', (event) => {
     if (event.data && event.data.action === 'toggleGMMode') {
       toggleGMMode(event.data.enabled);
+    } else if (event.data && event.data.action === 'postChatMessageFromPopup') {
+      // Post message from character sheet popup to Roll20 chat
+      postChatMessage(event.data.message);
+      debug.log(`📨 Posted message from popup: ${event.data.message}`);
     }
   });
 
