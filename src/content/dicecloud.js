@@ -182,6 +182,7 @@
     debug.log('📋 Properties count:', properties.length);
 
     const characterData = {
+      id: creature._id || getCharacterIdFromUrl(),  // CRITICAL: Store character ID for proper persistence
       name: creature.name || '',
       race: '',
       class: '',
@@ -1904,8 +1905,9 @@
   function extractCharacterDataFromDOM() {
     try {
       debug.log('🔍 Extracting character data from DOM...');
-      
+
       const characterData = {
+        id: getCharacterIdFromUrl(),  // CRITICAL: Store character ID for proper persistence
         name: '',
         level: 1,
         class: '',
