@@ -660,6 +660,17 @@ function buildSheet(data) {
     spellsContainer.innerHTML = '<p style="text-align: center; color: #666;">No spells available</p>';
   }
 
+  // Restore active effects from character data
+  if (data.activeEffects) {
+    activeBuffs = data.activeEffects.buffs || [];
+    activeConditions = data.activeEffects.debuffs || [];
+    debug.log('✅ Restored active effects:', { buffs: activeBuffs, debuffs: activeConditions });
+  } else {
+    activeBuffs = [];
+    activeConditions = [];
+  }
+  updateEffectsDisplay();
+
   // Initialize color palette after sheet is built
   initColorPalette();
 
@@ -5489,89 +5500,153 @@ let activeBuffs = [];
 
 function initConditionsManager() {
   const addConditionBtn = document.getElementById('add-condition-btn');
-  const addBuffBtn = document.getElementById('add-buff-btn');
-  const conditionsDropdown = document.getElementById('conditions-dropdown');
-  const buffsDropdown = document.getElementById('buffs-dropdown');
-  const activeConditionsContainer = document.getElementById('active-conditions');
-  const activeBuffsContainer = document.getElementById('active-buffs');
 
-  // Initialize debuffs dropdown
-  if (addConditionBtn && conditionsDropdown) {
-    // Populate dropdown with negative effects
-    conditionsDropdown.innerHTML = NEGATIVE_EFFECTS.map(effect => `
-      <div class="effect-option" data-effect="${effect.name}" data-type="negative">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <span class="effect-icon" style="font-size: 1.2em;">${effect.icon}</span>
-          <div style="flex: 1;">
-            <div class="effect-name" style="font-weight: bold;">${effect.name}</div>
-            <div class="effect-description" style="font-size: 0.8em; color: #888;">${effect.description}</div>
-          </div>
-        </div>
-      </div>
-    `).join('');
-
-    // Toggle dropdown
+  if (addConditionBtn) {
+    // Open modal when clicking conditions button
     addConditionBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const isVisible = conditionsDropdown.style.display === 'block';
-      conditionsDropdown.style.display = isVisible ? 'none' : 'block';
-      if (buffsDropdown) buffsDropdown.style.display = 'none';
-    });
-
-    // Add effect when clicking option
-    conditionsDropdown.querySelectorAll('.effect-option').forEach(option => {
-      option.addEventListener('click', () => {
-        const effectName = option.dataset.effect;
-        addEffect(effectName, 'negative');
-        conditionsDropdown.style.display = 'none';
-      });
+      showEffectsModal();
     });
   }
-
-  // Initialize buffs dropdown
-  if (addBuffBtn && buffsDropdown) {
-    // Populate dropdown with positive effects
-    buffsDropdown.innerHTML = POSITIVE_EFFECTS.map(effect => `
-      <div class="effect-option" data-effect="${effect.name}" data-type="positive">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <span class="effect-icon" style="font-size: 1.2em;">${effect.icon}</span>
-          <div style="flex: 1;">
-            <div class="effect-name" style="font-weight: bold;">${effect.name}</div>
-            <div class="effect-description" style="font-size: 0.8em; color: #888;">${effect.description}</div>
-          </div>
-        </div>
-      </div>
-    `).join('');
-
-    // Toggle dropdown
-    addBuffBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const isVisible = buffsDropdown.style.display === 'block';
-      buffsDropdown.style.display = isVisible ? 'none' : 'block';
-      if (conditionsDropdown) conditionsDropdown.style.display = 'none';
-    });
-
-    // Add effect when clicking option
-    buffsDropdown.querySelectorAll('.effect-option').forEach(option => {
-      option.addEventListener('click', () => {
-        const effectName = option.dataset.effect;
-        addEffect(effectName, 'positive');
-        buffsDropdown.style.display = 'none';
-      });
-    });
-  }
-
-  // Close dropdowns when clicking outside
-  document.addEventListener('click', (e) => {
-    if (addConditionBtn && !addConditionBtn.contains(e.target) && conditionsDropdown && !conditionsDropdown.contains(e.target)) {
-      conditionsDropdown.style.display = 'none';
-    }
-    if (addBuffBtn && !addBuffBtn.contains(e.target) && buffsDropdown && !buffsDropdown.contains(e.target)) {
-      buffsDropdown.style.display = 'none';
-    }
-  });
 
   debug.log('✅ Effects manager initialized (buffs + debuffs)');
+}
+
+function showEffectsModal() {
+  // Create modal overlay
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+
+  // Create modal content
+  const modalContent = document.createElement('div');
+  modalContent.style.cssText = 'background: white; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); width: 90%; max-width: 600px; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden;';
+
+  // Modal header
+  const header = document.createElement('div');
+  header.style.cssText = 'padding: 20px; border-bottom: 2px solid #ecf0f1; background: #f8f9fa;';
+  header.innerHTML = `
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <h3 style="margin: 0; color: #2c3e50;">🎭 Effects & Conditions</h3>
+      <button id="effects-modal-close" style="background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: bold;">✕</button>
+    </div>
+  `;
+
+  // Tab navigation
+  const tabNav = document.createElement('div');
+  tabNav.style.cssText = 'display: flex; background: #ecf0f1; border-bottom: 2px solid #bdc3c7;';
+  tabNav.innerHTML = `
+    <button class="effects-tab-btn" data-tab="buffs" style="flex: 1; padding: 15px; background: white; border: none; border-bottom: 3px solid #27ae60; cursor: pointer; font-weight: bold; font-size: 1em; color: #27ae60; transition: all 0.2s;">✨ Buffs</button>
+    <button class="effects-tab-btn" data-tab="debuffs" style="flex: 1; padding: 15px; background: transparent; border: none; border-bottom: 3px solid transparent; cursor: pointer; font-weight: bold; font-size: 1em; color: #7f8c8d; transition: all 0.2s;">💀 Debuffs</button>
+  `;
+
+  // Tab content container
+  const tabContent = document.createElement('div');
+  tabContent.style.cssText = 'padding: 20px; overflow-y: auto; flex: 1;';
+
+  // Buffs tab
+  const buffsTab = document.createElement('div');
+  buffsTab.className = 'effects-tab-content';
+  buffsTab.dataset.tab = 'buffs';
+  buffsTab.style.display = 'block';
+  buffsTab.innerHTML = POSITIVE_EFFECTS.map(effect => `
+    <div class="effect-option" data-effect="${effect.name}" data-type="positive" style="padding: 12px; margin-bottom: 10px; border: 2px solid ${effect.color}40; border-radius: 8px; cursor: pointer; transition: all 0.2s; background: white;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <span class="effect-icon" style="font-size: 1.5em;">${effect.icon}</span>
+        <div style="flex: 1;">
+          <div class="effect-name" style="font-weight: bold; color: #2c3e50; margin-bottom: 4px;">${effect.name}</div>
+          <div class="effect-description" style="font-size: 0.85em; color: #7f8c8d;">${effect.description}</div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  // Debuffs tab
+  const debuffsTab = document.createElement('div');
+  debuffsTab.className = 'effects-tab-content';
+  debuffsTab.dataset.tab = 'debuffs';
+  debuffsTab.style.display = 'none';
+  debuffsTab.innerHTML = NEGATIVE_EFFECTS.map(effect => `
+    <div class="effect-option" data-effect="${effect.name}" data-type="negative" style="padding: 12px; margin-bottom: 10px; border: 2px solid ${effect.color}40; border-radius: 8px; cursor: pointer; transition: all 0.2s; background: white;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <span class="effect-icon" style="font-size: 1.5em;">${effect.icon}</span>
+        <div style="flex: 1;">
+          <div class="effect-name" style="font-weight: bold; color: #2c3e50; margin-bottom: 4px;">${effect.name}</div>
+          <div class="effect-description" style="font-size: 0.85em; color: #7f8c8d;">${effect.description}</div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  tabContent.appendChild(buffsTab);
+  tabContent.appendChild(debuffsTab);
+
+  // Assemble modal
+  modalContent.appendChild(header);
+  modalContent.appendChild(tabNav);
+  modalContent.appendChild(tabContent);
+  modal.appendChild(modalContent);
+  document.body.appendChild(modal);
+
+  // Tab switching
+  const tabButtons = tabNav.querySelectorAll('.effects-tab-btn');
+  const tabContents = modalContent.querySelectorAll('.effects-tab-content');
+
+  tabButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetTab = btn.dataset.tab;
+
+      // Update button styles
+      tabButtons.forEach(b => {
+        if (b.dataset.tab === targetTab) {
+          b.style.background = 'white';
+          b.style.color = targetTab === 'buffs' ? '#27ae60' : '#e74c3c';
+          b.style.borderBottom = `3px solid ${targetTab === 'buffs' ? '#27ae60' : '#e74c3c'}`;
+        } else {
+          b.style.background = 'transparent';
+          b.style.color = '#7f8c8d';
+          b.style.borderBottom = '3px solid transparent';
+        }
+      });
+
+      // Show target tab content
+      tabContents.forEach(content => {
+        content.style.display = content.dataset.tab === targetTab ? 'block' : 'none';
+      });
+    });
+  });
+
+  // Add hover effects
+  modalContent.querySelectorAll('.effect-option').forEach(option => {
+    option.addEventListener('mouseenter', () => {
+      option.style.transform = 'translateX(5px)';
+      option.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+    });
+    option.addEventListener('mouseleave', () => {
+      option.style.transform = 'translateX(0)';
+      option.style.boxShadow = 'none';
+    });
+  });
+
+  // Add effect when clicking option
+  modalContent.querySelectorAll('.effect-option').forEach(option => {
+    option.addEventListener('click', () => {
+      const effectName = option.dataset.effect;
+      const type = option.dataset.type === 'positive' ? 'positive' : 'negative';
+      addEffect(effectName, type);
+      modal.remove();
+    });
+  });
+
+  // Close button
+  const closeBtn = modalContent.querySelector('#effects-modal-close');
+  closeBtn.addEventListener('click', () => modal.remove());
+
+  // Click outside to close
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
 }
 
 function addEffect(effectName, type) {
@@ -5658,69 +5733,82 @@ function removeCondition(conditionName) {
 }
 
 function updateEffectsDisplay() {
-  // Update debuffs display
-  const activeConditionsContainer = document.getElementById('active-conditions');
-  if (activeConditionsContainer) {
-    if (activeConditions.length === 0) {
-      activeConditionsContainer.innerHTML = '<div style="text-align: center; color: #888; padding: 10px; font-size: 0.9em;">No active debuffs</div>';
-    } else {
-      activeConditionsContainer.innerHTML = activeConditions.map(effectName => {
-        const effect = NEGATIVE_EFFECTS.find(e => e.name === effectName);
-        return `
-          <div class="effect-badge" data-effect="${effectName}" data-type="negative" title="${effect.description} - Click to remove" style="background: ${effect.color}20; border: 2px solid ${effect.color}; cursor: pointer; padding: 8px 12px; border-radius: 6px; margin-bottom: 8px;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span class="effect-badge-icon" style="font-size: 1.2em;">${effect.icon}</span>
-              <div style="flex: 1;">
-                <div style="font-weight: bold;">${effect.name}</div>
-                <div style="font-size: 0.75em; color: #666; margin-top: 2px;">${effect.description}</div>
-              </div>
-              <span class="effect-badge-remove" style="font-weight: bold; opacity: 0.7;">✕</span>
-            </div>
-          </div>
-        `;
-      }).join('');
+  const container = document.getElementById('active-conditions');
+  if (!container) return;
 
-      // Add click handlers to remove effects
-      activeConditionsContainer.querySelectorAll('.effect-badge').forEach(badge => {
-        badge.addEventListener('click', () => {
-          const effectName = badge.dataset.effect;
-          removeEffect(effectName, 'negative');
-        });
-      });
-    }
+  let html = '';
+
+  // Show buffs section
+  if (activeBuffs.length > 0) {
+    html += '<div style="margin-bottom: 15px;">';
+    html += '<div style="font-size: 0.85em; font-weight: bold; color: #27ae60; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;"><span>✨</span> BUFFS</div>';
+    html += activeBuffs.map(effectName => {
+      const effect = POSITIVE_EFFECTS.find(e => e.name === effectName);
+      return `
+        <div class="effect-badge" data-effect="${effectName}" data-type="positive" title="${effect.description} - Click to remove" style="background: ${effect.color}20; border: 2px solid ${effect.color}; cursor: pointer; padding: 8px 12px; border-radius: 6px; margin-bottom: 8px; transition: all 0.2s;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="effect-badge-icon" style="font-size: 1.2em;">${effect.icon}</span>
+            <div style="flex: 1;">
+              <div style="font-weight: bold; color: #2c3e50;">${effect.name}</div>
+              <div style="font-size: 0.75em; color: #7f8c8d; margin-top: 2px;">${effect.description}</div>
+            </div>
+            <span class="effect-badge-remove" style="font-weight: bold; opacity: 0.7; color: #e74c3c;">✕</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+    html += '</div>';
   }
 
-  // Update buffs display
-  const activeBuffsContainer = document.getElementById('active-buffs');
-  if (activeBuffsContainer) {
-    if (activeBuffs.length === 0) {
-      activeBuffsContainer.innerHTML = '<div style="text-align: center; color: #888; padding: 10px; font-size: 0.9em;">No active buffs</div>';
-    } else {
-      activeBuffsContainer.innerHTML = activeBuffs.map(effectName => {
-        const effect = POSITIVE_EFFECTS.find(e => e.name === effectName);
-        return `
-          <div class="effect-badge" data-effect="${effectName}" data-type="positive" title="${effect.description} - Click to remove" style="background: ${effect.color}20; border: 2px solid ${effect.color}; cursor: pointer; padding: 8px 12px; border-radius: 6px; margin-bottom: 8px;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span class="effect-badge-icon" style="font-size: 1.2em;">${effect.icon}</span>
-              <div style="flex: 1;">
-                <div style="font-weight: bold;">${effect.name}</div>
-                <div style="font-size: 0.75em; color: #666; margin-top: 2px;">${effect.description}</div>
-              </div>
-              <span class="effect-badge-remove" style="font-weight: bold; opacity: 0.7;">✕</span>
+  // Show debuffs section
+  if (activeConditions.length > 0) {
+    html += '<div style="margin-bottom: 15px;">';
+    html += '<div style="font-size: 0.85em; font-weight: bold; color: #e74c3c; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;"><span>💀</span> DEBUFFS</div>';
+    html += activeConditions.map(effectName => {
+      const effect = NEGATIVE_EFFECTS.find(e => e.name === effectName);
+      return `
+        <div class="effect-badge" data-effect="${effectName}" data-type="negative" title="${effect.description} - Click to remove" style="background: ${effect.color}20; border: 2px solid ${effect.color}; cursor: pointer; padding: 8px 12px; border-radius: 6px; margin-bottom: 8px; transition: all 0.2s;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="effect-badge-icon" style="font-size: 1.2em;">${effect.icon}</span>
+            <div style="flex: 1;">
+              <div style="font-weight: bold; color: #2c3e50;">${effect.name}</div>
+              <div style="font-size: 0.75em; color: #7f8c8d; margin-top: 2px;">${effect.description}</div>
             </div>
+            <span class="effect-badge-remove" style="font-weight: bold; opacity: 0.7; color: #e74c3c;">✕</span>
           </div>
-        `;
-      }).join('');
-
-      // Add click handlers to remove effects
-      activeBuffsContainer.querySelectorAll('.effect-badge').forEach(badge => {
-        badge.addEventListener('click', () => {
-          const effectName = badge.dataset.effect;
-          removeEffect(effectName, 'positive');
-        });
-      });
-    }
+        </div>
+      `;
+    }).join('');
+    html += '</div>';
   }
+
+  // Show empty state if no effects
+  if (activeBuffs.length === 0 && activeConditions.length === 0) {
+    html = '<div style="text-align: center; color: #888; padding: 15px; font-size: 0.9em;">No active effects</div>';
+  }
+
+  container.innerHTML = html;
+
+  // Add click handlers to remove effects
+  container.querySelectorAll('.effect-badge').forEach(badge => {
+    const effectName = badge.dataset.effect;
+    const type = badge.dataset.type;
+
+    // Add hover effect
+    badge.addEventListener('mouseenter', () => {
+      badge.style.transform = 'translateX(3px)';
+      badge.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+    });
+    badge.addEventListener('mouseleave', () => {
+      badge.style.transform = 'translateX(0)';
+      badge.style.boxShadow = 'none';
+    });
+
+    // Remove on click
+    badge.addEventListener('click', () => {
+      removeEffect(effectName, type);
+    });
+  });
 }
 
 // Legacy function for backwards compatibility
