@@ -53,26 +53,33 @@
 
     if (success) {
       debug.log('✅ Roll successfully posted to Roll20');
-      
-      // Calculate the base roll by working backwards from formula and result
-      const calculatedBaseRoll = calculateBaseRoll(rollData.formula, rollData.result);
-      debug.log(`🧮 Calculated base roll: ${calculatedBaseRoll} from formula "${rollData.formula}" and result "${rollData.result}"`);
-      
-      // Check for natural 1s using the calculated base roll
-      if (calculatedBaseRoll === 1) {
-        debug.log('🍀 Natural 1 detected! Checking racial traits...');
-        
-        // Send message to popup for Halfling Luck using the calculated base roll
+
+      // Use the base roll from DiceCloud if available, otherwise calculate it
+      let baseRoll;
+      if (rollData.baseRoll) {
+        baseRoll = parseInt(rollData.baseRoll);
+        debug.log(`🎲 Using base roll from DiceCloud: ${baseRoll}`);
+      } else {
+        baseRoll = calculateBaseRoll(rollData.formula, rollData.result);
+        debug.log(`🧮 Calculated base roll: ${baseRoll} from formula "${rollData.formula}" and result "${rollData.result}"`);
+      }
+
+      // Check for natural 1s (for Halfling Luck) and natural 20s (for crits)
+      if (baseRoll === 1 || baseRoll === 20) {
+        const rollType = baseRoll === 1 ? 'Natural 1' : 'Natural 20';
+        debug.log(`🎯 ${rollType} detected! Checking racial traits...`);
+
+        // Send message to popup for racial traits (Halfling Luck, etc.)
         browserAPI.runtime.sendMessage({
           action: 'rollResult',
           rollResult: rollData.result,
-          baseRoll: calculatedBaseRoll.toString(),
+          baseRoll: baseRoll.toString(),
           rollType: rollData.formula,
           rollName: rollData.name,
           checkRacialTraits: true
         });
-        
-        debug.log('🧬 Sent natural 1 result to popup for Halfling Luck');
+
+        debug.log(`🧬 Sent ${rollType} result to popup for racial trait checking`);
       }
     } else {
       debug.error('❌ Failed to post roll to Roll20');

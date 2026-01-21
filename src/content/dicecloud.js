@@ -2362,6 +2362,11 @@
         return null;
       }
 
+      // Extract the base d20 roll from brackets BEFORE removing them
+      // DiceCloud format: "1d20 [ 17 ] + 0" where 17 is the actual d20 roll
+      const baseRollMatch = formulaMatch[1].match(/\[\s*(\d+)\s*\]/);
+      const baseRoll = baseRollMatch ? baseRollMatch[1] : null;
+
       // Clean up the formula - remove the [ actual roll ] part for Roll20
       // "1d20 [ 17 ] + 0" -> "1d20+0"
       let formula = formulaMatch[1].replace(/\s*\[\s*\d+\s*\]\s*/g, '').trim();
@@ -2371,12 +2376,13 @@
 
       const result = formulaMatch[2].trim();
 
-      debug.log(`📊 Parsed: name="${name}", formula="${formula}", result="${result}"`);
+      debug.log(`📊 Parsed: name="${name}", formula="${formula}", result="${result}", baseRoll="${baseRoll}"`);
 
       return {
         name: name,
         formula: formula,
         result: result,
+        baseRoll: baseRoll, // The actual die roll (e.g., "17" from "1d20 [ 17 ]")
         timestamp: Date.now()
       };
     } catch (error) {
