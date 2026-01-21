@@ -447,7 +447,7 @@ If the character sheet overlay isn't working properly:
 
 #### Class Features (8/9 Implemented)
 - [x] **Reliable Talent** (Rogue 11+) - Automatic minimum of 10 on proficient skill checks
-- [x] **Bardic Inspiration** - Popup system to add inspiration dice (d6/d8/d10/d12) with resource tracking
+- [x] **Bardic Inspiration** - Buff-based system; triggers popup for anyone with the buff to add inspiration die (consumes buff)
 - [x] **Portent Dice** (Divination Wizard) - Store and apply portent rolls
 - [x] **Wild Magic Surge** - Auto-roll d20 and consult surge table on spell cast
 - [ ] **Divine Smite** - Quick-add smite damage to melee attacks

@@ -6101,10 +6101,14 @@ window.addEventListener('message', (event) => {
       // Check if any racial traits trigger (use baseRoll for the actual d20 roll)
       const racialTraitTriggered = checkRacialTraits(baseRoll, rollType, rollName);
       const triggeredRacialTraits = [];
-      
+
       // Check if any feat traits trigger (use baseRoll for the actual d20 roll)
       const featTraitTriggered = checkFeatTraits(baseRoll, rollType, rollName);
       const triggeredFeatTraits = [];
+
+      // Check if any buff-based traits trigger (use baseRoll for the actual d20 roll)
+      const buffTraitTriggered = checkBuffTraits(baseRoll, rollType, rollName);
+      const triggeredBuffTraits = [];
       
       // Collect triggered traits
       if (racialTraitTriggered) {
@@ -6267,12 +6271,6 @@ function initClassFeatures() {
     activeFeatTraits.push(ReliableTalent);
   }
 
-  // Bardic Inspiration (Bard)
-  if (characterClass.includes('bard') && level >= 1) {
-    debug.log('🎵 Bard detected, adding Bardic Inspiration');
-    activeFeatTraits.push(BardicInspiration);
-  }
-
   // Jack of All Trades (Bard)
   if (characterClass.includes('bard') && level >= 2) {
     debug.log('🎵 Bard detected, adding Jack of All Trades');
@@ -6342,9 +6340,9 @@ function checkRacialTraits(rollResult, rollType, rollName) {
 function checkFeatTraits(rollResult, rollType, rollName) {
   debug.log(`🎖️ Checking feat traits for roll: ${rollResult} (${rollType}) - ${rollName}`);
   debug.log(`🎖️ Active feat traits count: ${activeFeatTraits.length}`);
-  
+
   let traitTriggered = false;
-  
+
   for (const trait of activeFeatTraits) {
     if (trait.onRoll && typeof trait.onRoll === 'function') {
       const result = trait.onRoll(rollResult, rollType, rollName);
@@ -6354,7 +6352,26 @@ function checkFeatTraits(rollResult, rollType, rollName) {
       }
     }
   }
-  
+
+  return traitTriggered;
+}
+
+function checkBuffTraits(rollResult, rollType, rollName) {
+  debug.log(`✨ Checking buff-based traits for roll: ${rollResult} (${rollType}) - ${rollName}`);
+
+  let traitTriggered = false;
+
+  // Check for Bardic Inspiration buff
+  if (BardicInspiration.onRoll && typeof BardicInspiration.onRoll === 'function') {
+    const result = BardicInspiration.onRoll(rollResult, rollType, rollName);
+    if (result) {
+      traitTriggered = true;
+      debug.log(`✨ ${BardicInspiration.name} triggered!`);
+    }
+  }
+
+  // Add other buff-based traits here in the future
+
   return traitTriggered;
 }
 
@@ -6984,19 +7001,18 @@ function showBardicInspirationPopup(rollData) {
     <div style="font-size: 32px; margin-bottom: 16px;">🎵</div>
     <h2 style="margin: 0 0 8px 0; color: ${colors.heading};">Bardic Inspiration!</h2>
     <p style="margin: 0 0 16px 0; color: ${colors.text};">
-      Add a <strong>${rollData.inspirationDie}</strong> to this roll?
+      A Bard has inspired you! Add a <strong>${rollData.inspirationDie}</strong> to this roll?
     </p>
     <div style="margin: 0 0 16px 0; padding: 12px; background: ${colors.infoBox}; border-radius: 8px; border-left: 4px solid #9b59b6; color: ${colors.text};">
       <strong>Current Roll:</strong> ${rollData.rollName}<br>
       <strong>Base Result:</strong> ${rollData.baseRoll}<br>
-      <strong>Inspiration Die:</strong> ${rollData.inspirationDie}<br>
-      <strong>Uses Left:</strong> ${rollData.usesRemaining}
+      <strong>Inspiration Die:</strong> ${rollData.inspirationDie}
     </div>
     <div style="margin-bottom: 16px; padding: 12px; background: ${colors.infoBox}; border-radius: 8px; color: ${colors.text}; font-size: 13px; text-align: left;">
       <strong>💡 How it works:</strong><br>
       • Roll the inspiration die and add it to your total<br>
       • Can be used on ability checks, attack rolls, or saves<br>
-      • Only one inspiration die can be used per roll
+      • Using it consumes the Bardic Inspiration buff
     </div>
     <div style="display: flex; gap: 12px; justify-content: center;">
       <button id="bardicUseBtn" style="
@@ -7074,13 +7090,8 @@ function showBardicInspirationPopup(rollData) {
 function performBardicInspirationRoll(rollData) {
   debug.log('🎵 Performing Bardic Inspiration roll with data:', rollData);
 
-  // Use one Bardic Inspiration use
-  const success = useBardicInspiration();
-  if (!success) {
-    debug.error('❌ Failed to use Bardic Inspiration (no uses left?)');
-    showNotification('❌ Failed to use Bardic Inspiration', 'error');
-    return;
-  }
+  // Remove the Bardic Inspiration buff
+  removeEffect('Bardic Inspiration', 'positive');
 
   // Roll the inspiration die
   const dieSize = parseInt(rollData.inspirationDie.substring(1)); // "d6" -> 6
@@ -7104,7 +7115,7 @@ function performBardicInspirationRoll(rollData) {
     }
   });
 
-  debug.log('🎵 Bardic Inspiration roll complete');
+  debug.log('🎵 Bardic Inspiration roll complete, buff removed');
 }
 
 // Elven Accuracy Popup
@@ -7822,30 +7833,37 @@ const WildMagicSurge = {
   }
 };
 
-// Bardic Inspiration (Bard)
+// Bardic Inspiration (Buff - can be on anyone)
 const BardicInspiration = {
   name: 'Bardic Inspiration',
-  description: 'You can inspire others through stirring words or music. As a bonus action, grant an ally a Bardic Inspiration die they can add to an ability check, attack roll, or saving throw.',
+  description: 'A Bard has inspired you! Add an inspiration die to an ability check, attack roll, or saving throw.',
 
   onRoll: function(rollResult, rollType, rollName) {
     debug.log(`🎵 Bardic Inspiration onRoll called with: ${rollResult}, ${rollType}, ${rollName}`);
 
     // Check if it's a d20 roll (ability check, attack, or save)
     if (rollType && rollType.includes('d20')) {
-      debug.log(`🎵 Bardic Inspiration: Checking if we should offer inspiration for ${rollName}`);
+      debug.log(`🎵 Bardic Inspiration: Checking if character has the buff`);
 
-      // Check if character has Bardic Inspiration uses available
-      const inspirationResource = getBardicInspirationResource();
-      if (!inspirationResource || inspirationResource.current <= 0) {
-        debug.log(`🎵 Bardic Inspiration: No uses available (${inspirationResource?.current || 0})`);
+      // Check if character has Bardic Inspiration buff active
+      const hasInspiration = activeBuffs && activeBuffs.some(buff =>
+        buff === 'Bardic Inspiration' || buff.toLowerCase().includes('bardic inspiration')
+      );
+
+      if (!hasInspiration) {
+        debug.log(`🎵 Bardic Inspiration: Character does not have the buff`);
         return false;
       }
 
-      debug.log(`🎵 Bardic Inspiration: Has ${inspirationResource.current} uses available`);
+      debug.log(`🎵 Bardic Inspiration: Character has the buff!`);
 
-      // Get the inspiration die size based on bard level
-      const level = characterData.level || 1;
-      const inspirationDie = level < 5 ? 'd6' : level < 10 ? 'd8' : level < 15 ? 'd10' : 'd12';
+      // Get the inspiration die size from the buff definition
+      const inspirationEffect = POSITIVE_EFFECTS.find(e => e.name === 'Bardic Inspiration');
+      let inspirationDie = 'd8'; // Default
+
+      if (inspirationEffect && inspirationEffect.modifier && inspirationEffect.modifier.attack) {
+        inspirationDie = inspirationEffect.modifier.attack;
+      }
 
       // Offer Bardic Inspiration on any d20 roll
       debug.log(`🎵 Bardic Inspiration: TRIGGERED! Offering ${inspirationDie}`);
@@ -7857,8 +7875,7 @@ const BardicInspiration = {
           baseRoll: parseInt(rollResult),
           rollType: rollType,
           rollName: rollName,
-          inspirationDie: inspirationDie,
-          usesRemaining: inspirationResource.current
+          inspirationDie: inspirationDie
         });
       } catch (error) {
         debug.error('❌ Error showing Bardic Inspiration popup:', error);
@@ -7874,62 +7891,8 @@ const BardicInspiration = {
   }
 };
 
-function getBardicInspirationResource() {
-  if (!characterData || !characterData.resources) {
-    debug.log('🎵 No characterData or resources for Bardic Inspiration detection');
-    return null;
-  }
-
-  // Find Bardic Inspiration in resources (flexible matching)
-  const inspirationResource = characterData.resources.find(r => {
-    const lowerName = r.name.toLowerCase().trim();
-    return (
-      lowerName.includes('bardic inspiration') ||
-      lowerName === 'bardic inspiration' ||
-      lowerName === 'inspiration' ||
-      lowerName.includes('inspiration die') ||
-      lowerName.includes('inspiration dice')
-    );
-  });
-
-  if (inspirationResource) {
-    debug.log(`🎵 Found Bardic Inspiration resource: ${inspirationResource.name} (${inspirationResource.current}/${inspirationResource.max})`);
-  } else {
-    debug.log('🎵 No Bardic Inspiration resource found in character data');
-  }
-
-  return inspirationResource;
-}
-
-function useBardicInspiration() {
-  debug.log('🎵 useBardicInspiration called');
-  const inspirationResource = getBardicInspirationResource();
-  debug.log('🎵 Bardic Inspiration resource found:', inspirationResource);
-
-  if (!inspirationResource) {
-    debug.error('❌ No Bardic Inspiration resource found');
-    return false;
-  }
-
-  if (inspirationResource.current <= 0) {
-    debug.error(`❌ No Bardic Inspiration uses available (current: ${inspirationResource.current})`);
-    return false;
-  }
-
-  // Decrement Bardic Inspiration uses
-  const oldCurrent = inspirationResource.current;
-  inspirationResource.current--;
-
-  debug.log(`✅ Used Bardic Inspiration (${oldCurrent} → ${inspirationResource.current})`);
-
-  // Save to storage
-  browserAPI.storage.local.set({ characterData: characterData });
-
-  // Refresh resources display
-  buildResourcesDisplay();
-
-  return true;
-}
+// Note: Bardic Inspiration resources are tracked for Bards to manage how many they can give
+// The actual buff is applied to recipients and checked via activeBuffs array
 
 function getLuckyResource() {
   if (!characterData || !characterData.resources) {
