@@ -2214,6 +2214,17 @@ function createSpellCard(spell, index) {
     tags += '<span class="ritual-tag">📖 Ritual</span>';
   }
 
+  // Build header buttons - include attack/damage if available
+  let headerButtons = '';
+  if (spell.attackRoll || spell.damage) {
+    if (spell.attackRoll) {
+      headerButtons += `<button class="spell-attack-btn" data-spell-index="${index}" style="padding: 6px 12px; background: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">⚔️ Attack</button>`;
+    }
+    if (spell.damage) {
+      headerButtons += `<button class="spell-damage-btn" data-spell-index="${index}" style="padding: 6px 12px; background: #e67e22; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">💥 Damage</button>`;
+    }
+  }
+
   header.innerHTML = `
     <div>
       <span style="font-weight: bold;">${spell.name}</span>
@@ -2221,6 +2232,7 @@ function createSpellCard(spell, index) {
       ${tags}
     </div>
     <div style="display: flex; gap: 8px;">
+      ${headerButtons}
       <button class="cast-btn" data-spell-index="${index}">✨ Cast</button>
       <button class="toggle-btn">▼ Details</button>
     </div>
@@ -2235,20 +2247,6 @@ function createSpellCard(spell, index) {
     debug.log(`📝 Spell "${spell.name}" has attack/damage:`, { attackRoll: spell.attackRoll, damage: spell.damage, damageType: spell.damageType });
   }
 
-  // Build action buttons HTML
-  let actionButtons = '';
-  if (spell.attackRoll || spell.damage) {
-    actionButtons = '<div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">';
-    if (spell.attackRoll) {
-      actionButtons += `<button class="spell-attack-btn" style="padding: 6px 12px; background: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">⚔️ Spell Attack</button>`;
-    }
-    if (spell.damage) {
-      const damageLabel = spell.damageType ? `${spell.damage} ${spell.damageType}` : spell.damage;
-      actionButtons += `<button class="spell-damage-btn" style="padding: 6px 12px; background: #e67e22; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">💥 Damage (${damageLabel})</button>`;
-    }
-    actionButtons += '</div>';
-  }
-
   desc.innerHTML = `
     ${spell.castingTime ? `<div><strong>Casting Time:</strong> ${spell.castingTime}</div>` : ''}
     ${spell.range ? `<div><strong>Range:</strong> ${spell.range}</div>` : ''}
@@ -2257,7 +2255,6 @@ function createSpellCard(spell, index) {
     ${spell.school ? `<div><strong>School:</strong> ${spell.school}</div>` : ''}
     ${spell.source ? `<div><strong>Source:</strong> ${spell.source}</div>` : ''}
     ${spell.description ? `<div style="margin-top: 10px;">${spell.description}</div>` : ''}
-    ${actionButtons}
     ${spell.formula ? `<button class="roll-btn">🎲 Roll ${spell.formula}</button>` : ''}
   `;
 
@@ -2289,7 +2286,7 @@ function createSpellCard(spell, index) {
   }
 
   // Spell attack button
-  const spellAttackBtn = desc.querySelector('.spell-attack-btn');
+  const spellAttackBtn = header.querySelector('.spell-attack-btn');
   if (spellAttackBtn) {
     spellAttackBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -2300,7 +2297,7 @@ function createSpellCard(spell, index) {
   }
 
   // Spell damage button
-  const spellDamageBtn = desc.querySelector('.spell-damage-btn');
+  const spellDamageBtn = header.querySelector('.spell-damage-btn');
   if (spellDamageBtn && spell.damage) {
     spellDamageBtn.addEventListener('click', (e) => {
       e.stopPropagation();

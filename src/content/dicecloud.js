@@ -959,10 +959,19 @@
           // Clean up range - remove spellSniper calculations
           let cleanRange = prop.range || '';
           if (cleanRange) {
-            // Remove patterns like "+ {† × spellSniper}" or similar calculations
-            cleanRange = cleanRange.replace(/\s*\+\s*\{[^}]*spellSniper[^}]*\}/gi, '');
-            cleanRange = cleanRange.replace(/\s*\{[^}]*spellSniper[^}]*\}\s*\+/gi, '');
-            cleanRange = cleanRange.trim();
+            // Extract base range from patterns like "{120 * (1 + spellSniper)} feet"
+            // Look for a number at the start of a calculation with spellSniper
+            const rangeWithSpellSniperMatch = cleanRange.match(/\{(\d+)\s*\*\s*\([^)]*spellSniper[^)]*\)\}/i);
+            if (rangeWithSpellSniperMatch) {
+              // Extract the base value and any unit (feet, etc.)
+              const baseValue = rangeWithSpellSniperMatch[1];
+              const unit = cleanRange.match(/\}\s*(\w+)/)?.[1] || '';
+              cleanRange = unit ? `${baseValue} ${unit}` : baseValue;
+            } else {
+              // Fallback: remove any curly brace expressions containing spellSniper
+              cleanRange = cleanRange.replace(/\{[^}]*spellSniper[^}]*\}/gi, '');
+              cleanRange = cleanRange.trim();
+            }
           }
 
           characterData.spells.push({
