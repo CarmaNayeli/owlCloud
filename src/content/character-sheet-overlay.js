@@ -2010,6 +2010,13 @@
   // Initialize - wait for page to be fully loaded
   function initializeButton() {
     if (document.body) {
+      // Clear any accidentally hidden state to ensure button is visible
+      const wasHidden = localStorage.getItem('rollcloud-sheet-toggle_hidden');
+      if (wasHidden === 'true') {
+        debug.log('🔧 Clearing accidentally hidden button state');
+        localStorage.removeItem('rollcloud-sheet-toggle_hidden');
+      }
+
       createToggleButton();
       debug.log('✅ RollCloud character sheet toggle button added');
     } else {
