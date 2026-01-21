@@ -2230,6 +2230,10 @@ function createSpellCard(spell, index) {
     }
   }
 
+  // Only show Cast button if there are NO attack/damage buttons
+  const showCastButton = !headerButtons;
+  const castButtonHTML = showCastButton ? `<button class="cast-btn" data-spell-index="${index}">✨ Cast</button>` : '';
+
   header.innerHTML = `
     <div>
       <span style="font-weight: bold;">${spell.name}</span>
@@ -2238,7 +2242,7 @@ function createSpellCard(spell, index) {
     </div>
     <div style="display: flex; gap: 8px;">
       ${headerButtons}
-      <button class="cast-btn" data-spell-index="${index}">✨ Cast</button>
+      ${castButtonHTML}
       <button class="toggle-btn">▼ Details</button>
     </div>
   `;
@@ -2272,14 +2276,16 @@ function createSpellCard(spell, index) {
     }
   });
 
-  // Cast button
+  // Cast button (only if it exists - hidden when Attack/Damage buttons are present)
   const castBtn = header.querySelector('.cast-btn');
-  castBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    e.preventDefault(); // Prevent any default behavior
-    debug.log(`🎯 Cast button clicked for ${spell.name} (index: ${index})`);
-    castSpell(spell, index);
-  }, { once: false }); // Allow multiple casts, but one listener
+  if (castBtn) {
+    castBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault(); // Prevent any default behavior
+      debug.log(`🎯 Cast button clicked for ${spell.name} (index: ${index})`);
+      castSpell(spell, index);
+    }, { once: false }); // Allow multiple casts, but one listener
+  }
 
   // Roll button
   const rollBtn = desc.querySelector('.roll-btn');
@@ -2315,15 +2321,29 @@ function createSpellCard(spell, index) {
       if (isHealing) {
         // For healing spells, cast the spell AND roll healing
         const afterCast = (spell, slot) => {
+          let damageFormula = spell.damage;
+          // Replace slotLevel with actual slot level (for cantrips slot will be null)
+          if (slot && slot.level) {
+            damageFormula = damageFormula.replace(/slotLevel/g, slot.level);
+          }
+          // Resolve other DiceCloud variables
+          damageFormula = resolveVariablesInFormula(damageFormula);
           const healingLabel = `${spell.name} - Healing`;
-          roll(healingLabel, spell.damage);
+          roll(healingLabel, damageFormula);
         };
         castSpell(spell, index, afterCast);
       } else {
         // For damage spells, cast the spell AND roll damage
         const afterCast = (spell, slot) => {
+          let damageFormula = spell.damage;
+          // Replace slotLevel with actual slot level (for cantrips slot will be null)
+          if (slot && slot.level) {
+            damageFormula = damageFormula.replace(/slotLevel/g, slot.level);
+          }
+          // Resolve other DiceCloud variables
+          damageFormula = resolveVariablesInFormula(damageFormula);
           const damageLabel = spell.damageType ? `${spell.name} - Damage (${spell.damageType})` : `${spell.name} - Damage`;
-          roll(damageLabel, spell.damage);
+          roll(damageLabel, damageFormula);
         };
         castSpell(spell, index, afterCast);
       }
