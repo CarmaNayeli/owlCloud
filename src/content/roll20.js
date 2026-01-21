@@ -1121,16 +1121,6 @@
   function createPlayerHeader(name, player, playerId) {
     const hpPercent = player.maxHp > 0 ? (player.hp / player.maxHp) * 100 : 0;
     const hpColor = hpPercent > 50 ? '#27ae60' : hpPercent > 25 ? '#f39c12' : '#e74c3c';
-    
-    return `
-      <div style="background: #34495e; border-radius: 8px; border-left: 4px solid ${hpColor}; overflow: hidden;">
-        <!-- Player Header (always visible) -->
-        <div onclick="togglePlayerDetails('${playerId}')" style="padding: 12px; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s;" onmouseover="this.style.background='#3d5a6e'" onmouseout="this.style.background='transparent'">
-          <div style="flex: 1;">
-            <div style="font-weight: bold; font-size: 1.1em; color: #4ECDC4; margin-bottom: 4px;">${name}</div>
-            <div style="display: flex; gap: 12px; font-size: 0.95em; color: #ccc;">
-              <span>HP: ${player.hp}/${player.maxHp}</span>
-              <span>AC: ${player.ac || '—'}</span>
               <span>Init: ${player.initiative || '—'}</span>
             </div>
           </div>
@@ -1401,6 +1391,111 @@
       // Attach sub-tab listeners for this player
       attachPlayerSubtabListeners(playerId);
     }
+  };
+
+  /**
+   * Show full character modal
+   */
+  window.showFullCharacterModal = function(playerName) {
+    const player = playerData[playerName];
+    if (!player) {
+      debug.warn(`⚠️ No data found for player: ${playerName}`);
+      return;
+    }
+
+    // Create modal overlay
+    const modalOverlay = document.createElement('div');
+    modalOverlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10000;
+    `;
+
+    // Create modal content
+    const modalContent = document.createElement('div');
+    modalContent.style.cssText = `
+      background: #2c3e50;
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 600px;
+      max-height: 80vh;
+      overflow-y: auto;
+      position: relative;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    `;
+
+    // Generate character HTML
+    const hpPercent = player.maxHp > 0 ? (player.hp / player.maxHp) * 100 : 0;
+    const hpColor = hpPercent > 50 ? '#27ae60' : hpPercent > 25 ? '#f39c12' : '#e74c3c';
+
+    modalContent.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2 style="color: #4ECDC4; margin: 0; font-size: 1.5em;">${playerName}</h2>
+        <button id="close-modal" style="background: #e74c3c; color: white; border: none; border-radius: 6px; padding: 8px 16px; cursor: pointer; font-size: 1.2em;">×</button>
+      </div>
+      
+      <div style="margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+          <span style="color: #ccc;">Hit Points</span>
+          <span style="color: #fff; font-weight: bold;">${player.hp}/${player.maxHp}</span>
+        </div>
+        <div style="width: 100%; height: 20px; background: #34495e; border-radius: 10px; overflow: hidden;">
+          <div style="width: ${hpPercent}%; height: 100%; background: ${hpColor}; transition: width 0.3s;"></div>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
+        <div style="background: #34495e; padding: 16px; border-radius: 8px; text-align: center;">
+          <div style="color: #888; font-size: 0.9em; margin-bottom: 4px;">Armor Class</div>
+          <div style="color: #fff; font-size: 1.8em; font-weight: bold;">${player.ac || '—'}</div>
+        </div>
+        <div style="background: #34495e; padding: 16px; border-radius: 8px; text-align: center;">
+          <div style="color: #888; font-size: 0.9em; margin-bottom: 4px;">Initiative</div>
+          <div style="color: #fff; font-size: 1.8em; font-weight: bold;">${player.initiative || '—'}</div>
+        </div>
+        <div style="background: #34495e; padding: 16px; border-radius: 8px; text-align: center;">
+          <div style="color: #888; font-size: 0.9em; margin-bottom: 4px;">Passive Perception</div>
+          <div style="color: #fff; font-size: 1.8em; font-weight: bold;">${player.passivePerception || '—'}</div>
+        </div>
+        <div style="background: #34495e; padding: 16px; border-radius: 8px; text-align: center;">
+          <div style="color: #888; font-size: 0.9em; margin-bottom: 4px;">Speed</div>
+          <div style="color: #fff; font-size: 1.8em; font-weight: bold;">${player.speed || '—'}</div>
+        </div>
+      </div>
+
+      <div style="background: #34495e; padding: 16px; border-radius: 8px;">
+        <h3 style="color: #4ECDC4; margin-top: 0; margin-bottom: 12px;">Character Information</h3>
+        <div style="color: #ccc; line-height: 1.6;">
+          <p><strong>Full character data available in Dice Cloud</strong></p>
+          <p>This character sheet is managed through the Dice Cloud integration.</p>
+          <p>Click on any action in the character sheet to make rolls directly to Roll20 chat.</p>
+        </div>
+      </div>
+    `;
+
+    modalOverlay.appendChild(modalContent);
+    document.body.appendChild(modalOverlay);
+
+    // Add close functionality
+    const closeModal = () => {
+      document.body.removeChild(modalOverlay);
+    };
+
+    document.getElementById('close-modal').addEventListener('click', closeModal);
+    modalOverlay.addEventListener('click', (e) => {
+      if (e.target === modalOverlay) {
+        closeModal();
+      }
+    });
+
+    debug.log(`🎭 Opened character modal for ${playerName}`);
   };
 
   /**
