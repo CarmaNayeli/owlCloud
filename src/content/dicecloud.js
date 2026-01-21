@@ -204,10 +204,10 @@
         current: (variables.hitPoints && variables.hitPoints.value) || 0,
         max: (variables.hitPoints && variables.hitPoints.total) || 0
       },
-      armorClass: (variables.armorClass && variables.armorClass.value) || 10,
-      speed: (variables.speed && variables.speed.value) || 30,
-      initiative: (variables.initiative && variables.initiative.value) || 0,
-      proficiencyBonus: (variables.proficiencyBonus && variables.proficiencyBonus.value) || 0,
+      armorClass: (variables.armorClass && (variables.armorClass.total || variables.armorClass.value)) || 10,
+      speed: (variables.speed && (variables.speed.total || variables.speed.value)) || 30,
+      initiative: (variables.initiative && (variables.initiative.total || variables.initiative.value)) || 0,
+      proficiencyBonus: (variables.proficiencyBonus && (variables.proficiencyBonus.total || variables.proficiencyBonus.value)) || 0,
       deathSaves: {
         successes: (creature.deathSave && creature.deathSave.success) || 0,
         failures: (creature.deathSave && creature.deathSave.fail) || 0
@@ -219,10 +219,10 @@
       otherVariables: {}
     };
 
-    // Extract ability scores
+    // Extract ability scores (use total to include all effects, fallback to value)
     STANDARD_VARS.abilities.forEach(ability => {
       if (variables[ability]) {
-        characterData.attributes[ability] = variables[ability].value || 10;
+        characterData.attributes[ability] = variables[ability].total || variables[ability].value || 10;
       }
     });
 
@@ -236,7 +236,7 @@
     STANDARD_VARS.abilityMods.forEach(mod => {
       if (variables[mod]) {
         const abilityName = mod.replace('Mod', '');
-        const diceCloudMod = variables[mod].value || 0;
+        const diceCloudMod = variables[mod].total || variables[mod].value || 0;
         const calculatedMod = characterData.attributeMods[abilityName] || 0;
         
         // Use Dice Cloud modifier if it exists and is different, otherwise use calculated
@@ -249,20 +249,21 @@
       }
     });
 
-    // Extract saves
+    // Extract saves (use total to include all effects, fallback to value)
     STANDARD_VARS.saves.forEach(save => {
       if (variables[save]) {
         const abilityName = save.replace('Save', '');
-        characterData.saves[abilityName] = variables[save].value || 0;
+        const saveValue = variables[save].total || variables[save].value || 0;
+        characterData.saves[abilityName] = saveValue;
         // Also store in savingThrows for compatibility
-        characterData.savingThrows[abilityName] = variables[save].value || 0;
+        characterData.savingThrows[abilityName] = saveValue;
       }
     });
 
-    // Extract skills
+    // Extract skills (use total to include all effects, fallback to value)
     STANDARD_VARS.skills.forEach(skill => {
       if (variables[skill]) {
-        characterData.skills[skill] = variables[skill].value || 0;
+        characterData.skills[skill] = variables[skill].total || variables[skill].value || 0;
       }
     });
 
