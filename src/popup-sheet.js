@@ -4377,6 +4377,8 @@ function initCombatMechanics() {
 /**
  * Action Economy Tracker
  */
+let isMyTurn = false; // Track if it's currently this character's turn
+
 function initActionEconomy() {
   const actionIndicator = document.getElementById('action-indicator');
   const bonusActionIndicator = document.getElementById('bonus-action-indicator');
@@ -4390,13 +4392,26 @@ function initActionEconomy() {
     return;
   }
 
+  // Set initial state - only reaction available when not your turn
+  updateActionEconomyAvailability();
+
   // Click to toggle used state
   [actionIndicator, bonusActionIndicator, movementIndicator, reactionIndicator].forEach(indicator => {
     if (indicator) {
       indicator.addEventListener('click', () => {
+        // Check if action is disabled (not your turn)
+        if (indicator.dataset.disabled === 'true') {
+          showNotification('⚠️ Only reactions available when it\'s not your turn!');
+          return;
+        }
+
         const isUsed = indicator.dataset.used === 'true';
+        const actionLabel = indicator.querySelector('.action-label').textContent;
         indicator.dataset.used = !isUsed;
-        debug.log(`🎯 ${indicator.querySelector('.action-label').textContent} ${isUsed ? 'restored' : 'used'}`);
+        debug.log(`🎯 ${actionLabel} ${isUsed ? 'restored' : 'used'}`);
+
+        // Post to Roll20 chat
+        postActionToChat(actionLabel, isUsed ? 'restored' : 'used');
       });
     }
   });
@@ -4409,6 +4424,9 @@ function initActionEconomy() {
       });
       debug.log('🔄 Turn reset: Action, Bonus Action, Movement restored');
       showNotification('🔄 Turn reset!');
+
+      // Announce to Roll20 chat
+      postToChatIfOpener(`🔄 ${characterData.name} resets turn actions!`);
     });
   }
 
@@ -4420,10 +4438,112 @@ function initActionEconomy() {
       });
       debug.log('🔄 Round reset: All actions restored');
       showNotification('🔄 Round reset!');
+
+      // Announce to Roll20 chat
+      postToChatIfOpener(`🔄 ${characterData.name} resets all actions!`);
     });
   }
 
   debug.log('✅ Action economy initialized');
+}
+
+/**
+ * Update action economy availability based on turn state
+ */
+function updateActionEconomyAvailability() {
+  const actionIndicator = document.getElementById('action-indicator');
+  const bonusActionIndicator = document.getElementById('bonus-action-indicator');
+  const movementIndicator = document.getElementById('movement-indicator');
+  const reactionIndicator = document.getElementById('reaction-indicator');
+
+  const turnBasedActions = [actionIndicator, bonusActionIndicator, movementIndicator];
+
+  if (isMyTurn) {
+    // Enable all actions on your turn
+    [...turnBasedActions, reactionIndicator].forEach(indicator => {
+      if (indicator) {
+        indicator.dataset.disabled = 'false';
+        indicator.style.opacity = '1';
+        indicator.style.cursor = 'pointer';
+      }
+    });
+  } else {
+    // Disable turn-based actions, keep reaction available
+    turnBasedActions.forEach(indicator => {
+      if (indicator) {
+        indicator.dataset.disabled = 'true';
+        indicator.style.opacity = '0.4';
+        indicator.style.cursor = 'not-allowed';
+      }
+    });
+
+    // Keep reaction enabled
+    if (reactionIndicator) {
+      reactionIndicator.dataset.disabled = 'false';
+      reactionIndicator.style.opacity = '1';
+      reactionIndicator.style.cursor = 'pointer';
+    }
+  }
+}
+
+/**
+ * Activate turn for this character
+ */
+function activateTurn() {
+  isMyTurn = true;
+  updateActionEconomyAvailability();
+
+  // Add visual highlight effect
+  const actionEconomy = document.querySelector('.action-economy');
+  if (actionEconomy) {
+    actionEconomy.style.boxShadow = '0 0 20px rgba(78, 205, 196, 0.6)';
+    actionEconomy.style.border = '2px solid #4ECDC4';
+  }
+
+  debug.log('⚔️ Turn activated! All actions available.');
+}
+
+/**
+ * Deactivate turn for this character
+ */
+function deactivateTurn() {
+  isMyTurn = false;
+  updateActionEconomyAvailability();
+
+  // Remove visual highlight
+  const actionEconomy = document.querySelector('.action-economy');
+  if (actionEconomy) {
+    actionEconomy.style.boxShadow = '';
+    actionEconomy.style.border = '';
+  }
+
+  debug.log('⏸️ Turn ended. Only reaction available.');
+}
+
+/**
+ * Post action usage to Roll20 chat
+ */
+function postActionToChat(actionLabel, state) {
+  const emoji = state === 'used' ? '❌' : '✅';
+  const message = `${emoji} ${characterData.name} ${state === 'used' ? 'uses' : 'restores'} ${actionLabel}`;
+  postToChatIfOpener(message);
+}
+
+/**
+ * Post a message to Roll20 chat if opener exists
+ */
+function postToChatIfOpener(message) {
+  try {
+    if (window.opener && !window.opener.closed) {
+      window.opener.postMessage({
+        action: 'postChatMessageFromPopup',
+        message: message
+      }, '*');
+      debug.log(`📤 Posted to chat: ${message}`);
+    }
+  } catch (error) {
+    debug.warn('⚠️ Could not post to chat:', error);
+  }
 }
 
 /**
@@ -4503,17 +4623,25 @@ function addCondition(conditionName) {
     return;
   }
 
+  const condition = D5E_CONDITIONS.find(c => c.name === conditionName);
   activeConditions.push(conditionName);
   updateConditionsDisplay();
   showNotification(`🎭 ${conditionName} applied!`);
   debug.log(`✅ Condition added: ${conditionName}`);
+
+  // Announce to Roll20 chat
+  postToChatIfOpener(`${condition.icon} ${characterData.name} is now ${conditionName}!`);
 }
 
 function removeCondition(conditionName) {
+  const condition = D5E_CONDITIONS.find(c => c.name === conditionName);
   activeConditions = activeConditions.filter(c => c !== conditionName);
   updateConditionsDisplay();
   showNotification(`✅ ${conditionName} removed`);
   debug.log(`🗑️ Condition removed: ${conditionName}`);
+
+  // Announce to Roll20 chat
+  postToChatIfOpener(`✅ ${characterData.name} is no longer ${conditionName}`);
 }
 
 function updateConditionsDisplay() {
@@ -4633,11 +4761,16 @@ function initGMMode() {
 window.addEventListener('message', (event) => {
   if (event.data && event.data.action === 'activateTurn') {
     debug.log('🎯 Your turn! Activating action economy...');
+
+    // Activate turn state
+    activateTurn();
+
     // Reset action economy for new turn
     const turnResetBtn = document.getElementById('turn-reset-btn');
     if (turnResetBtn) {
       turnResetBtn.click();
     }
+
     showNotification('⚔️ Your turn!', 'success');
   }
 });
