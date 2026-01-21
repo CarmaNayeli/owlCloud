@@ -2219,6 +2219,14 @@ function createSpellCard(spell, index) {
   const hasAttack = !!spell.attackRoll;
   const hasDamage = !!spell.damage;
 
+  // Debug: Log button creation decision
+  debug.log(`🔘 Creating buttons for "${spell.name}":`, {
+    attackRoll: spell.attackRoll,
+    hasAttack: hasAttack,
+    damage: spell.damage,
+    hasDamage: hasDamage
+  });
+
   if (hasAttack || hasDamage) {
     // Check if damage type is healing
     const isHealing = spell.damageType && spell.damageType.toLowerCase() === 'healing';
