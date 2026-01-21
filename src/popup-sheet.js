@@ -256,10 +256,21 @@ async function switchToCharacter(characterId) {
     debug.log(`🔄 Switching to character: ${characterId}`);
 
     // Save current character data before switching to preserve local state
+    // CRITICAL: Save to BOTH cache AND browser storage to persist through refresh
     if (characterData && characterData.id !== characterId) {
-      debug.log('💾 Saving current character data to cache before switching');
-      characterCache.set(characterData.id, JSON.parse(JSON.stringify(characterData)));
+      debug.log('💾 Saving current character data before switching');
+      const dataToSave = JSON.parse(JSON.stringify(characterData));
+
+      // Save to cache (for quick access in current session)
+      characterCache.set(characterData.id, dataToSave);
       debug.log(`✅ Cached current character data: ${characterData.name}`);
+
+      // Save to browser storage (persists through refresh/close)
+      await browserAPI.runtime.sendMessage({
+        action: 'storeCharacterData',
+        data: dataToSave
+      });
+      debug.log(`💾 Saved current character to browser storage: ${characterData.name}`);
     }
 
     // Set active character
@@ -271,7 +282,7 @@ async function switchToCharacter(characterId) {
 
     // Try to get cached character data first
     let characterDataToUse = characterCache.get(characterId);
-    
+
     if (!characterDataToUse) {
       debug.log('📂 No cached data, fetching from storage');
       // Fetch from storage if not cached
@@ -304,20 +315,20 @@ async function switchToCharacter(characterId) {
       if (window.opener) {
         window.opener.postMessage({
           action: 'registerPopup',
-          characterName: response.data.name
+          characterName: characterData.name
         }, '*');
-        debug.log(`✅ Sent registration message for: ${response.data.name}`);
+        debug.log(`✅ Sent registration message for: ${characterData.name}`);
       } else {
-        debug.warn(`⚠️ No window.opener available for: ${response.data.name}`);
+        debug.warn(`⚠️ No window.opener available for: ${characterData.name}`);
       }
 
       // Check if it's currently this character's turn by reading recent chat
       // Add a small delay to ensure combat system has processed turn changes
       setTimeout(() => {
-        checkCurrentTurnFromChat(response.data.name);
+        checkCurrentTurnFromChat(characterData.name);
       }, 500);
 
-      showNotification(`✅ Switched to ${response.data.name}`);
+      showNotification(`✅ Switched to ${characterData.name}`);
     } else {
       debug.error(`❌ No character data in response`);
       showNotification('❌ Character not found', 'error');
@@ -4604,6 +4615,20 @@ if (document.readyState === 'loading') {
 } else {
   initCloseButton();
 }
+
+// Save character data when window is about to close/refresh
+// This ensures local modifications persist through browser refresh
+window.addEventListener('beforeunload', () => {
+  if (characterData && characterData.id) {
+    debug.log('💾 Saving character data before window closes');
+    // Use sendMessage synchronously during unload
+    browserAPI.runtime.sendMessage({
+      action: 'storeCharacterData',
+      data: characterData
+    });
+    debug.log(`✅ Saved character data: ${characterData.name}`);
+  }
+});
 
 // ============================================================================
 // COMBAT MECHANICS
