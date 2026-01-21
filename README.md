@@ -14,12 +14,12 @@ A powerful browser extension that seamlessly integrates Dice Cloud with Roll20. 
 - **Easy Import**: Import character data directly into Roll20 character sheets
 - **Data Persistence**: Character data is stored locally between Dice Cloud and Roll20 sessions
 
-### Dice Roll Integration (NEW!)
-- **Real-Time Roll Forwarding**: Automatically sends dice rolls from DiceCloud to Roll20's chat
-- **Beyond20-Style Integration**: Works like D&D Beyond's integration - roll on DiceCloud, see results in Roll20
-- **Roll20 Templates**: Uses Roll20's native roll templates for familiar formatting
-- **Multi-Tab Support**: Sends rolls to all open Roll20 tabs simultaneously
-- **Character Attribution**: Rolls appear under your character's name in Roll20
+### Interactive Character Sheet & Dice Rolling (NEW!)
+- **Character Sheet Overlay**: Beautiful interactive overlay displays your DiceCloud character data on Roll20
+- **Click-to-Roll**: Click any ability, skill, or save in the overlay to instantly roll dice
+- **Direct Roll20 Integration**: Rolls are posted directly to Roll20's chat using native roll commands
+- **Advanced Roll Options**: Support for advantage/disadvantage, custom modifiers, and roll settings
+- **Character Attribution**: Rolls automatically appear under your character's name in Roll20
 
 ### GM Combat Management (NEW!)
 - **GM Initiative Tracker**: Full combat management system with automatic turn detection
@@ -186,25 +186,28 @@ Or create simple placeholder icons using an image editor.
    - Click it to import your character data
    - **Shift+Click** for field debug mode
 
-### Dice Roll Forwarding
+### Using the Character Sheet Overlay
 
-Once you have both DiceCloud and Roll20 tabs open:
+Once you've imported your character data:
 
-1. **Setup** (one-time):
-   - Import your character data to Roll20 (using Method 1 or 2 above)
-   - Ensure the character name matches between DiceCloud and Roll20
+1. **Open the Character Sheet**:
+   - On Roll20, click the "📋 Character Sheet" button (bottom-right)
+   - Or use the extension popup to open the sheet
+   - Your character data loads in an interactive overlay
 
 2. **Rolling Dice**:
-   - Make any roll on your DiceCloud character sheet (ability check, attack, spell, etc.)
-   - The roll automatically appears in Roll20's chat
-   - Rolls use Roll20's native template formatting
-   - Your character's name appears as the speaker
+   - Click any stat card (abilities, skills, saves, initiative) to roll
+   - Customize your roll with advantage/disadvantage settings
+   - Use the Roll Settings panel to configure roll behavior
+   - Rolls are posted directly to Roll20's chat
 
-3. **Multiple Tables**:
-   - Open multiple Roll20 tabs if you're playing in multiple games
-   - Rolls are sent to ALL open Roll20 tabs simultaneously
+3. **Advanced Features**:
+   - Track HP, spell slots, and resources in real-time
+   - Manage concentration, death saves, and temporary HP
+   - Apply conditions and buffs to your character
+   - Switch between multiple character profiles
 
-**Note**: Roll detection is currently in beta. If rolls aren't being detected, see the Troubleshooting section below.
+**Note**: The character sheet overlay appears on Roll20, not on DiceCloud. You roll using your imported character data.
 
 ## How It Works
 
@@ -227,38 +230,43 @@ Once you have both DiceCloud and Roll20 tabs open:
    - Populates Roll20 character sheet fields
    - Maps DiceCloud properties to Roll20 equivalents
 
-### Dice Roll Forwarding
+### Interactive Character Sheet & Dice Rolling
 
-1. **Roll Detection** (`dicecloud.js`):
-   - Uses MutationObserver to watch DiceCloud's roll log for new rolls
-   - Parses roll data (name, formula, result) from DOM elements
-   - Sends roll data to background script
+1. **Character Sheet Overlay** (`character-sheet-overlay.js`):
+   - Creates interactive popup window displaying all character data
+   - Renders abilities, skills, saves, spells, and resources as clickable cards
+   - Handles user clicks and generates dice roll commands
+   - Manages roll settings (advantage/disadvantage, modifiers)
 
 2. **Message Passing** (`background.js`):
-   - Receives roll data from DiceCloud tab
-   - Queries all open Roll20 tabs
-   - Forwards roll to each Roll20 tab
+   - Coordinates communication between overlay and Roll20
+   - Manages character data storage and synchronization
+   - Handles multi-character profile switching
 
 3. **Roll Posting** (`roll20.js`):
-   - Receives roll data from background script
-   - Formats roll using Roll20's template syntax (`&{template:simple}`)
-   - Simulates user input to post roll to chat (no API subscription needed!)
-   - Sets character as speaker using stored character data
+   - Receives roll commands from the character sheet overlay
+   - Formats rolls using Roll20's native dice notation (`/roll 1d20+5`)
+   - Posts rolls to Roll20 chat using the chat input interface
+   - Monitors roll results for natural 1s/20s (for racial trait features)
 
 ### Communication Architecture
 
 ```
-DiceCloud Tab                Background Script              Roll20 Tab(s)
+DiceCloud API                Background Script              Roll20 Tab
      │                              │                             │
-     ├─► Detect Roll                │                             │
-     ├─► Parse Roll Data            │                             │
+     ├─► Character Data             │                             │
      ├─────────────────────────────►│                             │
-     │   {name, formula, result}    │                             │
+     │   (API Request)              │                             │
+     │                              ├─► Store Character Data      │
+     │                              │   (Chrome Storage)          │
+     │                              │                             │
      │                              ├────────────────────────────►│
-     │                              │  Forward to all R20 tabs   │
-     │                              │                             ├─► Format Roll
+     │                              │  Send Character Data       │
+     │                              │                             ├─► Show Overlay
+     │                              │                             ├─► User Clicks Ability
+     │                              │                             ├─► Generate Roll Command
      │                              │                             ├─► Post to Chat
-     │                              │                             └─► Show Result
+     │                              │                             └─► Monitor Result
 ```
 
 ### Popup Interface
@@ -372,33 +380,32 @@ This approach ensures compatibility with DiceCloud's data model and future updat
 
 ## Troubleshooting
 
-### Roll Detection Issues
+### Character Sheet Overlay Issues
 
-If dice rolls aren't being forwarded from DiceCloud to Roll20:
+If the character sheet overlay isn't working properly:
 
-1. **Use Debug Mode**:
-   - On DiceCloud, click the blue **"🔍 Debug Rolls"** button (bottom-right)
-   - Or **Shift+Click** the "Export to Roll20" button
-   - Open browser console (`F12`) to see debug output
+1. **Sheet Won't Open**:
+   - Check that you've imported character data first
+   - Look for the "📋 Character Sheet" button in bottom-right of Roll20
+   - Try using the extension popup to open the sheet
+   - Check browser console (`F12`) for error messages
 
-2. **Check Console**:
-   - Look for "✓ Observing DiceCloud roll log for new rolls" = Working!
-   - Look for "Roll log not found, will retry..." = Selectors need updating
+2. **Rolls Not Posting**:
+   - Ensure Roll20 chat is visible and not minimized
+   - Check that you're logged into Roll20
+   - Verify character name is set in the imported data
+   - Try refreshing the Roll20 page
 
-3. **Make a Test Roll**:
-   - Roll any dice on DiceCloud
-   - Check console for "✓ Detected roll" or "✗ Could not parse roll"
-   - The debug output will show what elements were found
+3. **Character Data Not Loading**:
+   - Click "🔄 Sync Data" button in the overlay header
+   - Re-import character data from DiceCloud
+   - Check extension popup to verify data is stored
+   - Clear browser cache and re-import if needed
 
-4. **Inspect Roll Elements**:
-   - Right-click on a roll result in DiceCloud
-   - Select "Inspect" to see the HTML structure
-   - Compare with what the extension is looking for
-
-5. **Update Selectors** (Advanced):
-   - See `DEBUGGING_ROLLS.md` for detailed instructions
-   - Update selectors in `src/content/dicecloud.js`
-   - Reload extension and test again
+4. **Popup Blocked**:
+   - Allow popups for Roll20 in your browser settings
+   - Check for popup blocker notifications in the address bar
+   - Try using the inline overlay instead of popup mode
 
 ### Character Import Issues
 
@@ -421,42 +428,13 @@ If dice rolls aren't being forwarded from DiceCloud to Roll20:
 - Some custom Dice Cloud fields may not have Roll20 equivalents
 - API token may expire; simply login again if you receive authentication errors
 
-### Dice Roll Forwarding
-- Roll detection depends on DiceCloud's DOM structure, which may change with updates
-- Only works with open browser tabs (DiceCloud and Roll20 must both be open)
-- Requires character name to match between systems for proper attribution
-- May need selector updates if DiceCloud's UI changes
+### Character Sheet Overlay & Dice Rolling
+- Overlay displays on Roll20; character data must be imported first
+- Requires Roll20 tab to be open and active for rolls to post
+- Some advanced features (racial traits, class features) may need manual configuration
+- Roll results are generated by Roll20's dice engine, not pre-calculated
 
 ## Future Enhancements
-
-### Recently Completed ✅
-- [x] Support for advantage/disadvantage rolls (Roll Settings Panel in overlay)
-- [x] Roll type detection (attack, skill check, save, spell casting)
-- [x] Roll history and statistics (Statistics Panel with total/average/crits, History Panel with last 20 rolls)
-- [x] Critical hit detection (tracked in Roll Statistics Panel)
-- [x] Firefox support (Manifest V2 compatibility)
-- [x] Long/Short Rest buttons (Auto-restore HP, spell slots, hit dice, class resources)
-- [x] Concentration indicators (Spells marked with 🧠 Concentration tag)
-- [x] Death Save Counter (Visual tracker with roll button, auto-reset on healing, follows RAW)
-- [x] Temporary HP Manager (Track temp HP separately, RAW damage/healing/stacking rules, clears on rest)
-- [x] Multiple Character Profiles (Sync and switch between multiple characters, dropdown selector, separate state)
-- [x] **GM Initiative Tracker** - Full combat management system with automatic turn detection
-- [x] **Action Economy Tracking** - Automatic action/bonus action/reaction usage tracking per turn
-- [x] **Turn-Based Visual Indicators** - Action economy lights up for current character, greys out for others
-- [x] **Chat History Turn Detection** - Checks recent chat messages when switching tabs or opening sheets
-- [x] **Reaction Per-Round Limits** - Enforces D&D 5e rule of one reaction per round
-- [x] **Bonus Action Detection** - Properly identifies and tracks bonus action usage
-- [x] **Movement Action Tracking** - Tracks movement-based actions
-- [x] **Spell Action Integration** - Automatic action tracking for spell casting times
-- [x] **Condition/Buff Manager** - Apply and track conditions (blessed, poisoned, hasted, etc.)
-- [x] **Hit Dice Manager** - Better UI for spending hit dice with automatic HP restoration
-- [x] **Spell Slot Visual Upgrade** - Extend visual spell slot manager to all levels with depletion indicators
-- [x] **Upcasting Calculator** - Auto-calculate damage when casting at higher levels
-- [x] **Active Concentration Tracker** - Track which spell you're concentrating on (with drop button)
-- [x] **Ritual Casting Indicator** - Mark spells that can be cast as rituals (📖 tag)
-- [x] **Metamagic Quick Apply** - Quick buttons for Twinned, Quickened, etc. with sorcery point tracking
-- [x] **Spell Attack Modifier** - Auto-add spell attack bonus to spell rolls
-- [x] **Inspiration Tracker** - Track and spend inspiration with visual indicators
 
 ### High Priority - Mechanics & Character Features
 
@@ -494,12 +472,10 @@ If dice rolls aren't being forwarded from DiceCloud to Roll20:
 - [ ] **Initiative Auto-Roller** - Roll initiative for all party members at once
 - [ ] **Custom Roll Macros** - Create and save frequently-used custom rolls
 - [ ] **Guidance/Bless Tracker** - Auto-add d4/d8 to rolls when active
-- [x] **Inspiration Tracker** - Track and spend inspiration with button
 - [ ] **Two-Weapon Fighting** - Quick off-hand attack button
 - [ ] **Great Weapon Master/Sharpshooter** - Toggle -5/+10 for attacks
 
 ### Quality of Life
-- [ ] **Improved roll detection** - More robust parsing for DiceCloud UI changes
 - [ ] **Overlay Resize/Collapse** - Minimize sections or entire overlay for space
 - [ ] **Custom Roll Formatting** - Different Roll20 template support and custom formats
 - [ ] **Import/Export Settings** - Backup and restore extension configuration
