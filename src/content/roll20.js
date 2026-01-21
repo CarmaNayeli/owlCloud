@@ -12,9 +12,6 @@
    * Posts a message to Roll20 chat
    */
   function postChatMessage(message) {
-    debug.log('🎲🎲🎲 postChatMessage called with message:', message.substring(0, 100));
-    debug.log('🎲🎲🎲 Call stack:', new Error().stack);
-
     try {
       // Find the chat input textarea
       const chatInput = document.querySelector('#textchat-input textarea');
@@ -411,8 +408,7 @@
       postChatMessage(event.data.message);
     } else if (event.data.action === 'rollFromPopout') {
       // Post roll directly to Roll20 - no DiceCloud needed!
-      debug.log('🎲🎲 [window.addEventListener] Received roll request from popup via postMessage:', event.data);
-      debug.log('🎲🎲 Roll name:', event.data.name);
+      debug.log('🎲 Received roll request from popup via postMessage:', event.data);
 
       const rollData = {
         name: event.data.name,
@@ -421,7 +417,6 @@
       };
 
       // Format and post to Roll20 chat
-      debug.log('🎲🎲 Formatting and posting to Roll20 chat...');
       const formattedMessage = formatRollForRoll20(rollData);
       const success = postChatMessage(formattedMessage);
 
@@ -429,8 +424,6 @@
         debug.log('✅ Roll posted directly to Roll20 (no DiceCloud!)');
         // Observe Roll20's result for natural 1s/20s
         observeNextRollResult(rollData);
-      } else {
-        debug.error('❌❌ postChatMessage failed!');
       }
     } else if (event.data.action === 'announceSpell') {
       // Handle spell/action announcements with pre-formatted messages

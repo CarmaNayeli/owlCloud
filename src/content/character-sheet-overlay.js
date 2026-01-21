@@ -1700,11 +1700,8 @@
 
   // Listen for messages from popout window
   window.addEventListener('message', (event) => {
-    if (event.data.action === 'rollFromPopout') {
-      debug.log('🎲 Received roll from popout:', event.data);
-      // Handle the roll from popout
-      rollSimultaneously(event.data.name, event.data.formula);
-    } else if (event.data.action === 'updateCharacterData') {
+    // NOTE: rollFromPopout is handled by roll20.js - do NOT handle it here to avoid duplicate rolls
+    if (event.data.action === 'updateCharacterData') {
       debug.log('💾 Received character data update from popup:', event.data.data);
 
       // Save updated character data to storage
@@ -1718,7 +1715,9 @@
           debug.error('❌ Failed to update character data');
         }
       });
-    } else if (event.data.action === 'announceSpell') {
+    }
+
+    if (event.data.action === 'announceSpell') {
       debug.log('✨ Announcing spell cast:', event.data);
 
       // Announce to Roll20 chat
