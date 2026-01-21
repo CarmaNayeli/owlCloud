@@ -4079,9 +4079,13 @@ function roll(name, formula, prerolledResult = null) {
     messageData.prerolledResult = prerolledResult;
   }
 
+  debug.log(`🎲🎲 performRoll called for: ${name}`);
+  debug.log(`🎲🎲 window.opener exists: ${!!window.opener}, closed: ${window.opener?.closed}`);
+
   // Try window.opener first (Chrome)
   if (window.opener && !window.opener.closed) {
     try {
+      debug.log(`🎲🎲 Sending via window.opener.postMessage for: ${name}`);
       window.opener.postMessage(messageData, '*');
       showNotification(`🎲 Rolling ${name}...`);
       debug.log('✅ Roll sent via window.opener');
@@ -4092,7 +4096,7 @@ function roll(name, formula, prerolledResult = null) {
   }
 
   // Fallback: Use background script to relay to Roll20 (Firefox)
-  debug.log('📡 Using background script to relay roll to Roll20...');
+  debug.log(`📡 Using background script fallback to relay roll to Roll20 for: ${name}`);
   browserAPI.runtime.sendMessage({
     action: 'relayRollToRoll20',
     roll: messageData
