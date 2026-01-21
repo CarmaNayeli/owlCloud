@@ -1263,7 +1263,6 @@ When you move on your turn, you can double your speed until the end of the turn.
       if (action.name && action.name.toLowerCase().includes('feline agility')) {
         const refreshBtn = document.createElement('button');
         refreshBtn.className = 'use-btn';
-        refreshBtn.style.cssText = 'background: #3498db; margin-left: 5px;';
         refreshBtn.textContent = '🔄 Refresh';
         refreshBtn.addEventListener('click', (e) => {
           e.stopPropagation();
