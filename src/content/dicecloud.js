@@ -938,21 +938,24 @@
             }
           });
 
-          // If no attack/damage found in children, check description for common patterns
-          if (!attackRoll && !damage && description) {
+          // Check description for additional patterns
+          if (description) {
             // Look for spell attack patterns like "ranged spell attack" or "melee spell attack"
-            if (description.toLowerCase().includes('spell attack')) {
+            // Check this even if damage is already found, since many spells have both
+            if (!attackRoll && description.toLowerCase().includes('spell attack')) {
               attackRoll = 'use_spell_attack_bonus'; // Flag to use calculated spell attack bonus
               debug.log(`  💡 Found "spell attack" in description, marking for spell attack bonus`);
             }
 
-            // Look for damage patterns like "4d6" or "1d10"
-            const damagePattern = /(\d+d\d+(?:\s*\+\s*\d+)?)\s+(\w+)\s+damage/i;
-            const damageMatch = description.match(damagePattern);
-            if (damageMatch) {
-              damage = damageMatch[1].replace(/\s/g, '');
-              damageType = damageMatch[2];
-              debug.log(`  💡 Found damage in description: ${damage} ${damageType}`);
+            // Look for damage patterns like "4d6" or "1d10" only if no damage found yet
+            if (!damage) {
+              const damagePattern = /(\d+d\d+(?:\s*\+\s*\d+)?)\s+(\w+)\s+damage/i;
+              const damageMatch = description.match(damagePattern);
+              if (damageMatch) {
+                damage = damageMatch[1].replace(/\s/g, '');
+                damageType = damageMatch[2];
+                debug.log(`  💡 Found damage in description: ${damage} ${damageType}`);
+              }
             }
           }
 

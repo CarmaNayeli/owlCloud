@@ -5250,7 +5250,7 @@ function markActionAsUsed(castingTime) {
     if (bonusActionIndicator && bonusActionIndicator.dataset.used !== 'true') {
       bonusActionIndicator.dataset.used = 'true';
       debug.log(`🎯 Bonus Action used for casting`);
-      postActionToChat('Bonus Action', 'used');
+      // Action usage is tracked visually, no need to announce to chat
     } else {
       debug.log(`⚠️ Bonus Action indicator not found or already used`);
     }
@@ -5258,7 +5258,7 @@ function markActionAsUsed(castingTime) {
     if (movementIndicator && movementIndicator.dataset.used !== 'true') {
       movementIndicator.dataset.used = 'true';
       debug.log(`🎯 Movement used for casting`);
-      postActionToChat('Movement', 'used');
+      // Action usage is tracked visually, no need to announce to chat
     } else {
       debug.log(`⚠️ Movement indicator not found or already used`);
     }
@@ -5267,7 +5267,7 @@ function markActionAsUsed(castingTime) {
     if (reactionIndicator && reactionIndicator.dataset.used !== 'true') {
       reactionIndicator.dataset.used = 'true';
       debug.log(`🎯 Reaction used for casting (one per round limit)`);
-      postActionToChat('Reaction', 'used');
+      // Action usage is tracked visually, no need to announce to chat
     } else {
       debug.log(`⚠️ Reaction indicator not found or already used this round`);
     }
@@ -5276,7 +5276,7 @@ function markActionAsUsed(castingTime) {
     if (actionIndicator && actionIndicator.dataset.used !== 'true') {
       actionIndicator.dataset.used = 'true';
       debug.log(`🎯 Action used for casting`);
-      postActionToChat('Action', 'used');
+      // Action usage is tracked visually, no need to announce to chat
     } else {
       debug.log(`⚠️ Action indicator not found or already used`);
     }
