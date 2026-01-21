@@ -149,6 +149,7 @@
   let gmModeEnabled = false;
   let gmPanel = null;
   const characterPopups = {}; // Track popup windows by character name
+  let combatStarted = false; // Track if combat has been initiated
   let initiativeTracker = {
     combatants: [],
     currentTurnIndex: 0,
@@ -216,8 +217,9 @@
       margin-bottom: 15px;
     `;
     controls.innerHTML = `
-      <button id="prev-turn-btn" style="padding: 8px 12px; background: #3498db; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.85em;">← Prev</button>
-      <button id="next-turn-btn" style="padding: 8px 12px; background: #4ECDC4; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.85em;">Next →</button>
+      <button id="start-combat-btn" style="padding: 12px; background: #27ae60; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 1em; grid-column: span 2; box-shadow: 0 2px 8px rgba(39, 174, 96, 0.3);">⚔️ Start Combat</button>
+      <button id="prev-turn-btn" style="padding: 8px 12px; background: #3498db; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.85em; display: none;">← Prev</button>
+      <button id="next-turn-btn" style="padding: 8px 12px; background: #4ECDC4; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.85em; display: none;">Next →</button>
       <button id="clear-all-btn" style="padding: 8px 12px; background: #e74c3c; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.85em; grid-column: span 2;">🗑️ Clear All</button>
     `;
 
@@ -351,10 +353,12 @@
     }
 
     // Turn controls
+    const startCombatBtn = document.getElementById('start-combat-btn');
     const nextBtn = document.getElementById('next-turn-btn');
     const prevBtn = document.getElementById('prev-turn-btn');
     const clearAllBtn = document.getElementById('clear-all-btn');
 
+    if (startCombatBtn) startCombatBtn.addEventListener('click', startCombat);
     if (nextBtn) nextBtn.addEventListener('click', nextTurn);
     if (prevBtn) prevBtn.addEventListener('click', prevTurn);
     if (clearAllBtn) clearAllBtn.addEventListener('click', clearAllCombatants);
@@ -503,9 +507,57 @@
       initiativeTracker.combatants = [];
       initiativeTracker.currentTurnIndex = 0;
       initiativeTracker.round = 1;
+      combatStarted = false;
+
+      // Show Start Combat button again
+      const startBtn = document.getElementById('start-combat-btn');
+      const prevBtn = document.getElementById('prev-turn-btn');
+      const nextBtn = document.getElementById('next-turn-btn');
+
+      if (startBtn) startBtn.style.display = 'block';
+      if (prevBtn) prevBtn.style.display = 'none';
+      if (nextBtn) nextBtn.style.display = 'none';
+
       updateInitiativeDisplay();
+      postChatMessage('🛑 Combat ended. Initiative tracker cleared.');
       debug.log('🗑️ All combatants cleared');
     }
+  }
+
+  /**
+   * Start combat - initialize first turn
+   */
+  function startCombat() {
+    if (initiativeTracker.combatants.length === 0) {
+      debug.warn('⚠️ Cannot start combat with no combatants');
+      return;
+    }
+
+    // Reset to beginning
+    initiativeTracker.currentTurnIndex = 0;
+    initiativeTracker.round = 1;
+    combatStarted = true;
+
+    // Update UI
+    document.getElementById('round-display').textContent = 'Round 1';
+    const startBtn = document.getElementById('start-combat-btn');
+    const prevBtn = document.getElementById('prev-turn-btn');
+    const nextBtn = document.getElementById('next-turn-btn');
+
+    if (startBtn) {
+      startBtn.style.display = 'none';
+    }
+    if (prevBtn) prevBtn.style.display = 'block';
+    if (nextBtn) nextBtn.style.display = 'block';
+
+    updateInitiativeDisplay();
+    notifyCurrentTurn();
+
+    // Announce combat start
+    postChatMessage('⚔️ Combat has begun! Round 1 starts!');
+    announceTurn();
+
+    debug.log('⚔️ Combat started!');
   }
 
   /**
