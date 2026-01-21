@@ -228,6 +228,72 @@
     .color-btn:hover {
       transform: scale(1.1);
     }
+    .character-tabs {
+      display: flex;
+      gap: 5px;
+      padding: 8px 15px;
+      background: var(--bg-primary);
+      border-bottom: 1px solid var(--border-color);
+      overflow-x: auto;
+      max-width: 100%;
+    }
+    .character-tab {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      border-bottom: none;
+      padding: 8px 15px;
+      border-radius: 4px 4px 0 0;
+      cursor: pointer;
+      font-size: 0.9em;
+      transition: all 0.2s;
+      white-space: nowrap;
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .character-tab:hover {
+      background: var(--bg-card-hover);
+    }
+    .character-tab.active {
+      background: var(--bg-secondary);
+      color: var(--accent-primary);
+      font-weight: bold;
+      border-color: var(--accent-primary);
+    }
+    .character-tab .slot-number {
+      background: var(--accent-primary);
+      color: var(--text-inverse);
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75em;
+      font-weight: bold;
+    }
+    .character-tab.active .slot-number {
+      background: var(--accent-success);
+    }
+    .character-tab.empty {
+      opacity: 0.5;
+      font-style: italic;
+    }
+    .character-tab .close-tab {
+      margin-left: 5px;
+      padding: 0 4px;
+      border-radius: 3px;
+      font-size: 0.8em;
+      opacity: 0.6;
+      transition: opacity 0.2s;
+    }
+    .character-tab .close-tab:hover {
+      opacity: 1;
+      background: var(--accent-danger);
+      color: var(--text-inverse);
+    }
     .section {
       margin-bottom: 25px;
     }
@@ -546,6 +612,11 @@
         </div>
       </div>
       <button class="close-btn" id="close-btn">✕</button>
+    </div>
+
+    <!-- Character Tabs -->
+    <div class="character-tabs" id="character-tabs">
+      <!-- Tabs will be dynamically generated here -->
     </div>
 
     <!-- Content Area -->
