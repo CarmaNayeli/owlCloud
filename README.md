@@ -438,23 +438,23 @@ If the character sheet overlay isn't working properly:
 
 ### High Priority - Mechanics & Character Features
 
-#### Racial Traits
-- [ ] **Halfling Luck** - Reroll 1s on d20 rolls (attack, ability check, save)
-- [ ] **Elven Accuracy** - Roll 3d20 on advantage when using DEX/INT/WIS/CHA
-- [ ] **Lucky Feat** - Reroll d20 rolls up to 3 times per long rest with tracking
-- [ ] **Dwarven Resilience** - Advantage on poison saves (auto-apply)
-- [ ] **Gnome Cunning** - Advantage on INT/WIS/CHA saves vs magic (auto-apply)
+#### Racial Traits (✅ All Implemented!)
+- [x] **Halfling Luck** - Reroll 1s on d20 rolls (attack, ability check, save)
+- [x] **Elven Accuracy** - Roll 3d20 on advantage when using DEX/INT/WIS/CHA
+- [x] **Lucky Feat** - Reroll d20 rolls up to 3 times per long rest with tracking
+- [x] **Dwarven Resilience** - Advantage on poison saves (auto-apply)
+- [x] **Gnome Cunning** - Advantage on INT/WIS/CHA saves vs magic (auto-apply)
 
-#### Class Features
-- [ ] **Reliable Talent** (Rogue 11+) - Automatic minimum of 10 on proficient skill checks
+#### Class Features (7/9 Implemented)
+- [x] **Reliable Talent** (Rogue 11+) - Automatic minimum of 10 on proficient skill checks
 - [ ] **Bardic Inspiration** - Track and apply inspiration dice (d6/d8/d10/d12)
-- [ ] **Portent Dice** (Divination Wizard) - Store and apply portent rolls
-- [ ] **Wild Magic Surge** - Auto-roll d20 and consult surge table on spell cast
+- [x] **Portent Dice** (Divination Wizard) - Store and apply portent rolls
+- [x] **Wild Magic Surge** - Auto-roll d20 and consult surge table on spell cast
 - [ ] **Divine Smite** - Quick-add smite damage to melee attacks
-- [ ] **Sneak Attack Tracker** - Auto-add sneak attack damage when conditions met
-- [ ] **Rage Damage Bonus** - Auto-apply rage damage to attacks
-- [ ] **Brutal Critical** (Barbarian) - Auto-add extra dice on crits
-- [ ] **Jack of All Trades** (Bard) - Auto-add half proficiency to non-proficient checks
+- [x] **Sneak Attack Tracker** - Auto-add sneak attack damage when conditions met
+- [x] **Rage Damage Bonus** - Auto-apply rage damage to attacks
+- [x] **Brutal Critical** (Barbarian) - Auto-add extra dice on crits
+- [x] **Jack of All Trades** (Bard) - Auto-add half proficiency to non-proficient checks
 
 #### Combat Mechanics
 - [ ] **Reaction Prompts** - Notify when Shield, Counterspell, or opportunity attacks apply
