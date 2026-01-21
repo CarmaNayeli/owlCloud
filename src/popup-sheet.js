@@ -734,11 +734,73 @@ function buildActionsDisplay(container, actions) {
   // DEBUG: Log all actions to see what we have
   debug.log('🔍 buildActionsDisplay called with actions:', actions.map(a => ({ name: a.name, damage: a.damage, actionType: a.actionType })));
 
+  // Deduplicate actions by name and combine sources (similar to spells)
+  const deduplicatedActions = [];
+  const actionsByName = {};
+
+  // Sort actions by name for consistent processing
+  const sortedActions = [...actions].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+  sortedActions.forEach(action => {
+    const actionName = (action.name || '').trim();
+    
+    if (!actionName) {
+      debug.log('⚠️ Skipping action with no name');
+      return;
+    }
+
+    if (!actionsByName[actionName]) {
+      // First occurrence of this action
+      actionsByName[actionName] = action;
+      deduplicatedActions.push(action);
+      debug.log(`📝 First occurrence of action: "${actionName}"`);
+    } else {
+      // Duplicate action - combine sources and other properties
+      const existingAction = actionsByName[actionName];
+      
+      // Combine sources if they exist
+      if (action.source && !existingAction.source.includes(action.source)) {
+        existingAction.source = existingAction.source 
+          ? existingAction.source + '; ' + action.source 
+          : action.source;
+        debug.log(`📝 Combined duplicate action "${actionName}": ${existingAction.source}`);
+      }
+      
+      // Combine descriptions if they exist and are different
+      if (action.description && action.description !== existingAction.description) {
+        existingAction.description = existingAction.description 
+          ? existingAction.description + '\n\n' + action.description 
+          : action.description;
+        debug.log(`📝 Combined descriptions for "${actionName}"`);
+      }
+      
+      // Merge other useful properties
+      if (action.uses && !existingAction.uses) {
+        existingAction.uses = action.uses;
+        debug.log(`📝 Added uses to "${actionName}"`);
+      }
+      
+      if (action.damage && !existingAction.damage) {
+        existingAction.damage = action.damage;
+        debug.log(`📝 Added damage to "${actionName}"`);
+      }
+      
+      if (action.attackRoll && !existingAction.attackRoll) {
+        existingAction.attackRoll = action.attackRoll;
+        debug.log(`📝 Added attackRoll to "${actionName}"`);
+      }
+      
+      debug.log(`🔄 Merged duplicate action: "${actionName}"`);
+    }
+  });
+
+  debug.log(`📊 Deduplicated ${actions.length} actions to ${deduplicatedActions.length} unique actions`);
+
   // Check if character has Sneak Attack available (from DiceCloud)
   // We only check if it EXISTS, not whether it's enabled on DiceCloud
   // The toggle state on our sheet is independent and user-controlled
   // Use flexible matching in case the name has slight variations
-  const sneakAttackAction = actions.find(a =>
+  const sneakAttackAction = deduplicatedActions.find(a =>
     a.name === 'Sneak Attack' ||
     a.name.toLowerCase().includes('sneak attack')
   );
@@ -867,7 +929,7 @@ function buildActionsDisplay(container, actions) {
     container.appendChild(luckyActionSection);
   }
 
-  actions.forEach((action, index) => {
+  deduplicatedActions.forEach((action, index) => {
     // Skip rendering standalone Sneak Attack button if it exists
     if ((action.name === 'Sneak Attack' || action.name.toLowerCase().includes('sneak attack')) && action.actionType === 'feature') {
       debug.log('⏭️ Skipping standalone Sneak Attack button (using toggle instead)');
