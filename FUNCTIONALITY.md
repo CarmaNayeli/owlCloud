@@ -1,7 +1,7 @@
 # RollCloud Extension - Complete Functionality Documentation
 
 ## 🎲 Overview
-RollCloud is a Chrome extension that seamlessly integrates **Dice Cloud** character sheets with **Roll20** virtual tabletop, providing real-time dice rolling, character data synchronization, and an interactive character sheet overlay.
+RollCloud is a Chrome extension that seamlessly integrates **Dice Cloud** character sheets with **Roll20** virtual tabletop, providing character data synchronization, an interactive character sheet overlay with click-to-roll functionality, and direct Roll20 chat integration.
 
 ---
 
@@ -31,11 +31,12 @@ RollCloud is a Chrome extension that seamlessly integrates **Dice Cloud** charac
 - **Real-time Display**: All character data displayed in organized sections
 
 ### 3. **Dice Rolling Integration**
-- **Roll20 Chat Integration**: Dice rolls are automatically sent to Roll20 chat
+- **Overlay-Generated Rolls**: Rolls generated from character sheet overlay using imported character data
+- **Roll20 Chat Integration**: Rolls posted directly to Roll20 chat using native commands
 - **Roll Modes**: Support for normal rolls, advantage, and disadvantage
 - **Formula Parsing**: Handles complex dice formulas (e.g., `2d6+5`, `1d20+3`)
 - **Visual Feedback**: Notifications confirm roll submission
-- **Roll Communication**: Messages sent from popup to parent window to Roll20
+- **Roll Communication**: Overlay sends roll commands directly to Roll20 chat input
 
 ---
 
