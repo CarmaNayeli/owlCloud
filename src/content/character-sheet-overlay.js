@@ -1697,35 +1697,7 @@
     overlayVisible = false;
   }
 
-  /**
-   * Announces a message to Roll20 chat
-   */
-  function announceToRoll20(message) {
-    try {
-      const chatInput = document.querySelector('#textchat-input textarea');
-      if (chatInput) {
-        chatInput.value = message;
-        chatInput.focus();
-
-        const sendButton = document.querySelector('#textchat-input .btn');
-        if (sendButton) {
-          sendButton.click();
-          debug.log('✅ Message posted to Roll20 chat:', message);
-          showNotification('Spell announced to chat!', 'success');
-          return true;
-        } else {
-          debug.error('❌ Could not find Roll20 chat send button');
-          return false;
-        }
-      } else {
-        debug.error('❌ Could not find Roll20 chat input');
-        return false;
-      }
-    } catch (error) {
-      debug.error('❌ Error posting to Roll20 chat:', error);
-      return false;
-    }
-  }
+  // NOTE: announceToRoll20() function removed - spell announcements now handled solely by roll20.js to prevent duplicates
 
   // Listen for messages from popout window
   window.addEventListener('message', (event) => {
@@ -1746,12 +1718,7 @@
       });
     }
 
-    if (event.data.action === 'announceSpell') {
-      debug.log('✨ Announcing spell cast:', event.data);
-
-      // Announce to Roll20 chat
-      announceToRoll20(event.data.message);
-    }
+    // NOTE: announceSpell is handled by roll20.js to prevent duplicate messages
   });
 
   // Listen for messages from background script
