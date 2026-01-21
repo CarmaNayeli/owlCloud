@@ -53,29 +53,117 @@
 
     if (success) {
       debug.log('✅ Roll successfully posted to Roll20');
-      
-      // Calculate the base roll by working backwards from formula and result
-      const calculatedBaseRoll = calculateBaseRoll(rollData.formula, rollData.result);
-      debug.log(`🧮 Calculated base roll: ${calculatedBaseRoll} from formula "${rollData.formula}" and result "${rollData.result}"`);
-      
-      // Check for natural 1s using the calculated base roll
-      if (calculatedBaseRoll === 1) {
-        debug.log('🍀 Natural 1 detected! Checking racial traits...');
-        
-        // Send message to popup for Halfling Luck using the calculated base roll
-        browserAPI.runtime.sendMessage({
-          action: 'rollResult',
-          rollResult: rollData.result,
-          baseRoll: calculatedBaseRoll.toString(),
-          rollType: rollData.formula,
-          rollName: rollData.name,
-          checkRacialTraits: true
-        });
-        
-        debug.log('🧬 Sent natural 1 result to popup for Halfling Luck');
-      }
+
+      // Wait for Roll20 to process the roll and add it to chat
+      // Then parse the actual Roll20 result (not DiceCloud's roll)
+      observeNextRollResult(rollData);
     } else {
       debug.error('❌ Failed to post roll to Roll20');
+    }
+  }
+
+  /**
+   * Observes Roll20 chat for the next roll result and checks for natural 1s/20s
+   */
+  function observeNextRollResult(originalRollData) {
+    debug.log('👀 Setting up observer for Roll20 roll result...');
+
+    const chatLog = document.querySelector('#textchat .content');
+    if (!chatLog) {
+      debug.error('❌ Could not find Roll20 chat log');
+      return;
+    }
+
+    // Create observer to watch for new messages
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        for (const node of mutation.addedNodes) {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            // Check if this is a message with an inline roll
+            const inlineRoll = node.querySelector('.inlinerollresult');
+            if (inlineRoll) {
+              debug.log('🎲 Found new Roll20 inline roll:', inlineRoll);
+
+              // Parse the roll result from Roll20's display
+              const rollResult = parseRoll20InlineRoll(inlineRoll, originalRollData);
+
+              if (rollResult) {
+                debug.log('🎲 Parsed Roll20 roll result:', rollResult);
+
+                // Check for natural 1s or 20s
+                if (rollResult.baseRoll === 1 || rollResult.baseRoll === 20) {
+                  const rollType = rollResult.baseRoll === 1 ? 'Natural 1' : 'Natural 20';
+                  debug.log(`🎯 ${rollType} detected in Roll20 roll!`);
+
+                  // Send to popup for racial trait checking
+                  browserAPI.runtime.sendMessage({
+                    action: 'rollResult',
+                    rollResult: rollResult.total.toString(),
+                    baseRoll: rollResult.baseRoll.toString(),
+                    rollType: originalRollData.formula,
+                    rollName: originalRollData.name,
+                    checkRacialTraits: true
+                  });
+
+                  debug.log(`🧬 Sent ${rollType} result to popup`);
+                }
+              }
+
+              // Disconnect after processing first roll
+              observer.disconnect();
+              break;
+            }
+          }
+        }
+      }
+    });
+
+    // Start observing
+    observer.observe(chatLog, { childList: true, subtree: true });
+    debug.log('✅ Observer set up for Roll20 chat');
+
+    // Auto-disconnect after 5 seconds to prevent memory leaks
+    setTimeout(() => {
+      observer.disconnect();
+      debug.log('⏱️ Roll observer timed out and disconnected');
+    }, 5000);
+  }
+
+  /**
+   * Parses Roll20's inline roll result to extract the base d20 roll
+   */
+  function parseRoll20InlineRoll(inlineRollElement, originalRollData) {
+    try {
+      // Roll20 inline rolls have a title attribute with the full roll breakdown
+      // e.g., "Rolling 1d20+5 = (17)+5"
+      const title = inlineRollElement.getAttribute('title') || '';
+      debug.log('📊 Roll20 inline roll title:', title);
+
+      // Extract the base roll from parentheses in the title
+      // Format: "Rolling 1d20+5 = (17)+5" or "Rolling 1d20 = (1)"
+      const baseRollMatch = title.match(/=\s*\(\s*(\d+)\s*\)/);
+      const baseRoll = baseRollMatch ? parseInt(baseRollMatch[1]) : null;
+
+      // Get the total from the visible text
+      const totalText = inlineRollElement.textContent?.trim() || '';
+      const total = parseInt(totalText);
+
+      debug.log(`📊 Extracted: baseRoll=${baseRoll}, total=${total}`);
+
+      // Only return if we successfully extracted a d20 roll (1-20)
+      if (baseRoll && baseRoll >= 1 && baseRoll <= 20) {
+        return {
+          baseRoll: baseRoll,
+          total: total,
+          formula: originalRollData.formula,
+          name: originalRollData.name
+        };
+      }
+
+      return null;
+    } catch (error) {
+      debug.error('❌ Error parsing Roll20 inline roll:', error);
+      return null;
     }
   }
 
