@@ -318,9 +318,9 @@
         characterName: request.characterName || request.roll?.characterName
       };
 
-      // Check if GM mode is enabled - if so, hide the roll instead of posting
-      if (gmModeEnabled) {
-        debug.log('👑 GM Mode active - hiding roll instead of posting');
+      // Check if silent rolls mode is enabled - if so, hide the roll instead of posting
+      if (silentRollsEnabled) {
+        debug.log('🔇 Silent rolls active - hiding roll instead of posting');
         const hiddenRoll = {
           id: Date.now() + Math.random(), // Unique ID
           name: rollData.name,
@@ -434,9 +434,9 @@
         characterName: event.data.characterName
       };
 
-      // Check if GM mode is enabled - if so, hide the roll instead of posting
-      if (gmModeEnabled) {
-        debug.log('👑 GM Mode active - hiding roll instead of posting');
+      // Check if silent rolls mode is enabled - if so, hide the roll instead of posting
+      if (silentRollsEnabled) {
+        debug.log('🔇 Silent rolls active - hiding roll instead of posting');
         const hiddenRoll = {
           id: Date.now() + Math.random(), // Unique ID
           name: rollData.name,
@@ -481,6 +481,7 @@
   // ============================================================================
 
   let gmModeEnabled = false;
+  let silentRollsEnabled = false; // Separate toggle for silent rolls
   let gmPanel = null;
   const characterPopups = {}; // Track popup windows by character name
   let combatStarted = false; // Track if combat has been initiated
@@ -512,56 +513,6 @@
       min-width: 400px;
       min-height: 400px;
       max-width: 800px;
-      max-height: 900px;
-      background: #2a2a2a;
-      border: 3px solid #4ECDC4;
-      border-radius: 12px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-      z-index: 100000;
-      display: none;
-      font-family: Arial, sans-serif;
-      color: #fff;
-      resize: both;
-      overflow: auto;
-    `;
-
-    // Create header
-    const header = document.createElement('div');
-    header.style.cssText = `
-      background: #4ECDC4;
-      color: #fff;
-      padding: 12px;
-      border-radius: 9px 9px 0 0;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      cursor: move;
-      user-select: none;
-    `;
-    header.innerHTML = `
-      <div style="font-weight: bold; font-size: 1.1em; display: flex; align-items: center; gap: 6px;">
-        <span>👑</span> GM Panel
-      </div>
-      <button id="gm-panel-close" style="background: transparent; border: none; color: #fff; font-size: 1.3em; cursor: pointer; padding: 0 8px;">✕</button>
-    `;
-
-    // Create tab navigation
-    const tabNav = document.createElement('div');
-    tabNav.style.cssText = `
-      display: flex;
-      background: #1e1e1e;
-      border-bottom: 2px solid #4ECDC4;
-    `;
-    tabNav.innerHTML = `
-      <button class="gm-tab-btn active" data-tab="initiative" style="flex: 1; padding: 10px 8px; background: #2a2a2a; color: #4ECDC4; border: none; border-bottom: 3px solid #4ECDC4; cursor: pointer; font-weight: bold; font-size: 0.85em; transition: all 0.2s;">⚔️ Initiative</button>
-      <button class="gm-tab-btn" data-tab="history" style="flex: 1; padding: 10px 8px; background: transparent; color: #888; border: none; border-bottom: 3px solid transparent; cursor: pointer; font-weight: bold; font-size: 0.85em; transition: all 0.2s;">📜 History</button>
-      <button class="gm-tab-btn" data-tab="players" style="flex: 1; padding: 10px 8px; background: transparent; color: #888; border: none; border-bottom: 3px solid transparent; cursor: pointer; font-weight: bold; font-size: 0.85em; transition: all 0.2s;">👥 Players</button>
-      <button class="gm-tab-btn" data-tab="hidden-rolls" style="flex: 1; padding: 10px 8px; background: transparent; color: #888; border: none; border-bottom: 3px solid transparent; cursor: pointer; font-weight: bold; font-size: 0.85em; transition: all 0.2s;">🎲 Hidden</button>
-    `;
-
-    // Create content area wrapper
-    const contentWrapper = document.createElement('div');
-    contentWrapper.style.cssText = `
       padding: 15px;
       max-height: 500px;
       overflow-y: auto;
@@ -766,6 +717,26 @@
    * Attach event listeners to GM panel controls
    */
   function attachGMPanelListeners() {
+    // Silent rolls toggle
+    const silentRollsToggle = document.getElementById('silent-rolls-toggle');
+    if (silentRollsToggle) {
+      silentRollsToggle.addEventListener('change', (e) => {
+        silentRollsEnabled = e.target.checked;
+        debug.log(`🔇 Silent rolls ${silentRollsEnabled ? 'enabled' : 'disabled'}`);
+        
+        // Update hidden rolls tab description
+        const hiddenRollsTab = gmPanel.querySelector('[data-tab="hidden-rolls"]');
+        if (hiddenRollsTab) {
+          const description = hiddenRollsTab.querySelector('p:nth-child(2)');
+          if (description) {
+            description.textContent = silentRollsEnabled 
+              ? 'Rolls made while silent rolls is enabled will appear here'
+              : 'Rolls made while GM Mode is active will appear here';
+          }
+        }
+      });
+    }
+
     // Tab switching
     const tabButtons = gmPanel.querySelectorAll('.gm-tab-btn');
     const tabContents = gmPanel.querySelectorAll('.gm-tab-content');
