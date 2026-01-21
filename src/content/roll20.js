@@ -748,11 +748,85 @@
     // Make draggable
     makeDraggable(gmPanel, header);
 
+    // Start listening for character broadcasts
+    startCharacterBroadcastListener();
+
     // Attach event listeners
     attachGMPanelListeners();
 
     debug.log('✅ GM Panel created');
     return gmPanel;
+  }
+
+  /**
+   * Start listening for character broadcasts from players
+   */
+  function startCharacterBroadcastListener() {
+    // Monitor chat for character broadcasts
+    const chatObserver = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            // Check for character broadcast messages
+            const messageContent = node.textContent || node.innerText || '';
+            if (messageContent.includes('👑[ROLLCLOUD:CHARACTER:') && messageContent.includes(']👑')) {
+              debug.log('👑 Detected character broadcast in chat');
+              parseCharacterBroadcast(messageContent);
+            }
+          }
+        });
+      });
+    });
+
+    // Find the chat container and observe it
+    const chatContainer = document.querySelector('.chat-content') || 
+                         document.querySelector('.chatlog') || 
+                         document.querySelector('#textchat') ||
+                         document.querySelector('.chat');
+
+    if (chatContainer) {
+      chatObserver.observe(chatContainer, {
+        childList: true,
+        subtree: true
+      });
+      debug.log('👑 Started listening for character broadcasts in chat');
+    } else {
+      debug.warn('⚠️ Could not find chat container for character broadcast listener');
+    }
+  }
+
+  /**
+   * Parse character broadcast message and import data
+   */
+  function parseCharacterBroadcast(message) {
+    try {
+      // Extract the encoded data
+      const match = message.match(/👑\[ROLLCLOUD:CHARACTER:(.+?)\]👑/);
+      if (!match) {
+        debug.warn('⚠️ Invalid character broadcast format');
+        return;
+      }
+
+      const encodedData = match[1];
+      const decodedData = JSON.parse(atob(encodedData));
+      
+      if (decodedData.type !== 'ROLLCLOUD_CHARACTER_BROADCAST') {
+        debug.warn('⚠️ Not a character broadcast message');
+        return;
+      }
+
+      const character = decodedData.character;
+      debug.log('👑 Received character broadcast:', character.name);
+
+      // Import character data to GM panel
+      updatePlayerData(character.name, character);
+      
+      // Show notification to GM
+      debug.log(`✅ ${character.name} shared their character sheet! 👑`);
+      
+    } catch (error) {
+      debug.error('❌ Error parsing character broadcast:', error);
+    }
   }
 
   /**
