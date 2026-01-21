@@ -34,6 +34,35 @@
   };
 
   /**
+   * Utility function to position popup within viewport bounds
+   * @param {number} x - Initial X position (clientX)
+   * @param {number} y - Initial Y position (clientY)
+   * @param {number} width - Popup width (default: 200)
+   * @param {number} height - Popup height (default: 150)
+   * @returns {Object} - Adjusted x, y coordinates within viewport
+   */
+  function getPopupPosition(x, y, width = 200, height = 150) {
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    // Adjust horizontal position
+    let adjustedX = x;
+    if (x + width > viewportWidth) {
+      adjustedX = viewportWidth - width - 10; // 10px margin from edge
+      if (adjustedX < 10) adjustedX = 10; // Ensure minimum margin from left edge
+    }
+    
+    // Adjust vertical position
+    let adjustedY = y;
+    if (y + height > viewportHeight) {
+      adjustedY = viewportHeight - height - 10; // 10px margin from edge
+      if (adjustedY < 10) adjustedY = 10; // Ensure minimum margin from top edge
+    }
+    
+    return { x: adjustedX, y: adjustedY };
+  }
+
+  /**
    * Creates the custom character sheet overlay
    */
   function createOverlay() {
@@ -1830,10 +1859,14 @@
 
       const menu = document.createElement('div');
       menu.id = 'rollcloud-context-menu';
+
+      // Get adjusted position within viewport bounds
+      const position = getPopupPosition(e.clientX, e.clientY, 200, 150);
+
       menu.style.cssText = `
         position: fixed;
-        left: ${e.clientX}px;
-        top: ${e.clientY}px;
+        left: ${position.x}px;
+        top: ${position.y}px;
         background: white;
         border: 1px solid #ccc;
         border-radius: 4px;
