@@ -4702,8 +4702,8 @@ function getApplicableOptionalBuffs(rollName) {
     // Check if this buff applies to this roll type
     let applies = false;
 
-    // Bardic Inspiration: ability checks, attacks, saves
-    if (buff.name === 'Bardic Inspiration') {
+    // Bardic Inspiration (all variants): ability checks, attacks, saves
+    if (buff.name.startsWith('Bardic Inspiration')) {
       applies = rollLower.includes('check') ||
                 rollLower.includes('attack') ||
                 rollLower.includes('save') ||
@@ -5677,12 +5677,36 @@ const POSITIVE_EFFECTS = [
     autoApply: true
   },
   {
-    name: 'Bardic Inspiration',
+    name: 'Bardic Inspiration (d6)',
     icon: '🎵',
     color: '#9b59b6',
-    description: '+d6/d8/d10/d12 to ability check, attack, or save',
+    description: 'Bard levels 1-4: +d6 to ability check, attack, or save',
+    modifier: { attack: 'd6', skill: 'd6', save: 'd6' },
+    autoApply: false
+  },
+  {
+    name: 'Bardic Inspiration (d8)',
+    icon: '🎵',
+    color: '#9b59b6',
+    description: 'Bard levels 5-9: +d8 to ability check, attack, or save',
     modifier: { attack: 'd8', skill: 'd8', save: 'd8' },
-    autoApply: false // Manual application
+    autoApply: false
+  },
+  {
+    name: 'Bardic Inspiration (d10)',
+    icon: '🎵',
+    color: '#9b59b6',
+    description: 'Bard levels 10-14: +d10 to ability check, attack, or save',
+    modifier: { attack: 'd10', skill: 'd10', save: 'd10' },
+    autoApply: false
+  },
+  {
+    name: 'Bardic Inspiration (d12)',
+    icon: '🎵',
+    color: '#9b59b6',
+    description: 'Bard levels 15-20: +d12 to ability check, attack, or save',
+    modifier: { attack: 'd12', skill: 'd12', save: 'd12' },
+    autoApply: false
   },
   {
     name: 'Haste',
