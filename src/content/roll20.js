@@ -1136,7 +1136,7 @@
           </div>
           <div style="display: flex; align-items: center; gap: 8px;">
             <span id="${playerId}-toggle" style="transition: transform 0.3s; transform: rotate(-90deg); color: #888; font-size: 1.1em;">▼</span>
-            <button onclick="event.stopPropagation(); deletePlayerFromGM('${name}')" style="padding: 4px 8px; background: #e74c3c; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8em; font-weight: bold;" title="Remove player">🗑️</button>
+            <button class="player-delete-btn" data-player-name="${name}" style="padding: 4px 8px; background: #e74c3c; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8em; font-weight: bold;" title="Remove player">🗑️</button>
           </div>
         </div>
     `;
@@ -1280,6 +1280,15 @@
     }).join('');
 
     debug.log(`👥 Updated player overview: ${players.length} players`);
+
+    // Add event listeners for delete buttons
+    document.querySelectorAll('.player-delete-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const playerName = btn.dataset.playerName;
+        deletePlayerFromGM(playerName);
+      });
+    });
   }
 
   /**
