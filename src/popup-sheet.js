@@ -2216,17 +2216,29 @@ function createSpellCard(spell, index) {
 
   // Build header buttons - include attack/damage if available
   let headerButtons = '';
-  if (spell.attackRoll || spell.damage) {
-    if (spell.attackRoll) {
+  const hasAttack = !!spell.attackRoll;
+  const hasDamage = !!spell.damage;
+
+  if (hasAttack || hasDamage) {
+    // Check if damage type is healing
+    const isHealing = spell.damageType && spell.damageType.toLowerCase() === 'healing';
+    const icon = isHealing ? '💚' : '💥';
+    const label = isHealing ? 'Healing' : 'Damage';
+    const bgColor = isHealing ? '#27ae60' : '#e67e22';
+
+    if (hasAttack) {
+      // Attack button always casts spell + rolls attack
       headerButtons += `<button class="spell-attack-btn" data-spell-index="${index}" style="padding: 6px 12px; background: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">⚔️ Attack</button>`;
     }
-    if (spell.damage) {
-      // Check if damage type is healing
-      const isHealing = spell.damageType && spell.damageType.toLowerCase() === 'healing';
-      const icon = isHealing ? '💚' : '💥';
-      const label = isHealing ? 'Healing' : 'Damage';
-      const bgColor = isHealing ? '#27ae60' : '#e67e22';
-      headerButtons += `<button class="spell-damage-btn" data-spell-index="${index}" style="padding: 6px 12px; background: ${bgColor}; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">${icon} ${label}</button>`;
+
+    if (hasDamage) {
+      if (hasAttack) {
+        // If there's both attack and damage, add a damage-only button (doesn't cast, just rolls)
+        headerButtons += `<button class="spell-damage-only-btn" data-spell-index="${index}" style="padding: 6px 12px; background: ${bgColor}; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">${icon} ${label}</button>`;
+      } else {
+        // If there's only damage (no attack), this button casts + rolls
+        headerButtons += `<button class="spell-damage-btn" data-spell-index="${index}" style="padding: 6px 12px; background: ${bgColor}; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">${icon} ${label}</button>`;
+      }
     }
   }
 
@@ -2328,6 +2340,8 @@ function createSpellCard(spell, index) {
           }
           // Resolve other DiceCloud variables
           damageFormula = resolveVariablesInFormula(damageFormula);
+          // Evaluate simple math expressions (e.g., "5*5" -> "25")
+          damageFormula = evaluateMathInFormula(damageFormula);
           const healingLabel = `${spell.name} - Healing`;
           roll(healingLabel, damageFormula);
         };
@@ -2342,11 +2356,35 @@ function createSpellCard(spell, index) {
           }
           // Resolve other DiceCloud variables
           damageFormula = resolveVariablesInFormula(damageFormula);
+          // Evaluate simple math expressions (e.g., "5*5" -> "25")
+          damageFormula = evaluateMathInFormula(damageFormula);
           const damageLabel = spell.damageType ? `${spell.name} - Damage (${spell.damageType})` : `${spell.name} - Damage`;
           roll(damageLabel, damageFormula);
         };
         castSpell(spell, index, afterCast);
       }
+    });
+  }
+
+  // Spell damage-only button (for spells with both attack and damage - just rolls damage without casting)
+  const spellDamageOnlyBtn = header.querySelector('.spell-damage-only-btn');
+  if (spellDamageOnlyBtn && spell.damage) {
+    spellDamageOnlyBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isHealing = spell.damageType && spell.damageType.toLowerCase() === 'healing';
+
+      // Just roll the damage/healing without casting the spell
+      let damageFormula = spell.damage;
+      // Note: We can't replace slotLevel here because we don't know what level it was cast at
+      // The user should have already cast it with the Attack button
+      damageFormula = resolveVariablesInFormula(damageFormula);
+      damageFormula = evaluateMathInFormula(damageFormula);
+
+      const label = isHealing ?
+        `${spell.name} - Healing` :
+        (spell.damageType ? `${spell.name} - Damage (${spell.damageType})` : `${spell.name} - Damage`);
+
+      roll(label, damageFormula);
     });
   }
 
@@ -2363,16 +2401,38 @@ function castSpell(spell, index, afterCast = null) {
     return;
   }
 
-  // Cantrips (level 0) don't need slots
-  if (!spell.level || spell.level === 0 || spell.level === '0') {
-    debug.log('✨ Casting cantrip (no resource needed)');
-    // Don't call markActionAsUsed - announceSpellCast already announces to chat
-    announceSpellCast(spell);
+  // Check if spell is from a magic item (doesn't consume spell slots)
+  const isMagicItemSpell = spell.source && (
+    spell.source.toLowerCase().includes('amulet') ||
+    spell.source.toLowerCase().includes('ring') ||
+    spell.source.toLowerCase().includes('wand') ||
+    spell.source.toLowerCase().includes('staff') ||
+    spell.source.toLowerCase().includes('rod') ||
+    spell.source.toLowerCase().includes('cloak') ||
+    spell.source.toLowerCase().includes('boots') ||
+    spell.source.toLowerCase().includes('bracers') ||
+    spell.source.toLowerCase().includes('gauntlets') ||
+    spell.source.toLowerCase().includes('helm') ||
+    spell.source.toLowerCase().includes('armor') ||
+    spell.source.toLowerCase().includes('weapon') ||
+    spell.source.toLowerCase().includes('talisman') ||
+    spell.source.toLowerCase().includes('orb') ||
+    spell.source.toLowerCase().includes('scroll') ||
+    spell.source.toLowerCase().includes('potion')
+  );
+
+  // Cantrips (level 0) and magic item spells don't need slots
+  if (!spell.level || spell.level === 0 || spell.level === '0' || isMagicItemSpell) {
+    const reason = isMagicItemSpell ? 'magic item' : 'cantrip';
+    debug.log(`✨ Casting ${reason} (no spell slot needed)`);
+    announceSpellCast(spell, isMagicItemSpell ? `${spell.source} (no slot)` : null);
     showNotification(`✨ Cast ${spell.name}!`);
-    // Execute afterCast for cantrips too
+    // Execute afterCast with a fake slot for magic items to allow formulas to work
     if (afterCast && typeof afterCast === 'function') {
       setTimeout(() => {
-        afterCast(spell, null);
+        // For magic items, create a slot object with the spell's level
+        const fakeSlot = isMagicItemSpell && spell.level ? { level: parseInt(spell.level) } : null;
+        afterCast(spell, fakeSlot);
       }, 300);
     }
     return;
@@ -4451,6 +4511,35 @@ function resolveVariablesInFormula(formula) {
   resolvedFormula = resolvedFormula.replace(/\*\*/g, ''); // Remove bold markers
 
   return resolvedFormula;
+}
+
+/**
+ * Evaluate simple mathematical expressions in formulas
+ * Converts things like "5*5" to "25" before sending to Roll20
+ */
+function evaluateMathInFormula(formula) {
+  if (!formula || typeof formula !== 'string') {
+    return formula;
+  }
+
+  // Check if the formula is just a simple math expression (no dice)
+  // Pattern: numbers and operators only (e.g., "5*5", "10+5", "20/4")
+  const simpleMathPattern = /^[\d\s+\-*/().]+$/;
+
+  if (simpleMathPattern.test(formula)) {
+    try {
+      // Use Function constructor to safely evaluate the expression
+      const result = Function(`'use strict'; return (${formula})`)();
+      if (typeof result === 'number' && !isNaN(result)) {
+        debug.log(`✅ Evaluated simple math: ${formula} = ${result}`);
+        return String(result);
+      }
+    } catch (e) {
+      debug.log(`⚠️ Could not evaluate math expression: ${formula}`, e);
+    }
+  }
+
+  return formula;
 }
 
 /**

@@ -911,21 +911,39 @@
 
             if (child.type === 'damage' || (child.type === 'roll' && child.name && child.name.toLowerCase().includes('damage'))) {
               // This is spell damage
+              debug.log(`    📊 Damage child found:`, {
+                name: child.name,
+                amount: child.amount,
+                roll: child.roll
+              });
+
               if (child.amount) {
                 if (typeof child.amount === 'string') {
                   damage = child.amount;
-                } else if (typeof child.amount === 'object' && child.amount.value !== undefined) {
-                  damage = String(child.amount.value);
-                } else if (typeof child.amount === 'object' && child.amount.calculation) {
-                  damage = child.amount.calculation;
+                  debug.log(`      → Using amount string: "${damage}"`);
+                } else if (typeof child.amount === 'object') {
+                  // Prefer calculation over value for dynamic formulas
+                  if (child.amount.calculation) {
+                    damage = child.amount.calculation;
+                    debug.log(`      → Using amount.calculation: "${damage}"`);
+                  } else if (child.amount.value !== undefined) {
+                    damage = String(child.amount.value);
+                    debug.log(`      → Using amount.value: "${damage}"`);
+                  }
                 }
               } else if (child.roll) {
                 if (typeof child.roll === 'string') {
                   damage = child.roll;
-                } else if (typeof child.roll === 'object' && child.roll.value !== undefined) {
-                  damage = String(child.roll.value);
-                } else if (typeof child.roll === 'object' && child.roll.calculation) {
-                  damage = child.roll.calculation;
+                  debug.log(`      → Using roll string: "${damage}"`);
+                } else if (typeof child.roll === 'object') {
+                  // Prefer calculation over value for dynamic formulas
+                  if (child.roll.calculation) {
+                    damage = child.roll.calculation;
+                    debug.log(`      → Using roll.calculation: "${damage}"`);
+                  } else if (child.roll.value !== undefined) {
+                    damage = String(child.roll.value);
+                    debug.log(`      → Using roll.value: "${damage}"`);
+                  }
                 }
               }
 
@@ -961,19 +979,30 @@
 
           // Clean up range - remove spellSniper calculations
           let cleanRange = prop.range || '';
-          if (cleanRange) {
-            // Extract base range from patterns like "{120 * (1 + spellSniper)} feet"
-            // Look for a number at the start of a calculation with spellSniper
-            const rangeWithSpellSniperMatch = cleanRange.match(/\{(\d+)\s*\*\s*\([^)]*spellSniper[^)]*\)\}/i);
-            if (rangeWithSpellSniperMatch) {
-              // Extract the base value and any unit (feet, etc.)
-              const baseValue = rangeWithSpellSniperMatch[1];
-              const unit = cleanRange.match(/\}\s*(\w+)/)?.[1] || '';
-              cleanRange = unit ? `${baseValue} ${unit}` : baseValue;
+          if (cleanRange && cleanRange.toLowerCase().includes('spellsniper')) {
+            debug.log(`  🔍 Cleaning spellSniper from range: "${cleanRange}"`);
+
+            // Try multiple patterns to extract base range value
+            // Pattern 1: {60 * (1 + spellSniper)} feet
+            let match = cleanRange.match(/\{(\d+)\s*\*\s*\([^)]*spellSniper[^)]*\)\}/i);
+            if (match) {
+              const baseValue = match[1];
+              const afterMatch = cleanRange.substring(match.index + match[0].length).trim();
+              cleanRange = `${baseValue} ${afterMatch}`.trim();
+              debug.log(`  ✅ Extracted base range (pattern 1): "${cleanRange}"`);
             } else {
-              // Fallback: remove any curly brace expressions containing spellSniper
-              cleanRange = cleanRange.replace(/\{[^}]*spellSniper[^}]*\}/gi, '');
-              cleanRange = cleanRange.trim();
+              // Pattern 2: Try to find any number before spellSniper calculation
+              match = cleanRange.match(/\{(\d+)[^}]*spellSniper[^}]*\}/i);
+              if (match) {
+                const baseValue = match[1];
+                const afterMatch = cleanRange.substring(match.index + match[0].length).trim();
+                cleanRange = `${baseValue} ${afterMatch}`.trim();
+                debug.log(`  ✅ Extracted base range (pattern 2): "${cleanRange}"`);
+              } else {
+                // Fallback: just remove the entire spellSniper expression
+                cleanRange = cleanRange.replace(/\{[^}]*spellSniper[^}]*\}/gi, '').trim();
+                debug.log(`  ✅ Removed spellSniper expression (fallback): "${cleanRange}"`);
+              }
             }
           }
 
