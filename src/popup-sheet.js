@@ -1143,16 +1143,10 @@ function buildActionsDisplay(container, actions) {
 
         // Special handling for Feline Agility
         if (action.name && action.name.toLowerCase().includes('feline agility')) {
-          if (felineAgilityUsed) {
-            showNotification('⚠️ Feline Agility already used this turn!', 'warning');
-            return;
+          // Check if Feline Agility has uses to consume
+          if (action.uses && !decrementActionUses(action)) {
+            return; // No uses remaining
           }
-          
-          // Mark as used and disable button
-          felineAgilityUsed = true;
-          useBtn.textContent = '✨ Used';
-          useBtn.disabled = true;
-          useBtn.style.background = '#95a5a6';
           
           debug.log('🐱 Feline Agility used');
           showNotification('🐱 Feline Agility activated!', 'success');
@@ -1161,6 +1155,9 @@ function buildActionsDisplay(container, actions) {
           postToChatIfOpener(`${characterData.name} uses Feline Agility! 🐱
 
 When you move on your turn, you can double your speed until the end of the turn. Once you use this ability, you can't use it again until you move 0 feet on one of your turns.`);
+          
+          // Refresh the display to show updated uses
+          buildSheet(characterData);
           return;
         }
 
@@ -1271,14 +1268,16 @@ When you move on your turn, you can double your speed until the end of the turn.
         refreshBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           
-          // Reset Feline Agility usage
-          felineAgilityUsed = false;
-          showNotification('🐱 Feline Agility refreshed!', 'success');
-          
-          // Update the use button to be usable again
-          useBtn.textContent = '✨ Use';
-          useBtn.disabled = false;
-          useBtn.style.background = ''; // Reset to default CSS
+          // Restore Feline Agility uses
+          if (action.uses) {
+            action.usesUsed = 0; // Reset uses used to 0
+            saveCharacterData(); // Save the updated data
+            debug.log('🔄 Feline Agility uses restored');
+            showNotification('🐱 Feline Agility refreshed!', 'success');
+            
+            // Refresh the display to show updated uses
+            buildSheet(characterData);
+          }
           
           // Announce to Roll20 chat
           postToChatIfOpener(`🐱 ${characterData.name} refreshes Feline Agility!`);
