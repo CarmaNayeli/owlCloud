@@ -2221,7 +2221,12 @@ function createSpellCard(spell, index) {
       headerButtons += `<button class="spell-attack-btn" data-spell-index="${index}" style="padding: 6px 12px; background: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">⚔️ Attack</button>`;
     }
     if (spell.damage) {
-      headerButtons += `<button class="spell-damage-btn" data-spell-index="${index}" style="padding: 6px 12px; background: #e67e22; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">💥 Damage</button>`;
+      // Check if damage type is healing
+      const isHealing = spell.damageType && spell.damageType.toLowerCase() === 'healing';
+      const icon = isHealing ? '💚' : '💥';
+      const label = isHealing ? 'Healing' : 'Damage';
+      const bgColor = isHealing ? '#27ae60' : '#e67e22';
+      headerButtons += `<button class="spell-damage-btn" data-spell-index="${index}" style="padding: 6px 12px; background: ${bgColor}; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">${icon} ${label}</button>`;
     }
   }
 
@@ -2290,19 +2295,38 @@ function createSpellCard(spell, index) {
   if (spellAttackBtn) {
     spellAttackBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const attackBonus = getSpellAttackBonus();
-      const attackFormula = attackBonus >= 0 ? `1d20+${attackBonus}` : `1d20${attackBonus}`;
-      roll(`${spell.name} - Spell Attack`, attackFormula);
+      // Cast spell with auto-roll attack callback
+      const afterCast = (spell, slot) => {
+        const attackBonus = getSpellAttackBonus();
+        const attackFormula = attackBonus >= 0 ? `1d20+${attackBonus}` : `1d20${attackBonus}`;
+        roll(`${spell.name} - Spell Attack`, attackFormula);
+      };
+      castSpell(spell, index, afterCast);
     });
   }
 
-  // Spell damage button
+  // Spell damage/healing button
   const spellDamageBtn = header.querySelector('.spell-damage-btn');
   if (spellDamageBtn && spell.damage) {
     spellDamageBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const damageLabel = spell.damageType ? `${spell.name} - Damage (${spell.damageType})` : `${spell.name} - Damage`;
-      roll(damageLabel, spell.damage);
+      const isHealing = spell.damageType && spell.damageType.toLowerCase() === 'healing';
+
+      if (isHealing) {
+        // For healing spells, cast the spell AND roll healing
+        const afterCast = (spell, slot) => {
+          const healingLabel = `${spell.name} - Healing`;
+          roll(healingLabel, spell.damage);
+        };
+        castSpell(spell, index, afterCast);
+      } else {
+        // For damage spells, cast the spell AND roll damage
+        const afterCast = (spell, slot) => {
+          const damageLabel = spell.damageType ? `${spell.name} - Damage (${spell.damageType})` : `${spell.name} - Damage`;
+          roll(damageLabel, spell.damage);
+        };
+        castSpell(spell, index, afterCast);
+      }
     });
   }
 
@@ -2311,7 +2335,7 @@ function createSpellCard(spell, index) {
   return card;
 }
 
-function castSpell(spell, index) {
+function castSpell(spell, index, afterCast = null) {
   debug.log('✨ Attempting to cast:', spell.name, spell);
 
   if (!characterData) {
@@ -2325,6 +2349,12 @@ function castSpell(spell, index) {
     // Don't call markActionAsUsed - announceSpellCast already announces to chat
     announceSpellCast(spell);
     showNotification(`✨ Cast ${spell.name}!`);
+    // Execute afterCast for cantrips too
+    if (afterCast && typeof afterCast === 'function') {
+      setTimeout(() => {
+        afterCast(spell, null);
+      }, 300);
+    }
     return;
   }
 
@@ -2357,7 +2387,7 @@ function castSpell(spell, index) {
 
     if (hasHigherSlots) {
       // Show upcast choice even though base level is empty
-      showUpcastChoice(spell, spellLevel);
+      showUpcastChoice(spell, spellLevel, afterCast);
       return;
     } else {
       showNotification(`❌ No spell slots remaining for level ${spellLevel} or higher!`, 'error');
@@ -2366,7 +2396,7 @@ function castSpell(spell, index) {
   }
 
   // Has slots at this level - show upcast choice
-  showUpcastChoice(spell, spellLevel);
+  showUpcastChoice(spell, spellLevel, afterCast);
 }
 
 function detectClassResources(spell) {
@@ -2508,7 +2538,7 @@ function showResourceChoice(spell, spellLevel, spellSlots, maxSlots, classResour
   });
 }
 
-function showUpcastChoice(spell, originalLevel) {
+function showUpcastChoice(spell, originalLevel, afterCast = null) {
   // Get all available spell slots at this level or higher
   const availableSlots = [];
   for (let level = originalLevel; level <= 9; level++) {
@@ -2534,7 +2564,7 @@ function showUpcastChoice(spell, originalLevel) {
 
   // If only the original level is available and no metamagic, just cast it
   if (availableSlots.length === 1 && !hasMetamagic) {
-    castWithSlot(spell, availableSlots[0]);
+    castWithSlot(spell, availableSlots[0], [], afterCast);
     return;
   }
 
@@ -2690,7 +2720,7 @@ function showUpcastChoice(spell, originalLevel) {
     const selectedLevel = parseInt(selectElement.value);
     const selectedSlot = availableSlots.find(s => s.level === selectedLevel);
     modal.remove();
-    castWithSlot(spell, selectedSlot, selectedMetamagic);
+    castWithSlot(spell, selectedSlot, selectedMetamagic, afterCast);
   });
 
   cancelBtn.addEventListener('click', () => {
@@ -2705,7 +2735,7 @@ function showUpcastChoice(spell, originalLevel) {
   });
 }
 
-function castWithSlot(spell, slot, metamagicOptions = []) {
+function castWithSlot(spell, slot, metamagicOptions = [], afterCast = null) {
   // Deduct spell slot
   characterData.spellSlots[slot.slotVar] = slot.current - 1;
 
@@ -2753,6 +2783,13 @@ function castWithSlot(spell, slot, metamagicOptions = []) {
 
   // Update the display
   buildSheet(characterData);
+
+  // Execute after-cast callback (for rolling attack/damage/healing)
+  if (afterCast && typeof afterCast === 'function') {
+    setTimeout(() => {
+      afterCast(spell, slot);
+    }, 300); // Small delay to ensure chat message is sent first
+  }
 }
 
 function useClassResource(resource, spell) {
