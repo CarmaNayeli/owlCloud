@@ -1238,6 +1238,29 @@ function buildActionsDisplay(container, actions) {
         announceAction(action);
       });
       buttonsDiv.appendChild(useBtn);
+
+      // Add refresh button for Feline Agility
+      if (action.name && action.name.toLowerCase().includes('feline agility')) {
+        const refreshBtn = document.createElement('button');
+        refreshBtn.className = 'use-btn';
+        refreshBtn.style.cssText = 'background: #3498db; margin-left: 5px;';
+        refreshBtn.textContent = '🔄 Refresh';
+        refreshBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          
+          // Reset Feline Agility usage
+          felineAgilityUsed = false;
+          showNotification('🐱 Feline Agility refreshed!', 'success');
+          
+          // Update the use button text
+          useBtn.textContent = '✨ Use';
+          useBtn.disabled = false;
+          
+          // Announce to Roll20 chat
+          postToChatIfOpener(`🐱 ${characterData.name} refreshes Feline Agility!`);
+        });
+        buttonsDiv.appendChild(refreshBtn);
+      }
     }
 
     // Fallback: Add Use button for actions without attackRoll/damage/description
@@ -4931,69 +4954,7 @@ function initActionEconomy() {
     });
   }
 
-  // Feline Agility Use Button
-  const felineAgilityUseBtn = document.getElementById('feline-agility-use-btn');
-  const felineAgilityRefreshBtn = document.getElementById('feline-agility-refresh-btn');
-  
-  if (felineAgilityUseBtn) {
-    felineAgilityUseBtn.addEventListener('click', () => {
-      if (felineAgilityUsed) {
-        showNotification('⚠️ Feline Agility already used this turn!', 'warning');
-        return;
-      }
-
-      // Use Feline Agility
-      felineAgilityUsed = true;
-      updateFelineAgilityButtons();
-      debug.log('🐱 Feline Agility used');
-      showNotification('🐱 Feline Agility activated!', 'success');
-
-      // Post to Roll20 chat like other actions
-      postToChatIfOpener(`${characterData.name} uses Feline Agility! 🐱
-
-When you move on your turn, you can double your speed until the end of the turn. Once you use this ability, you can't use it again until you move 0 feet on one of your turns.`);
-    });
-  }
-
-  if (felineAgilityRefreshBtn) {
-    felineAgilityRefreshBtn.addEventListener('click', () => {
-      if (!felineAgilityUsed) {
-        showNotification('⚠️ Feline Agility is already available!', 'warning');
-        return;
-      }
-
-      // Refresh Feline Agility
-      felineAgilityUsed = false;
-      updateFelineAgilityButtons();
-      debug.log('🔄 Feline Agility refreshed');
-      showNotification('🐱 Feline Agility refreshed!', 'success');
-
-      // Announce to Roll20 chat
-      postToChatIfOpener(`🐱 ${characterData.name} refreshes Feline Agility!`);
-    });
-  }
-
-  // Initialize Feline Agility buttons
-  updateFelineAgilityButtons();
-
   debug.log('✅ Action economy initialized');
-}
-
-/**
- * Update Feline Agility button states
- */
-function updateFelineAgilityButtons() {
-  const useBtn = document.getElementById('feline-agility-use-btn');
-  const refreshBtn = document.getElementById('feline-agility-refresh-btn');
-
-  if (useBtn) {
-    useBtn.disabled = felineAgilityUsed;
-    useBtn.textContent = felineAgilityUsed ? '🐱 Used' : '🐱 Use';
-  }
-
-  if (refreshBtn) {
-    refreshBtn.disabled = !felineAgilityUsed;
-  }
 }
 
 /**
@@ -5004,8 +4965,6 @@ function updateActionEconomyAvailability() {
   const bonusActionIndicator = document.getElementById('bonus-action-indicator');
   const movementIndicator = document.getElementById('movement-indicator');
   const reactionIndicator = document.getElementById('reaction-indicator');
-  const felineAgilityUseBtn = document.getElementById('feline-agility-use-btn');
-  const felineAgilityRefreshBtn = document.getElementById('feline-agility-refresh-btn');
 
   const turnBasedActions = [actionIndicator, bonusActionIndicator, movementIndicator];
 
@@ -5020,10 +4979,6 @@ function updateActionEconomyAvailability() {
         indicator.style.removeProperty('pointer-events');
       }
     });
-
-    // Enable Feline Agility buttons on your turn
-    if (felineAgilityUseBtn) felineAgilityUseBtn.disabled = felineAgilityUsed;
-    if (felineAgilityRefreshBtn) felineAgilityRefreshBtn.disabled = !felineAgilityUsed;
   } else {
     // Disable turn-based actions, keep reaction available
     turnBasedActions.forEach(indicator => {
@@ -5044,13 +4999,9 @@ function updateActionEconomyAvailability() {
       reactionIndicator.style.removeProperty('cursor');
       reactionIndicator.style.removeProperty('pointer-events');
     }
-
-    // Disable Feline Agility buttons when not your turn
-    if (felineAgilityUseBtn) felineAgilityUseBtn.disabled = true;
-    if (felineAgilityRefreshBtn) felineAgilityRefreshBtn.disabled = true;
   }
 
-  debug.log(`🔄 Action economy updated: isMyTurn=${isMyTurn}, actions=${turnBasedActions.length > 0 ? 'enabled' : 'disabled'}, reaction=${reactionIndicator ? 'enabled' : 'N/A'}, felineAgility=${felineAgilityUseBtn ? (felineAgilityUseBtn.disabled ? 'disabled' : 'enabled') : 'N/A'}`);
+  debug.log(`🔄 Action economy updated: isMyTurn=${isMyTurn}, actions=${turnBasedActions.length > 0 ? 'enabled' : 'disabled'}, reaction=${reactionIndicator ? 'enabled' : 'N/A'}`);
 }
 
 /**
