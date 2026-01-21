@@ -2229,6 +2229,12 @@ function createSpellCard(spell, index) {
   const desc = document.createElement('div');
   desc.className = 'spell-description';
   desc.id = `spell-desc-${index}`;
+
+  // Debug spell data
+  if (spell.attackRoll || spell.damage) {
+    debug.log(`📝 Spell "${spell.name}" has attack/damage:`, { attackRoll: spell.attackRoll, damage: spell.damage, damageType: spell.damageType });
+  }
+
   // Build action buttons HTML
   let actionButtons = '';
   if (spell.attackRoll || spell.damage) {

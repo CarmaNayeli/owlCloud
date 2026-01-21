@@ -888,9 +888,13 @@
             return false;
           });
 
+          debug.log(`🔍 Spell "${prop.name}" has ${spellChildren.length} child properties:`, spellChildren.map(c => ({ type: c.type, name: c.name })));
+
           // Extract attack rolls and damage from children
           spellChildren.forEach(child => {
-            if (child.type === 'roll' && child.name && child.name.toLowerCase().includes('attack')) {
+            debug.log(`  📋 Processing child: ${child.name} (${child.type})`);
+
+            if (child.type === 'attack' || (child.type === 'roll' && child.name && child.name.toLowerCase().includes('attack'))) {
               // This is a spell attack roll
               if (child.roll) {
                 if (typeof child.roll === 'string') {
@@ -898,9 +902,14 @@
                 } else if (typeof child.roll === 'object' && child.roll.value !== undefined) {
                   const bonus = child.roll.value;
                   attackRoll = bonus >= 0 ? `1d20+${bonus}` : `1d20${bonus}`;
+                } else if (typeof child.roll === 'object' && child.roll.calculation) {
+                  attackRoll = child.roll.calculation;
                 }
               }
-            } else if (child.type === 'damage' || (child.type === 'roll' && child.name && child.name.toLowerCase().includes('damage'))) {
+              debug.log(`    ✅ Found attack roll: ${attackRoll}`);
+            }
+
+            if (child.type === 'damage' || (child.type === 'roll' && child.name && child.name.toLowerCase().includes('damage'))) {
               // This is spell damage
               if (child.amount) {
                 if (typeof child.amount === 'string') {
@@ -915,6 +924,8 @@
                   damage = child.roll;
                 } else if (typeof child.roll === 'object' && child.roll.value !== undefined) {
                   damage = String(child.roll.value);
+                } else if (typeof child.roll === 'object' && child.roll.calculation) {
+                  damage = child.roll.calculation;
                 }
               }
 
@@ -922,15 +933,44 @@
               if (child.damageType) {
                 damageType = child.damageType;
               }
+
+              debug.log(`    ✅ Found damage: ${damage} (${damageType})`);
             }
           });
+
+          // If no attack/damage found in children, check description for common patterns
+          if (!attackRoll && !damage && description) {
+            // Look for spell attack patterns like "ranged spell attack" or "melee spell attack"
+            if (description.toLowerCase().includes('spell attack')) {
+              attackRoll = 'use_spell_attack_bonus'; // Flag to use calculated spell attack bonus
+              debug.log(`  💡 Found "spell attack" in description, marking for spell attack bonus`);
+            }
+
+            // Look for damage patterns like "4d6" or "1d10"
+            const damagePattern = /(\d+d\d+(?:\s*\+\s*\d+)?)\s+(\w+)\s+damage/i;
+            const damageMatch = description.match(damagePattern);
+            if (damageMatch) {
+              damage = damageMatch[1].replace(/\s/g, '');
+              damageType = damageMatch[2];
+              debug.log(`  💡 Found damage in description: ${damage} ${damageType}`);
+            }
+          }
+
+          // Clean up range - remove spellSniper calculations
+          let cleanRange = prop.range || '';
+          if (cleanRange) {
+            // Remove patterns like "+ {† × spellSniper}" or similar calculations
+            cleanRange = cleanRange.replace(/\s*\+\s*\{[^}]*spellSniper[^}]*\}/gi, '');
+            cleanRange = cleanRange.replace(/\s*\{[^}]*spellSniper[^}]*\}\s*\+/gi, '');
+            cleanRange = cleanRange.trim();
+          }
 
           characterData.spells.push({
             name: prop.name || 'Unnamed Spell',
             level: prop.level || 0,
             school: prop.school || '',
             castingTime: prop.castingTime || '',
-            range: prop.range || '',
+            range: cleanRange,
             components: prop.components || '',
             duration: prop.duration || '',
             description: description,
