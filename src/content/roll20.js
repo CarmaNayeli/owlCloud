@@ -318,17 +318,33 @@
         characterName: request.characterName || request.roll?.characterName
       };
 
-      // Format and post to Roll20 chat
-      const formattedMessage = formatRollForRoll20(rollData);
-      const success = postChatMessage(formattedMessage);
+      // Check if GM mode is enabled - if so, hide the roll instead of posting
+      if (gmModeEnabled) {
+        debug.log('👑 GM Mode active - hiding roll instead of posting');
+        const hiddenRoll = {
+          id: Date.now() + Math.random(), // Unique ID
+          name: rollData.name,
+          formula: rollData.formula,
+          characterName: rollData.characterName,
+          timestamp: new Date().toLocaleTimeString(),
+          result: null // Will be filled when revealed
+        };
+        hiddenRolls.push(hiddenRoll);
+        updateHiddenRollsDisplay();
+        sendResponse({ success: true, hidden: true });
+      } else {
+        // Normal flow - post to Roll20 chat
+        const formattedMessage = formatRollForRoll20(rollData);
+        const success = postChatMessage(formattedMessage);
 
-      if (success) {
-        debug.log('✅ Roll posted directly to Roll20 (no DiceCloud!)');
-        // Observe Roll20's result for natural 1s/20s
-        observeNextRollResult(rollData);
+        if (success) {
+          debug.log('✅ Roll posted directly to Roll20 (no DiceCloud!)');
+          // Observe Roll20's result for natural 1s/20s
+          observeNextRollResult(rollData);
+        }
+
+        sendResponse({ success: success });
       }
-
-      sendResponse({ success: success });
     } else if (request.action === 'announceSpell') {
       // Handle spell/action announcements relayed from background script (Firefox)
       if (request.message) {
@@ -418,14 +434,37 @@
         characterName: event.data.characterName
       };
 
-      // Format and post to Roll20 chat
-      const formattedMessage = formatRollForRoll20(rollData);
-      const success = postChatMessage(formattedMessage);
+      // Check if GM mode is enabled - if so, hide the roll instead of posting
+      if (gmModeEnabled) {
+        debug.log('👑 GM Mode active - hiding roll instead of posting');
+        const hiddenRoll = {
+          id: Date.now() + Math.random(), // Unique ID
+          name: rollData.name,
+          formula: rollData.formula,
+          characterName: rollData.characterName,
+          timestamp: new Date().toLocaleTimeString(),
+          result: null // Will be filled when revealed
+        };
+        hiddenRolls.push(hiddenRoll);
+        updateHiddenRollsDisplay();
 
-      if (success) {
-        debug.log('✅ Roll posted directly to Roll20 (no DiceCloud!)');
-        // Observe Roll20's result for natural 1s/20s
-        observeNextRollResult(rollData);
+        // Send confirmation back to popup
+        if (event.source) {
+          event.source.postMessage({
+            action: 'rollHidden',
+            roll: hiddenRoll
+          }, '*');
+        }
+      } else {
+        // Normal flow - post to Roll20 chat
+        const formattedMessage = formatRollForRoll20(rollData);
+        const success = postChatMessage(formattedMessage);
+
+        if (success) {
+          debug.log('✅ Roll posted directly to Roll20 (no DiceCloud!)');
+          // Observe Roll20's result for natural 1s/20s
+          observeNextRollResult(rollData);
+        }
       }
     } else if (event.data.action === 'announceSpell') {
       // Handle spell/action announcements with pre-formatted messages
@@ -448,8 +487,12 @@
   let initiativeTracker = {
     combatants: [],
     currentTurnIndex: 0,
-    round: 1
+    round: 1,
+    delayedCombatants: [] // Track combatants who have delayed their turn
   };
+  let hiddenRolls = []; // Store hidden GM rolls
+  let turnHistory = []; // Store turn history for logging
+  let playerData = {}; // Store player overview data { characterName: { hp, maxHp, ac, etc } }
 
   /**
    * Create GM Initiative Tracker Panel
@@ -464,7 +507,7 @@
       position: fixed;
       top: 80px;
       right: 20px;
-      width: 350px;
+      width: 380px;
       background: #2a2a2a;
       border: 3px solid #4ECDC4;
       border-radius: 12px;
@@ -490,20 +533,55 @@
     `;
     header.innerHTML = `
       <div style="font-weight: bold; font-size: 1.1em; display: flex; align-items: center; gap: 6px;">
-        <span>👑</span> GM Initiative Tracker
+        <span>👑</span> GM Panel
       </div>
       <button id="gm-panel-close" style="background: transparent; border: none; color: #fff; font-size: 1.3em; cursor: pointer; padding: 0 8px;">✕</button>
     `;
 
-    // Create content area
-    const content = document.createElement('div');
-    content.style.cssText = `
+    // Create tab navigation
+    const tabNav = document.createElement('div');
+    tabNav.style.cssText = `
+      display: flex;
+      background: #1e1e1e;
+      border-bottom: 2px solid #4ECDC4;
+    `;
+    tabNav.innerHTML = `
+      <button class="gm-tab-btn active" data-tab="initiative" style="flex: 1; padding: 10px 8px; background: #2a2a2a; color: #4ECDC4; border: none; border-bottom: 3px solid #4ECDC4; cursor: pointer; font-weight: bold; font-size: 0.85em; transition: all 0.2s;">⚔️ Initiative</button>
+      <button class="gm-tab-btn" data-tab="hidden-rolls" style="flex: 1; padding: 10px 8px; background: transparent; color: #888; border: none; border-bottom: 3px solid transparent; cursor: pointer; font-weight: bold; font-size: 0.85em; transition: all 0.2s;">🎲 Hidden</button>
+      <button class="gm-tab-btn" data-tab="players" style="flex: 1; padding: 10px 8px; background: transparent; color: #888; border: none; border-bottom: 3px solid transparent; cursor: pointer; font-weight: bold; font-size: 0.85em; transition: all 0.2s;">👥 Players</button>
+      <button class="gm-tab-btn" data-tab="history" style="flex: 1; padding: 10px 8px; background: transparent; color: #888; border: none; border-bottom: 3px solid transparent; cursor: pointer; font-weight: bold; font-size: 0.85em; transition: all 0.2s;">📜 History</button>
+    `;
+
+    // Create content area wrapper
+    const contentWrapper = document.createElement('div');
+    contentWrapper.style.cssText = `
       padding: 15px;
       max-height: 500px;
       overflow-y: auto;
     `;
 
-    // Create controls
+    // Create tab content containers
+    const initiativeTab = document.createElement('div');
+    initiativeTab.className = 'gm-tab-content';
+    initiativeTab.dataset.tab = 'initiative';
+    initiativeTab.style.display = 'block';
+
+    const hiddenRollsTab = document.createElement('div');
+    hiddenRollsTab.className = 'gm-tab-content';
+    hiddenRollsTab.dataset.tab = 'hidden-rolls';
+    hiddenRollsTab.style.display = 'none';
+
+    const playersTab = document.createElement('div');
+    playersTab.className = 'gm-tab-content';
+    playersTab.dataset.tab = 'players';
+    playersTab.style.display = 'none';
+
+    const historyTab = document.createElement('div');
+    historyTab.className = 'gm-tab-content';
+    historyTab.dataset.tab = 'history';
+    historyTab.style.display = 'none';
+
+    // ===== INITIATIVE TAB CONTENT =====
     const controls = document.createElement('div');
     controls.style.cssText = `
       display: grid;
@@ -518,7 +596,6 @@
       <button id="clear-all-btn" style="padding: 8px 12px; background: #e74c3c; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.85em; grid-column: span 2;">🗑️ Clear All</button>
     `;
 
-    // Create round display
     const roundDisplay = document.createElement('div');
     roundDisplay.id = 'round-display';
     roundDisplay.style.cssText = `
@@ -531,7 +608,6 @@
     `;
     roundDisplay.textContent = 'Round 1';
 
-    // Create initiative list
     const initiativeList = document.createElement('div');
     initiativeList.id = 'initiative-list';
     initiativeList.style.cssText = `
@@ -541,7 +617,6 @@
       margin-bottom: 15px;
     `;
 
-    // Create add combatant form with collapsible header
     const addFormSection = document.createElement('div');
     addFormSection.style.cssText = `
       margin-top: 15px;
@@ -586,13 +661,56 @@
     addFormSection.appendChild(addFormHeader);
     addFormSection.appendChild(addForm);
 
+    // Add initiative content to initiative tab
+    initiativeTab.appendChild(controls);
+    initiativeTab.appendChild(roundDisplay);
+    initiativeTab.appendChild(initiativeList);
+    initiativeTab.appendChild(addFormSection);
+
+    // ===== HIDDEN ROLLS TAB CONTENT =====
+    hiddenRollsTab.innerHTML = `
+      <div style="text-align: center; padding: 20px; color: #888;">
+        <div style="font-size: 3em; margin-bottom: 10px;">🎲</div>
+        <p style="margin: 0;">No hidden rolls yet</p>
+        <p style="font-size: 0.85em; margin-top: 8px;">Rolls made while GM Mode is active will appear here</p>
+      </div>
+      <div id="hidden-rolls-list" style="display: flex; flex-direction: column; gap: 8px;"></div>
+    `;
+
+    // ===== PLAYER OVERVIEW TAB CONTENT =====
+    playersTab.innerHTML = `
+      <div style="text-align: center; padding: 20px; color: #888;">
+        <div style="font-size: 3em; margin-bottom: 10px;">👥</div>
+        <p style="margin: 0;">No players tracked yet</p>
+        <p style="font-size: 0.85em; margin-top: 8px;">Party members will appear here automatically</p>
+      </div>
+      <div id="player-overview-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
+    `;
+
+    // ===== TURN HISTORY TAB CONTENT =====
+    historyTab.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h3 style="margin: 0; font-size: 1em; color: #4ECDC4;">Last 10 Turns</h3>
+        <button id="export-history-btn" style="padding: 6px 12px; background: #3498db; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 0.8em;">📋 Copy</button>
+      </div>
+      <div style="text-align: center; padding: 20px; color: #888;">
+        <div style="font-size: 3em; margin-bottom: 10px;">📜</div>
+        <p style="margin: 0;">No turn history yet</p>
+        <p style="font-size: 0.85em; margin-top: 8px;">Combat actions will be logged here</p>
+      </div>
+      <div id="turn-history-list" style="display: flex; flex-direction: column; gap: 8px;"></div>
+    `;
+
+    // Assemble all tabs into content wrapper
+    contentWrapper.appendChild(initiativeTab);
+    contentWrapper.appendChild(hiddenRollsTab);
+    contentWrapper.appendChild(playersTab);
+    contentWrapper.appendChild(historyTab);
+
     // Assemble panel
-    content.appendChild(controls);
-    content.appendChild(roundDisplay);
-    content.appendChild(initiativeList);
-    content.appendChild(addFormSection);
     gmPanel.appendChild(header);
-    gmPanel.appendChild(content);
+    gmPanel.appendChild(tabNav);
+    gmPanel.appendChild(contentWrapper);
     document.body.appendChild(gmPanel);
 
     // Make draggable
@@ -641,6 +759,36 @@
    * Attach event listeners to GM panel controls
    */
   function attachGMPanelListeners() {
+    // Tab switching
+    const tabButtons = gmPanel.querySelectorAll('.gm-tab-btn');
+    const tabContents = gmPanel.querySelectorAll('.gm-tab-content');
+
+    tabButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetTab = btn.dataset.tab;
+
+        // Update button styles
+        tabButtons.forEach(b => {
+          if (b.dataset.tab === targetTab) {
+            b.style.background = '#2a2a2a';
+            b.style.color = '#4ECDC4';
+            b.style.borderBottom = '3px solid #4ECDC4';
+          } else {
+            b.style.background = 'transparent';
+            b.style.color = '#888';
+            b.style.borderBottom = '3px solid transparent';
+          }
+        });
+
+        // Show target tab content, hide others
+        tabContents.forEach(content => {
+          content.style.display = content.dataset.tab === targetTab ? 'block' : 'none';
+        });
+
+        debug.log(`📑 Switched to GM tab: ${targetTab}`);
+      });
+    });
+
     // Close button
     const closeBtn = document.getElementById('gm-panel-close');
     if (closeBtn) {
@@ -710,7 +858,319 @@
       });
     }
 
+    // Export turn history button
+    const exportHistoryBtn = document.getElementById('export-history-btn');
+    if (exportHistoryBtn) {
+      exportHistoryBtn.addEventListener('click', exportTurnHistory);
+    }
+
     debug.log('✅ GM Panel listeners attached');
+  }
+
+  /**
+   * Update Hidden Rolls Display
+   */
+  function updateHiddenRollsDisplay() {
+    const hiddenRollsList = document.getElementById('hidden-rolls-list');
+    if (!hiddenRollsList) return;
+
+    if (hiddenRolls.length === 0) {
+      hiddenRollsList.innerHTML = '';
+      // Show empty state if tab content exists
+      const tabContent = gmPanel.querySelector('[data-tab="hidden-rolls"]');
+      if (tabContent) {
+        const emptyState = tabContent.querySelector('div[style*="text-align: center"]');
+        if (emptyState) emptyState.style.display = 'block';
+      }
+      return;
+    }
+
+    // Hide empty state
+    const tabContent = gmPanel.querySelector('[data-tab="hidden-rolls"]');
+    if (tabContent) {
+      const emptyState = tabContent.querySelector('div[style*="text-align: center"]');
+      if (emptyState) emptyState.style.display = 'none';
+    }
+
+    hiddenRollsList.innerHTML = hiddenRolls.map((roll, index) => `
+      <div style="background: #34495e; padding: 12px; border-radius: 8px; border-left: 4px solid #f39c12;">
+        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+          <div style="flex: 1;">
+            <div style="font-weight: bold; color: #f39c12; margin-bottom: 4px;">${roll.characterName}</div>
+            <div style="font-size: 0.9em; color: #ccc;">${roll.name}</div>
+            <div style="font-size: 0.85em; color: #888; margin-top: 4px;">${roll.timestamp}</div>
+          </div>
+          <div style="font-size: 1.2em; color: #f39c12;">🔒</div>
+        </div>
+        <div style="background: #2c3e50; padding: 8px; border-radius: 4px; font-family: monospace; font-size: 0.9em; margin-bottom: 10px;">
+          ${roll.formula}
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button onclick="revealHiddenRoll(${roll.id})" style="flex: 1; padding: 8px; background: #27ae60; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.85em;">
+            🔓 Reveal Roll
+          </button>
+          <button onclick="deleteHiddenRoll(${roll.id})" style="padding: 8px 12px; background: #e74c3c; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85em;">
+            🗑️
+          </button>
+        </div>
+      </div>
+    `).join('');
+
+    debug.log(`📋 Updated hidden rolls display: ${hiddenRolls.length} rolls`);
+  }
+
+  /**
+   * Reveal a hidden roll (post it to Roll20 chat)
+   */
+  window.revealHiddenRoll = function(rollId) {
+    const rollIndex = hiddenRolls.findIndex(r => r.id === rollId);
+    if (rollIndex === -1) return;
+
+    const roll = hiddenRolls[rollIndex];
+    debug.log('🔓 Revealing hidden roll:', roll);
+
+    // Format and post to Roll20 chat
+    const rollData = {
+      name: roll.name,
+      formula: roll.formula,
+      characterName: roll.characterName
+    };
+
+    const formattedMessage = formatRollForRoll20(rollData);
+    const success = postChatMessage(formattedMessage);
+
+    if (success) {
+      debug.log('✅ Hidden roll revealed to Roll20');
+      // Remove from hidden rolls
+      hiddenRolls.splice(rollIndex, 1);
+      updateHiddenRollsDisplay();
+
+      // Show notification
+      postChatMessage(`👑 GM revealed a hidden roll: ${roll.name}`);
+    } else {
+      debug.error('❌ Failed to reveal hidden roll');
+    }
+  };
+
+  /**
+   * Delete a hidden roll without revealing
+   */
+  window.deleteHiddenRoll = function(rollId) {
+    const rollIndex = hiddenRolls.findIndex(r => r.id === rollId);
+    if (rollIndex === -1) return;
+
+    hiddenRolls.splice(rollIndex, 1);
+    updateHiddenRollsDisplay();
+    debug.log('🗑️ Deleted hidden roll');
+  };
+
+  /**
+   * Update Player Overview Display
+   */
+  function updatePlayerOverviewDisplay() {
+    const playerOverviewList = document.getElementById('player-overview-list');
+    if (!playerOverviewList) return;
+
+    const players = Object.keys(playerData);
+
+    if (players.length === 0) {
+      playerOverviewList.innerHTML = '';
+      // Show empty state
+      const tabContent = gmPanel.querySelector('[data-tab="players"]');
+      if (tabContent) {
+        const emptyState = tabContent.querySelector('div[style*="text-align: center"]');
+        if (emptyState) emptyState.style.display = 'block';
+      }
+      return;
+    }
+
+    // Hide empty state
+    const tabContent = gmPanel.querySelector('[data-tab="players"]');
+    if (tabContent) {
+      const emptyState = tabContent.querySelector('div[style*="text-align: center"]');
+      if (emptyState) emptyState.style.display = 'none';
+    }
+
+    playerOverviewList.innerHTML = players.map(name => {
+      const player = playerData[name];
+      const hpPercent = player.maxHp > 0 ? (player.hp / player.maxHp) * 100 : 0;
+      const hpColor = hpPercent > 50 ? '#27ae60' : hpPercent > 25 ? '#f39c12' : '#e74c3c';
+
+      return `
+        <div style="background: #34495e; padding: 12px; border-radius: 8px; border-left: 4px solid ${hpColor};">
+          <div style="font-weight: bold; font-size: 1em; color: #4ECDC4; margin-bottom: 8px;">${name}</div>
+
+          <!-- HP Bar -->
+          <div style="margin-bottom: 8px;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.85em; color: #ccc; margin-bottom: 4px;">
+              <span>HP</span>
+              <span>${player.hp}/${player.maxHp}</span>
+            </div>
+            <div style="width: 100%; height: 8px; background: #2c3e50; border-radius: 4px; overflow: hidden;">
+              <div style="width: ${hpPercent}%; height: 100%; background: ${hpColor}; transition: width 0.3s;"></div>
+            </div>
+          </div>
+
+          <!-- Stats Grid -->
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px;">
+            <div style="background: #2c3e50; padding: 6px; border-radius: 4px; text-align: center;">
+              <div style="font-size: 0.75em; color: #888;">AC</div>
+              <div style="font-weight: bold; color: #fff;">${player.ac || '—'}</div>
+            </div>
+            <div style="background: #2c3e50; padding: 6px; border-radius: 4px; text-align: center;">
+              <div style="font-size: 0.75em; color: #888;">Passive</div>
+              <div style="font-weight: bold; color: #fff;">${player.passivePerception || '—'}</div>
+            </div>
+            <div style="background: #2c3e50; padding: 6px; border-radius: 4px; text-align: center;">
+              <div style="font-size: 0.75em; color: #888;">Init</div>
+              <div style="font-weight: bold; color: #fff;">${player.initiative || '—'}</div>
+            </div>
+          </div>
+
+          <!-- Conditions -->
+          ${player.conditions && player.conditions.length > 0 ? `
+            <div style="margin-bottom: 6px;">
+              <div style="font-size: 0.75em; color: #888; margin-bottom: 4px;">Conditions:</div>
+              <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                ${player.conditions.map(c => `<span style="background: #e74c3c; padding: 2px 6px; border-radius: 4px; font-size: 0.75em;">${c}</span>`).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- Concentration -->
+          ${player.concentration ? `
+            <div style="background: #9b59b6; padding: 4px 8px; border-radius: 4px; font-size: 0.75em; margin-bottom: 6px;">
+              🧠 Concentrating: ${player.concentration}
+            </div>
+          ` : ''}
+
+          <!-- Death Saves (if unconscious) -->
+          ${player.deathSaves ? `
+            <div style="background: #c0392b; padding: 6px 8px; border-radius: 4px; font-size: 0.85em;">
+              💀 Death Saves: ✓${player.deathSaves.successes || 0} / ✗${player.deathSaves.failures || 0}
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }).join('');
+
+    debug.log(`👥 Updated player overview: ${players.length} players`);
+  }
+
+  /**
+   * Update player data from character sheet
+   */
+  function updatePlayerData(characterName, data) {
+    if (!playerData[characterName]) {
+      playerData[characterName] = {};
+    }
+
+    // Merge new data
+    Object.assign(playerData[characterName], data);
+
+    // Update display if GM panel is open
+    if (gmModeEnabled) {
+      updatePlayerOverviewDisplay();
+    }
+
+    debug.log(`👤 Updated player data for ${characterName}:`, playerData[characterName]);
+  }
+
+  /**
+   * Log turn action to history
+   */
+  function logTurnAction(action) {
+    const historyEntry = {
+      timestamp: new Date().toLocaleTimeString(),
+      round: initiativeTracker.round,
+      turnIndex: initiativeTracker.currentTurnIndex,
+      combatant: getCurrentCombatant()?.name || 'Unknown',
+      ...action
+    };
+
+    turnHistory.unshift(historyEntry); // Add to beginning
+    if (turnHistory.length > 10) {
+      turnHistory = turnHistory.slice(0, 10); // Keep only last 10
+    }
+
+    updateTurnHistoryDisplay();
+    debug.log('📜 Logged turn action:', historyEntry);
+  }
+
+  /**
+   * Update Turn History Display
+   */
+  function updateTurnHistoryDisplay() {
+    const turnHistoryList = document.getElementById('turn-history-list');
+    if (!turnHistoryList) return;
+
+    if (turnHistory.length === 0) {
+      turnHistoryList.innerHTML = '';
+      // Show empty state
+      const tabContent = gmPanel.querySelector('[data-tab="history"]');
+      if (tabContent) {
+        const emptyState = tabContent.querySelector('div[style*="text-align: center"]');
+        if (emptyState) emptyState.style.display = 'block';
+      }
+      return;
+    }
+
+    // Hide empty state
+    const tabContent = gmPanel.querySelector('[data-tab="history"]');
+    if (tabContent) {
+      const emptyState = tabContent.querySelector('div[style*="text-align: center"]');
+      if (emptyState) emptyState.style.display = 'none';
+    }
+
+    turnHistoryList.innerHTML = turnHistory.map((entry, index) => {
+      const actionIcon = entry.action === 'attack' ? '⚔️' :
+                        entry.action === 'spell' ? '✨' :
+                        entry.action === 'damage' ? '💔' :
+                        entry.action === 'healing' ? '💚' :
+                        entry.action === 'condition' ? '🎯' :
+                        entry.action === 'turn' ? '🔄' : '📝';
+
+      return `
+        <div style="background: #34495e; padding: 10px; border-radius: 6px; border-left: 4px solid #3498db;">
+          <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 6px;">
+            <div>
+              <span style="font-weight: bold; color: #4ECDC4;">${entry.combatant}</span>
+              <span style="font-size: 0.75em; color: #888; margin-left: 8px;">Round ${entry.round}</span>
+            </div>
+            <span style="font-size: 0.75em; color: #888;">${entry.timestamp}</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 0.9em;">
+            <span style="font-size: 1.2em;">${actionIcon}</span>
+            <span style="color: #ccc;">${entry.description}</span>
+          </div>
+          ${entry.damage ? `<div style="margin-top: 4px; font-size: 0.85em; color: #e74c3c;">Damage: ${entry.damage}</div>` : ''}
+          ${entry.healing ? `<div style="margin-top: 4px; font-size: 0.85em; color: #27ae60;">Healing: ${entry.healing}</div>` : ''}
+          ${entry.condition ? `<div style="margin-top: 4px; font-size: 0.85em; color: #f39c12;">Condition: ${entry.condition}</div>` : ''}
+        </div>
+      `;
+    }).join('');
+
+    debug.log(`📜 Updated turn history: ${turnHistory.length} entries`);
+  }
+
+  /**
+   * Export turn history to clipboard
+   */
+  function exportTurnHistory() {
+    const historyText = turnHistory.map(entry => {
+      let text = `[Round ${entry.round}] ${entry.combatant} - ${entry.description}`;
+      if (entry.damage) text += ` (Damage: ${entry.damage})`;
+      if (entry.healing) text += ` (Healing: ${entry.healing})`;
+      if (entry.condition) text += ` (Condition: ${entry.condition})`;
+      return text;
+    }).join('\n');
+
+    navigator.clipboard.writeText(historyText).then(() => {
+      postChatMessage('📋 Turn history copied to clipboard');
+      debug.log('📋 Turn history exported to clipboard');
+    }).catch(err => {
+      debug.error('❌ Failed to copy turn history:', err);
+    });
   }
 
   /**
@@ -745,8 +1205,8 @@
     // Post chat announcement only when state actually changes
     if (previousState !== gmModeEnabled) {
       const message = gmModeEnabled
-        ? '👑 GM Initiative Tracker is now active - monitoring chat for initiative rolls'
-        : '👑 GM Initiative Tracker deactivated';
+        ? '👑 GM Panel is now active - rolls will be hidden from players'
+        : '👑 GM Panel deactivated - rolls will post normally';
 
       // Use setTimeout to ensure the chat is ready
       setTimeout(() => {
@@ -880,6 +1340,16 @@
     updateInitiativeDisplay();
     notifyCurrentTurn();
     announceTurn();
+
+    // Log turn change
+    const current = getCurrentCombatant();
+    if (current) {
+      logTurnAction({
+        action: 'turn',
+        description: `${current.name}'s turn begins`
+      });
+    }
+
     debug.log(`⏭️ Next turn: ${getCurrentCombatant()?.name}`);
   }
 
@@ -910,6 +1380,89 @@
   }
 
   /**
+   * Delay current turn
+   */
+  function delayTurn(combatantIndex) {
+    const combatant = initiativeTracker.combatants[combatantIndex];
+    if (!combatant) return;
+
+    debug.log(`⏸️ Delaying turn for: ${combatant.name}`);
+
+    // Add to delayed list
+    initiativeTracker.delayedCombatants.push({
+      name: combatant.name,
+      initiative: combatant.initiative,
+      originalIndex: combatantIndex
+    });
+
+    // Log the action
+    logTurnAction({
+      action: 'turn',
+      description: `${combatant.name} delays their turn`
+    });
+
+    // Announce delay
+    postChatMessage(`⏸️ ${combatant.name} delays their turn`);
+
+    // Move to next turn
+    nextTurn();
+
+    updateInitiativeDisplay();
+  }
+
+  /**
+   * Undelay a combatant (cancel their delay)
+   */
+  function undelayTurn(combatantName) {
+    const delayedIndex = initiativeTracker.delayedCombatants.findIndex(d => d.name === combatantName);
+    if (delayedIndex === -1) return;
+
+    debug.log(`▶️ Undelaying: ${combatantName}`);
+
+    // Remove from delayed list
+    initiativeTracker.delayedCombatants.splice(delayedIndex, 1);
+
+    // Log the action
+    logTurnAction({
+      action: 'turn',
+      description: `${combatantName} resumes their turn`
+    });
+
+    // Announce
+    postChatMessage(`▶️ ${combatantName} resumes their turn`);
+
+    updateInitiativeDisplay();
+  }
+
+  /**
+   * Insert a delayed combatant's turn now
+   */
+  function insertDelayedTurn(combatantName) {
+    const delayedIndex = initiativeTracker.delayedCombatants.findIndex(d => d.name === combatantName);
+    if (delayedIndex === -1) return;
+
+    const delayed = initiativeTracker.delayedCombatants[delayedIndex];
+    debug.log(`▶️ Inserting delayed turn for: ${delayed.name}`);
+
+    // Remove from delayed list
+    initiativeTracker.delayedCombatants.splice(delayedIndex, 1);
+
+    // Log the action
+    logTurnAction({
+      action: 'turn',
+      description: `${delayed.name} acts on delayed turn`
+    });
+
+    // Announce
+    postChatMessage(`▶️ ${delayed.name} acts now (delayed turn)`);
+
+    // Notify the character sheet
+    notifyCurrentTurn();
+
+    updateInitiativeDisplay();
+  }
+
+  /**
    * Update initiative display
    */
   function updateInitiativeDisplay() {
@@ -923,21 +1476,78 @@
 
     list.innerHTML = initiativeTracker.combatants.map((combatant, index) => {
       const isActive = index === initiativeTracker.currentTurnIndex;
+      const isDelayed = initiativeTracker.delayedCombatants.some(d => d.name === combatant.name);
+
       return `
-        <div style="padding: 10px; background: ${isActive ? '#4ECDC4' : '#34495e'}; border: 2px solid ${isActive ? '#4ECDC4' : '#2c3e50'}; border-radius: 6px; display: flex; align-items: center; gap: 10px; ${isActive ? 'box-shadow: 0 0 15px rgba(78, 205, 196, 0.4);' : ''}">
-          <div style="font-weight: bold; font-size: 1.2em; min-width: 30px; text-align: center;">${combatant.initiative}</div>
-          <div style="flex: 1; font-weight: bold;">${combatant.name}</div>
-          <button class="rollcloud-remove-combatant" data-combatant-name="${combatant.name}" style="background: #e74c3c; color: #fff; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 0.85em;">✕</button>
+        <div style="padding: 10px; background: ${isActive ? '#4ECDC4' : isDelayed ? '#9b59b6' : '#34495e'}; border: 2px solid ${isActive ? '#4ECDC4' : isDelayed ? '#8e44ad' : '#2c3e50'}; border-radius: 6px; ${isActive ? 'box-shadow: 0 0 15px rgba(78, 205, 196, 0.4);' : ''}">
+          <div style="display: flex; align-items: center; gap: 10px; margin-bottom: ${isActive ? '8px' : '0'};">
+            <div style="font-weight: bold; font-size: 1.2em; min-width: 30px; text-align: center;">${combatant.initiative}</div>
+            <div style="flex: 1; font-weight: bold;">
+              ${combatant.name}
+              ${isDelayed ? '<span style="font-size: 0.85em; color: #f39c12; margin-left: 8px;">⏸️ Delayed</span>' : ''}
+            </div>
+            <button class="rollcloud-remove-combatant" data-combatant-name="${combatant.name}" style="background: #e74c3c; color: #fff; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 0.85em;">✕</button>
+          </div>
+          ${isActive && !isDelayed ? `
+            <button class="rollcloud-delay-turn" data-combatant-index="${index}" style="width: 100%; background: #f39c12; color: #fff; border: none; border-radius: 4px; padding: 6px; cursor: pointer; font-weight: bold; font-size: 0.85em;">⏸️ Delay Turn</button>
+          ` : ''}
+          ${isActive && isDelayed ? `
+            <button class="rollcloud-undelay-turn" data-combatant-name="${combatant.name}" style="width: 100%; background: #27ae60; color: #fff; border: none; border-radius: 4px; padding: 6px; cursor: pointer; font-weight: bold; font-size: 0.85em;">▶️ Resume Turn</button>
+          ` : ''}
         </div>
       `;
     }).join('');
 
-    // Attach event listeners to remove buttons (CSP-compliant)
+    // Show delayed combatants section if any exist
+    if (initiativeTracker.delayedCombatants.length > 0) {
+      list.innerHTML += `
+        <div style="margin-top: 15px; padding-top: 15px; border-top: 2px solid #34495e;">
+          <div style="font-weight: bold; color: #f39c12; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+            <span>⏸️</span> Delayed Actions
+          </div>
+          ${initiativeTracker.delayedCombatants.map(delayed => `
+            <div style="padding: 8px; background: #9b59b6; border-radius: 6px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+              <div style="flex: 1;">
+                <div style="font-weight: bold;">${delayed.name}</div>
+                <div style="font-size: 0.75em; opacity: 0.8;">Initiative: ${delayed.initiative}</div>
+              </div>
+              <button class="rollcloud-insert-delayed" data-delayed-name="${delayed.name}" style="background: #27ae60; color: #fff; border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-weight: bold; font-size: 0.85em;">▶️ Act Now</button>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    // Attach event listeners (CSP-compliant)
     const removeButtons = list.querySelectorAll('.rollcloud-remove-combatant');
     removeButtons.forEach(button => {
       button.addEventListener('click', () => {
         const name = button.getAttribute('data-combatant-name');
         removeCombatant(name);
+      });
+    });
+
+    const delayButtons = list.querySelectorAll('.rollcloud-delay-turn');
+    delayButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        const index = parseInt(button.getAttribute('data-combatant-index'));
+        delayTurn(index);
+      });
+    });
+
+    const undelayButtons = list.querySelectorAll('.rollcloud-undelay-turn');
+    undelayButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        const name = button.getAttribute('data-combatant-name');
+        undelayTurn(name);
+      });
+    });
+
+    const insertDelayedButtons = list.querySelectorAll('.rollcloud-insert-delayed');
+    insertDelayedButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        const name = button.getAttribute('data-delayed-name');
+        insertDelayedTurn(name);
       });
     });
   }
@@ -1243,6 +1853,11 @@
       // Check if it's currently this character's turn by examining recent chat
       if (event.data.characterName) {
         checkRecentChatForCurrentTurn(event.data.characterName, event.source);
+      }
+    } else if (event.data && event.data.action === 'updatePlayerData') {
+      // Receive player data updates for GM overview
+      if (event.data.characterName && event.data.data) {
+        updatePlayerData(event.data.characterName, event.data.data);
       }
     }
   });

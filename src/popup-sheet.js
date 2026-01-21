@@ -3412,6 +3412,23 @@ function saveCharacterData() {
       data: characterData
     }, '*');
     debug.log('💾 Sent character data update to parent window');
+
+    // Also send player data to GM Panel for overview tracking
+    window.opener.postMessage({
+      action: 'updatePlayerData',
+      characterName: characterData.name,
+      data: {
+        hp: characterData.hp,
+        maxHp: characterData.maxHp,
+        ac: characterData.ac,
+        passivePerception: characterData.passivePerception || (10 + (characterData.perception || 0)),
+        initiative: characterData.initiative,
+        conditions: characterData.conditions || [],
+        concentration: characterData.concentration || null,
+        deathSaves: characterData.deathSaves || null
+      }
+    }, '*');
+    debug.log('👥 Sent player data update to GM Panel');
   }
 }
 
