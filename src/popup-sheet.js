@@ -50,6 +50,15 @@ window.addEventListener('message', async (event) => {
     
     // Initialize racial traits based on character data
     initRacialTraits();
+    
+    // Initialize feat traits based on character data
+    initFeatTraits();
+
+    // Initialize character cache with current data
+    if (characterData && characterData.id) {
+      characterCache.set(characterData.id, JSON.parse(JSON.stringify(characterData)));
+      debug.log(`📂 Initialized cache for character: ${characterData.name}`);
+    }
 
     // Register this character with GM Initiative Tracker (if it exists)
     // Use postMessage to avoid CORS issues - send character name only
@@ -246,6 +255,13 @@ async function switchToCharacter(characterId) {
   try {
     debug.log(`🔄 Switching to character: ${characterId}`);
 
+    // Save current character data before switching to preserve local state
+    if (characterData && characterData.id !== characterId) {
+      debug.log('💾 Saving current character data to cache before switching');
+      characterCache.set(characterData.id, JSON.parse(JSON.stringify(characterData)));
+      debug.log(`✅ Cached current character data: ${characterData.name}`);
+    }
+
     // Set active character
     await browserAPI.runtime.sendMessage({
       action: 'setActiveCharacter',
@@ -253,16 +269,30 @@ async function switchToCharacter(characterId) {
     });
     debug.log(`✅ Active character set to: ${characterId}`);
 
-    // Reload the sheet
-    const response = await browserAPI.runtime.sendMessage({
-      action: 'getCharacterData',
-      characterId: characterId
-    });
-    debug.log(`📊 Character data received:`, response);
+    // Try to get cached character data first
+    let characterDataToUse = characterCache.get(characterId);
+    
+    if (!characterDataToUse) {
+      debug.log('📂 No cached data, fetching from storage');
+      // Fetch from storage if not cached
+      const response = await browserAPI.runtime.sendMessage({
+        action: 'getCharacterData',
+        characterId: characterId
+      });
+      debug.log(`📊 Character data received:`, response);
 
-    if (response && response.data) {
-      characterData = response.data;
-      debug.log(`🎨 Building sheet for: ${response.data.name}`);
+      if (response && response.data) {
+        characterDataToUse = response.data;
+        // Cache the fresh data
+        characterCache.set(characterId, JSON.parse(JSON.stringify(response.data)));
+      }
+    } else {
+      debug.log('📂 Using cached character data');
+    }
+
+    if (characterDataToUse) {
+      characterData = characterDataToUse;
+      debug.log(`🎨 Building sheet for: ${characterData.name}`);
       buildSheet(characterData);
 
       // Reload tabs to update active state (don't rebuild the sheet)
@@ -765,6 +795,62 @@ function buildActionsDisplay(container, actions) {
     elementalToggleLabel.appendChild(elementalLabelText);
     elementalToggleSection.appendChild(elementalToggleLabel);
     container.appendChild(elementalToggleSection);
+  }
+
+  // Check if character has Lucky feat
+  const hasLuckyFeat = characterData.features && characterData.features.some(f =>
+    f.name && f.name.toLowerCase().includes('lucky')
+  );
+
+  if (hasLuckyFeat) {
+    debug.log(`🎖️ Lucky feat found, adding action button`);
+
+    // Add action button for Lucky feat
+    const luckyActionSection = document.createElement('div');
+    luckyActionSection.style.cssText = 'background: #f39c12; color: white; padding: 12px; border-radius: 5px; margin-bottom: 10px;';
+
+    const luckyButton = document.createElement('button');
+    luckyButton.id = 'lucky-action-button';
+    luckyButton.style.cssText = `
+      background: #e67e22;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+      width: 100%;
+      transition: background 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    `;
+    luckyButton.onmouseover = () => luckyButton.style.background = '#d35400';
+    luckyButton.onmouseout = () => luckyButton.style.background = '#e67e22';
+
+    // Update button text based on available luck points
+    const luckyResource = getLuckyResource();
+    const luckPointsAvailable = luckyResource ? luckyResource.current : 0;
+    luckyButton.innerHTML = `
+      <span style="font-size: 16px;">🎖️</span>
+      <span>Use Lucky Point (${luckPointsAvailable}/3)</span>
+    `;
+
+    luckyButton.addEventListener('click', () => {
+      const currentLuckyResource = getLuckyResource();
+      if (!currentLuckyResource || currentLuckyResource.current <= 0) {
+        showNotification('❌ No luck points available!', 'error');
+        return;
+      }
+
+      // Show simple Lucky modal like metamagic
+      showLuckyModal();
+    });
+
+    luckyActionSection.appendChild(luckyButton);
+    container.appendChild(luckyActionSection);
   }
 
   actions.forEach((action, index) => {
@@ -1361,6 +1447,13 @@ function buildResourcesDisplay() {
   resourcesGrid.className = 'spell-slots-grid'; // Reuse spell slot styling
 
   characterData.resources.forEach(resource => {
+    // Skip Lucky resources since they have their own action button
+    const lowerName = resource.name.toLowerCase().trim();
+    if (lowerName.includes('lucky point') || lowerName.includes('luck point') || lowerName === 'lucky points' || lowerName === 'lucky') {
+      debug.log(`⏭️ Skipping Lucky resource from display: ${resource.name}`);
+      return;
+    }
+    
     const resourceCard = document.createElement('div');
     resourceCard.className = resource.current > 0 ? 'spell-slot-card' : 'spell-slot-card empty';
     resourceCard.innerHTML = `
@@ -5037,21 +5130,82 @@ window.addEventListener('message', (event) => {
     // Handle roll results from content script for racial traits checking
     debug.log('🧬 Received rollResult message:', event.data);
     
-    if (event.data.checkRacialTraits && activeRacialTraits.length > 0) {
+    if (event.data.checkRacialTraits && (activeRacialTraits.length > 0 || activeFeatTraits.length > 0)) {
       const { rollResult, baseRoll, rollType, rollName } = event.data;
       debug.log(`🧬 Checking racial traits for roll: ${baseRoll} (${rollType}) - ${rollName}`);
-      debug.log(`🧬 Active traits count: ${activeRacialTraits.length}`);
+      debug.log(`🧬 Active racial traits count: ${activeRacialTraits.length}`);
+      debug.log(`🎖️ Active feat traits count: ${activeFeatTraits.length}`);
       debug.log(`🧬 Roll details - Total: ${rollResult}, Base: ${baseRoll}`);
       
       // Check if any racial traits trigger (use baseRoll for the actual d20 roll)
-      const traitTriggered = checkRacialTraits(baseRoll, rollType, rollName);
-      if (traitTriggered) {
+      const racialTraitTriggered = checkRacialTraits(baseRoll, rollType, rollName);
+      const triggeredRacialTraits = [];
+      
+      // Check if any feat traits trigger (use baseRoll for the actual d20 roll)
+      const featTraitTriggered = checkFeatTraits(baseRoll, rollType, rollName);
+      const triggeredFeatTraits = [];
+      
+      // Collect triggered traits
+      if (racialTraitTriggered) {
+        triggeredRacialTraits.push(...activeRacialTraits.filter(trait => {
+          // Check if this trait would trigger for this roll
+          const testResult = trait.onRoll(baseRoll, rollType, rollName);
+          return testResult === true;
+        }));
         debug.log(`🧬 Racial trait triggered for roll: ${baseRoll}`);
-      } else {
-        debug.log(`🧬 No racial traits triggered for roll: ${baseRoll}`);
+      }
+      
+      if (featTraitTriggered) {
+        triggeredFeatTraits.push(...activeFeatTraits.filter(trait => {
+          // Check if this trait would trigger for this roll
+          const testResult = trait.onRoll(baseRoll, rollType, rollName);
+          return testResult === true;
+        }));
+        debug.log(`🎖️ Feat trait triggered for roll: ${baseRoll}`);
+      }
+      
+      // Show appropriate popup
+      if (triggeredRacialTraits.length > 0 || triggeredFeatTraits.length > 0) {
+        const allTriggeredTraits = [...triggeredRacialTraits, ...triggeredFeatTraits];
+        
+        if (allTriggeredTraits.length === 1) {
+          // Single trait triggered - show its specific popup
+          const trait = allTriggeredTraits[0];
+          if (trait.name === 'Halfling Luck') {
+            showHalflingLuckPopup({
+              rollResult: baseRoll,
+              baseRoll: baseRoll,
+              rollType: rollType,
+              rollName: rollName
+            });
+          } else if (trait.name === 'Lucky') {
+            const luckyResource = getLuckyResource();
+            showLuckyPopup({
+              rollResult: baseRoll,
+              baseRoll: baseRoll,
+              rollType: rollType,
+              rollName: rollName,
+              luckPointsRemaining: luckyResource?.current || 0
+            });
+          }
+        } else {
+          // Multiple traits triggered - show choice popup
+          showTraitChoicePopup({
+            rollResult: baseRoll,
+            baseRoll: baseRoll,
+            rollType: rollType,
+            rollName: rollName,
+            racialTraits: triggeredRacialTraits,
+            featTraits: triggeredFeatTraits
+          });
+        }
+      }
+      
+      if (!racialTraitTriggered && !featTraitTriggered) {
+        debug.log(`🧬🎖️ No traits triggered for roll: ${baseRoll}`);
       }
     } else {
-      debug.log(`🧬 Skipping racial traits check - checkRacialTraits: ${event.data.checkRacialTraits}, activeTraits: ${activeRacialTraits.length}`);
+      debug.log(`🧬 Skipping traits check - checkRacialTraits: ${event.data.checkRacialTraits}, racialTraits: ${activeRacialTraits.length}, featTraits: ${activeFeatTraits.length}`);
     }
   } else if (event.data && event.data.action === 'showHalflingLuckPopup') {
     // Show Halfling Luck reroll popup
@@ -5064,8 +5218,12 @@ setTimeout(() => {
   initCombatMechanics();
 }, 100);
 
-// Initialize racial traits
+// Local character cache to preserve state changes
+const characterCache = new Map();
+
+// Initialize racial traits and feats
 let activeRacialTraits = [];
+let activeFeatTraits = [];
 
 function initRacialTraits() {
   debug.log('🧬 Initializing racial traits...');
@@ -5083,9 +5241,19 @@ function initRacialTraits() {
   debug.log(`🧬 Initialized ${activeRacialTraits.length} racial traits`);
 }
 
+function initFeatTraits() {
+  debug.log('🎖️ Initializing feat traits...');
+  debug.log('🎖️ Character features:', characterData?.features);
+  
+  // Lucky feat is now handled as an action, not a trait
+  debug.log('🎖️ Lucky feat will be available as an action button');
+  
+  debug.log(`🎖️ Initialized ${activeFeatTraits.length} feat traits`);
+}
+
 function checkRacialTraits(rollResult, rollType, rollName) {
   debug.log(`🧬 Checking racial traits for roll: ${rollResult} (${rollType}) - ${rollName}`);
-  debug.log(`🧬 Active traits count: ${activeRacialTraits.length}`);
+  debug.log(`🧬 Active racial traits count: ${activeRacialTraits.length}`);
   
   let traitTriggered = false;
   
@@ -5095,6 +5263,25 @@ function checkRacialTraits(rollResult, rollType, rollName) {
       if (result) {
         traitTriggered = true;
         debug.log(`🧬 ${trait.name} triggered!`);
+      }
+    }
+  }
+  
+  return traitTriggered;
+}
+
+function checkFeatTraits(rollResult, rollType, rollName) {
+  debug.log(`🎖️ Checking feat traits for roll: ${rollResult} (${rollType}) - ${rollName}`);
+  debug.log(`🎖️ Active feat traits count: ${activeFeatTraits.length}`);
+  
+  let traitTriggered = false;
+  
+  for (const trait of activeFeatTraits) {
+    if (trait.onRoll && typeof trait.onRoll === 'function') {
+      const result = trait.onRoll(rollResult, rollType, rollName);
+      if (result) {
+        traitTriggered = true;
+        debug.log(`🎖️ ${trait.name} triggered!`);
       }
     }
   }
@@ -5210,6 +5397,425 @@ function showHalflingLuckPopup(rollData) {
   debug.log('🍀 Halfling Luck popup displayed');
 }
 
+// Lucky Feat Popup Functions
+function showLuckyPopup(rollData) {
+  debug.log('🎖️ Lucky popup called with:', rollData);
+
+  // Check if document.body exists
+  if (!document.body) {
+    debug.error('❌ document.body not available for Lucky popup');
+    showNotification('🎖️ Lucky triggered! (Popup failed to display)', 'info');
+    return;
+  }
+
+  debug.log('🎖️ Creating Lucky popup overlay...');
+
+  // Create popup overlay
+  const popupOverlay = document.createElement('div');
+  popupOverlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  `;
+
+  // Create popup content
+  const popupContent = document.createElement('div');
+  popupContent.style.cssText = `
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 400px;
+    width: 90%;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    text-align: center;
+  `;
+
+  debug.log('🎖️ Setting Lucky popup content HTML...');
+
+  popupContent.innerHTML = `
+    <div style="font-size: 24px; margin-bottom: 16px;">🎖️</div>
+    <h2 style="margin: 0 0 8px 0; color: #f39c12;">Lucky Feat!</h2>
+    <p style="margin: 0 0 16px 0; color: #666;">
+      You rolled a ${rollData.baseRoll}! You have ${rollData.luckPointsRemaining} luck points remaining.
+    </p>
+    <div style="margin: 0 0 16px 0; padding: 12px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #f39c12;">
+      <strong>Original Roll:</strong> ${rollData.rollName}<br>
+      <strong>Result:</strong> ${rollData.baseRoll}<br>
+      <strong>Luck Points:</strong> ${rollData.luckPointsRemaining}/3
+    </div>
+    <div style="display: flex; gap: 12px; justify-content: center;">
+      <button id="luckyRerollBtn" style="
+        background: #f39c12;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: bold;
+        transition: background 0.2s;
+      " onmouseover="this.style.background='#e67e22'" onmouseout="this.style.background='#f39c12'">
+        🎲 Reroll (Use Luck Point)
+      </button>
+      <button id="luckyKeepBtn" style="
+        background: #95a5a6;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: bold;
+        transition: background 0.2s;
+      " onmouseover="this.style.background='#7f8c8d'" onmouseout="this.style.background='#95a5a6'">
+        Keep Roll
+      </button>
+    </div>
+  `;
+
+  popupOverlay.appendChild(popupContent);
+  document.body.appendChild(popupOverlay);
+
+  debug.log('🎖️ Appending Lucky popup to document.body...');
+
+  // Add event listeners
+  const rerollBtn = document.getElementById('luckyRerollBtn');
+  const keepBtn = document.getElementById('luckyKeepBtn');
+
+  rerollBtn.addEventListener('click', () => {
+    if (useLuckyPoint()) {
+      performLuckyReroll(rollData);
+      popupOverlay.remove();
+    } else {
+      alert('No luck points available!');
+    }
+  });
+
+  keepBtn.addEventListener('click', () => {
+    popupOverlay.remove();
+  });
+
+  // Close on overlay click
+  popupOverlay.addEventListener('click', (e) => {
+    if (e.target === popupOverlay) {
+      popupOverlay.remove();
+    }
+  });
+
+  debug.log('🎖️ Lucky popup displayed');
+}
+
+function performLuckyReroll(originalRollData) {
+  debug.log('🎖️ Performing Lucky reroll for:', originalRollData);
+  
+  // Extract base formula (remove modifiers for the reroll)
+  const baseFormula = originalRollData.rollType.replace(/[+-]\d+$/i, '');
+  
+  // Create a new roll with just the d20
+  const rerollData = {
+    name: `🎖️ ${originalRollData.rollName} (Lucky Reroll)`,
+    formula: baseFormula,
+    color: '#f39c12',
+    characterName: characterData.name
+  };
+
+  // Send the reroll request
+  if (window.opener && !window.opener.closed) {
+    window.opener.postMessage({
+      action: 'rollFromPopout',
+      ...rerollData
+    }, '*');
+    debug.log('🎖️ Lucky reroll sent via window.opener');
+  } else {
+    // Fallback: send directly to Roll20 via background script
+    browserAPI.runtime.sendMessage({
+      action: 'relayRollToRoll20',
+      roll: rerollData
+    });
+  }
+  
+  showNotification('🎖️ Lucky reroll initiated!', 'success');
+}
+
+// Unified Trait Choice Popup
+function showTraitChoicePopup(rollData) {
+  debug.log('🎯 Trait choice popup called with:', rollData);
+
+  // Check if document.body exists
+  if (!document.body) {
+    debug.error('❌ document.body not available for trait choice popup');
+    showNotification('🎯 Trait choice triggered! (Popup failed to display)', 'info');
+    return;
+  }
+
+  debug.log('🎯 Creating trait choice overlay...');
+
+  // Create popup overlay
+  const popupOverlay = document.createElement('div');
+  popupOverlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  `;
+
+  // Create popup content
+  const popupContent = document.createElement('div');
+  popupContent.style.cssText = `
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 450px;
+    width: 90%;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    text-align: center;
+  `;
+
+  // Build trait options HTML
+  let traitOptionsHTML = '';
+  const allTraits = [...rollData.racialTraits, ...rollData.featTraits];
+  
+  allTraits.forEach((trait, index) => {
+    let icon = '';
+    let color = '';
+    let description = '';
+    
+    if (trait.name === 'Halfling Luck') {
+      icon = '🍀';
+      color = '#2D8B83';
+      description = 'Reroll natural 1s (must use new roll)';
+    } else if (trait.name === 'Lucky') {
+      icon = '🎖️';
+      color = '#f39c12';
+      const luckyResource = getLuckyResource();
+      description = `Reroll any roll (${luckyResource?.current || 0}/3 points left)`;
+    }
+    
+    traitOptionsHTML += `
+      <button class="trait-option-btn" data-trait-index="${index}" style="
+        background: ${color};
+        color: white;
+        border: none;
+        padding: 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: bold;
+        margin: 8px 0;
+        transition: transform 0.2s, background 0.2s;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+      " onmouseover="this.style.transform='translateY(-2px)'; this.style.background='${color}dd'" onmouseout="this.style.transform='translateY(0)'; this.style.background='${color}'">
+        <span style="font-size: 20px;">${icon}</span>
+        <div style="text-align: left;">
+          <div style="font-weight: bold;">${trait.name}</div>
+          <div style="font-size: 12px; opacity: 0.9;">${description}</div>
+        </div>
+      </button>
+    `;
+  });
+
+  debug.log('🎯 Setting trait choice popup content HTML...');
+
+  popupContent.innerHTML = `
+    <div style="font-size: 24px; margin-bottom: 16px;">🎯</div>
+    <h2 style="margin: 0 0 8px 0; color: #34495e;">Multiple Traits Available!</h2>
+    <p style="margin: 0 0 16px 0; color: #666;">
+      You rolled a ${rollData.baseRoll}! Choose which trait to use:
+    </p>
+    <div style="margin: 0 0 16px 0; padding: 12px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3498b;">
+      <strong>Original Roll:</strong> ${rollData.rollName}<br>
+      <strong>Result:</strong> ${rollData.baseRoll}<br>
+      <strong>Total:</strong> ${rollData.rollResult}
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      ${traitOptionsHTML}
+    </div>
+    <button id="cancelTraitBtn" style="
+      background: #95a5a6;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+      margin-top: 8px;
+      transition: background 0.2s;
+    " onmouseover="this.style.background='#7f8c8d'" onmouseout="this.style.background='#95a5a6'">
+      Keep Original Roll
+    </button>
+  `;
+
+  popupOverlay.appendChild(popupContent);
+  document.body.appendChild(popupOverlay);
+
+  debug.log('🎯 Appending trait choice popup to document.body...');
+
+  // Add event listeners
+  const traitButtons = document.querySelectorAll('.trait-option-btn');
+  const cancelBtn = document.getElementById('cancelTraitBtn');
+
+  traitButtons.forEach((btn, index) => {
+    btn.addEventListener('click', () => {
+      const trait = allTraits[index];
+      debug.log(`🎯 User chose trait: ${trait.name}`);
+      
+      popupOverlay.remove();
+      
+      // Execute the chosen trait's action
+      if (trait.name === 'Halfling Luck') {
+        showHalflingLuckPopup({
+          rollResult: rollData.baseRoll,
+          baseRoll: rollData.baseRoll,
+          rollType: rollData.rollType,
+          rollName: rollData.rollName
+        });
+      } else if (trait.name === 'Lucky') {
+        const luckyResource = getLuckyResource();
+        showLuckyPopup({
+          rollResult: rollData.baseRoll,
+          baseRoll: rollData.baseRoll,
+          rollType: rollData.rollType,
+          rollName: rollData.rollName,
+          luckPointsRemaining: luckyResource?.current || 0
+        });
+      }
+    });
+  });
+
+  cancelBtn.addEventListener('click', () => {
+    popupOverlay.remove();
+  });
+
+  // Close on overlay click
+  popupOverlay.addEventListener('click', (e) => {
+    if (e.target === popupOverlay) {
+      popupOverlay.remove();
+    }
+  });
+
+  debug.log('🎯 Trait choice popup displayed');
+}
+
+// Lucky Modal (simple like metamagic)
+function showLuckyModal() {
+  debug.log('🎖️ Lucky modal called');
+
+  const luckyResource = getLuckyResource();
+  if (!luckyResource || luckyResource.current <= 0) {
+    showNotification('❌ No luck points available!', 'error');
+    return;
+  }
+
+  // Create modal overlay
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+
+  // Create modal content
+  const modalContent = document.createElement('div');
+  modalContent.style.cssText = 'background: white; border-radius: 8px; padding: 20px; max-width: 400px; width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.3);';
+
+  modalContent.innerHTML = `
+    <h3 style="margin: 0 0 15px 0; color: #f39c12;">🎖️ Use Lucky Point</h3>
+    <p style="margin: 0 0 15px 0; color: #666;">Choose what to use Lucky for:</p>
+    <div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 4px;">
+      <strong>Luck Points:</strong> ${luckyResource.current}/${luckyResource.max}
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <button id="luckyOffensive" style="padding: 10px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">⚔️ Attack/Check/Saving Throw</button>
+      <button id="luckyDefensive" style="padding: 10px; background: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">🛡️ Against Attack on You</button>
+      <button id="luckyCancel" style="padding: 10px; background: #95a5a6; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancel</button>
+    </div>
+  `;
+
+  modal.appendChild(modalContent);
+  document.body.appendChild(modal);
+
+  // Add event listeners
+  document.getElementById('luckyOffensive').addEventListener('click', () => {
+    if (useLuckyPoint()) {
+      modal.remove();
+      // Roll a d20 for Lucky
+      rollLuckyDie('offensive');
+    }
+  });
+
+  document.getElementById('luckyDefensive').addEventListener('click', () => {
+    if (useLuckyPoint()) {
+      modal.remove();
+      // Roll a d20 for Lucky defense
+      rollLuckyDie('defensive');
+    }
+  });
+
+  document.getElementById('luckyCancel').addEventListener('click', () => {
+    modal.remove();
+  });
+
+  // Close on overlay click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) modal.remove();
+  });
+
+  debug.log('🎖️ Lucky modal displayed');
+}
+
+function rollLuckyDie(type) {
+  debug.log(`🎖️ Rolling Lucky d20 for ${type}`);
+  
+  // Roll a d20
+  const luckyRoll = Math.floor(Math.random() * 20) + 1;
+  
+  // Send the Lucky roll to Roll20 chat
+  const rollData = {
+    name: `🎖️ ${characterData.name} uses Lucky`,
+    formula: '1d20',
+    characterName: characterData.name
+  };
+
+  // Send the roll to Roll20
+  if (window.opener && !window.opener.closed) {
+    window.opener.postMessage({
+      action: 'rollFromPopout',
+      ...rollData
+    }, '*');
+    debug.log('🎖️ Lucky roll sent via window.opener');
+  } else {
+    // Fallback: send directly to Roll20 via background script
+    browserAPI.runtime.sendMessage({
+      action: 'relayRollToRoll20',
+      roll: rollData
+    });
+  }
+  
+  if (type === 'offensive') {
+    showNotification(`🎖️ Lucky roll: ${luckyRoll}! Use this instead of your next d20 roll.`, 'success');
+  } else {
+    showNotification(`🎖️ Lucky defense roll: ${luckyRoll}! Compare against attacker's roll.`, 'success');
+  }
+  
+  debug.log(`🎖️ Lucky d20 result: ${luckyRoll} - sent to chat`);
+}
+
 function performHalflingReroll(originalRollData) {
   debug.log('🍀 Performing Halfling reroll for:', originalRollData);
   
@@ -5282,3 +5888,129 @@ const HalflingLuck = {
     return false; // No trigger
   }
 };
+
+// Lucky Feat Trait
+const LuckyFeat = {
+  name: 'Lucky',
+  description: 'You have 3 luck points. When you make an attack roll, ability check, or saving throw, you can spend one luck point to roll an additional d20. You can then choose which of the d20 rolls to use.',
+  
+  onRoll: function(rollResult, rollType, rollName) {
+    debug.log(`🎖️ Lucky feat onRoll called with: ${rollResult}, ${rollType}, ${rollName}`);
+    
+    // Convert rollResult to number for comparison
+    const numericRollResult = parseInt(rollResult);
+    
+    // Check if it's a d20 roll (attack, ability check, or saving throw)
+    if (rollType && rollType.includes('d20')) {
+      debug.log(`🎖️ Lucky: Checking if we should offer reroll for ${numericRollResult}`);
+      
+      // Check if character has luck points available
+      const luckyResource = getLuckyResource();
+      if (!luckyResource || luckyResource.current <= 0) {
+        debug.log(`🎖️ Lucky: No luck points available (${luckyResource?.current || 0})`);
+        return false;
+      }
+      
+      debug.log(`🎖️ Lucky: Has ${luckyResource.current} luck points available`);
+      
+      // For Lucky feat, we offer reroll on any roll (not just 1s)
+      // But we should prioritize low rolls
+      if (numericRollResult <= 10) { // Offer reroll on rolls of 10 or less
+        debug.log(`🎖️ Lucky: TRIGGERED! Offering reroll for roll ${numericRollResult}`);
+        
+        // Show the Lucky popup with error handling
+        try {
+          showLuckyPopup({
+            rollResult: numericRollResult,
+            baseRoll: numericRollResult,
+            rollType: rollType,
+            rollName: rollName,
+            luckPointsRemaining: luckyResource.current
+          });
+        } catch (error) {
+          debug.error('❌ Error showing Lucky popup:', error);
+          // Fallback notification
+          showNotification('🎖️ Lucky triggered! Check console for details.', 'info');
+        }
+        
+        return true; // Trait triggered
+      }
+    }
+
+    debug.log(`🎖️ Lucky: No trigger - Roll: ${numericRollResult}, Type: ${rollType}`);
+    return false; // No trigger
+  }
+};
+
+function getLuckyResource() {
+  if (!characterData || !characterData.resources) {
+    debug.log('🎖️ No characterData or resources for Lucky detection');
+    return null;
+  }
+
+  // Find Lucky points in resources (flexible matching)
+  const luckyResource = characterData.resources.find(r => {
+    const lowerName = r.name.toLowerCase().trim();
+    return (
+      lowerName.includes('lucky point') ||
+      lowerName.includes('luck point') ||
+      lowerName === 'lucky points' ||
+      lowerName === 'lucky'
+    );
+  });
+
+  if (luckyResource) {
+    debug.log(`🎖️ Found Lucky resource: ${luckyResource.name} (${luckyResource.current}/${luckyResource.max})`);
+  } else {
+    debug.log('🎖️ No Lucky resource found in character data');
+  }
+
+  return luckyResource;
+}
+
+function useLuckyPoint() {
+  debug.log('🎖️ useLuckyPoint called');
+  const luckyResource = getLuckyResource();
+  debug.log('🎖️ Lucky resource found:', luckyResource);
+  
+  if (!luckyResource) {
+    debug.error('❌ No Lucky resource found');
+    return false;
+  }
+  
+  if (luckyResource.current <= 0) {
+    debug.error(`❌ No Lucky points available (current: ${luckyResource.current})`);
+    return false;
+  }
+
+  // Decrement Lucky points
+  const oldCurrent = luckyResource.current;
+  luckyResource.current--;
+  debug.log(`🎖️ Used Lucky point. ${oldCurrent} → ${luckyResource.current}/${luckyResource.max}`);
+  
+  // Save character data to preserve state when switching characters
+  saveCharacterData();
+  
+  // Update display (resources section won't show Lucky anymore)
+  buildResourcesDisplay();
+  
+  // Update Lucky button text
+  updateLuckyButtonText();
+  
+  debug.log('🎖️ Lucky button updated and character data saved');
+  
+  return true;
+}
+
+function updateLuckyButtonText() {
+  const luckyButton = document.querySelector('#lucky-action-button');
+  if (luckyButton) {
+    const luckyResource = getLuckyResource();
+    const luckPointsAvailable = luckyResource ? luckyResource.current : 0;
+    luckyButton.innerHTML = `
+      <span style="font-size: 16px;">🎖️</span>
+      <span>Use Lucky Point (${luckPointsAvailable}/3)</span>
+    `;
+    debug.log(`🎖️ Lucky button updated to show ${luckPointsAvailable}/3`);
+  }
+}
