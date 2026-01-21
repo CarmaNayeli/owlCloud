@@ -4349,4 +4349,302 @@ if (document.readyState === 'loading') {
   initCloseButton();
 }
 
+// ============================================================================
+// COMBAT MECHANICS
+// ============================================================================
+
+/**
+ * Initialize combat mechanics (action economy, conditions, concentration)
+ */
+function initCombatMechanics() {
+  debug.log('🎮 Initializing combat mechanics...');
+
+  // Initialize action economy trackers
+  initActionEconomy();
+
+  // Initialize conditions manager
+  initConditionsManager();
+
+  // Initialize concentration tracker
+  initConcentrationTracker();
+
+  // Initialize GM mode toggle
+  initGMMode();
+
+  debug.log('✅ Combat mechanics initialized');
+}
+
+/**
+ * Action Economy Tracker
+ */
+function initActionEconomy() {
+  const actionIndicator = document.getElementById('action-indicator');
+  const bonusActionIndicator = document.getElementById('bonus-action-indicator');
+  const movementIndicator = document.getElementById('movement-indicator');
+  const reactionIndicator = document.getElementById('reaction-indicator');
+  const turnResetBtn = document.getElementById('turn-reset-btn');
+  const roundResetBtn = document.getElementById('round-reset-btn');
+
+  if (!actionIndicator) {
+    debug.warn('⚠️ Action economy elements not found');
+    return;
+  }
+
+  // Click to toggle used state
+  [actionIndicator, bonusActionIndicator, movementIndicator, reactionIndicator].forEach(indicator => {
+    if (indicator) {
+      indicator.addEventListener('click', () => {
+        const isUsed = indicator.dataset.used === 'true';
+        indicator.dataset.used = !isUsed;
+        debug.log(`🎯 ${indicator.querySelector('.action-label').textContent} ${isUsed ? 'restored' : 'used'}`);
+      });
+    }
+  });
+
+  // Turn reset (Action, Bonus Action, Movement)
+  if (turnResetBtn) {
+    turnResetBtn.addEventListener('click', () => {
+      [actionIndicator, bonusActionIndicator, movementIndicator].forEach(indicator => {
+        if (indicator) indicator.dataset.used = 'false';
+      });
+      debug.log('🔄 Turn reset: Action, Bonus Action, Movement restored');
+      showNotification('🔄 Turn reset!');
+    });
+  }
+
+  // Round reset (includes Reaction)
+  if (roundResetBtn) {
+    roundResetBtn.addEventListener('click', () => {
+      [actionIndicator, bonusActionIndicator, movementIndicator, reactionIndicator].forEach(indicator => {
+        if (indicator) indicator.dataset.used = 'false';
+      });
+      debug.log('🔄 Round reset: All actions restored');
+      showNotification('🔄 Round reset!');
+    });
+  }
+
+  debug.log('✅ Action economy initialized');
+}
+
+/**
+ * Conditions Manager
+ */
+const D5E_CONDITIONS = [
+  { name: 'Blessed', icon: '✨', color: '#f39c12' },
+  { name: 'Baned', icon: '💀', color: '#e74c3c' },
+  { name: 'Hasted', icon: '⚡', color: '#3498db' },
+  { name: 'Slowed', icon: '🐌', color: '#95a5a6' },
+  { name: 'Poisoned', icon: '☠️', color: '#27ae60' },
+  { name: 'Stunned', icon: '💫', color: '#9b59b6' },
+  { name: 'Paralyzed', icon: '🧊', color: '#34495e' },
+  { name: 'Prone', icon: '⬇️', color: '#95a5a6' },
+  { name: 'Restrained', icon: '⛓️', color: '#7f8c8d' },
+  { name: 'Invisible', icon: '👻', color: '#ecf0f1' },
+  { name: 'Blinded', icon: '🙈', color: '#34495e' },
+  { name: 'Deafened', icon: '🙉', color: '#7f8c8d' },
+  { name: 'Frightened', icon: '😱', color: '#e67e22' },
+  { name: 'Charmed', icon: '💖', color: '#e91e63' },
+  { name: 'Grappled', icon: '🤼', color: '#f39c12' },
+  { name: 'Incapacitated', icon: '😵', color: '#c0392b' },
+  { name: 'Petrified', icon: '🗿', color: '#95a5a6' },
+  { name: 'Unconscious', icon: '😴', color: '#34495e' }
+];
+
+let activeConditions = [];
+
+function initConditionsManager() {
+  const addConditionBtn = document.getElementById('add-condition-btn');
+  const conditionsDropdown = document.getElementById('conditions-dropdown');
+  const activeConditionsContainer = document.getElementById('active-conditions');
+
+  if (!addConditionBtn || !conditionsDropdown) {
+    debug.warn('⚠️ Conditions elements not found');
+    return;
+  }
+
+  // Populate dropdown with conditions
+  conditionsDropdown.innerHTML = D5E_CONDITIONS.map(condition => `
+    <div class="condition-option" data-condition="${condition.name}">
+      <span class="condition-icon">${condition.icon}</span>
+      <span class="condition-name">${condition.name}</span>
+    </div>
+  `).join('');
+
+  // Toggle dropdown
+  addConditionBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isVisible = conditionsDropdown.style.display === 'block';
+    conditionsDropdown.style.display = isVisible ? 'none' : 'block';
+  });
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!addConditionBtn.contains(e.target) && !conditionsDropdown.contains(e.target)) {
+      conditionsDropdown.style.display = 'none';
+    }
+  });
+
+  // Add condition when clicking option
+  conditionsDropdown.querySelectorAll('.condition-option').forEach(option => {
+    option.addEventListener('click', () => {
+      const conditionName = option.dataset.condition;
+      addCondition(conditionName);
+      conditionsDropdown.style.display = 'none';
+    });
+  });
+
+  debug.log('✅ Conditions manager initialized');
+}
+
+function addCondition(conditionName) {
+  // Don't add if already active
+  if (activeConditions.includes(conditionName)) {
+    showNotification(`⚠️ ${conditionName} already active`);
+    return;
+  }
+
+  activeConditions.push(conditionName);
+  updateConditionsDisplay();
+  showNotification(`🎭 ${conditionName} applied!`);
+  debug.log(`✅ Condition added: ${conditionName}`);
+}
+
+function removeCondition(conditionName) {
+  activeConditions = activeConditions.filter(c => c !== conditionName);
+  updateConditionsDisplay();
+  showNotification(`✅ ${conditionName} removed`);
+  debug.log(`🗑️ Condition removed: ${conditionName}`);
+}
+
+function updateConditionsDisplay() {
+  const activeConditionsContainer = document.getElementById('active-conditions');
+  if (!activeConditionsContainer) return;
+
+  if (activeConditions.length === 0) {
+    activeConditionsContainer.innerHTML = '';
+    return;
+  }
+
+  activeConditionsContainer.innerHTML = activeConditions.map(conditionName => {
+    const condition = D5E_CONDITIONS.find(c => c.name === conditionName);
+    return `
+      <div class="condition-badge" data-condition="${conditionName}" title="Click to remove">
+        <span class="condition-badge-icon">${condition.icon}</span>
+        <span>${condition.name}</span>
+        <span class="condition-badge-remove">✕</span>
+      </div>
+    `;
+  }).join('');
+
+  // Add click handlers to remove conditions
+  activeConditionsContainer.querySelectorAll('.condition-badge').forEach(badge => {
+    badge.addEventListener('click', () => {
+      const conditionName = badge.dataset.condition;
+      removeCondition(conditionName);
+    });
+  });
+}
+
+/**
+ * Concentration Tracker
+ */
+let concentratingSpell = null;
+
+function initConcentrationTracker() {
+  const dropConcentrationBtn = document.getElementById('drop-concentration-btn');
+
+  if (dropConcentrationBtn) {
+    dropConcentrationBtn.addEventListener('click', () => {
+      dropConcentration();
+    });
+  }
+
+  debug.log('✅ Concentration tracker initialized');
+}
+
+function setConcentration(spellName) {
+  concentratingSpell = spellName;
+  updateConcentrationDisplay();
+  showNotification(`🧠 Concentrating on: ${spellName}`);
+  debug.log(`🧠 Concentration set: ${spellName}`);
+}
+
+function dropConcentration() {
+  if (!concentratingSpell) return;
+
+  const spellName = concentratingSpell;
+  concentratingSpell = null;
+  updateConcentrationDisplay();
+  showNotification(`✅ Dropped concentration on ${spellName}`);
+  debug.log(`🗑️ Concentration dropped: ${spellName}`);
+}
+
+function updateConcentrationDisplay() {
+  const concentrationIndicator = document.getElementById('concentration-indicator');
+  const concentrationSpell = document.getElementById('concentration-spell');
+
+  if (!concentrationIndicator) return;
+
+  if (concentratingSpell) {
+    concentrationIndicator.style.display = 'flex';
+    if (concentrationSpell) {
+      concentrationSpell.textContent = concentratingSpell;
+    }
+  } else {
+    concentrationIndicator.style.display = 'none';
+  }
+}
+
+/**
+ * GM Mode Toggle
+ */
+function initGMMode() {
+  const gmModeToggle = document.getElementById('gm-mode-toggle');
+
+  if (gmModeToggle) {
+    gmModeToggle.addEventListener('click', () => {
+      const isActive = gmModeToggle.classList.contains('active');
+
+      // Send message to Roll20 content script to toggle GM panel
+      if (window.opener && !window.opener.closed) {
+        window.opener.postMessage({
+          action: 'toggleGMMode',
+          enabled: !isActive
+        }, '*');
+        debug.log(`👑 GM Mode ${!isActive ? 'enabled' : 'disabled'}`);
+      } else {
+        // Try via background script
+        browserAPI.runtime.sendMessage({
+          action: 'toggleGMMode',
+          enabled: !isActive
+        });
+      }
+
+      // Toggle active state
+      gmModeToggle.classList.toggle('active');
+      showNotification(isActive ? '👑 GM Mode disabled' : '👑 GM Mode enabled!');
+    });
+
+    debug.log('✅ GM Mode toggle initialized');
+  }
+}
+
+// Listen for messages from GM panel (when it's your turn)
+window.addEventListener('message', (event) => {
+  if (event.data && event.data.action === 'activateTurn') {
+    debug.log('🎯 Your turn! Activating action economy...');
+    // Reset action economy for new turn
+    const turnResetBtn = document.getElementById('turn-reset-btn');
+    if (turnResetBtn) {
+      turnResetBtn.click();
+    }
+    showNotification('⚔️ Your turn!', 'success');
+  }
+});
+
+// Initialize combat mechanics when sheet loads
+setTimeout(() => {
+  initCombatMechanics();
+}, 100);
+
 debug.log('✅ Popup script fully loaded');
