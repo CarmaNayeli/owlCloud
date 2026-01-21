@@ -20,6 +20,8 @@ A powerful browser extension that seamlessly integrates Dice Cloud with Roll20. 
 - **Direct Roll20 Integration**: Rolls are posted directly to Roll20's chat using native roll commands
 - **Advanced Roll Options**: Support for advantage/disadvantage, custom modifiers, and roll settings
 - **Character Attribution**: Rolls automatically appear under your character's name in Roll20
+- **Guidance**: Pre-roll popup asks to add 1d4 to ability checks (consumes buff, follows 5e RAW timing)
+- **Bless**: Automatically adds +1d4 to attack rolls and saves (no popup needed, auto-apply)
 
 ### GM Combat Management (NEW!)
 - **GM Initiative Tracker**: Full combat management system with automatic turn detection
