@@ -352,13 +352,31 @@ async function clearCharacterData(characterId = null) {
   try {
     if (characterId) {
       // Clear specific character
-      const result = await browserAPI.storage.local.get(['characterProfiles']);
+      const result = await browserAPI.storage.local.get(['characterProfiles', 'activeCharacterId']);
       const characterProfiles = result.characterProfiles || {};
+      const activeCharacterId = result.activeCharacterId;
+
       delete characterProfiles[characterId];
 
-      await browserAPI.storage.local.set({
+      const updates = {
         characterProfiles: characterProfiles
-      });
+      };
+
+      // If we just deleted the active character, switch to another one
+      if (activeCharacterId === characterId) {
+        const remainingIds = Object.keys(characterProfiles);
+        if (remainingIds.length > 0) {
+          // Set first available character as active
+          updates.activeCharacterId = remainingIds[0];
+          debug.log(`Active character was cleared, switching to ${remainingIds[0]}`);
+        } else {
+          // No characters left, clear active ID
+          updates.activeCharacterId = null;
+          debug.log('No characters remaining, clearing active character ID');
+        }
+      }
+
+      await browserAPI.storage.local.set(updates);
 
       debug.log(`Character profile cleared for ID: ${characterId}`);
     } else {
