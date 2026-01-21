@@ -869,6 +869,62 @@
             break;
           }
 
+          // Find child properties for attack rolls and damage
+          let attackRoll = '';
+          let damage = '';
+          let damageType = '';
+
+          // Look for child rolls/damage that are descendants of this spell
+          const spellChildren = properties.filter(p => {
+            if (p.type !== 'roll' && p.type !== 'damage' && p.type !== 'attack') return false;
+
+            // Check if this spell is in the child property's ancestors
+            if (p.ancestors && Array.isArray(p.ancestors)) {
+              return p.ancestors.some(ancestor => {
+                const ancestorId = typeof ancestor === 'object' ? ancestor.id : ancestor;
+                return ancestorId === prop._id;
+              });
+            }
+            return false;
+          });
+
+          // Extract attack rolls and damage from children
+          spellChildren.forEach(child => {
+            if (child.type === 'roll' && child.name && child.name.toLowerCase().includes('attack')) {
+              // This is a spell attack roll
+              if (child.roll) {
+                if (typeof child.roll === 'string') {
+                  attackRoll = child.roll;
+                } else if (typeof child.roll === 'object' && child.roll.value !== undefined) {
+                  const bonus = child.roll.value;
+                  attackRoll = bonus >= 0 ? `1d20+${bonus}` : `1d20${bonus}`;
+                }
+              }
+            } else if (child.type === 'damage' || (child.type === 'roll' && child.name && child.name.toLowerCase().includes('damage'))) {
+              // This is spell damage
+              if (child.amount) {
+                if (typeof child.amount === 'string') {
+                  damage = child.amount;
+                } else if (typeof child.amount === 'object' && child.amount.value !== undefined) {
+                  damage = String(child.amount.value);
+                } else if (typeof child.amount === 'object' && child.amount.calculation) {
+                  damage = child.amount.calculation;
+                }
+              } else if (child.roll) {
+                if (typeof child.roll === 'string') {
+                  damage = child.roll;
+                } else if (typeof child.roll === 'object' && child.roll.value !== undefined) {
+                  damage = String(child.roll.value);
+                }
+              }
+
+              // Extract damage type
+              if (child.damageType) {
+                damageType = child.damageType;
+              }
+            }
+          });
+
           characterData.spells.push({
             name: prop.name || 'Unnamed Spell',
             level: prop.level || 0,
@@ -881,7 +937,10 @@
             prepared: prop.prepared || false,
             source: source,
             concentration: prop.concentration || false,
-            ritual: prop.ritual || false
+            ritual: prop.ritual || false,
+            attackRoll: attackRoll,
+            damage: damage,
+            damageType: damageType
           });
           break;
 

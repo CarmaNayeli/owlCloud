@@ -1680,37 +1680,18 @@ function buildSpellSlotsDisplay() {
 
       const slotCard = document.createElement('div');
       slotCard.className = currentSlots > 0 ? 'spell-slot-card' : 'spell-slot-card empty';
-      
-      // Add visual depletion indicator
-      const depletionPercent = (currentSlots / maxSlots) * 100;
-      let depletionColor = '#4caf50'; // Green for full
-      if (depletionPercent <= 25) {
-        depletionColor = '#f44336'; // Red for low
-      } else if (depletionPercent <= 50) {
-        depletionColor = '#ff9800'; // Orange for medium
-      } else if (depletionPercent <= 75) {
-        depletionColor = '#ffc107'; // Yellow for getting low
-      }
-      
+
       slotCard.innerHTML = `
         <div class="spell-slot-level">Level ${level}</div>
         <div class="spell-slot-count">${currentSlots}/${maxSlots}</div>
-        <div class="spell-slot-depletion" style="
-          position: absolute;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          height: 3px;
-          background: ${depletionColor};
-          transition: all 0.3s ease;
-        "></div>
       `;
 
-      // Add click to manually adjust slots
+      // Add click to manually adjust slots with hover effect
       slotCard.addEventListener('click', () => {
         adjustSpellSlot(level, currentSlots, maxSlots);
       });
       slotCard.style.cursor = 'pointer';
+      slotCard.title = 'Click to adjust spell slots';
 
       slotsGrid.appendChild(slotCard);
     }
@@ -2237,6 +2218,20 @@ function createSpellCard(spell, index) {
   const desc = document.createElement('div');
   desc.className = 'spell-description';
   desc.id = `spell-desc-${index}`;
+  // Build action buttons HTML
+  let actionButtons = '';
+  if (spell.attackRoll || spell.damage) {
+    actionButtons = '<div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">';
+    if (spell.attackRoll) {
+      actionButtons += `<button class="spell-attack-btn" style="padding: 6px 12px; background: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">⚔️ Spell Attack</button>`;
+    }
+    if (spell.damage) {
+      const damageLabel = spell.damageType ? `${spell.damage} ${spell.damageType}` : spell.damage;
+      actionButtons += `<button class="spell-damage-btn" style="padding: 6px 12px; background: #e67e22; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">💥 Damage (${damageLabel})</button>`;
+    }
+    actionButtons += '</div>';
+  }
+
   desc.innerHTML = `
     ${spell.castingTime ? `<div><strong>Casting Time:</strong> ${spell.castingTime}</div>` : ''}
     ${spell.range ? `<div><strong>Range:</strong> ${spell.range}</div>` : ''}
@@ -2245,6 +2240,7 @@ function createSpellCard(spell, index) {
     ${spell.school ? `<div><strong>School:</strong> ${spell.school}</div>` : ''}
     ${spell.source ? `<div><strong>Source:</strong> ${spell.source}</div>` : ''}
     ${spell.description ? `<div style="margin-top: 10px;">${spell.description}</div>` : ''}
+    ${actionButtons}
     ${spell.formula ? `<button class="roll-btn">🎲 Roll ${spell.formula}</button>` : ''}
   `;
 
@@ -2272,6 +2268,27 @@ function createSpellCard(spell, index) {
     rollBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       roll(spell.name, spell.formula);
+    });
+  }
+
+  // Spell attack button
+  const spellAttackBtn = desc.querySelector('.spell-attack-btn');
+  if (spellAttackBtn) {
+    spellAttackBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const attackBonus = getSpellAttackBonus();
+      const attackFormula = attackBonus >= 0 ? `1d20+${attackBonus}` : `1d20${attackBonus}`;
+      roll(`${spell.name} - Spell Attack`, attackFormula);
+    });
+  }
+
+  // Spell damage button
+  const spellDamageBtn = desc.querySelector('.spell-damage-btn');
+  if (spellDamageBtn && spell.damage) {
+    spellDamageBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const damageLabel = spell.damageType ? `${spell.name} - Damage (${spell.damageType})` : `${spell.name} - Damage`;
+      roll(damageLabel, spell.damage);
     });
   }
 
@@ -2755,6 +2772,45 @@ function getColoredBanner() {
 
 function getColorName(hexColor) {
   return window.ColorUtils.getColorName(hexColor);
+}
+
+// Get the spellcasting ability modifier based on character class
+function getSpellcastingAbilityMod() {
+  if (!characterData || !characterData.abilityMods) {
+    return 0;
+  }
+
+  const charClass = (characterData.class || '').toLowerCase();
+
+  // Map classes to their spellcasting abilities
+  // Wisdom-based: Cleric, Druid, Ranger, Monk
+  if (charClass.includes('cleric') || charClass.includes('druid') ||
+      charClass.includes('ranger') || charClass.includes('monk')) {
+    return characterData.abilityMods.wisdomMod || 0;
+  }
+  // Intelligence-based: Wizard, Artificer, Eldritch Knight, Arcane Trickster
+  else if (charClass.includes('wizard') || charClass.includes('artificer') ||
+           charClass.includes('eldritch knight') || charClass.includes('arcane trickster')) {
+    return characterData.abilityMods.intelligenceMod || 0;
+  }
+  // Charisma-based: Sorcerer, Bard, Warlock, Paladin
+  else if (charClass.includes('sorcerer') || charClass.includes('bard') ||
+           charClass.includes('warlock') || charClass.includes('paladin')) {
+    return characterData.abilityMods.charismaMod || 0;
+  }
+
+  // Default to highest mental stat
+  const intMod = characterData.abilityMods.intelligenceMod || 0;
+  const wisMod = characterData.abilityMods.wisdomMod || 0;
+  const chaMod = characterData.abilityMods.charismaMod || 0;
+  return Math.max(intMod, wisMod, chaMod);
+}
+
+// Calculate spell attack bonus
+function getSpellAttackBonus() {
+  const spellMod = getSpellcastingAbilityMod();
+  const profBonus = characterData.proficiencyBonus || 0;
+  return spellMod + profBonus;
 }
 
 function announceSpellCast(spell, resourceUsed) {
