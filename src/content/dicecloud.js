@@ -2397,11 +2397,13 @@
     elementY: 0
   };
 
-  // Load saved positions from storage
-  browserAPI.storage.local.get(['panelPositions'], (result) => {
+  // Load saved positions from storage (Promise-based for Chrome compatibility)
+  browserAPI.storage.local.get(['panelPositions']).then((result) => {
     if (result.panelPositions) {
       dragState.positions = result.panelPositions;
     }
+  }).catch((error) => {
+    debug.error('Failed to load panel positions:', error);
   });
 
   function savePositions() {
@@ -2536,12 +2538,16 @@
     }
   };
 
-  // Load settings from storage
-  browserAPI.storage.local.get(['rollSettings'], (result) => {
+  // Load settings from storage (Promise-based for Chrome compatibility)
+  browserAPI.storage.local.get(['rollSettings']).then((result) => {
     if (result.rollSettings) {
       Object.assign(rollStats.settings, result.rollSettings);
     }
     // Update settings panel if it exists
+    updateSettingsPanel();
+  }).catch((error) => {
+    debug.error('Failed to load roll settings:', error);
+    // Update settings panel even if loading failed
     updateSettingsPanel();
   });
 

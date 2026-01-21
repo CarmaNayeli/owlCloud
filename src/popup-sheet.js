@@ -105,11 +105,9 @@ async function loadCharacterWithTabs() {
 
 // Get the active character ID from storage
 async function getActiveCharacterId() {
-  return new Promise((resolve) => {
-    browserAPI.storage.local.get(['activeCharacterId'], (result) => {
-      resolve(result.activeCharacterId || null);
-    });
-  });
+  // Use Promise-based API (works in both Chrome and Firefox with our polyfill)
+  const result = await browserAPI.storage.local.get(['activeCharacterId']);
+  return result.activeCharacterId || null;
 }
 
 // Build character tabs UI
