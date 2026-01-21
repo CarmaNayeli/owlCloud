@@ -47,6 +47,9 @@ window.addEventListener('message', async (event) => {
 
     // Then build the sheet with character data
     buildSheet(characterData);
+    
+    // Initialize racial traits based on character data
+    initRacialTraits();
 
     // Register this character with GM Initiative Tracker (if it exists)
     // Use postMessage to avoid CORS issues - send character name only
@@ -5030,6 +5033,29 @@ window.addEventListener('message', (event) => {
 
     // Deactivate turn state
     deactivateTurn();
+  } else if (event.data && event.data.action === 'rollResult') {
+    // Handle roll results from content script for racial traits checking
+    debug.log('🧬 Received rollResult message:', event.data);
+    
+    if (event.data.checkRacialTraits && activeRacialTraits.length > 0) {
+      const { rollResult, baseRoll, rollType, rollName } = event.data;
+      debug.log(`🧬 Checking racial traits for roll: ${baseRoll} (${rollType}) - ${rollName}`);
+      debug.log(`🧬 Active traits count: ${activeRacialTraits.length}`);
+      debug.log(`🧬 Roll details - Total: ${rollResult}, Base: ${baseRoll}`);
+      
+      // Check if any racial traits trigger (use baseRoll for the actual d20 roll)
+      const traitTriggered = checkRacialTraits(baseRoll, rollType, rollName);
+      if (traitTriggered) {
+        debug.log(`🧬 Racial trait triggered for roll: ${baseRoll}`);
+      } else {
+        debug.log(`🧬 No racial traits triggered for roll: ${baseRoll}`);
+      }
+    } else {
+      debug.log(`🧬 Skipping racial traits check - checkRacialTraits: ${event.data.checkRacialTraits}, activeTraits: ${activeRacialTraits.length}`);
+    }
+  } else if (event.data && event.data.action === 'showHalflingLuckPopup') {
+    // Show Halfling Luck reroll popup
+    showHalflingLuckPopup(event.data.rollData);
   }
 });
 
@@ -5038,4 +5064,195 @@ setTimeout(() => {
   initCombatMechanics();
 }, 100);
 
+// Initialize racial traits
+let activeRacialTraits = [];
+
+function initRacialTraits() {
+  debug.log('🧬 Initializing racial traits...');
+  
+  // Check if character is a Halfling
+  if (characterData && characterData.race && characterData.race.toLowerCase().includes('halfling')) {
+    debug.log('🧬 Halfling detected, adding Halfling Luck trait');
+    activeRacialTraits.push(HalflingLuck);
+  }
+  
+  debug.log(`🧬 Initialized ${activeRacialTraits.length} racial traits`);
+}
+
+function checkRacialTraits(rollResult, rollType, rollName) {
+  debug.log(`🧬 Checking racial traits for roll: ${rollResult} (${rollType}) - ${rollName}`);
+  debug.log(`🧬 Active traits count: ${activeRacialTraits.length}`);
+  
+  let traitTriggered = false;
+  
+  for (const trait of activeRacialTraits) {
+    if (trait.onRoll && typeof trait.onRoll === 'function') {
+      const result = trait.onRoll(rollResult, rollType, rollName);
+      if (result) {
+        traitTriggered = true;
+        debug.log(`🧬 ${trait.name} triggered!`);
+      }
+    }
+  }
+  
+  return traitTriggered;
+}
+
 debug.log('✅ Popup script fully loaded');
+
+// Halfling Luck Popup Functions
+function showHalflingLuckPopup(rollData) {
+  debug.log('🍀 Halfling Luck popup called with:', rollData);
+  
+  // Create popup overlay
+  const popupOverlay = document.createElement('div');
+  popupOverlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  `;
+  
+  // Create popup content
+  const popupContent = document.createElement('div');
+  popupContent.style.cssText = `
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 400px;
+    width: 90%;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    text-align: center;
+  `;
+  
+  popupContent.innerHTML = `
+    <div style="font-size: 24px; margin-bottom: 16px;">🍀</div>
+    <h2 style="margin: 0 0 8px 0; color: #2D8B83;">Halfling Luck!</h2>
+    <p style="margin: 0 0 16px 0; color: #666;">
+      You rolled a natural 1! As a Halfling, you can reroll this d20.
+    </p>
+    <div style="margin: 0 0 16px 0; padding: 12px; background: #f0f8ff; border-radius: 8px; border-left: 4px solid #2D8B83;">
+      <strong>Original Roll:</strong> ${rollData.rollName}<br>
+      <strong>Result:</strong> ${rollData.baseRoll} (natural 1)<br>
+      <strong>Total:</strong> ${rollData.rollResult}
+    </div>
+    <div style="display: flex; gap: 12px; justify-content: center;">
+      <button id="halflingRerollBtn" style="
+        background: #2D8B83;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: bold;
+        font-size: 14px;
+      ">🎲 Reroll</button>
+      <button id="halflingKeepBtn" style="
+        background: #e74c3c;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: bold;
+        font-size: 14px;
+      ">Keep Roll</button>
+    </div>
+  `;
+  
+  popupOverlay.appendChild(popupContent);
+  document.body.appendChild(popupOverlay);
+  
+  // Add event listeners
+  document.getElementById('halflingRerollBtn').addEventListener('click', () => {
+    debug.log('🍀 User chose to reroll');
+    performHalflingReroll(rollData);
+    document.body.removeChild(popupOverlay);
+  });
+  
+  document.getElementById('halflingKeepBtn').addEventListener('click', () => {
+    debug.log('🍀 User chose to keep roll');
+    document.body.removeChild(popupOverlay);
+  });
+  
+  // Close on overlay click
+  popupOverlay.addEventListener('click', (e) => {
+    if (e.target === popupOverlay) {
+      debug.log('🍀 User closed popup');
+      document.body.removeChild(popupOverlay);
+    }
+  });
+  
+  debug.log('🍀 Halfling Luck popup displayed');
+}
+
+function performHalflingReroll(originalRollData) {
+  debug.log('🍀 Performing Halfling reroll for:', originalRollData);
+  
+  // Extract the base formula (remove any modifiers)
+  const formula = originalRollData.rollType;
+  const baseFormula = formula.split('+')[0]; // Get just the d20 part
+  
+  // Create a new roll with just the d20
+  const rerollData = {
+    name: `🍀 ${originalRollData.rollName} (Halfling Luck)`,
+    formula: baseFormula,
+    color: '#2D8B83',
+    characterName: characterData.name
+  };
+  
+  debug.log('🍀 Reroll data:', rerollData);
+  
+  // Send the reroll request
+  if (window.opener && !window.opener.closed) {
+    // Send via popup window opener (Roll20 content script)
+    window.opener.postMessage({
+      action: 'rollFromPopout',
+      ...rerollData
+    }, '*');
+  } else {
+    // Fallback: try background script
+    browserAPI.runtime.sendMessage({
+      action: 'rollInDiceCloudAndForward',
+      roll: rerollData
+    });
+  }
+  
+  showNotification('🍀 Halfling Luck reroll initiated!', 'success');
+}
+
+// Halfling Luck Racial Trait
+const HalflingLuck = {
+  name: 'Halfling Luck',
+  description: 'When you roll a 1 on an attack roll, ability check, or saving throw, you can reroll the die and must use the new roll.',
+  
+  onRoll: function(rollResult, rollType, rollName) {
+    debug.log(`🧬 Halfling Luck onRoll called with: ${rollResult}, ${rollType}, ${rollName}`);
+    debug.log(`🧬 Halfling Luck DEBUG - rollType exists: ${!!rollType}, includes d20: ${rollType && rollType.includes('d20')}, rollResult === 1: ${rollResult === 1}`);
+    
+    // Check if it's a d20 roll and the result is 1
+    if (rollType && rollType.includes('d20') && rollResult === 1) {
+      debug.log(`🧬 Halfling Luck: TRIGGERED! Roll was ${rollResult}`);
+      
+      // Show the popup
+      showHalflingLuckPopup({
+        rollResult: rollResult,
+        baseRoll: rollResult,
+        rollType: rollType,
+        rollName: rollName
+      });
+      
+      return true; // Trait triggered
+    }
+    
+    debug.log(`🧬 Halfling Luck: No trigger - Roll: ${rollResult}, Type: ${rollType}`);
+    return false; // No trigger
+  }
+};

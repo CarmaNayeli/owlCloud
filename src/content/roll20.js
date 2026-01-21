@@ -49,13 +49,145 @@
     // Otherwise format the roll data
     const formattedMessage = rollData.message || formatRollForRoll20(rollData);
 
-    // Post to chat
     const success = postChatMessage(formattedMessage);
 
     if (success) {
       debug.log('✅ Roll successfully posted to Roll20');
+      
+      // Calculate the base roll by working backwards from formula and result
+      const calculatedBaseRoll = calculateBaseRoll(rollData.formula, rollData.result);
+      debug.log(`🧮 Calculated base roll: ${calculatedBaseRoll} from formula "${rollData.formula}" and result "${rollData.result}"`);
+      
+      // Check for natural 1s using the calculated base roll
+      if (calculatedBaseRoll === 1) {
+        debug.log('🍀 Natural 1 detected! Checking racial traits...');
+        
+        // Send message to popup for Halfling Luck using the calculated base roll
+        browserAPI.runtime.sendMessage({
+          action: 'rollResult',
+          rollResult: rollData.result,
+          baseRoll: calculatedBaseRoll.toString(),
+          rollType: rollData.formula,
+          rollName: rollData.name,
+          checkRacialTraits: true
+        });
+        
+        debug.log('🧬 Sent natural 1 result to popup for Halfling Luck');
+      }
     } else {
       debug.error('❌ Failed to post roll to Roll20');
+    }
+  }
+
+  /**
+   * Calculates the base d20 roll from formula and final result
+   */
+  function calculateBaseRoll(formula, result) {
+    try {
+      debug.log(`🧮 Calculating base roll - Formula: "${formula}", Result: "${result}"`);
+      
+      // Parse the formula to extract the modifier
+      // Formula format: "1d20+X" or "1d20-X"
+      const modifierMatch = formula.match(/1d20([+-]\d+)/i);
+      
+      if (modifierMatch) {
+        const modifier = parseInt(modifierMatch[1]);
+        const totalResult = parseInt(result);
+        const baseRoll = totalResult - modifier;
+        
+        debug.log(`🧮 Calculation: ${totalResult} - (${modifier}) = ${baseRoll}`);
+        
+        // Ensure the base roll is within valid d20 range (1-20)
+        if (baseRoll >= 1 && baseRoll <= 20) {
+          return baseRoll;
+        } else {
+          debug.warn(`⚠️ Calculated base roll ${baseRoll} is outside valid d20 range (1-20)`);
+          return baseRoll; // Still return it, but log warning
+        }
+      } else {
+        // No modifier found, assume the result is the base roll
+        debug.log(`🧮 No modifier found in formula, using result as base roll: ${result}`);
+        return parseInt(result);
+      }
+    } catch (error) {
+      debug.error('❌ Error calculating base roll:', error);
+      return parseInt(result); // Fallback to using the result directly
+    }
+  }
+
+  /**
+   * Checks Roll20's inline roll elements for natural 1s
+   */
+  function checkRoll20InlineRolls(characterName) {
+    debug.log('🔍 Checking Roll20 inline rolls for natural 1s for:', characterName);
+    
+    // Find all inline roll elements
+    const inlineRolls = document.querySelectorAll('.inlinerollresult, .rollresult');
+    debug.log(`🔍 Found ${inlineRolls.length} inline roll elements`);
+    
+    inlineRolls.forEach((rollElement, index) => {
+      try {
+        // Get the roll data from Roll20's inline roll system
+        const rollData = getRoll20RollData(rollElement);
+        debug.log(`🔍 Checking inline roll ${index + 1}:`, rollData);
+        
+        if (rollData && rollData.baseRoll === 1 && rollData.name.includes(characterName)) {
+          debug.log('🍀 Natural 1 detected in Roll20 inline roll!');
+          debug.log('🍀 Roll data:', rollData);
+          
+          // Send message to popup for Halfling Luck
+          browserAPI.runtime.sendMessage({
+            action: 'rollResult',
+            rollResult: rollData.total.toString(),
+            baseRoll: rollData.baseRoll.toString(),
+            rollType: rollData.formula,
+            rollName: rollData.name,
+            checkRacialTraits: true
+          });
+          
+          debug.log('🧬 Sent natural 1 result to popup for Halfling Luck');
+        }
+      } catch (error) {
+        debug.warn('⚠️ Error checking inline roll:', error);
+      }
+    });
+    
+    debug.log('🔍 Finished checking inline rolls');
+  }
+
+  /**
+   * Extracts roll data from Roll20's inline roll elements
+   */
+  function getRoll20RollData(rollElement) {
+    try {
+      // Roll20 stores roll data in the element's dataset or in a script tag
+      const rollName = rollElement.closest('.message')?.querySelector('.message-name')?.textContent || 
+                     rollElement.closest('.message')?.textContent?.split('\n')[0]?.trim() || '';
+      
+      // Try to get the roll formula from the inline roll
+      const formulaElement = rollElement.querySelector('.formula') || rollElement;
+      const formula = formulaElement.textContent?.trim() || '';
+      
+      // Look for the base roll value in the roll details
+      const rollDetails = rollElement.textContent || rollElement.innerText || '';
+      const baseRollMatch = rollDetails.match(/^(\d+)/);
+      const baseRoll = baseRollMatch ? parseInt(baseRollMatch[1]) : null;
+      
+      // Look for the total result
+      const totalMatch = rollDetails.match(/(\d+)\s*$/);
+      const total = totalMatch ? parseInt(totalMatch[1]) : baseRoll;
+      
+      debug.log(`🔍 Extracted roll data - Name: ${rollName}, Formula: ${formula}, Base: ${baseRoll}, Total: ${total}`);
+      
+      return {
+        name: rollName,
+        formula: formula,
+        baseRoll: baseRoll,
+        total: total
+      };
+    } catch (error) {
+      debug.warn('⚠️ Error extracting roll data:', error);
+      return null;
     }
   }
 
@@ -74,7 +206,14 @@
    * Listen for messages from other parts of the extension
    */
   browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    debug.log('📨 Roll20 content script received message:', request.action, request);
+    
     if (request.action === 'postRollToChat') {
+      handleDiceCloudRoll(request.roll);
+      sendResponse({ success: true });
+    } else if (request.action === 'sendRollToRoll20') {
+      // Handle the message that Dice Cloud is actually sending
+      debug.log('🎲 Received sendRollToRoll20 message:', request.roll);
       handleDiceCloudRoll(request.roll);
       sendResponse({ success: true });
     } else if (request.action === 'rollFromPopout') {
@@ -116,6 +255,37 @@
         debug.error('Error showing character sheet:', error);
         sendResponse({ success: false, error: error.message });
       }
+    } else if (request.action === 'forwardToPopup') {
+      // Forward roll result to popup for racial traits checking
+      debug.log('🧬 Forwarding roll result to popup:', request);
+      
+      // Send to all registered popup windows
+      Object.keys(characterPopups).forEach(characterName => {
+        const popup = characterPopups[characterName];
+        try {
+          if (popup && !popup.closed) {
+            popup.postMessage({
+              action: 'rollResult',
+              rollResult: request.rollResult,
+              baseRoll: request.baseRoll,
+              rollType: request.rollType,
+              rollName: request.rollName,
+              checkRacialTraits: request.checkRacialTraits
+            }, '*');
+            
+            debug.log(`📤 Sent rollResult to popup for ${characterName}`);
+          } else {
+            // Clean up closed popups
+            delete characterPopups[characterName];
+            debug.log(`🗑️ Removed closed popup for ${characterName}`);
+          }
+        } catch (error) {
+          debug.warn(`⚠️ Error sending rollResult to popup "${characterName}":`, error);
+          delete characterPopups[characterName];
+        }
+      });
+      
+      sendResponse({ success: true });
     }
   });
 

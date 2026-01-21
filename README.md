@@ -451,9 +451,11 @@ If dice rolls aren't being forwarded from DiceCloud to Roll20:
 - [x] **Condition/Buff Manager** - Apply and track conditions (blessed, poisoned, hasted, etc.)
 - [x] **Hit Dice Manager** - Better UI for spending hit dice with automatic HP restoration
 - [x] **Spell Slot Visual Upgrade** - Extend visual spell slot manager to all levels with depletion indicators
+- [x] **Upcasting Calculator** - Auto-calculate damage when casting at higher levels
 - [x] **Active Concentration Tracker** - Track which spell you're concentrating on (with drop button)
 - [x] **Ritual Casting Indicator** - Mark spells that can be cast as rituals (📖 tag)
 - [x] **Metamagic Quick Apply** - Quick buttons for Twinned, Quickened, etc. with sorcery point tracking
+- [x] **Spell Attack Modifier** - Auto-add spell attack bonus to spell rolls
 - [x] **Inspiration Tracker** - Track and spend inspiration with visual indicators
 
 ### High Priority - Mechanics & Character Features
@@ -486,9 +488,7 @@ If dice rolls aren't being forwarded from DiceCloud to Roll20:
 - [ ] **Attunement Tracker** - Track attuned magic items (3-item limit)
 
 ### Spell Mechanics
-- [ ] **Upcasting Calculator** - Auto-calculate damage when casting at higher levels
 - [ ] **Spell Preparation Manager** - Track prepared vs. known spells
-- [ ] **Spell Attack Modifier** - Auto-add spell attack bonus to spell rolls
 
 ### Additional Mechanics & Features
 - [ ] **Initiative Auto-Roller** - Roll initiative for all party members at once

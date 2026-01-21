@@ -1671,6 +1671,7 @@
         name: name,
         formula: formula,
         result: totalResult.toString(),
+        baseRoll: rollResult.toString(),  // Add the raw d20 roll!
         timestamp: Date.now()
       };
       
