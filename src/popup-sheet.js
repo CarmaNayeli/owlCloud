@@ -3064,16 +3064,23 @@ function createColorPalette(selectedColor) {
   }).join('');
 }
 
+// Global flag to track if document-level click listener has been added
+let colorPaletteDocumentListenerAdded = false;
+
 function initColorPalette() {
   // Set default color if not set
   if (!characterData.notificationColor) {
     characterData.notificationColor = '#3498db';
   }
 
-  const toggleBtn = document.getElementById('color-toggle');
+  const toggleBtnOld = document.getElementById('color-toggle');
   const palette = document.getElementById('color-palette');
 
-  if (!toggleBtn || !palette) return;
+  if (!toggleBtnOld || !palette) return;
+
+  // Clone and replace toggle button to remove old listeners
+  const toggleBtn = toggleBtnOld.cloneNode(true);
+  toggleBtnOld.parentNode.replaceChild(toggleBtn, toggleBtnOld);
 
   // Toggle palette visibility
   toggleBtn.addEventListener('click', (e) => {
@@ -3082,12 +3089,21 @@ function initColorPalette() {
     palette.style.display = isVisible ? 'none' : 'grid';
   });
 
-  // Close palette when clicking outside
-  document.addEventListener('click', (e) => {
-    if (!palette.contains(e.target) && e.target !== toggleBtn) {
-      palette.style.display = 'none';
-    }
-  });
+  // Add document-level click listener only once
+  if (!colorPaletteDocumentListenerAdded) {
+    // Close palette when clicking outside
+    document.addEventListener('click', (e) => {
+      const currentToggleBtn = document.getElementById('color-toggle');
+      const currentPalette = document.getElementById('color-palette');
+      if (currentPalette && currentToggleBtn) {
+        if (!currentPalette.contains(e.target) && e.target !== currentToggleBtn && !currentToggleBtn.contains(e.target)) {
+          currentPalette.style.display = 'none';
+        }
+      }
+    });
+    colorPaletteDocumentListenerAdded = true;
+    debug.log('🎨 Added document-level color palette click listener');
+  }
 
   // Add click handlers to color swatches
   document.querySelectorAll('.color-swatch').forEach(swatch => {
@@ -3104,7 +3120,7 @@ function initColorPalette() {
         s.style.filter = isSelected ? 'drop-shadow(0 0 4px white)' : 'none';
       });
 
-      // Update the toggle button emoji
+      // Update the toggle button emoji (using current element in DOM)
       const newEmoji = getColorEmoji(newColor);
       const colorEmojiEl = document.getElementById('color-emoji');
       if (colorEmojiEl) {
