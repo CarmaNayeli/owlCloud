@@ -1769,13 +1769,37 @@
     let isDragging = false;
     let startX, startY, initialLeft, initialTop;
 
+    // Helper function to validate if position is within viewport
+    function isPositionValid(left, top) {
+      const leftPx = parseFloat(left);
+      const topPx = parseFloat(top);
+
+      // Check if position is within reasonable viewport bounds
+      // Allow some negative values but not completely off-screen
+      const minTop = -20; // Allow slightly above viewport (for aesthetic dragging)
+      const maxTop = window.innerHeight - 20; // Ensure at least 20px visible at bottom
+      const minLeft = -100; // Allow partially off left edge
+      const maxLeft = window.innerWidth - 20; // Ensure at least 20px visible on right
+
+      return topPx >= minTop && topPx <= maxTop && leftPx >= minLeft && leftPx <= maxLeft;
+    }
+
     // Load saved position
     const savedPosition = localStorage.getItem(`${storageKey}_position`);
     if (savedPosition) {
       const { left, top } = JSON.parse(savedPosition);
-      button.style.left = left;
-      button.style.top = top;
-      button.style.transform = 'none'; // Remove centering transform when positioned
+
+      // Validate position before applying it
+      if (isPositionValid(left, top)) {
+        button.style.left = left;
+        button.style.top = top;
+        button.style.transform = 'none'; // Remove centering transform when positioned
+      } else {
+        // Invalid position detected - clear it and log
+        debug.log(`🔧 Clearing invalid button position: left=${left}, top=${top}`);
+        localStorage.removeItem(`${storageKey}_position`);
+        // Keep default centered position
+      }
     }
 
     // Load saved visibility
@@ -1819,11 +1843,16 @@
         isDragging = false;
         button.style.cursor = 'pointer';
 
-        // Save position
-        localStorage.setItem(`${storageKey}_position`, JSON.stringify({
-          left: button.style.left,
-          top: button.style.top
-        }));
+        // Validate and save position only if it's within viewport
+        if (isPositionValid(button.style.left, button.style.top)) {
+          localStorage.setItem(`${storageKey}_position`, JSON.stringify({
+            left: button.style.left,
+            top: button.style.top
+          }));
+        } else {
+          // Position is off-screen, don't save it
+          debug.log('⚠️ Button position is off-screen, not saving');
+        }
       }
     });
 
@@ -2015,6 +2044,20 @@
       if (wasHidden === 'true') {
         debug.log('🔧 Clearing accidentally hidden button state');
         localStorage.removeItem('rollcloud-sheet-toggle_hidden');
+      }
+
+      // Clear any off-screen position to ensure button is visible
+      const savedPosition = localStorage.getItem('rollcloud-sheet-toggle_position');
+      if (savedPosition) {
+        const { left, top } = JSON.parse(savedPosition);
+        const leftPx = parseFloat(left);
+        const topPx = parseFloat(top);
+
+        // Check if position is off-screen (especially negative Y or far outside viewport)
+        if (topPx < -20 || topPx > window.innerHeight - 20 || leftPx < -100 || leftPx > window.innerWidth - 20) {
+          debug.log(`🔧 Clearing off-screen button position: left=${left}, top=${top}`);
+          localStorage.removeItem('rollcloud-sheet-toggle_position');
+        }
       }
 
       createToggleButton();
