@@ -644,16 +644,16 @@
     // ===== PLAYER OVERVIEW TAB CONTENT =====
     playersTab.innerHTML = `
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-        <h3 style="margin: 0; font-size: 1em; color: #4ECDC4;">Party Overview</h3>
+        <h3 style="margin: 0; font-size: 1.2em; color: #4ECDC4;">Party Overview</h3>
         <div style="display: flex; gap: 8px;">
-          <button id="export-players-btn" style="padding: 6px 12px; background: #3498db; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 0.8em;">📋 Export</button>
-          <button id="refresh-players-btn" style="padding: 6px 12px; background: #9b59b6; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 0.8em;">🔄 Refresh</button>
+          <button id="import-players-btn" style="padding: 8px 14px; background: #27ae60; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 0.95em; font-weight: bold;">📥 Import</button>
+          <button id="refresh-players-btn" style="padding: 8px 14px; background: #9b59b6; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 0.95em; font-weight: bold;">🔄 Refresh</button>
         </div>
       </div>
       <div style="text-align: center; padding: 20px; color: #888;">
         <div style="font-size: 3em; margin-bottom: 10px;">👥</div>
-        <p style="margin: 0;">No players tracked yet</p>
-        <p style="font-size: 0.85em; margin-top: 8px;">Party members will appear here automatically</p>
+        <p style="margin: 0; font-size: 1.1em;">No players tracked yet</p>
+        <p style="font-size: 1em; margin-top: 8px;">Click Import to load character data from storage</p>
       </div>
       <div id="player-overview-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
     `;
@@ -921,10 +921,10 @@
       exportHistoryBtn.addEventListener('click', exportTurnHistory);
     }
 
-    // Export players button
-    const exportPlayersBtn = document.getElementById('export-players-btn');
-    if (exportPlayersBtn) {
-      exportPlayersBtn.addEventListener('click', exportPlayerData);
+    // Import players button
+    const importPlayersBtn = document.getElementById('import-players-btn');
+    if (importPlayersBtn) {
+      importPlayersBtn.addEventListener('click', importPlayerData);
     }
 
     // Refresh players button
@@ -1066,14 +1066,14 @@
           <!-- Player Header (always visible) -->
           <div onclick="togglePlayerDetails('${playerId}')" style="padding: 12px; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s;" onmouseover="this.style.background='#3d5a6e'" onmouseout="this.style.background='transparent'">
             <div style="flex: 1;">
-              <div style="font-weight: bold; font-size: 1em; color: #4ECDC4; margin-bottom: 4px;">${name}</div>
-              <div style="display: flex; gap: 12px; font-size: 0.8em; color: #ccc;">
+              <div style="font-weight: bold; font-size: 1.1em; color: #4ECDC4; margin-bottom: 4px;">${name}</div>
+              <div style="display: flex; gap: 12px; font-size: 0.95em; color: #ccc;">
                 <span>HP: ${player.hp}/${player.maxHp}</span>
                 <span>AC: ${player.ac || '—'}</span>
                 <span>Init: ${player.initiative || '—'}</span>
               </div>
             </div>
-            <span id="${playerId}-toggle" style="transition: transform 0.3s; transform: rotate(-90deg); color: #888;">▼</span>
+            <span id="${playerId}-toggle" style="transition: transform 0.3s; transform: rotate(-90deg); color: #888; font-size: 1.1em;">▼</span>
           </div>
 
           <!-- Detailed View (collapsible) -->
@@ -1081,20 +1081,20 @@
             <div style="padding: 0 12px 12px 12px;">
               <!-- Character Sub-tabs -->
               <div style="display: flex; gap: 4px; margin-bottom: 10px; border-bottom: 1px solid #2c3e50;">
-                <button class="player-subtab-btn" data-player="${playerId}" data-subtab="overview" style="padding: 8px 12px; background: transparent; color: #4ECDC4; border: none; border-bottom: 2px solid #4ECDC4; cursor: pointer; font-size: 0.8em; font-weight: bold;">Overview</button>
-                <button class="player-subtab-btn" data-player="${playerId}" data-subtab="combat" style="padding: 8px 12px; background: transparent; color: #888; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-size: 0.8em;">Combat</button>
-                <button class="player-subtab-btn" data-player="${playerId}" data-subtab="status" style="padding: 8px 12px; background: transparent; color: #888; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-size: 0.8em;">Status</button>
+                <button class="player-subtab-btn" data-player="${playerId}" data-subtab="overview" style="padding: 8px 12px; background: transparent; color: #4ECDC4; border: none; border-bottom: 2px solid #4ECDC4; cursor: pointer; font-size: 0.9em; font-weight: bold;">Overview</button>
+                <button class="player-subtab-btn" data-player="${playerId}" data-subtab="combat" style="padding: 8px 12px; background: transparent; color: #888; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-size: 0.9em;">Combat</button>
+                <button class="player-subtab-btn" data-player="${playerId}" data-subtab="status" style="padding: 8px 12px; background: transparent; color: #888; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-size: 0.9em;">Status</button>
               </div>
 
               <!-- Overview Tab -->
               <div class="player-subtab-content" data-player="${playerId}" data-subtab="overview" style="display: block;">
                 <!-- HP Bar -->
                 <div style="margin-bottom: 10px;">
-                  <div style="display: flex; justify-content: space-between; font-size: 0.85em; color: #ccc; margin-bottom: 4px;">
+                  <div style="display: flex; justify-content: space-between; font-size: 0.95em; color: #ccc; margin-bottom: 4px;">
                     <span>Hit Points</span>
                     <span>${player.hp}/${player.maxHp}</span>
                   </div>
-                  <div style="width: 100%; height: 10px; background: #2c3e50; border-radius: 5px; overflow: hidden;">
+                  <div style="width: 100%; height: 12px; background: #2c3e50; border-radius: 5px; overflow: hidden;">
                     <div style="width: ${hpPercent}%; height: 100%; background: ${hpColor}; transition: width 0.3s;"></div>
                   </div>
                 </div>
@@ -1102,16 +1102,16 @@
                 <!-- Stats Grid -->
                 <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
                   <div style="background: #2c3e50; padding: 8px; border-radius: 4px; text-align: center;">
-                    <div style="font-size: 0.75em; color: #888;">Armor Class</div>
-                    <div style="font-weight: bold; color: #fff; font-size: 1.2em;">${player.ac || '—'}</div>
+                    <div style="font-size: 0.85em; color: #888;">Armor Class</div>
+                    <div style="font-weight: bold; color: #fff; font-size: 1.3em;">${player.ac || '—'}</div>
                   </div>
                   <div style="background: #2c3e50; padding: 8px; border-radius: 4px; text-align: center;">
-                    <div style="font-size: 0.75em; color: #888;">Passive Perception</div>
-                    <div style="font-weight: bold; color: #fff; font-size: 1.2em;">${player.passivePerception || '—'}</div>
+                    <div style="font-size: 0.85em; color: #888;">Passive Perception</div>
+                    <div style="font-weight: bold; color: #fff; font-size: 1.3em;">${player.passivePerception || '—'}</div>
                   </div>
                   <div style="background: #2c3e50; padding: 8px; border-radius: 4px; text-align: center;">
-                    <div style="font-size: 0.75em; color: #888;">Initiative</div>
-                    <div style="font-weight: bold; color: #fff; font-size: 1.2em;">${player.initiative || '—'}</div>
+                    <div style="font-size: 0.85em; color: #888;">Initiative</div>
+                    <div style="font-weight: bold; color: #fff; font-size: 1.3em;">${player.initiative || '—'}</div>
                   </div>
                 </div>
               </div>
@@ -1119,18 +1119,18 @@
               <!-- Combat Tab -->
               <div class="player-subtab-content" data-player="${playerId}" data-subtab="combat" style="display: none;">
                 <div style="background: #2c3e50; padding: 10px; border-radius: 4px; margin-bottom: 8px;">
-                  <div style="font-size: 0.85em; color: #888; margin-bottom: 6px;">Attack Roll</div>
-                  <div style="font-size: 0.8em; color: #ccc;">Click character sheet to make attacks</div>
+                  <div style="font-size: 0.95em; color: #888; margin-bottom: 6px;">Attack Roll</div>
+                  <div style="font-size: 0.9em; color: #ccc;">Click character sheet to make attacks</div>
                 </div>
                 <div style="background: #2c3e50; padding: 10px; border-radius: 4px;">
-                  <div style="font-size: 0.85em; color: #888; margin-bottom: 6px;">Combat Stats</div>
+                  <div style="font-size: 0.95em; color: #888; margin-bottom: 6px;">Combat Stats</div>
                   <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                    <span style="font-size: 0.8em; color: #ccc;">AC:</span>
-                    <span style="font-size: 0.8em; color: #fff; font-weight: bold;">${player.ac || '—'}</span>
+                    <span style="font-size: 0.9em; color: #ccc;">AC:</span>
+                    <span style="font-size: 0.9em; color: #fff; font-weight: bold;">${player.ac || '—'}</span>
                   </div>
                   <div style="display: flex; justify-content: space-between;">
-                    <span style="font-size: 0.8em; color: #ccc;">Initiative:</span>
-                    <span style="font-size: 0.8em; color: #fff; font-weight: bold;">${player.initiative || '—'}</span>
+                    <span style="font-size: 0.9em; color: #ccc;">Initiative:</span>
+                    <span style="font-size: 0.9em; color: #fff; font-weight: bold;">${player.initiative || '—'}</span>
                   </div>
                 </div>
               </div>
@@ -1140,33 +1140,33 @@
                 <!-- Conditions -->
                 ${player.conditions && player.conditions.length > 0 ? `
                   <div style="margin-bottom: 10px;">
-                    <div style="font-size: 0.85em; color: #888; margin-bottom: 6px;">Active Conditions</div>
+                    <div style="font-size: 0.95em; color: #888; margin-bottom: 6px;">Active Conditions</div>
                     <div style="display: flex; flex-wrap: wrap; gap: 6px;">
-                      ${player.conditions.map(c => `<span style="background: #e74c3c; padding: 4px 10px; border-radius: 4px; font-size: 0.8em; font-weight: bold;">${c}</span>`).join('')}
+                      ${player.conditions.map(c => `<span style="background: #e74c3c; padding: 5px 12px; border-radius: 4px; font-size: 0.9em; font-weight: bold;">${c}</span>`).join('')}
                     </div>
                   </div>
-                ` : '<div style="padding: 10px; text-align: center; color: #888; font-size: 0.85em;">No active conditions</div>'}
+                ` : '<div style="padding: 10px; text-align: center; color: #888; font-size: 0.95em;">No active conditions</div>'}
 
                 <!-- Concentration -->
                 ${player.concentration ? `
                   <div style="background: #9b59b6; padding: 10px; border-radius: 4px; margin-bottom: 10px;">
-                    <div style="font-size: 0.85em; font-weight: bold; margin-bottom: 4px;">🧠 Concentrating</div>
-                    <div style="font-size: 0.8em;">${player.concentration}</div>
+                    <div style="font-size: 0.95em; font-weight: bold; margin-bottom: 4px;">🧠 Concentrating</div>
+                    <div style="font-size: 0.9em;">${player.concentration}</div>
                   </div>
                 ` : ''}
 
                 <!-- Death Saves (if unconscious) -->
                 ${player.deathSaves ? `
                   <div style="background: #c0392b; padding: 10px; border-radius: 4px;">
-                    <div style="font-size: 0.85em; font-weight: bold; margin-bottom: 6px;">💀 Death Saving Throws</div>
-                    <div style="display: flex; justify-content: space-around; font-size: 0.8em;">
+                    <div style="font-size: 0.95em; font-weight: bold; margin-bottom: 6px;">💀 Death Saving Throws</div>
+                    <div style="display: flex; justify-content: space-around; font-size: 0.9em;">
                       <div>
                         <div style="color: #27ae60; font-weight: bold;">Successes</div>
-                        <div style="font-size: 1.2em; text-align: center;">✓ ${player.deathSaves.successes || 0}</div>
+                        <div style="font-size: 1.3em; text-align: center;">✓ ${player.deathSaves.successes || 0}</div>
                       </div>
                       <div>
                         <div style="color: #e74c3c; font-weight: bold;">Failures</div>
-                        <div style="font-size: 1.2em; text-align: center;">✗ ${player.deathSaves.failures || 0}</div>
+                        <div style="font-size: 1.3em; text-align: center;">✗ ${player.deathSaves.failures || 0}</div>
                       </div>
                     </div>
                   </div>
@@ -1262,6 +1262,70 @@
           content.style.display = content.dataset.subtab === targetSubtab ? 'block' : 'none';
         });
       });
+    });
+  }
+
+  /**
+   * Import player data from chrome storage
+   */
+  function importPlayerData() {
+    debug.log('📥 Importing player data from storage...');
+
+    chrome.storage.local.get(['characterProfiles'], (result) => {
+      if (chrome.runtime.lastError) {
+        debug.error('❌ Failed to import player data:', chrome.runtime.lastError);
+        postChatMessage('❌ Failed to import character data');
+        return;
+      }
+
+      const characterProfiles = result.characterProfiles || {};
+      const profileKeys = Object.keys(characterProfiles);
+
+      if (profileKeys.length === 0) {
+        debug.log('⚠️ No character profiles found in storage');
+        postChatMessage('⚠️ No character data found. Please sync a character from Dice Cloud first.');
+        return;
+      }
+
+      // Clear existing player data
+      playerData = {};
+
+      // Import each character profile
+      profileKeys.forEach(profileId => {
+        const character = characterProfiles[profileId];
+
+        if (!character || !character.name) {
+          debug.warn(`⚠️ Skipping invalid character profile: ${profileId}`);
+          return;
+        }
+
+        // Extract player data from character
+        const hp = character.hp?.current ?? character.hitPoints?.current ?? 0;
+        const maxHp = character.hp?.max ?? character.hitPoints?.max ?? 0;
+        const ac = character.armorClass ?? character.ac ?? null;
+        const initiative = character.initiative ?? null;
+        const passivePerception = character.passivePerception ?? null;
+
+        playerData[character.name] = {
+          hp: hp,
+          maxHp: maxHp,
+          ac: ac,
+          passivePerception: passivePerception,
+          initiative: initiative,
+          conditions: [],
+          concentration: null,
+          deathSaves: null
+        };
+
+        debug.log(`✅ Imported player: ${character.name} (HP: ${hp}/${maxHp}, AC: ${ac})`);
+      });
+
+      // Update display
+      updatePlayerOverviewDisplay();
+
+      const playerCount = Object.keys(playerData).length;
+      debug.log(`✅ Successfully imported ${playerCount} player(s)`);
+      postChatMessage(`✅ GM imported ${playerCount} character(s) to party overview`);
     });
   }
 
