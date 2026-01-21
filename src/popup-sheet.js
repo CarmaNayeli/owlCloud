@@ -401,30 +401,48 @@ function buildSheet(data) {
   const initiativeValue = document.getElementById('initiative-value');
   initiativeValue.textContent = `+${data.initiative || 0}`;
 
+  // Remove old event listeners by cloning and replacing elements
+  // This prevents duplicate listeners when buildSheet() is called multiple times
+  const hpDisplayOld = document.getElementById('hp-display');
+  const hpDisplayNew = hpDisplayOld.cloneNode(true);
+  hpDisplayOld.parentNode.replaceChild(hpDisplayNew, hpDisplayOld);
+
+  const initiativeOld = document.getElementById('initiative-button');
+  const initiativeNew = initiativeOld.cloneNode(true);
+  initiativeOld.parentNode.replaceChild(initiativeNew, initiativeOld);
+
+  const deathSavesOld = document.getElementById('death-saves-display');
+  const deathSavesNew = deathSavesOld.cloneNode(true);
+  deathSavesOld.parentNode.replaceChild(deathSavesNew, deathSavesOld);
+
+  const inspirationOld = document.getElementById('inspiration-display');
+  const inspirationNew = inspirationOld.cloneNode(true);
+  inspirationOld.parentNode.replaceChild(inspirationNew, inspirationOld);
+
   // Add click handler for HP display
-  document.getElementById('hp-display').addEventListener('click', showHPModal);
+  hpDisplayNew.addEventListener('click', showHPModal);
 
   // Add click handler for initiative button
-  document.getElementById('initiative-button').addEventListener('click', () => {
+  initiativeNew.addEventListener('click', () => {
     const initiativeBonus = data.initiative || 0;
     roll('Initiative', `1d20+${initiativeBonus}`);
   });
 
   // Add click handler for death saves display
-  document.getElementById('death-saves-display').addEventListener('click', showDeathSavesModal);
+  deathSavesNew.addEventListener('click', showDeathSavesModal);
 
   // Add click handler for inspiration display
-  document.getElementById('inspiration-display').addEventListener('click', toggleInspiration);
+  inspirationNew.addEventListener('click', toggleInspiration);
 
   // Update HP display color based on percentage
   const hpPercent = (data.hitPoints.current / data.hitPoints.max) * 100;
-  const hpDisplay = document.getElementById('hp-display');
+  // Use the new hpDisplayNew element we just created above
   if (hpPercent > 50) {
-    hpDisplay.style.background = 'var(--accent-success)';
+    hpDisplayNew.style.background = 'var(--accent-success)';
   } else if (hpPercent > 25) {
-    hpDisplay.style.background = 'var(--accent-warning)';
+    hpDisplayNew.style.background = 'var(--accent-warning)';
   } else {
-    hpDisplay.style.background = 'var(--accent-danger)';
+    hpDisplayNew.style.background = 'var(--accent-danger)';
   }
 
   // Resources
