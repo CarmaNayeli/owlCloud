@@ -82,12 +82,15 @@ async function loadCharacterWithTabs() {
     const profilesResponse = await browserAPI.runtime.sendMessage({ action: 'getAllCharacterProfiles' });
     const profiles = profilesResponse.success ? profilesResponse.profiles : {};
 
-    // Get active character
+    // Get active character ID (this is the slotId like "slot-1")
+    const activeCharacterId = await getActiveCharacterId();
+
+    // Get active character data
     const activeResponse = await browserAPI.runtime.sendMessage({ action: 'getCharacterData' });
     const activeCharacter = activeResponse.success ? activeResponse.data : null;
 
     // Build character tabs
-    buildCharacterTabs(profiles, activeCharacter);
+    buildCharacterTabs(profiles, activeCharacterId);
 
     // Load active character
     if (activeCharacter) {
@@ -101,15 +104,22 @@ async function loadCharacterWithTabs() {
   }
 }
 
+// Get the active character ID from storage
+async function getActiveCharacterId() {
+  return new Promise((resolve) => {
+    browserAPI.storage.local.get(['activeCharacterId'], (result) => {
+      resolve(result.activeCharacterId || null);
+    });
+  });
+}
+
 // Build character tabs UI
-function buildCharacterTabs(profiles, activeCharacter) {
+function buildCharacterTabs(profiles, activeCharacterId) {
   const tabsContainer = document.getElementById('character-tabs');
   if (!tabsContainer) return;
 
   tabsContainer.innerHTML = '';
   const maxSlots = 10; // Support up to 10 character slots (matches main's implementation)
-
-  const activeId = activeCharacter ? (activeCharacter.characterId || activeCharacter._id) : null;
 
   // Create tabs for each slot
   for (let slotNum = 1; slotNum <= maxSlots; slotNum++) {
@@ -122,9 +132,7 @@ function buildCharacterTabs(profiles, activeCharacter) {
     tab.dataset.slotId = slotId;
 
     if (charInSlot) {
-      const isActive = slotId === activeId ||
-                       (charInSlot.characterId && charInSlot.characterId === activeId) ||
-                       (charInSlot._id && charInSlot._id === activeId);
+      const isActive = slotId === activeCharacterId;
 
       if (isActive) {
         tab.classList.add('active');
