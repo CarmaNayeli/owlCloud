@@ -821,32 +821,57 @@
       opacity: 1;
     }
 
-    /* GM Mode Toggle (in character sheet - opens GM panel on Roll20 page) */
-    .gm-mode-toggle {
-      background: var(--accent-primary);
-      color: var(--text-inverse);
-      border: 2px solid var(--accent-primary);
-      padding: 6px 12px;
-      border-radius: 6px;
-      cursor: pointer;
+    /* GM Mode Toggle Switch (in character sheet - opens GM panel on Roll20 page) */
+    .gm-mode-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .gm-mode-label {
       font-size: 0.85em;
       font-weight: bold;
-      transition: all 0.2s;
+      color: var(--text-primary);
       display: flex;
       align-items: center;
       gap: 4px;
     }
 
-    .gm-mode-toggle:hover {
-      background: var(--accent-success);
-      border-color: var(--accent-success);
-      transform: scale(1.05);
+    .gm-mode-toggle {
+      position: relative;
+      width: 50px;
+      height: 26px;
+      background: #95a5a6;
+      border-radius: 34px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+      border: none;
+      padding: 0;
+    }
+
+    .gm-mode-toggle::before {
+      content: '';
+      position: absolute;
+      height: 20px;
+      width: 20px;
+      left: 3px;
+      top: 3px;
+      background-color: white;
+      border-radius: 50%;
+      transition: transform 0.3s;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     }
 
     .gm-mode-toggle.active {
-      background: var(--accent-success);
-      border-color: var(--accent-success);
-      box-shadow: 0 0 10px rgba(39, 174, 96, 0.5);
+      background: #4ECDC4;
+    }
+
+    .gm-mode-toggle.active::before {
+      transform: translateX(24px);
+    }
+
+    .gm-mode-toggle:hover {
+      opacity: 0.9;
     }
   </style>
 </head>
@@ -867,9 +892,10 @@
         <div id="color-palette" style="display: none; position: absolute; left: 50%; top: 100%; transform: translateX(-50%); background: rgba(0,0,0,0.9); padding: 12px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 1000; margin-top: 5px;">
         </div>
       </div>
-      <button class="gm-mode-toggle" id="gm-mode-toggle" title="Toggle GM Mode">
-        <span>👑</span> GM Mode
-      </button>
+      <div class="gm-mode-container">
+        <span class="gm-mode-label"><span>👑</span> GM Mode</span>
+        <button class="gm-mode-toggle" id="gm-mode-toggle" title="Toggle GM Mode" aria-label="Toggle GM Mode"></button>
+      </div>
       <button class="close-btn" id="close-btn">✕</button>
     </div>
 

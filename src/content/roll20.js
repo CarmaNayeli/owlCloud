@@ -217,7 +217,7 @@
     `;
     controls.innerHTML = `
       <button id="prev-turn-btn" style="padding: 8px 12px; background: #3498db; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.85em;">← Prev</button>
-      <button id="next-turn-btn" style="padding: 8px 12px; background: #27ae60; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.85em;">Next →</button>
+      <button id="next-turn-btn" style="padding: 8px 12px; background: #4ECDC4; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.85em;">Next →</button>
       <button id="clear-all-btn" style="padding: 8px 12px; background: #e74c3c; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.85em; grid-column: span 2;">🗑️ Clear All</button>
     `;
 
@@ -420,12 +420,12 @@
 
     gmPanel.style.display = gmModeEnabled ? 'block' : 'none';
 
-    // Visual feedback - change border color when active
+    // Visual feedback - enhance glow when active
     if (gmModeEnabled) {
-      gmPanel.style.borderColor = '#27ae60'; // Green border when active
-      gmPanel.style.boxShadow = '0 8px 32px rgba(39, 174, 96, 0.3)'; // Green glow
+      gmPanel.style.borderColor = '#4ECDC4'; // Cyan border
+      gmPanel.style.boxShadow = '0 8px 32px rgba(78, 205, 196, 0.6)'; // Enhanced cyan glow when active
     } else {
-      gmPanel.style.borderColor = '#4ECDC4'; // Default cyan border
+      gmPanel.style.borderColor = '#4ECDC4'; // Cyan border
       gmPanel.style.boxShadow = '0 8px 32px rgba(0,0,0,0.5)'; // Default shadow
     }
 
@@ -570,7 +570,7 @@
     list.innerHTML = initiativeTracker.combatants.map((combatant, index) => {
       const isActive = index === initiativeTracker.currentTurnIndex;
       return `
-        <div style="padding: 10px; background: ${isActive ? '#4ECDC4' : '#34495e'}; border: 2px solid ${isActive ? '#27ae60' : '#2c3e50'}; border-radius: 6px; display: flex; align-items: center; gap: 10px; ${isActive ? 'box-shadow: 0 0 15px rgba(78, 205, 196, 0.4);' : ''}">
+        <div style="padding: 10px; background: ${isActive ? '#4ECDC4' : '#34495e'}; border: 2px solid ${isActive ? '#4ECDC4' : '#2c3e50'}; border-radius: 6px; display: flex; align-items: center; gap: 10px; ${isActive ? 'box-shadow: 0 0 15px rgba(78, 205, 196, 0.4);' : ''}">
           <div style="font-weight: bold; font-size: 1.2em; min-width: 30px; text-align: center;">${combatant.initiative}</div>
           <div style="flex: 1; font-weight: bold;">${combatant.name}</div>
           <button class="rollcloud-remove-combatant" data-combatant-name="${combatant.name}" style="background: #e74c3c; color: #fff; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 0.85em;">✕</button>
@@ -595,24 +595,35 @@
     const current = getCurrentCombatant();
     if (!current) return;
 
-    debug.log(`🎯 Notifying turn for: ${current.name}`);
+    debug.log(`🎯 Notifying turn for: "${current.name}"`);
+    debug.log(`📋 Registered popups: ${Object.keys(characterPopups).map(n => `"${n}"`).join(', ')}`);
 
-    // Send activateTurn to all popup windows
-    // The popup will check if it matches the current combatant
+    // Helper function to normalize names for comparison
+    // Removes emoji prefixes and trims
+    function normalizeName(name) {
+      // Remove common emoji prefixes (🔵, 🔴, etc.)
+      return name.replace(/^(?:🔵|🔴|⚪|⚫|🟢|🟡|🟠|🟣|🟤)\s*/, '').trim();
+    }
+
+    const normalizedCurrentName = normalizeName(current.name);
+    debug.log(`🔍 Normalized current combatant: "${normalizedCurrentName}"`);
+
+    // Send activateTurn/deactivateTurn to all popup windows
     Object.keys(characterPopups).forEach(characterName => {
       const popup = characterPopups[characterName];
       try {
         if (popup && !popup.closed) {
-          const isTheirTurn = characterName === current.name ||
-                              current.name.includes(characterName) ||
-                              characterName.includes(current.name);
+          const normalizedCharName = normalizeName(characterName);
+
+          // Strict match: names must be exactly equal after normalization
+          const isTheirTurn = normalizedCharName === normalizedCurrentName;
 
           popup.postMessage({
             action: isTheirTurn ? 'activateTurn' : 'deactivateTurn',
             combatant: current.name
           }, '*');
 
-          debug.log(`📤 Sent ${isTheirTurn ? 'activateTurn' : 'deactivateTurn'} to ${characterName}`);
+          debug.log(`📤 "${characterName}" (normalized: "${normalizedCharName}") vs "${current.name}" (normalized: "${normalizedCurrentName}") → ${isTheirTurn ? 'ACTIVATE' : 'DEACTIVATE'}`);
         } else {
           // Clean up closed popups
           delete characterPopups[characterName];
