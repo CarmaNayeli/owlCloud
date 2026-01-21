@@ -448,6 +448,13 @@ If dice rolls aren't being forwarded from DiceCloud to Roll20:
 - [x] **Bonus Action Detection** - Properly identifies and tracks bonus action usage
 - [x] **Movement Action Tracking** - Tracks movement-based actions
 - [x] **Spell Action Integration** - Automatic action tracking for spell casting times
+- [x] **Condition/Buff Manager** - Apply and track conditions (blessed, poisoned, hasted, etc.)
+- [x] **Hit Dice Manager** - Better UI for spending hit dice with automatic HP restoration
+- [x] **Spell Slot Visual Upgrade** - Extend visual spell slot manager to all levels with depletion indicators
+- [x] **Active Concentration Tracker** - Track which spell you're concentrating on (with drop button)
+- [x] **Ritual Casting Indicator** - Mark spells that can be cast as rituals (📖 tag)
+- [x] **Metamagic Quick Apply** - Quick buttons for Twinned, Quickened, etc. with sorcery point tracking
+- [x] **Inspiration Tracker** - Track and spend inspiration with visual indicators
 
 ### High Priority - Mechanics & Character Features
 
@@ -470,30 +477,24 @@ If dice rolls aren't being forwarded from DiceCloud to Roll20:
 - [ ] **Jack of All Trades** (Bard) - Auto-add half proficiency to non-proficient checks
 
 #### Combat Mechanics
-- [ ] **Condition/Buff Manager** - Apply and track conditions (blessed, poisoned, hasted, etc.)
 - [ ] **Reaction Prompts** - Notify when Shield, Counterspell, or opportunity attacks apply
 - [ ] **Concentration Save Prompts** - Auto-prompt for concentration saves when taking damage
 
 #### Resource Management
-- [ ] **Hit Dice Manager** - Better UI for spending hit dice (currently has basic support)
 - [ ] **Ammunition Tracker** - Track arrows, bolts with auto-decrement on attacks
 - [ ] **Consumable Manager** - Quick-use buttons for potions, scrolls, etc.
 - [ ] **Attunement Tracker** - Track attuned magic items (3-item limit)
 
 ### Spell Mechanics
-- [ ] **Spell Slot Visual Upgrade** - Extend visual spell slot manager to all levels (currently 1-3)
 - [ ] **Upcasting Calculator** - Auto-calculate damage when casting at higher levels
-- [ ] **Active Concentration Tracker** - Track which spell you're concentrating on (with drop button)
 - [ ] **Spell Preparation Manager** - Track prepared vs. known spells
-- [ ] **Ritual Casting Indicator** - Mark spells that can be cast as rituals
-- [ ] **Metamagic Quick Apply** - Quick buttons for Twinned, Quickened, etc.
 - [ ] **Spell Attack Modifier** - Auto-add spell attack bonus to spell rolls
 
 ### Additional Mechanics & Features
 - [ ] **Initiative Auto-Roller** - Roll initiative for all party members at once
 - [ ] **Custom Roll Macros** - Create and save frequently-used custom rolls
 - [ ] **Guidance/Bless Tracker** - Auto-add d4/d8 to rolls when active
-- [ ] **Inspiration Tracker** - Track and spend inspiration with button
+- [x] **Inspiration Tracker** - Track and spend inspiration with button
 - [ ] **Two-Weapon Fighting** - Quick off-hand attack button
 - [ ] **Great Weapon Master/Sharpshooter** - Toggle -5/+10 for attacks
 

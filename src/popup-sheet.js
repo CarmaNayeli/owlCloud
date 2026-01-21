@@ -1414,6 +1414,8 @@ function buildSpellSlotsDisplay() {
   slotsGrid.className = 'spell-slots-grid';
 
   let hasAnySlots = false;
+  let totalCurrentSlots = 0;
+  let totalMaxSlots = 0;
 
   // Check each level (1-9)
   for (let level = 1; level <= 9; level++) {
@@ -1426,12 +1428,37 @@ function buildSpellSlotsDisplay() {
     if (maxSlots > 0) {
       hasAnySlots = true;
       const currentSlots = characterData.spellSlots[slotVar] || 0;
+      
+      // Track totals
+      totalCurrentSlots += currentSlots;
+      totalMaxSlots += maxSlots;
 
       const slotCard = document.createElement('div');
       slotCard.className = currentSlots > 0 ? 'spell-slot-card' : 'spell-slot-card empty';
+      
+      // Add visual depletion indicator
+      const depletionPercent = (currentSlots / maxSlots) * 100;
+      let depletionColor = '#4caf50'; // Green for full
+      if (depletionPercent <= 25) {
+        depletionColor = '#f44336'; // Red for low
+      } else if (depletionPercent <= 50) {
+        depletionColor = '#ff9800'; // Orange for medium
+      } else if (depletionPercent <= 75) {
+        depletionColor = '#ffc107'; // Yellow for getting low
+      }
+      
       slotCard.innerHTML = `
         <div class="spell-slot-level">Level ${level}</div>
         <div class="spell-slot-count">${currentSlots}/${maxSlots}</div>
+        <div class="spell-slot-depletion" style="
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: 3px;
+          background: ${depletionColor};
+          transition: all 0.3s ease;
+        "></div>
       `;
 
       // Add click to manually adjust slots
@@ -1446,6 +1473,29 @@ function buildSpellSlotsDisplay() {
 
   if (hasAnySlots) {
     container.innerHTML = '';
+    
+    // Add total slots summary
+    const summaryCard = document.createElement('div');
+    summaryCard.className = 'spell-slots-summary';
+    summaryCard.style.cssText = `
+      background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+      color: white;
+      padding: 12px;
+      border-radius: 8px;
+      text-align: center;
+      margin-bottom: 15px;
+      font-weight: bold;
+      box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);
+    `;
+    
+    const totalPercent = totalMaxSlots > 0 ? (totalCurrentSlots / totalMaxSlots) * 100 : 0;
+    summaryCard.innerHTML = `
+      <div style="font-size: 14px; opacity: 0.9;">Total Spell Slots</div>
+      <div style="font-size: 20px; margin: 4px 0;">${totalCurrentSlots}/${totalMaxSlots}</div>
+      <div style="font-size: 12px; opacity: 0.8;">${Math.round(totalPercent)}% remaining</div>
+    `;
+    
+    container.appendChild(summaryCard);
     container.appendChild(slotsGrid);
 
     // Add a small note
@@ -1453,6 +1503,8 @@ function buildSpellSlotsDisplay() {
     note.style.cssText = 'text-align: center; color: #666; font-size: 0.85em; margin-top: 8px;';
     note.textContent = 'Click a slot to manually adjust';
     container.appendChild(note);
+    
+    debug.log(`✨ Spell slots display: ${totalCurrentSlots}/${totalMaxSlots} total slots across ${Math.max(...Array.from({length: 9}, (_, i) => i + 1).filter(level => characterData.spellSlots[`level${level}SpellSlotsMax`] > 0))} levels`);
   } else {
     container.innerHTML = '<p style="text-align: center; color: #666;">No spell slots available</p>';
     debug.log('⚠️ Character has 0 max slots for all levels');

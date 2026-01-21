@@ -500,3 +500,84 @@ footer {
   color: #666;
   margin-top: 4px;
 }
+
+/* Spell Slots Styles */
+.spell-slots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.spell-slot-card {
+  border: 2px solid #9b59b6;
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.spell-slot-card:hover {
+  border-color: #8e44ad;
+  box-shadow: 0 4px 12px rgba(155, 89, 182, 0.3);
+  transform: translateY(-2px);
+}
+
+.spell-slot-card.empty {
+  border-style: dashed;
+  border-color: #ddd;
+  background: #f9f9f9;
+  color: #999;
+}
+
+.spell-slot-card.empty:hover {
+  border-color: #bbb;
+  box-shadow: none;
+  transform: none;
+}
+
+.spell-slot-level {
+  font-weight: 700;
+  font-size: 14px;
+  color: #9b59b6;
+  margin-bottom: 4px;
+}
+
+.spell-slot-card.empty .spell-slot-level {
+  color: #999;
+}
+
+.spell-slot-count {
+  font-size: 16px;
+  font-weight: bold;
+  color: #333;
+}
+
+.spell-slot-card.empty .spell-slot-count {
+  color: #999;
+  font-style: italic;
+}
+
+/* Responsive adjustments for spell slots */
+@media (max-width: 400px) {
+  .spell-slots-grid {
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 8px;
+  }
+  
+  .spell-slot-card {
+    padding: 10px 8px;
+  }
+  
+  .spell-slot-level {
+    font-size: 12px;
+  }
+  
+  .spell-slot-count {
+    font-size: 14px;
+  }
+}
