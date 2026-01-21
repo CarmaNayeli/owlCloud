@@ -3408,7 +3408,17 @@ function initColorPalette() {
 }
 
 function saveCharacterData() {
-  // Send updated data to background script for storage
+  // CRITICAL: Save to browser storage to persist through refresh/close
+  browserAPI.runtime.sendMessage({
+    action: 'storeCharacterData',
+    data: characterData
+  }).then(() => {
+    debug.log('💾 Saved character data to browser storage');
+  }).catch(err => {
+    debug.error('❌ Failed to save character data:', err);
+  });
+
+  // Also send to window opener if available (for backwards compatibility)
   if (window.opener && !window.opener.closed) {
     window.opener.postMessage({
       action: 'updateCharacterData',
@@ -4180,15 +4190,122 @@ function resolveVariablesInFormula(formula) {
   return resolvedFormula;
 }
 
+/**
+ * Apply active effect modifiers to a roll
+ * @param {string} rollName - Name of the roll (e.g., "Attack", "Perception", "Strength Save")
+ * @param {string} formula - Original formula
+ * @returns {object} - { modifiedFormula, effectNotes }
+ */
+function applyEffectModifiers(rollName, formula) {
+  const rollLower = rollName.toLowerCase();
+  let modifiedFormula = formula;
+  const effectNotes = [];
+
+  // Combine all active effects
+  const allEffects = [
+    ...activeBuffs.map(name => ({ ...POSITIVE_EFFECTS.find(e => e.name === name), type: 'buff' })),
+    ...activeConditions.map(name => ({ ...NEGATIVE_EFFECTS.find(e => e.name === name), type: 'debuff' }))
+  ].filter(e => e && e.autoApply);
+
+  debug.log(`🎲 Checking effects for roll: ${rollName}`, allEffects);
+
+  for (const effect of allEffects) {
+    if (!effect.modifier) continue;
+
+    let applied = false;
+
+    // Check for attack roll modifiers
+    if (rollLower.includes('attack') && effect.modifier.attack) {
+      const mod = effect.modifier.attack;
+      if (mod === 'advantage') {
+        effectNotes.push(`[${effect.icon} ${effect.name}: Advantage]`);
+        applied = true;
+      } else if (mod === 'disadvantage') {
+        effectNotes.push(`[${effect.icon} ${effect.name}: Disadvantage]`);
+        applied = true;
+      } else {
+        modifiedFormula += ` + ${mod}`;
+        effectNotes.push(`[${effect.icon} ${effect.name}: ${mod}]`);
+        applied = true;
+      }
+    }
+
+    // Check for saving throw modifiers
+    if (rollLower.includes('save') && (effect.modifier.save || effect.modifier.strSave || effect.modifier.dexSave)) {
+      const mod = effect.modifier.save ||
+                 (rollLower.includes('strength') && effect.modifier.strSave) ||
+                 (rollLower.includes('dexterity') && effect.modifier.dexSave);
+
+      if (mod === 'advantage') {
+        effectNotes.push(`[${effect.icon} ${effect.name}: Advantage]`);
+        applied = true;
+      } else if (mod === 'disadvantage') {
+        effectNotes.push(`[${effect.icon} ${effect.name}: Disadvantage]`);
+        applied = true;
+      } else if (mod === 'fail') {
+        effectNotes.push(`[${effect.icon} ${effect.name}: Auto-fail]`);
+        applied = true;
+      } else if (mod) {
+        modifiedFormula += ` + ${mod}`;
+        effectNotes.push(`[${effect.icon} ${effect.name}: ${mod}]`);
+        applied = true;
+      }
+    }
+
+    // Check for skill check modifiers
+    if ((rollLower.includes('check') || rollLower.includes('perception') ||
+         rollLower.includes('stealth') || rollLower.includes('investigation') ||
+         rollLower.includes('insight') || rollLower.includes('persuasion') ||
+         rollLower.includes('deception') || rollLower.includes('intimidation') ||
+         rollLower.includes('athletics') || rollLower.includes('acrobatics')) &&
+        effect.modifier.skill) {
+      const mod = effect.modifier.skill;
+      if (mod === 'advantage') {
+        effectNotes.push(`[${effect.icon} ${effect.name}: Advantage]`);
+        applied = true;
+      } else if (mod === 'disadvantage') {
+        effectNotes.push(`[${effect.icon} ${effect.name}: Disadvantage]`);
+        applied = true;
+      } else {
+        modifiedFormula += ` + ${mod}`;
+        effectNotes.push(`[${effect.icon} ${effect.name}: ${mod}]`);
+        applied = true;
+      }
+    }
+
+    // Check for damage modifiers
+    if (rollLower.includes('damage') && effect.modifier.damage) {
+      modifiedFormula += ` + ${effect.modifier.damage}`;
+      effectNotes.push(`[${effect.icon} ${effect.name}: +${effect.modifier.damage}]`);
+      applied = true;
+    }
+
+    if (applied) {
+      debug.log(`✅ Applied ${effect.name} (${effect.type}) to ${rollName}`);
+    }
+  }
+
+  return { modifiedFormula, effectNotes };
+}
+
 function roll(name, formula, prerolledResult = null) {
   debug.log('🎲 Rolling:', name, formula, prerolledResult ? `(prerolled: ${prerolledResult})` : '');
 
   // Resolve any variables in the formula
-  const resolvedFormula = resolveVariablesInFormula(formula);
+  let resolvedFormula = resolveVariablesInFormula(formula);
+
+  // Apply active effect modifiers
+  const { modifiedFormula, effectNotes } = applyEffectModifiers(name, resolvedFormula);
+  resolvedFormula = modifiedFormula;
 
   const colorBanner = getColoredBanner();
   // Format: "🔵 CharacterName rolls Initiative"
-  const rollName = `${colorBanner}${characterData.name} rolls ${name}`;
+  let rollName = `${colorBanner}${characterData.name} rolls ${name}`;
+
+  // Add effect notes to roll name if any
+  if (effectNotes.length > 0) {
+    rollName += ` ${effectNotes.join(' ')}`;
+  }
 
   // If we have a prerolled result (e.g., from death saves), include it
   const messageData = {
@@ -4931,130 +5048,491 @@ function postToChatIfOpener(message) {
 }
 
 /**
- * Conditions Manager
+ * Effects System - Buffs and Debuffs
  */
-const D5E_CONDITIONS = [
-  { name: 'Blessed', icon: '✨', color: '#f39c12' },
-  { name: 'Baned', icon: '💀', color: '#e74c3c' },
-  { name: 'Hasted', icon: '⚡', color: '#3498db' },
-  { name: 'Slowed', icon: '🐌', color: '#95a5a6' },
-  { name: 'Poisoned', icon: '☠️', color: '#27ae60' },
-  { name: 'Stunned', icon: '💫', color: '#9b59b6' },
-  { name: 'Paralyzed', icon: '🧊', color: '#34495e' },
-  { name: 'Prone', icon: '⬇️', color: '#95a5a6' },
-  { name: 'Restrained', icon: '⛓️', color: '#7f8c8d' },
-  { name: 'Invisible', icon: '👻', color: '#ecf0f1' },
-  { name: 'Blinded', icon: '🙈', color: '#34495e' },
-  { name: 'Deafened', icon: '🙉', color: '#7f8c8d' },
-  { name: 'Frightened', icon: '😱', color: '#e67e22' },
-  { name: 'Charmed', icon: '💖', color: '#e91e63' },
-  { name: 'Grappled', icon: '🤼', color: '#f39c12' },
-  { name: 'Incapacitated', icon: '😵', color: '#c0392b' },
-  { name: 'Petrified', icon: '🗿', color: '#95a5a6' },
-  { name: 'Unconscious', icon: '😴', color: '#34495e' }
+
+// POSITIVE EFFECTS (Buffs/Spells)
+const POSITIVE_EFFECTS = [
+  {
+    name: 'Bless',
+    icon: '✨',
+    color: '#f39c12',
+    description: '+1d4 to attack rolls and saving throws',
+    modifier: { attack: '1d4', save: '1d4' },
+    autoApply: true
+  },
+  {
+    name: 'Guidance',
+    icon: '🙏',
+    color: '#3498db',
+    description: '+1d4 to one ability check',
+    modifier: { skill: '1d4' },
+    autoApply: true
+  },
+  {
+    name: 'Bardic Inspiration',
+    icon: '🎵',
+    color: '#9b59b6',
+    description: '+d6/d8/d10/d12 to ability check, attack, or save',
+    modifier: { attack: 'd8', skill: 'd8', save: 'd8' },
+    autoApply: false // Manual application
+  },
+  {
+    name: 'Haste',
+    icon: '⚡',
+    color: '#3498db',
+    description: '+2 AC, advantage on DEX saves, extra action',
+    modifier: { ac: 2, dexSave: 'advantage' },
+    autoApply: true
+  },
+  {
+    name: 'Enlarge',
+    icon: '⬆️',
+    color: '#27ae60',
+    description: '+1d4 weapon damage, advantage on STR checks/saves',
+    modifier: { damage: '1d4', strCheck: 'advantage', strSave: 'advantage' },
+    autoApply: true
+  },
+  {
+    name: 'Invisibility',
+    icon: '👻',
+    color: '#ecf0f1',
+    description: 'Advantage on attack rolls, enemies have disadvantage',
+    modifier: { attack: 'advantage' },
+    autoApply: true
+  },
+  {
+    name: 'Shield of Faith',
+    icon: '🛡️',
+    color: '#f39c12',
+    description: '+2 AC',
+    modifier: { ac: 2 },
+    autoApply: true
+  },
+  {
+    name: 'Heroism',
+    icon: '🦸',
+    color: '#e67e22',
+    description: 'Immune to frightened, temp HP each turn',
+    modifier: { frightened: 'immune' },
+    autoApply: true
+  },
+  {
+    name: 'Enhance Ability',
+    icon: '💪',
+    color: '#27ae60',
+    description: 'Advantage on ability checks with chosen ability',
+    modifier: { skill: 'advantage' },
+    autoApply: false
+  },
+  {
+    name: 'Aid',
+    icon: '❤️',
+    color: '#e74c3c',
+    description: 'Max HP increased by 5',
+    modifier: { maxHp: 5 },
+    autoApply: true
+  },
+  {
+    name: 'True Strike',
+    icon: '🎯',
+    color: '#3498db',
+    description: 'Advantage on next attack roll',
+    modifier: { attack: 'advantage' },
+    autoApply: true
+  },
+  {
+    name: 'Faerie Fire',
+    icon: '✨',
+    color: '#9b59b6',
+    description: 'Attackers have advantage against target',
+    modifier: {},
+    autoApply: false
+  }
+];
+
+// NEGATIVE EFFECTS (Debuffs/Conditions)
+const NEGATIVE_EFFECTS = [
+  {
+    name: 'Bane',
+    icon: '💀',
+    color: '#e74c3c',
+    description: '-1d4 to attack rolls and saving throws',
+    modifier: { attack: '-1d4', save: '-1d4' },
+    autoApply: true
+  },
+  {
+    name: 'Poisoned',
+    icon: '☠️',
+    color: '#27ae60',
+    description: 'Disadvantage on attack rolls and ability checks',
+    modifier: { attack: 'disadvantage', skill: 'disadvantage' },
+    autoApply: true
+  },
+  {
+    name: 'Frightened',
+    icon: '😱',
+    color: '#e67e22',
+    description: 'Disadvantage on ability checks and attack rolls',
+    modifier: { attack: 'disadvantage', skill: 'disadvantage' },
+    autoApply: true
+  },
+  {
+    name: 'Stunned',
+    icon: '💫',
+    color: '#9b59b6',
+    description: 'Incapacitated, auto-fail STR/DEX saves, attackers have advantage',
+    modifier: { strSave: 'fail', dexSave: 'fail' },
+    autoApply: true
+  },
+  {
+    name: 'Paralyzed',
+    icon: '🧊',
+    color: '#34495e',
+    description: 'Incapacitated, auto-fail STR/DEX saves, attacks within 5ft are crits',
+    modifier: { strSave: 'fail', dexSave: 'fail' },
+    autoApply: true
+  },
+  {
+    name: 'Restrained',
+    icon: '⛓️',
+    color: '#7f8c8d',
+    description: 'Disadvantage on DEX saves and attack rolls',
+    modifier: { attack: 'disadvantage', dexSave: 'disadvantage' },
+    autoApply: true
+  },
+  {
+    name: 'Blinded',
+    icon: '🙈',
+    color: '#34495e',
+    description: 'Auto-fail sight checks, disadvantage on attacks',
+    modifier: { attack: 'disadvantage', perception: 'disadvantage' },
+    autoApply: true
+  },
+  {
+    name: 'Deafened',
+    icon: '🙉',
+    color: '#7f8c8d',
+    description: 'Auto-fail hearing checks',
+    modifier: { perception: 'disadvantage' },
+    autoApply: true
+  },
+  {
+    name: 'Charmed',
+    icon: '💖',
+    color: '#e91e63',
+    description: 'Cannot attack charmer, charmer has advantage on social checks',
+    modifier: {},
+    autoApply: false
+  },
+  {
+    name: 'Grappled',
+    icon: '🤼',
+    color: '#f39c12',
+    description: 'Speed becomes 0',
+    modifier: { speed: 0 },
+    autoApply: true
+  },
+  {
+    name: 'Prone',
+    icon: '⬇️',
+    color: '#95a5a6',
+    description: 'Disadvantage on attack rolls, melee attacks against you have advantage',
+    modifier: { attack: 'disadvantage' },
+    autoApply: true
+  },
+  {
+    name: 'Incapacitated',
+    icon: '😵',
+    color: '#c0392b',
+    description: 'Cannot take actions or reactions',
+    modifier: {},
+    autoApply: false
+  },
+  {
+    name: 'Unconscious',
+    icon: '😴',
+    color: '#34495e',
+    description: 'Incapacitated, drop everything, auto-fail STR/DEX saves',
+    modifier: { strSave: 'fail', dexSave: 'fail' },
+    autoApply: true
+  },
+  {
+    name: 'Petrified',
+    icon: '🗿',
+    color: '#95a5a6',
+    description: 'Incapacitated, auto-fail STR/DEX saves, resistance to all damage',
+    modifier: { strSave: 'fail', dexSave: 'fail' },
+    autoApply: true
+  },
+  {
+    name: 'Slowed',
+    icon: '🐌',
+    color: '#95a5a6',
+    description: 'Speed halved, -2 AC and DEX saves, no reactions',
+    modifier: { ac: -2, dexSave: '-2' },
+    autoApply: true
+  },
+  {
+    name: 'Hexed',
+    icon: '🔮',
+    color: '#9b59b6',
+    description: 'Disadvantage on ability checks with chosen ability, extra damage to caster',
+    modifier: { skill: 'disadvantage' },
+    autoApply: false
+  },
+  {
+    name: 'Cursed',
+    icon: '😈',
+    color: '#c0392b',
+    description: 'Disadvantage on attacks and saves against caster',
+    modifier: { attack: 'disadvantage', save: 'disadvantage' },
+    autoApply: true
+  }
 ];
 
 let activeConditions = [];
+let activeBuffs = [];
 
 function initConditionsManager() {
   const addConditionBtn = document.getElementById('add-condition-btn');
+  const addBuffBtn = document.getElementById('add-buff-btn');
   const conditionsDropdown = document.getElementById('conditions-dropdown');
+  const buffsDropdown = document.getElementById('buffs-dropdown');
   const activeConditionsContainer = document.getElementById('active-conditions');
+  const activeBuffsContainer = document.getElementById('active-buffs');
 
-  if (!addConditionBtn || !conditionsDropdown) {
-    debug.warn('⚠️ Conditions elements not found');
-    return;
+  // Initialize debuffs dropdown
+  if (addConditionBtn && conditionsDropdown) {
+    // Populate dropdown with negative effects
+    conditionsDropdown.innerHTML = NEGATIVE_EFFECTS.map(effect => `
+      <div class="effect-option" data-effect="${effect.name}" data-type="negative">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="effect-icon" style="font-size: 1.2em;">${effect.icon}</span>
+          <div style="flex: 1;">
+            <div class="effect-name" style="font-weight: bold;">${effect.name}</div>
+            <div class="effect-description" style="font-size: 0.8em; color: #888;">${effect.description}</div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+
+    // Toggle dropdown
+    addConditionBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isVisible = conditionsDropdown.style.display === 'block';
+      conditionsDropdown.style.display = isVisible ? 'none' : 'block';
+      if (buffsDropdown) buffsDropdown.style.display = 'none';
+    });
+
+    // Add effect when clicking option
+    conditionsDropdown.querySelectorAll('.effect-option').forEach(option => {
+      option.addEventListener('click', () => {
+        const effectName = option.dataset.effect;
+        addEffect(effectName, 'negative');
+        conditionsDropdown.style.display = 'none';
+      });
+    });
   }
 
-  // Populate dropdown with conditions
-  conditionsDropdown.innerHTML = D5E_CONDITIONS.map(condition => `
-    <div class="condition-option" data-condition="${condition.name}">
-      <span class="condition-icon">${condition.icon}</span>
-      <span class="condition-name">${condition.name}</span>
-    </div>
-  `).join('');
+  // Initialize buffs dropdown
+  if (addBuffBtn && buffsDropdown) {
+    // Populate dropdown with positive effects
+    buffsDropdown.innerHTML = POSITIVE_EFFECTS.map(effect => `
+      <div class="effect-option" data-effect="${effect.name}" data-type="positive">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="effect-icon" style="font-size: 1.2em;">${effect.icon}</span>
+          <div style="flex: 1;">
+            <div class="effect-name" style="font-weight: bold;">${effect.name}</div>
+            <div class="effect-description" style="font-size: 0.8em; color: #888;">${effect.description}</div>
+          </div>
+        </div>
+      </div>
+    `).join('');
 
-  // Toggle dropdown
-  addConditionBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const isVisible = conditionsDropdown.style.display === 'block';
-    conditionsDropdown.style.display = isVisible ? 'none' : 'block';
-  });
+    // Toggle dropdown
+    addBuffBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isVisible = buffsDropdown.style.display === 'block';
+      buffsDropdown.style.display = isVisible ? 'none' : 'block';
+      if (conditionsDropdown) conditionsDropdown.style.display = 'none';
+    });
 
-  // Close dropdown when clicking outside
+    // Add effect when clicking option
+    buffsDropdown.querySelectorAll('.effect-option').forEach(option => {
+      option.addEventListener('click', () => {
+        const effectName = option.dataset.effect;
+        addEffect(effectName, 'positive');
+        buffsDropdown.style.display = 'none';
+      });
+    });
+  }
+
+  // Close dropdowns when clicking outside
   document.addEventListener('click', (e) => {
-    if (!addConditionBtn.contains(e.target) && !conditionsDropdown.contains(e.target)) {
+    if (addConditionBtn && !addConditionBtn.contains(e.target) && conditionsDropdown && !conditionsDropdown.contains(e.target)) {
       conditionsDropdown.style.display = 'none';
+    }
+    if (addBuffBtn && !addBuffBtn.contains(e.target) && buffsDropdown && !buffsDropdown.contains(e.target)) {
+      buffsDropdown.style.display = 'none';
     }
   });
 
-  // Add condition when clicking option
-  conditionsDropdown.querySelectorAll('.condition-option').forEach(option => {
-    option.addEventListener('click', () => {
-      const conditionName = option.dataset.condition;
-      addCondition(conditionName);
-      conditionsDropdown.style.display = 'none';
-    });
-  });
-
-  debug.log('✅ Conditions manager initialized');
+  debug.log('✅ Effects manager initialized (buffs + debuffs)');
 }
 
-function addCondition(conditionName) {
+function addEffect(effectName, type) {
+  const effectsList = type === 'positive' ? POSITIVE_EFFECTS : NEGATIVE_EFFECTS;
+  const activeList = type === 'positive' ? activeBuffs : activeConditions;
+
   // Don't add if already active
-  if (activeConditions.includes(conditionName)) {
-    showNotification(`⚠️ ${conditionName} already active`);
+  if (activeList.includes(effectName)) {
+    showNotification(`⚠️ ${effectName} already active`);
     return;
   }
 
-  const condition = D5E_CONDITIONS.find(c => c.name === conditionName);
-  activeConditions.push(conditionName);
-  updateConditionsDisplay();
-  showNotification(`🎭 ${conditionName} applied!`);
-  debug.log(`✅ Condition added: ${conditionName}`);
+  const effect = effectsList.find(e => e.name === effectName);
+  activeList.push(effectName);
+
+  // Update the correct array reference
+  if (type === 'positive') {
+    activeBuffs = activeList;
+  } else {
+    activeConditions = activeList;
+  }
+
+  updateEffectsDisplay();
+  showNotification(`${effect.icon} ${effectName} applied!`);
+  debug.log(`✅ Effect added: ${effectName} (${type})`);
 
   // Announce to Roll20 chat
-  postToChatIfOpener(`${condition.icon} ${characterData.name} is now ${conditionName}!`);
+  const message = type === 'positive'
+    ? `${effect.icon} ${characterData.name} gains ${effectName}!`
+    : `${effect.icon} ${characterData.name} is now ${effectName}!`;
+  postToChatIfOpener(message);
+
+  // Save to character data
+  if (!characterData.activeEffects) {
+    characterData.activeEffects = { buffs: [], debuffs: [] };
+  }
+  if (type === 'positive') {
+    characterData.activeEffects.buffs = activeBuffs;
+  } else {
+    characterData.activeEffects.debuffs = activeConditions;
+  }
+  saveCharacterData();
+}
+
+function removeEffect(effectName, type) {
+  const effectsList = type === 'positive' ? POSITIVE_EFFECTS : NEGATIVE_EFFECTS;
+  const effect = effectsList.find(e => e.name === effectName);
+
+  if (type === 'positive') {
+    activeBuffs = activeBuffs.filter(e => e !== effectName);
+  } else {
+    activeConditions = activeConditions.filter(e => e !== effectName);
+  }
+
+  updateEffectsDisplay();
+  showNotification(`✅ ${effectName} removed`);
+  debug.log(`🗑️ Effect removed: ${effectName} (${type})`);
+
+  // Announce to Roll20 chat
+  const message = type === 'positive'
+    ? `✅ ${characterData.name} loses ${effectName}`
+    : `✅ ${characterData.name} is no longer ${effectName}`;
+  postToChatIfOpener(message);
+
+  // Save to character data
+  if (!characterData.activeEffects) {
+    characterData.activeEffects = { buffs: [], debuffs: [] };
+  }
+  if (type === 'positive') {
+    characterData.activeEffects.buffs = activeBuffs;
+  } else {
+    characterData.activeEffects.debuffs = activeConditions;
+  }
+  saveCharacterData();
+}
+
+// Legacy function for backwards compatibility
+function addCondition(conditionName) {
+  addEffect(conditionName, 'negative');
 }
 
 function removeCondition(conditionName) {
-  const condition = D5E_CONDITIONS.find(c => c.name === conditionName);
-  activeConditions = activeConditions.filter(c => c !== conditionName);
-  updateConditionsDisplay();
-  showNotification(`✅ ${conditionName} removed`);
-  debug.log(`🗑️ Condition removed: ${conditionName}`);
-
-  // Announce to Roll20 chat
-  postToChatIfOpener(`✅ ${characterData.name} is no longer ${conditionName}`);
+  removeEffect(conditionName, 'negative');
 }
 
-function updateConditionsDisplay() {
+function updateEffectsDisplay() {
+  // Update debuffs display
   const activeConditionsContainer = document.getElementById('active-conditions');
-  if (!activeConditionsContainer) return;
+  if (activeConditionsContainer) {
+    if (activeConditions.length === 0) {
+      activeConditionsContainer.innerHTML = '<div style="text-align: center; color: #888; padding: 10px; font-size: 0.9em;">No active debuffs</div>';
+    } else {
+      activeConditionsContainer.innerHTML = activeConditions.map(effectName => {
+        const effect = NEGATIVE_EFFECTS.find(e => e.name === effectName);
+        return `
+          <div class="effect-badge" data-effect="${effectName}" data-type="negative" title="${effect.description} - Click to remove" style="background: ${effect.color}20; border: 2px solid ${effect.color}; cursor: pointer; padding: 8px 12px; border-radius: 6px; margin-bottom: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="effect-badge-icon" style="font-size: 1.2em;">${effect.icon}</span>
+              <div style="flex: 1;">
+                <div style="font-weight: bold;">${effect.name}</div>
+                <div style="font-size: 0.75em; color: #666; margin-top: 2px;">${effect.description}</div>
+              </div>
+              <span class="effect-badge-remove" style="font-weight: bold; opacity: 0.7;">✕</span>
+            </div>
+          </div>
+        `;
+      }).join('');
 
-  if (activeConditions.length === 0) {
-    activeConditionsContainer.innerHTML = '';
-    return;
+      // Add click handlers to remove effects
+      activeConditionsContainer.querySelectorAll('.effect-badge').forEach(badge => {
+        badge.addEventListener('click', () => {
+          const effectName = badge.dataset.effect;
+          removeEffect(effectName, 'negative');
+        });
+      });
+    }
   }
 
-  activeConditionsContainer.innerHTML = activeConditions.map(conditionName => {
-    const condition = D5E_CONDITIONS.find(c => c.name === conditionName);
-    return `
-      <div class="condition-badge" data-condition="${conditionName}" title="Click to remove">
-        <span class="condition-badge-icon">${condition.icon}</span>
-        <span>${condition.name}</span>
-        <span class="condition-badge-remove">✕</span>
-      </div>
-    `;
-  }).join('');
+  // Update buffs display
+  const activeBuffsContainer = document.getElementById('active-buffs');
+  if (activeBuffsContainer) {
+    if (activeBuffs.length === 0) {
+      activeBuffsContainer.innerHTML = '<div style="text-align: center; color: #888; padding: 10px; font-size: 0.9em;">No active buffs</div>';
+    } else {
+      activeBuffsContainer.innerHTML = activeBuffs.map(effectName => {
+        const effect = POSITIVE_EFFECTS.find(e => e.name === effectName);
+        return `
+          <div class="effect-badge" data-effect="${effectName}" data-type="positive" title="${effect.description} - Click to remove" style="background: ${effect.color}20; border: 2px solid ${effect.color}; cursor: pointer; padding: 8px 12px; border-radius: 6px; margin-bottom: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="effect-badge-icon" style="font-size: 1.2em;">${effect.icon}</span>
+              <div style="flex: 1;">
+                <div style="font-weight: bold;">${effect.name}</div>
+                <div style="font-size: 0.75em; color: #666; margin-top: 2px;">${effect.description}</div>
+              </div>
+              <span class="effect-badge-remove" style="font-weight: bold; opacity: 0.7;">✕</span>
+            </div>
+          </div>
+        `;
+      }).join('');
 
-  // Add click handlers to remove conditions
-  activeConditionsContainer.querySelectorAll('.condition-badge').forEach(badge => {
-    badge.addEventListener('click', () => {
-      const conditionName = badge.dataset.condition;
-      removeCondition(conditionName);
-    });
-  });
+      // Add click handlers to remove effects
+      activeBuffsContainer.querySelectorAll('.effect-badge').forEach(badge => {
+        badge.addEventListener('click', () => {
+          const effectName = badge.dataset.effect;
+          removeEffect(effectName, 'positive');
+        });
+      });
+    }
+  }
+}
+
+// Legacy function for backwards compatibility
+function updateConditionsDisplay() {
+  updateEffectsDisplay();
 }
 
 /**
@@ -5438,6 +5916,22 @@ function checkFeatTraits(rollResult, rollType, rollName) {
 
 debug.log('✅ Popup script fully loaded');
 
+// Helper function to get theme-aware popup colors
+function getPopupThemeColors() {
+  const isDarkMode = document.documentElement.classList.contains('theme-dark') ||
+                     document.documentElement.getAttribute('data-theme') === 'dark';
+
+  return {
+    background: isDarkMode ? '#2d2d2d' : '#ffffff',
+    text: isDarkMode ? '#e0e0e0' : '#333333',
+    heading: isDarkMode ? '#ffffff' : '#2D8B83',
+    border: isDarkMode ? '#444444' : '#f0f8ff',
+    borderAccent: isDarkMode ? '#2D8B83' : '#2D8B83',
+    infoBox: isDarkMode ? '#1a1a1a' : '#f0f8ff',
+    infoText: isDarkMode ? '#b0b0b0' : '#666666'
+  };
+}
+
 // Halfling Luck Popup Functions
 function showHalflingLuckPopup(rollData) {
   debug.log('🍀 Halfling Luck popup called with:', rollData);
@@ -5450,6 +5944,9 @@ function showHalflingLuckPopup(rollData) {
   }
 
   debug.log('🍀 Creating popup overlay...');
+
+  // Get theme-aware colors
+  const colors = getPopupThemeColors();
 
   // Create popup overlay
   const popupOverlay = document.createElement('div');
@@ -5470,7 +5967,7 @@ function showHalflingLuckPopup(rollData) {
   // Create popup content
   const popupContent = document.createElement('div');
   popupContent.style.cssText = `
-    background: white;
+    background: ${colors.background};
     border-radius: 12px;
     padding: 24px;
     max-width: 400px;
@@ -5483,11 +5980,11 @@ function showHalflingLuckPopup(rollData) {
 
   popupContent.innerHTML = `
     <div style="font-size: 24px; margin-bottom: 16px;">🍀</div>
-    <h2 style="margin: 0 0 8px 0; color: #2D8B83;">Halfling Luck!</h2>
-    <p style="margin: 0 0 16px 0; color: #666;">
+    <h2 style="margin: 0 0 8px 0; color: ${colors.heading};">Halfling Luck!</h2>
+    <p style="margin: 0 0 16px 0; color: ${colors.text};">
       You rolled a natural 1! As a Halfling, you can reroll this d20.
     </p>
-    <div style="margin: 0 0 16px 0; padding: 12px; background: #f0f8ff; border-radius: 8px; border-left: 4px solid #2D8B83;">
+    <div style="margin: 0 0 16px 0; padding: 12px; background: ${colors.infoBox}; border-radius: 8px; border-left: 4px solid ${colors.borderAccent}; color: ${colors.text};">
       <strong>Original Roll:</strong> ${rollData.rollName}<br>
       <strong>Result:</strong> ${rollData.baseRoll} (natural 1)<br>
       <strong>Total:</strong> ${rollData.rollResult}
@@ -5557,6 +6054,9 @@ function showLuckyPopup(rollData) {
 
   debug.log('🎖️ Creating Lucky popup overlay...');
 
+  // Get theme-aware colors
+  const colors = getPopupThemeColors();
+
   // Create popup overlay
   const popupOverlay = document.createElement('div');
   popupOverlay.style.cssText = `
@@ -5576,7 +6076,7 @@ function showLuckyPopup(rollData) {
   // Create popup content
   const popupContent = document.createElement('div');
   popupContent.style.cssText = `
-    background: white;
+    background: ${colors.background};
     border-radius: 12px;
     padding: 24px;
     max-width: 400px;
@@ -5590,10 +6090,10 @@ function showLuckyPopup(rollData) {
   popupContent.innerHTML = `
     <div style="font-size: 24px; margin-bottom: 16px;">🎖️</div>
     <h2 style="margin: 0 0 8px 0; color: #f39c12;">Lucky Feat!</h2>
-    <p style="margin: 0 0 16px 0; color: #666;">
+    <p style="margin: 0 0 16px 0; color: ${colors.text};">
       You rolled a ${rollData.baseRoll}! You have ${rollData.luckPointsRemaining} luck points remaining.
     </p>
-    <div style="margin: 0 0 16px 0; padding: 12px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #f39c12;">
+    <div style="margin: 0 0 16px 0; padding: 12px; background: ${colors.infoBox}; border-radius: 8px; border-left: 4px solid #f39c12; color: ${colors.text};">
       <strong>Original Roll:</strong> ${rollData.rollName}<br>
       <strong>Result:</strong> ${rollData.baseRoll}<br>
       <strong>Luck Points:</strong> ${rollData.luckPointsRemaining}/3
@@ -5609,7 +6109,7 @@ function showLuckyPopup(rollData) {
         font-size: 16px;
         font-weight: bold;
         transition: background 0.2s;
-      " onmouseover="this.style.background='#e67e22'" onmouseout="this.style.background='#f39c12'">
+      ">
         🎲 Reroll (Use Luck Point)
       </button>
       <button id="luckyKeepBtn" style="
@@ -5622,7 +6122,7 @@ function showLuckyPopup(rollData) {
         font-size: 16px;
         font-weight: bold;
         transition: background 0.2s;
-      " onmouseover="this.style.background='#7f8c8d'" onmouseout="this.style.background='#95a5a6'">
+      ">
         Keep Roll
       </button>
     </div>
@@ -5636,6 +6136,12 @@ function showLuckyPopup(rollData) {
   // Add event listeners
   const rerollBtn = document.getElementById('luckyRerollBtn');
   const keepBtn = document.getElementById('luckyKeepBtn');
+
+  // Add hover effects via event listeners (CSP-compliant)
+  rerollBtn.addEventListener('mouseenter', () => rerollBtn.style.background = '#e67e22');
+  rerollBtn.addEventListener('mouseleave', () => rerollBtn.style.background = '#f39c12');
+  keepBtn.addEventListener('mouseenter', () => keepBtn.style.background = '#7f8c8d');
+  keepBtn.addEventListener('mouseleave', () => keepBtn.style.background = '#95a5a6');
 
   rerollBtn.addEventListener('click', () => {
     if (useLuckyPoint()) {
@@ -5705,6 +6211,9 @@ function showTraitChoicePopup(rollData) {
 
   debug.log('🎯 Creating trait choice overlay...');
 
+  // Get theme-aware colors
+  const colors = getPopupThemeColors();
+
   // Create popup overlay
   const popupOverlay = document.createElement('div');
   popupOverlay.style.cssText = `
@@ -5724,7 +6233,7 @@ function showTraitChoicePopup(rollData) {
   // Create popup content
   const popupContent = document.createElement('div');
   popupContent.style.cssText = `
-    background: white;
+    background: ${colors.background};
     border-radius: 12px;
     padding: 24px;
     max-width: 450px;
@@ -5754,7 +6263,7 @@ function showTraitChoicePopup(rollData) {
     }
     
     traitOptionsHTML += `
-      <button class="trait-option-btn" data-trait-index="${index}" style="
+      <button class="trait-option-btn" data-trait-index="${index}" data-trait-color="${color}" style="
         background: ${color};
         color: white;
         border: none;
@@ -5770,7 +6279,7 @@ function showTraitChoicePopup(rollData) {
         align-items: center;
         justify-content: center;
         gap: 12px;
-      " onmouseover="this.style.transform='translateY(-2px)'; this.style.background='${color}dd'" onmouseout="this.style.transform='translateY(0)'; this.style.background='${color}'">
+      ">
         <span style="font-size: 20px;">${icon}</span>
         <div style="text-align: left;">
           <div style="font-weight: bold;">${trait.name}</div>
@@ -5784,11 +6293,11 @@ function showTraitChoicePopup(rollData) {
 
   popupContent.innerHTML = `
     <div style="font-size: 24px; margin-bottom: 16px;">🎯</div>
-    <h2 style="margin: 0 0 8px 0; color: #34495e;">Multiple Traits Available!</h2>
-    <p style="margin: 0 0 16px 0; color: #666;">
+    <h2 style="margin: 0 0 8px 0; color: ${colors.heading};">Multiple Traits Available!</h2>
+    <p style="margin: 0 0 16px 0; color: ${colors.text};">
       You rolled a ${rollData.baseRoll}! Choose which trait to use:
     </p>
-    <div style="margin: 0 0 16px 0; padding: 12px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #3498b;">
+    <div style="margin: 0 0 16px 0; padding: 12px; background: ${colors.infoBox}; border-radius: 8px; border-left: 4px solid #3498db; color: ${colors.text};">
       <strong>Original Roll:</strong> ${rollData.rollName}<br>
       <strong>Result:</strong> ${rollData.baseRoll}<br>
       <strong>Total:</strong> ${rollData.rollResult}
@@ -5807,7 +6316,7 @@ function showTraitChoicePopup(rollData) {
       font-weight: bold;
       margin-top: 8px;
       transition: background 0.2s;
-    " onmouseover="this.style.background='#7f8c8d'" onmouseout="this.style.background='#95a5a6'">
+    ">
       Keep Original Roll
     </button>
   `;
@@ -5821,13 +6330,26 @@ function showTraitChoicePopup(rollData) {
   const traitButtons = document.querySelectorAll('.trait-option-btn');
   const cancelBtn = document.getElementById('cancelTraitBtn');
 
+  // Add hover effects for trait buttons (CSP-compliant)
   traitButtons.forEach((btn, index) => {
+    const originalColor = btn.dataset.traitColor;
+
+    btn.addEventListener('mouseenter', () => {
+      btn.style.transform = 'translateY(-2px)';
+      btn.style.background = originalColor + 'dd';
+    });
+
+    btn.addEventListener('mouseleave', () => {
+      btn.style.transform = 'translateY(0)';
+      btn.style.background = originalColor;
+    });
+
     btn.addEventListener('click', () => {
       const trait = allTraits[index];
       debug.log(`🎯 User chose trait: ${trait.name}`);
-      
+
       popupOverlay.remove();
-      
+
       // Execute the chosen trait's action
       if (trait.name === 'Halfling Luck') {
         showHalflingLuckPopup({
@@ -5848,6 +6370,10 @@ function showTraitChoicePopup(rollData) {
       }
     });
   });
+
+  // Add hover effects for cancel button (CSP-compliant)
+  cancelBtn.addEventListener('mouseenter', () => cancelBtn.style.background = '#7f8c8d');
+  cancelBtn.addEventListener('mouseleave', () => cancelBtn.style.background = '#95a5a6');
 
   cancelBtn.addEventListener('click', () => {
     popupOverlay.remove();
