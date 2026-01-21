@@ -670,6 +670,34 @@
       transform: scale(1.05);
     }
 
+    .feline-agility-btn {
+      padding: 8px 10px;
+      background: var(--accent-purple);
+      color: var(--text-inverse);
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 1.2em;
+      transition: all 0.2s;
+      min-width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .feline-agility-btn:hover {
+      background: var(--accent-purple-dark);
+      transform: scale(1.05);
+    }
+
+    .feline-agility-btn:disabled {
+      background: var(--bg-tertiary);
+      color: var(--text-muted);
+      cursor: not-allowed;
+      transform: none;
+    }
+
     .combat-status-row {
       display: flex;
       gap: 10px;
@@ -982,6 +1010,7 @@
             <div class="action-icon">👟</div>
             <div class="action-label">Movement</div>
           </div>
+          <button class="feline-agility-btn" id="feline-agility-btn" title="Feline Agility - Refresh Movement">🐱</button>
           <div class="action-economy-item" id="reaction-indicator" data-used="false">
             <div class="action-icon">🛡️</div>
             <div class="action-label">Reaction</div>

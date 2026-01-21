@@ -4928,6 +4928,32 @@ function initActionEconomy() {
     });
   }
 
+  // Feline Agility - Manual movement refresh
+  const felineAgilityBtn = document.getElementById('feline-agility-btn');
+  if (felineAgilityBtn) {
+    felineAgilityBtn.addEventListener('click', () => {
+      const movementIndicator = document.getElementById('movement-indicator');
+      if (!movementIndicator) {
+        debug.error('❌ Movement indicator not found');
+        return;
+      }
+
+      const isUsed = movementIndicator.dataset.used === 'true';
+      if (!isUsed) {
+        showNotification('⚠️ Movement is already available!', 'warning');
+        return;
+      }
+
+      // Refresh movement (Feline Agility special case)
+      movementIndicator.dataset.used = 'false';
+      debug.log('🐱 Feline Agility: Movement refreshed');
+      showNotification('🐱 Feline Agility - Movement refreshed!', 'success');
+
+      // Announce to Roll20 chat
+      postToChatIfOpener(`🐱 ${characterData.name} uses Feline Agility to refresh movement!`);
+    });
+  }
+
   debug.log('✅ Action economy initialized');
 }
 
@@ -4939,6 +4965,7 @@ function updateActionEconomyAvailability() {
   const bonusActionIndicator = document.getElementById('bonus-action-indicator');
   const movementIndicator = document.getElementById('movement-indicator');
   const reactionIndicator = document.getElementById('reaction-indicator');
+  const felineAgilityBtn = document.getElementById('feline-agility-btn');
 
   const turnBasedActions = [actionIndicator, bonusActionIndicator, movementIndicator];
 
@@ -4953,6 +4980,11 @@ function updateActionEconomyAvailability() {
         indicator.style.removeProperty('pointer-events');
       }
     });
+
+    // Enable Feline Agility button on your turn
+    if (felineAgilityBtn) {
+      felineAgilityBtn.disabled = false;
+    }
   } else {
     // Disable turn-based actions, keep reaction available
     turnBasedActions.forEach(indicator => {
@@ -4973,9 +5005,14 @@ function updateActionEconomyAvailability() {
       reactionIndicator.style.removeProperty('cursor');
       reactionIndicator.style.removeProperty('pointer-events');
     }
+
+    // Disable Feline Agility button when not your turn
+    if (felineAgilityBtn) {
+      felineAgilityBtn.disabled = true;
+    }
   }
 
-  debug.log(`🔄 Action economy updated: isMyTurn=${isMyTurn}, actions=${turnBasedActions.length > 0 ? 'enabled' : 'disabled'}, reaction=${reactionIndicator ? 'enabled' : 'N/A'}`);
+  debug.log(`🔄 Action economy updated: isMyTurn=${isMyTurn}, actions=${turnBasedActions.length > 0 ? 'enabled' : 'disabled'}, reaction=${reactionIndicator ? 'enabled' : 'N/A'}, felineAgility=${felineAgilityBtn ? (felineAgilityBtn.disabled ? 'disabled' : 'enabled') : 'N/A'}`);
 }
 
 /**
