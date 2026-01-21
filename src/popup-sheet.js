@@ -35,12 +35,17 @@ if (typeof ThemeManager !== 'undefined') {
 let characterData = null;
 
 // Listen for character data from parent window via postMessage
-window.addEventListener('message', (event) => {
+window.addEventListener('message', async (event) => {
   debug.log('✅ Received message in popup:', event.data);
 
   if (event.data && event.data.action === 'initCharacterSheet') {
     debug.log('✅ Initializing character sheet with data:', event.data.data.name);
     characterData = event.data.data;  // Store globally
+
+    // Build tabs first (need to load profiles from storage)
+    await loadAndBuildTabs();
+
+    // Then build the sheet with character data
     buildSheet(characterData);
   }
 });
@@ -74,22 +79,36 @@ setTimeout(() => {
   }
 }, 1000);
 
-// Load character data and build tabs
-async function loadCharacterWithTabs() {
+// Load profiles and build tabs (without building sheet)
+async function loadAndBuildTabs() {
   try {
+    debug.log('📋 Loading character profiles for tabs...');
+
     // Get all character profiles
     const profilesResponse = await browserAPI.runtime.sendMessage({ action: 'getAllCharacterProfiles' });
     const profiles = profilesResponse.success ? profilesResponse.profiles : {};
+    debug.log('📋 Profiles loaded:', Object.keys(profiles));
 
     // Get active character ID (this is the slotId like "slot-1")
     const activeCharacterId = await getActiveCharacterId();
+    debug.log('📋 Active character ID:', activeCharacterId);
+
+    // Build character tabs
+    buildCharacterTabs(profiles, activeCharacterId);
+  } catch (error) {
+    debug.error('❌ Failed to load and build tabs:', error);
+  }
+}
+
+// Load character data and build tabs
+async function loadCharacterWithTabs() {
+  try {
+    // Build tabs first
+    await loadAndBuildTabs();
 
     // Get active character data
     const activeResponse = await browserAPI.runtime.sendMessage({ action: 'getCharacterData' });
     const activeCharacter = activeResponse.success ? activeResponse.data : null;
-
-    // Build character tabs
-    buildCharacterTabs(profiles, activeCharacterId);
 
     // Load active character
     if (activeCharacter) {
@@ -202,9 +221,9 @@ async function switchToCharacter(characterId) {
       debug.log(`🎨 Building sheet for: ${response.data.name}`);
       buildSheet(characterData);
 
-      // Reload tabs to update active state
+      // Reload tabs to update active state (don't rebuild the sheet)
       debug.log(`🔄 Reloading tabs to update active state`);
-      loadCharacterWithTabs();
+      await loadAndBuildTabs();
 
       showNotification(`✅ Switched to ${response.data.name}`);
     } else {
