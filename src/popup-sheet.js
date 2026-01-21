@@ -6,27 +6,26 @@ if (typeof ThemeManager !== 'undefined') {
     debug.log('🎨 Theme system initialized');
 
     // Set up theme button click handlers
-    document.addEventListener('DOMContentLoaded', () => {
-      const themeButtons = document.querySelectorAll('.theme-btn');
-      themeButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-          const theme = btn.dataset.theme;
-          ThemeManager.setTheme(theme);
+    // Note: Don't wrap in DOMContentLoaded since this script runs after the DOM is loaded
+    const themeButtons = document.querySelectorAll('.theme-btn');
+    themeButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const theme = btn.dataset.theme;
+        ThemeManager.setTheme(theme);
 
-          // Update active state
-          themeButtons.forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-        });
-      });
-
-      // Set initial active button based on current theme
-      const currentTheme = ThemeManager.getCurrentTheme();
-      const activeBtn = document.querySelector(`[data-theme="${currentTheme}"]`);
-      if (activeBtn) {
+        // Update active state
         themeButtons.forEach(b => b.classList.remove('active'));
-        activeBtn.classList.add('active');
-      }
+        btn.classList.add('active');
+      });
     });
+
+    // Set initial active button based on current theme
+    const currentTheme = ThemeManager.getCurrentTheme();
+    const activeBtn = document.querySelector(`[data-theme="${currentTheme}"]`);
+    if (activeBtn) {
+      themeButtons.forEach(b => b.classList.remove('active'));
+      activeBtn.classList.add('active');
+    }
   });
 } else {
   debug.warn('⚠️ ThemeManager not available');
@@ -116,7 +115,13 @@ async function getActiveCharacterId() {
 // Build character tabs UI
 function buildCharacterTabs(profiles, activeCharacterId) {
   const tabsContainer = document.getElementById('character-tabs');
-  if (!tabsContainer) return;
+  if (!tabsContainer) {
+    debug.warn('⚠️ character-tabs container not found!');
+    return;
+  }
+
+  debug.log(`🏷️ Building character tabs. Active: ${activeCharacterId}`);
+  debug.log(`📋 Profiles:`, Object.keys(profiles));
 
   tabsContainer.innerHTML = '';
   const maxSlots = 10; // Support up to 10 character slots (matches main's implementation)
@@ -126,6 +131,10 @@ function buildCharacterTabs(profiles, activeCharacterId) {
     const slotId = `slot-${slotNum}`;
     // Find character in this slot using slotId as key
     const charInSlot = profiles[slotId];
+
+    if (charInSlot) {
+      debug.log(`  📌 Slot ${slotNum}: ${charInSlot.name} (active: ${slotId === activeCharacterId})`);
+    }
 
     const tab = document.createElement('div');
     tab.className = 'character-tab';
@@ -146,6 +155,7 @@ function buildCharacterTabs(profiles, activeCharacterId) {
 
       // Click to switch character
       tab.addEventListener('click', (e) => {
+        debug.log(`🖱️ Tab clicked for ${slotId}`, charInSlot.name);
         if (!e.target.classList.contains('close-tab')) {
           switchToCharacter(slotId);
         }
@@ -173,26 +183,35 @@ function buildCharacterTabs(profiles, activeCharacterId) {
 // Switch to a different character
 async function switchToCharacter(characterId) {
   try {
+    debug.log(`🔄 Switching to character: ${characterId}`);
+
     // Set active character
     await browserAPI.runtime.sendMessage({
       action: 'setActiveCharacter',
       characterId: characterId
     });
+    debug.log(`✅ Active character set to: ${characterId}`);
 
     // Reload the sheet
     const response = await browserAPI.runtime.sendMessage({
       action: 'getCharacterData',
       characterId: characterId
     });
+    debug.log(`📊 Character data received:`, response);
 
     if (response && response.data) {
       characterData = response.data;
+      debug.log(`🎨 Building sheet for: ${response.data.name}`);
       buildSheet(characterData);
 
       // Reload tabs to update active state
+      debug.log(`🔄 Reloading tabs to update active state`);
       loadCharacterWithTabs();
 
       showNotification(`✅ Switched to ${response.data.name}`);
+    } else {
+      debug.error(`❌ No character data in response`);
+      showNotification('❌ Character not found', 'error');
     }
   } catch (error) {
     debug.error('❌ Failed to switch character:', error);
