@@ -474,7 +474,6 @@ If the character sheet overlay isn't working properly:
 - [ ] **Personal Best Tracker** - Highlight highest damage, longest streak, etc.
 
 ### Advanced Features
-- [ ] **Bi-directional Sync** - Update Dice Cloud from Roll20 HP/resource changes
 - [ ] **Party HP Overview** - See all party members' HP in one view
 - [ ] **Character Comparison** - Side-by-side stats for multiple characters
 - [ ] **Campaign Journal** - Track session summaries and key moments
