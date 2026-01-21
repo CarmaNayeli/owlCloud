@@ -751,6 +751,9 @@
     // Start listening for character broadcasts
     startCharacterBroadcastListener();
 
+    // Load player data from storage
+    loadPlayerDataFromStorage();
+
     // Attach event listeners
     attachGMPanelListeners();
 
@@ -1276,6 +1279,9 @@
     // Merge new data
     Object.assign(playerData[characterName], data);
 
+    // Save to storage
+    savePlayerDataToStorage();
+
     // Update display if GM panel is open
     if (gmModeEnabled) {
       updatePlayerOverviewDisplay();
@@ -1283,6 +1289,69 @@
 
     debug.log(`👤 Updated player data for ${characterName}:`, playerData[characterName]);
   }
+
+  /**
+   * Save player data to storage
+   */
+  function savePlayerDataToStorage() {
+    try {
+      browserAPI.storage.local.set({
+        rollcloudPlayerData: playerData
+      });
+      debug.log('💾 Saved player data to storage');
+    } catch (error) {
+      debug.error('❌ Error saving player data to storage:', error);
+    }
+  }
+
+  /**
+   * Load player data from storage
+   */
+  function loadPlayerDataFromStorage() {
+    try {
+      browserAPI.storage.local.get(['rollcloudPlayerData'], (result) => {
+        if (result.rollcloudPlayerData) {
+          playerData = result.rollcloudPlayerData;
+          debug.log('📂 Loaded player data from storage');
+          
+          // Update display if GM panel is open
+          if (gmModeEnabled) {
+            updatePlayerOverviewDisplay();
+          }
+        }
+      });
+    } catch (error) {
+      debug.error('❌ Error loading player data from storage:', error);
+    }
+  }
+
+  /**
+   * Delete player data
+   */
+  function deletePlayerData(characterName) {
+    if (playerData[characterName]) {
+      delete playerData[characterName];
+      
+      // Save to storage
+      savePlayerDataToStorage();
+      
+      // Update display if GM panel is open
+      if (gmModeEnabled) {
+        updatePlayerOverviewDisplay();
+      }
+      
+      debug.log(`🗑️ Deleted player data for ${characterName}`);
+    }
+  }
+
+  /**
+   * Delete player from GM panel
+   */
+  window.deletePlayerFromGM = function(characterName) {
+    if (confirm(`Remove ${characterName} from GM Panel?`)) {
+      deletePlayerData(characterName);
+    }
+  };
 
   /**
    * Toggle player details expansion
