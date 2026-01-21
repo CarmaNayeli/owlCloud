@@ -99,6 +99,13 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
           response = { success: true };
           break;
 
+        case 'toggleGMMode':
+          debug.log('📡 Relaying GM Mode toggle to Roll20:', request.enabled);
+          await sendGMModeToggleToRoll20Tabs(request.enabled);
+          debug.log('✅ GM Mode toggle relayed successfully');
+          response = { success: true };
+          break;
+
         default:
           debug.warn('Unknown action:', request.action);
           response = { success: false, error: 'Unknown action' };
@@ -446,6 +453,37 @@ async function sendRollToAllRoll20Tabs(rollData) {
     debug.log(`Roll sent to ${tabs.length} Roll20 tab(s)`);
   } catch (error) {
     debug.error('Failed to send roll to Roll20 tabs:', error);
+    throw error;
+  }
+}
+
+/**
+ * Sends GM Mode toggle to all open Roll20 tabs
+ */
+async function sendGMModeToggleToRoll20Tabs(enabled) {
+  try {
+    // Query all tabs for Roll20
+    const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
+
+    if (tabs.length === 0) {
+      debug.warn('No Roll20 tabs found');
+      return;
+    }
+
+    // Send GM Mode toggle to each Roll20 tab
+    const promises = tabs.map(tab => {
+      return browserAPI.tabs.sendMessage(tab.id, {
+        action: 'toggleGMMode',
+        enabled: enabled
+      }).catch(err => {
+        debug.warn(`Failed to send GM Mode toggle to tab ${tab.id}:`, err);
+      });
+    });
+
+    await Promise.all(promises);
+    debug.log(`GM Mode toggle sent to ${tabs.length} Roll20 tab(s)`);
+  } catch (error) {
+    debug.error('Failed to send GM Mode toggle to Roll20 tabs:', error);
     throw error;
   }
 }
