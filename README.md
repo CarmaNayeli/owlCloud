@@ -438,23 +438,8 @@ If the character sheet overlay isn't working properly:
 
 ### High Priority - Mechanics & Character Features
 
-#### Racial Traits (✅ All Implemented!)
-- [x] **Halfling Luck** - Reroll 1s on d20 rolls (attack, ability check, save)
-- [x] **Elven Accuracy** - Roll 3d20 on advantage when using DEX/INT/WIS/CHA
-- [x] **Lucky Feat** - Reroll d20 rolls up to 3 times per long rest with tracking
-- [x] **Dwarven Resilience** - Advantage on poison saves (auto-apply)
-- [x] **Gnome Cunning** - Advantage on INT/WIS/CHA saves vs magic (auto-apply)
-
-#### Class Features (8/9 Implemented)
-- [x] **Reliable Talent** (Rogue 11+) - Automatic minimum of 10 on proficient skill checks
-- [x] **Bardic Inspiration** - Pre-roll popup system; asks before rolling to add inspiration die to formula (consumes buff, follows 5e RAW timing)
-- [x] **Portent Dice** (Divination Wizard) - Store and apply portent rolls
-- [x] **Wild Magic Surge** - Auto-roll d20 and consult surge table on spell cast
+#### Class Features
 - [ ] **Divine Smite** - Quick-add smite damage to melee attacks
-- [x] **Sneak Attack Tracker** - Auto-add sneak attack damage when conditions met
-- [x] **Rage Damage Bonus** - Auto-apply rage damage to attacks
-- [x] **Brutal Critical** (Barbarian) - Auto-add extra dice on crits
-- [x] **Jack of All Trades** (Bard) - Auto-add half proficiency to non-proficient checks
 
 #### Combat Mechanics
 - [ ] **Reaction Prompts** - Notify when Shield, Counterspell, or opportunity attacks apply
@@ -471,8 +456,6 @@ If the character sheet overlay isn't working properly:
 ### Additional Mechanics & Features
 - [ ] **Initiative Auto-Roller** - Roll initiative for all party members at once
 - [ ] **Custom Roll Macros** - Create and save frequently-used custom rolls
-- [x] **Guidance** - Pre-roll popup asks to add d4 to ability checks (consumes buff, 5e RAW timing)
-- [x] **Bless** - Automatically adds +1d4 to attack rolls and saves (no popup needed)
 - [ ] **Two-Weapon Fighting** - Quick off-hand attack button
 - [ ] **Great Weapon Master/Sharpshooter** - Toggle -5/+10 for attacks
 
