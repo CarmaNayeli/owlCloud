@@ -243,24 +243,54 @@
       margin-bottom: 15px;
     `;
 
-    // Create add combatant form
-    const addForm = document.createElement('div');
-    addForm.style.cssText = `
+    // Create add combatant form with collapsible header
+    const addFormSection = document.createElement('div');
+    addFormSection.style.cssText = `
       margin-top: 15px;
       padding-top: 15px;
       border-top: 2px solid #34495e;
     `;
+
+    const addFormHeader = document.createElement('div');
+    addFormHeader.style.cssText = `
+      cursor: pointer;
+      user-select: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px;
+      margin-bottom: 10px;
+      background: #34495e;
+      border-radius: 6px;
+      font-weight: bold;
+      transition: background 0.2s;
+    `;
+    addFormHeader.innerHTML = `
+      <span>➕ Add Combatant</span>
+      <span id="add-form-toggle" style="transition: transform 0.3s;">▼</span>
+    `;
+
+    const addForm = document.createElement('div');
+    addForm.id = 'add-combatant-form';
+    addForm.style.cssText = `
+      display: block;
+      transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
+      overflow: hidden;
+    `;
     addForm.innerHTML = `
       <input type="text" id="combatant-name-input" placeholder="Combatant name" style="width: 100%; padding: 8px; margin-bottom: 8px; border: 2px solid #34495e; border-radius: 4px; background: #34495e; color: #fff; font-size: 0.9em;" />
       <input type="number" id="combatant-init-input" placeholder="Initiative" style="width: 100%; padding: 8px; margin-bottom: 8px; border: 2px solid #34495e; border-radius: 4px; background: #34495e; color: #fff; font-size: 0.9em;" />
-      <button id="add-combatant-btn" style="width: 100%; padding: 8px 12px; background: #3498db; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">➕ Add Combatant</button>
+      <button id="add-combatant-btn" style="width: 100%; padding: 8px 12px; background: #3498db; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">➕ Add</button>
     `;
+
+    addFormSection.appendChild(addFormHeader);
+    addFormSection.appendChild(addForm);
 
     // Assemble panel
     content.appendChild(controls);
     content.appendChild(roundDisplay);
     content.appendChild(initiativeList);
-    content.appendChild(addForm);
+    content.appendChild(addFormSection);
     gmPanel.appendChild(header);
     gmPanel.appendChild(content);
     document.body.appendChild(gmPanel);
@@ -325,6 +355,27 @@
     if (nextBtn) nextBtn.addEventListener('click', nextTurn);
     if (prevBtn) prevBtn.addEventListener('click', prevTurn);
     if (clearAllBtn) clearAllBtn.addEventListener('click', clearAllCombatants);
+
+    // Collapsible add form toggle
+    const addFormHeader = gmPanel.querySelector('div[style*="cursor: pointer"]');
+    const addForm = document.getElementById('add-combatant-form');
+    const addFormToggle = document.getElementById('add-form-toggle');
+    let isFormCollapsed = false;
+
+    if (addFormHeader && addForm && addFormToggle) {
+      addFormHeader.addEventListener('click', () => {
+        isFormCollapsed = !isFormCollapsed;
+        if (isFormCollapsed) {
+          addForm.style.maxHeight = '0';
+          addForm.style.opacity = '0';
+          addFormToggle.style.transform = 'rotate(-90deg)';
+        } else {
+          addForm.style.maxHeight = '500px';
+          addForm.style.opacity = '1';
+          addFormToggle.style.transform = 'rotate(0deg)';
+        }
+      });
+    }
 
     // Add combatant form
     const addBtn = document.getElementById('add-combatant-btn');
@@ -465,10 +516,13 @@
       initiativeTracker.currentTurnIndex = 0;
       initiativeTracker.round++;
       document.getElementById('round-display').textContent = `Round ${initiativeTracker.round}`;
+      // Announce new round
+      postChatMessage(`⚔️ Round ${initiativeTracker.round} begins!`);
     }
 
     updateInitiativeDisplay();
     notifyCurrentTurn();
+    announceTurn();
     debug.log(`⏭️ Next turn: ${getCurrentCombatant()?.name}`);
   }
 
@@ -487,6 +541,7 @@
 
     updateInitiativeDisplay();
     notifyCurrentTurn();
+    announceTurn();
     debug.log(`⏮️ Prev turn: ${getCurrentCombatant()?.name}`);
   }
 
@@ -545,6 +600,16 @@
     }
   }
 
+  /**
+   * Announce current turn in Roll20 chat
+   */
+  function announceTurn() {
+    const current = getCurrentCombatant();
+    if (!current) return;
+
+    postChatMessage(`🎯 It's ${current.name}'s turn! (Initiative: ${current.initiative})`);
+  }
+
   // Expose remove function globally for onclick handlers
   window.rollcloudRemoveCombatant = removeCombatant;
 
@@ -592,9 +657,35 @@
    */
   function checkForInitiativeRoll(messageNode) {
     const text = messageNode.textContent || '';
+    const innerHTML = messageNode.innerHTML || '';
 
     // Debug: Log the message to see format
-    debug.log('📨 Chat message:', text);
+    debug.log('📨 Chat message (text):', text);
+    debug.log('📨 Chat message (html):', innerHTML);
+
+    // Check for Roll20's inline roll format in HTML
+    // Look for dice rolls with "inlinerollresult" class
+    const inlineRolls = messageNode.querySelectorAll('.inlinerollresult');
+    if (inlineRolls.length > 0) {
+      // Check if message contains "initiative" keyword
+      const lowerText = text.toLowerCase();
+      if (lowerText.includes('initiative') || lowerText.includes('init')) {
+        // Extract character name - usually in a .by element or at start of message
+        const byElement = messageNode.querySelector('.by');
+        const characterName = byElement ? byElement.textContent.trim().replace(/:/g, '') : null;
+
+        // Get the roll result from the last inline roll
+        const lastRoll = inlineRolls[inlineRolls.length - 1];
+        const rollResult = lastRoll.textContent.trim();
+        const initiative = parseInt(rollResult);
+
+        if (characterName && !isNaN(initiative) && initiative >= 0 && initiative <= 50) {
+          debug.log(`🎲 Detected initiative roll (inline): ${characterName} = ${initiative}`);
+          addCombatant(characterName, initiative, 'chat');
+          return;
+        }
+      }
+    }
 
     // Look for patterns like:
     // "Grey rolls Initiative Roll 21"
@@ -602,24 +693,26 @@
     // "CharacterName rolled a 15 for initiative"
     // "Initiative: 18"
     const initiativePatterns = [
-      // Pattern 1: "Name rolls Initiative Roll 21"
-      /^(.+?)\s+rolls?\s+Initiative.*?Roll\s+(\d+)/i,
-      // Pattern 2: "Name rolls Initiative" followed by number
-      /^(.+?)\s+rolls?\s+Initiative.*?(\d+)/i,
-      // Pattern 3: "Name rolled 15 for initiative"
-      /^(.+?)\s+rolled?\s+(?:a\s+)?(\d+)\s+for\s+initiative/i,
-      // Pattern 4: Generic "Name ... initiative ... 15"
-      /^(.+?).*?initiative.*?(\d+)/i
+      // Pattern 1: "Name rolls Initiative Roll 21" or "Name: rolls Initiative 21"
+      /^(.+?)(?::)?\s+rolls?\s+[Ii]nitiative.*?(\d+)/,
+      // Pattern 2: "Name rolled 15 for initiative"
+      /^(.+?)\s+rolled?\s+(?:a\s+)?(\d+)\s+for\s+[Ii]nitiative/,
+      // Pattern 3: Generic "Name ... initiative ... 15" (case insensitive)
+      /^(.+?).*?[Ii]nitiative.*?(\d+)/,
+      // Pattern 4: "Name ... Init ... 15"
+      /^(.+?).*?[Ii]nit.*?(\d+)/
     ];
 
     for (const pattern of initiativePatterns) {
       const match = text.match(pattern);
       if (match) {
-        const name = match[1].trim();
+        let name = match[1].trim();
+        // Remove trailing colons and "rolls" text
+        name = name.replace(/\s*:?\s*rolls?$/i, '').trim();
         const initiative = parseInt(match[2]);
 
         if (name && !isNaN(initiative) && initiative >= 0 && initiative <= 50) {
-          debug.log(`🎲 Detected initiative roll: ${name} = ${initiative}`);
+          debug.log(`🎲 Detected initiative roll (text): ${name} = ${initiative}`);
           addCombatant(name, initiative, 'chat');
           return;
         }
