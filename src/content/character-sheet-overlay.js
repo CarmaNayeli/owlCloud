@@ -1660,6 +1660,12 @@
         // Store reference to the active popup
         activePopupWindow = popupWindow;
 
+        // Register popup with GM Initiative Tracker (if it exists)
+        if (typeof window.rollcloudRegisterPopup === 'function') {
+          window.rollcloudRegisterPopup(response.data.name, popupWindow);
+          debug.log(`✅ Registered popup for turn notifications: ${response.data.name}`);
+        }
+
         // Fallback: Send data after a delay if popup hasn't sent ready message
         // This handles cases where the popup loads faster than expected
         setTimeout(() => {
