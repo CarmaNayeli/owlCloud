@@ -592,6 +592,262 @@
       margin-left: 8px;
       font-weight: bold;
     }
+
+    /* Combat Mechanics Styles */
+    .combat-section {
+      background: var(--bg-secondary);
+      padding: 15px;
+      border-radius: 8px;
+      margin: 15px 0;
+      border: 2px solid var(--border-color);
+    }
+
+    .action-economy {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .action-economy-item {
+      flex: 1;
+      min-width: 70px;
+      padding: 10px;
+      border-radius: 8px;
+      text-align: center;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      border: 2px solid var(--accent-primary);
+    }
+
+    .action-economy-item[data-used="false"] {
+      background: var(--accent-primary);
+      opacity: 1;
+      box-shadow: 0 0 10px rgba(78, 205, 196, 0.5);
+    }
+
+    .action-economy-item[data-used="true"] {
+      background: var(--bg-tertiary);
+      opacity: 0.4;
+      box-shadow: none;
+      border-color: var(--border-color);
+    }
+
+    .action-economy-item:hover {
+      transform: translateY(-2px);
+    }
+
+    .action-icon {
+      font-size: 1.5em;
+      margin-bottom: 4px;
+    }
+
+    .action-label {
+      font-size: 0.75em;
+      font-weight: bold;
+      color: var(--text-inverse);
+    }
+
+    .action-economy-item[data-used="true"] .action-label {
+      color: var(--text-muted);
+    }
+
+    .combat-reset-btn {
+      padding: 8px 12px;
+      background: var(--accent-warning);
+      color: var(--text-inverse);
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85em;
+      font-weight: bold;
+      transition: all 0.2s;
+    }
+
+    .combat-reset-btn:hover {
+      background: var(--accent-danger);
+      transform: scale(1.05);
+    }
+
+    .combat-status-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .concentration-indicator {
+      flex: 1;
+      min-width: 200px;
+      padding: 8px 12px;
+      background: var(--bg-spell);
+      border: 2px solid var(--border-spell);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .concentration-icon {
+      font-size: 1.2em;
+    }
+
+    .concentration-text {
+      flex: 1;
+      font-size: 0.9em;
+      color: var(--text-primary);
+    }
+
+    .concentration-drop-btn {
+      background: var(--accent-danger);
+      color: var(--text-inverse);
+      border: none;
+      border-radius: 4px;
+      padding: 4px 8px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.2s;
+    }
+
+    .concentration-drop-btn:hover {
+      background: #c0392b;
+      transform: scale(1.1);
+    }
+
+    .conditions-manager {
+      flex: 1;
+      min-width: 200px;
+      position: relative;
+    }
+
+    .conditions-btn {
+      padding: 8px 16px;
+      background: var(--accent-purple);
+      color: var(--text-inverse);
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 0.9em;
+      transition: all 0.2s;
+      width: 100%;
+    }
+
+    .conditions-btn:hover {
+      background: var(--accent-purple-dark);
+      transform: translateY(-2px);
+    }
+
+    .conditions-dropdown {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      margin-top: 5px;
+      background: var(--bg-secondary);
+      border: 2px solid var(--border-color);
+      border-radius: 6px;
+      box-shadow: 0 4px 12px var(--shadow-hover);
+      z-index: 1000;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .condition-option {
+      padding: 10px 12px;
+      cursor: pointer;
+      transition: background 0.2s;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .condition-option:hover {
+      background: var(--bg-card-hover);
+    }
+
+    .condition-option:last-child {
+      border-bottom: none;
+    }
+
+    .condition-icon {
+      font-size: 1.2em;
+    }
+
+    .condition-name {
+      flex: 1;
+      font-weight: bold;
+      color: var(--text-primary);
+    }
+
+    .active-conditions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .condition-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      background: var(--accent-purple);
+      color: var(--text-inverse);
+      border-radius: 20px;
+      font-size: 0.85em;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .condition-badge:hover {
+      background: var(--accent-danger);
+      transform: scale(1.05);
+    }
+
+    .condition-badge-icon {
+      font-size: 1em;
+    }
+
+    .condition-badge-remove {
+      font-size: 0.9em;
+      opacity: 0.8;
+    }
+
+    .condition-badge:hover .condition-badge-remove {
+      opacity: 1;
+    }
+
+    /* GM Mode Toggle (in character sheet - opens GM panel on Roll20 page) */
+    .gm-mode-toggle {
+      background: var(--accent-primary);
+      color: var(--text-inverse);
+      border: 2px solid var(--accent-primary);
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85em;
+      font-weight: bold;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .gm-mode-toggle:hover {
+      background: var(--accent-success);
+      border-color: var(--accent-success);
+      transform: scale(1.05);
+    }
+
+    .gm-mode-toggle.active {
+      background: var(--accent-success);
+      border-color: var(--accent-success);
+      box-shadow: 0 0 10px rgba(39, 174, 96, 0.5);
+    }
   </style>
 </head>
 <body>
@@ -611,6 +867,9 @@
         <div id="color-palette" style="display: none; position: absolute; left: 50%; top: 100%; transform: translateX(-50%); background: rgba(0,0,0,0.9); padding: 12px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 1000; margin-top: 5px;">
         </div>
       </div>
+      <button class="gm-mode-toggle" id="gm-mode-toggle" title="Toggle GM Mode">
+        <span>👑</span> GM Mode
+      </button>
       <button class="close-btn" id="close-btn">✕</button>
     </div>
 
@@ -678,6 +937,54 @@
         <div class="rest-buttons">
           <button class="rest-btn short" id="short-rest-btn">☕ Short Rest</button>
           <button class="rest-btn long" id="long-rest-btn">🌙 Long Rest</button>
+        </div>
+      </div>
+
+      <!-- Combat Mechanics Section -->
+      <div class="combat-section">
+        <!-- Action Economy Tracker -->
+        <div class="action-economy">
+          <div class="action-economy-item" id="action-indicator" data-used="false">
+            <div class="action-icon">⚔️</div>
+            <div class="action-label">Action</div>
+          </div>
+          <div class="action-economy-item" id="bonus-action-indicator" data-used="false">
+            <div class="action-icon">⚡</div>
+            <div class="action-label">Bonus</div>
+          </div>
+          <div class="action-economy-item" id="movement-indicator" data-used="false">
+            <div class="action-icon">👟</div>
+            <div class="action-label">Movement</div>
+          </div>
+          <div class="action-economy-item" id="reaction-indicator" data-used="false">
+            <div class="action-icon">🛡️</div>
+            <div class="action-label">Reaction</div>
+          </div>
+          <button class="combat-reset-btn" id="turn-reset-btn" title="Reset turn (Action/Bonus/Movement)">↻ Turn</button>
+          <button class="combat-reset-btn" id="round-reset-btn" title="Reset round (includes Reaction)">↻ Round</button>
+        </div>
+
+        <!-- Conditions & Concentration Row -->
+        <div class="combat-status-row">
+          <!-- Concentration Indicator -->
+          <div class="concentration-indicator" id="concentration-indicator" style="display: none;">
+            <span class="concentration-icon">🧠</span>
+            <span class="concentration-text">Concentrating on: <strong id="concentration-spell">-</strong></span>
+            <button class="concentration-drop-btn" id="drop-concentration-btn" title="Drop concentration">✕</button>
+          </div>
+
+          <!-- Conditions Manager -->
+          <div class="conditions-manager">
+            <button class="conditions-btn" id="add-condition-btn">
+              <span>🎭</span> Conditions
+            </button>
+            <div class="conditions-dropdown" id="conditions-dropdown" style="display: none;">
+              <!-- Dropdown will be populated by JS -->
+            </div>
+            <div class="active-conditions" id="active-conditions">
+              <!-- Active conditions will be added here -->
+            </div>
+          </div>
         </div>
       </div>
 
