@@ -6267,6 +6267,12 @@ function initClassFeatures() {
     activeFeatTraits.push(ReliableTalent);
   }
 
+  // Bardic Inspiration (Bard)
+  if (characterClass.includes('bard') && level >= 1) {
+    debug.log('🎵 Bard detected, adding Bardic Inspiration');
+    activeFeatTraits.push(BardicInspiration);
+  }
+
   // Jack of All Trades (Bard)
   if (characterClass.includes('bard') && level >= 2) {
     debug.log('🎵 Bard detected, adding Jack of All Trades');
@@ -6926,6 +6932,179 @@ function showWildMagicSurgePopup(d100Roll, effect) {
   }
 
   debug.log('🌀 Wild Magic Surge popup displayed');
+}
+
+// Bardic Inspiration Popup Functions
+function showBardicInspirationPopup(rollData) {
+  debug.log('🎵 Bardic Inspiration popup called with:', rollData);
+
+  // Check if document.body exists
+  if (!document.body) {
+    debug.error('❌ document.body not available for Bardic Inspiration popup');
+    showNotification('🎵 Bardic Inspiration available! (Popup failed to display)', 'info');
+    return;
+  }
+
+  debug.log('🎵 Creating Bardic Inspiration popup overlay...');
+
+  // Get theme-aware colors
+  const colors = getPopupThemeColors();
+
+  // Create popup overlay
+  const popupOverlay = document.createElement('div');
+  popupOverlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  `;
+
+  // Create popup content
+  const popupContent = document.createElement('div');
+  popupContent.style.cssText = `
+    background: ${colors.background};
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 450px;
+    width: 90%;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    text-align: center;
+  `;
+
+  debug.log('🎵 Setting Bardic Inspiration popup content HTML...');
+
+  popupContent.innerHTML = `
+    <div style="font-size: 32px; margin-bottom: 16px;">🎵</div>
+    <h2 style="margin: 0 0 8px 0; color: ${colors.heading};">Bardic Inspiration!</h2>
+    <p style="margin: 0 0 16px 0; color: ${colors.text};">
+      Add a <strong>${rollData.inspirationDie}</strong> to this roll?
+    </p>
+    <div style="margin: 0 0 16px 0; padding: 12px; background: ${colors.infoBox}; border-radius: 8px; border-left: 4px solid #9b59b6; color: ${colors.text};">
+      <strong>Current Roll:</strong> ${rollData.rollName}<br>
+      <strong>Base Result:</strong> ${rollData.baseRoll}<br>
+      <strong>Inspiration Die:</strong> ${rollData.inspirationDie}<br>
+      <strong>Uses Left:</strong> ${rollData.usesRemaining}
+    </div>
+    <div style="margin-bottom: 16px; padding: 12px; background: ${colors.infoBox}; border-radius: 8px; color: ${colors.text}; font-size: 13px; text-align: left;">
+      <strong>💡 How it works:</strong><br>
+      • Roll the inspiration die and add it to your total<br>
+      • Can be used on ability checks, attack rolls, or saves<br>
+      • Only one inspiration die can be used per roll
+    </div>
+    <div style="display: flex; gap: 12px; justify-content: center;">
+      <button id="bardicUseBtn" style="
+        background: #9b59b6;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: bold;
+        font-size: 14px;
+        transition: background 0.2s;
+      ">🎲 Use Inspiration</button>
+      <button id="bardicDeclineBtn" style="
+        background: #7f8c8d;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: bold;
+        font-size: 14px;
+        transition: background 0.2s;
+      ">Decline</button>
+    </div>
+  `;
+
+  debug.log('🎵 Appending Bardic Inspiration popup to document.body...');
+
+  popupOverlay.appendChild(popupContent);
+  document.body.appendChild(popupOverlay);
+
+  // Add hover effects
+  const useBtn = document.getElementById('bardicUseBtn');
+  const declineBtn = document.getElementById('bardicDeclineBtn');
+
+  useBtn.addEventListener('mouseenter', () => {
+    useBtn.style.background = '#8e44ad';
+  });
+  useBtn.addEventListener('mouseleave', () => {
+    useBtn.style.background = '#9b59b6';
+  });
+
+  declineBtn.addEventListener('mouseenter', () => {
+    declineBtn.style.background = '#95a5a6';
+  });
+  declineBtn.addEventListener('mouseleave', () => {
+    declineBtn.style.background = '#7f8c8d';
+  });
+
+  // Add event listeners
+  useBtn.addEventListener('click', () => {
+    debug.log('🎵 User chose to use Bardic Inspiration');
+    performBardicInspirationRoll(rollData);
+    document.body.removeChild(popupOverlay);
+  });
+
+  declineBtn.addEventListener('click', () => {
+    debug.log('🎵 User declined Bardic Inspiration');
+    showNotification('Bardic Inspiration declined', 'info');
+    document.body.removeChild(popupOverlay);
+  });
+
+  // Close on overlay click
+  popupOverlay.addEventListener('click', (e) => {
+    if (e.target === popupOverlay) {
+      debug.log('🎵 User closed Bardic Inspiration popup');
+      document.body.removeChild(popupOverlay);
+    }
+  });
+
+  debug.log('🎵 Bardic Inspiration popup displayed');
+}
+
+function performBardicInspirationRoll(rollData) {
+  debug.log('🎵 Performing Bardic Inspiration roll with data:', rollData);
+
+  // Use one Bardic Inspiration use
+  const success = useBardicInspiration();
+  if (!success) {
+    debug.error('❌ Failed to use Bardic Inspiration (no uses left?)');
+    showNotification('❌ Failed to use Bardic Inspiration', 'error');
+    return;
+  }
+
+  // Roll the inspiration die
+  const dieSize = parseInt(rollData.inspirationDie.substring(1)); // "d6" -> 6
+  const inspirationRoll = Math.floor(Math.random() * dieSize) + 1;
+
+  debug.log(`🎵 Rolled ${rollData.inspirationDie}: ${inspirationRoll}`);
+
+  // Create the roll message
+  const inspirationMessage = `/roll ${rollData.inspirationDie}`;
+  const chatMessage = `🎵 Bardic Inspiration for ${rollData.rollName}: [[${inspirationRoll}]] (${rollData.inspirationDie})`;
+
+  // Show notification
+  showNotification(`🎵 Bardic Inspiration: +${inspirationRoll}!`, 'success');
+
+  // Post to Roll20 chat
+  browserAPI.runtime.sendMessage({
+    action: 'rollDice',
+    rollData: {
+      message: chatMessage,
+      characterName: characterData.name || 'Character'
+    }
+  });
+
+  debug.log('🎵 Bardic Inspiration roll complete');
 }
 
 // Elven Accuracy Popup
@@ -7642,6 +7821,115 @@ const WildMagicSurge = {
     return false;
   }
 };
+
+// Bardic Inspiration (Bard)
+const BardicInspiration = {
+  name: 'Bardic Inspiration',
+  description: 'You can inspire others through stirring words or music. As a bonus action, grant an ally a Bardic Inspiration die they can add to an ability check, attack roll, or saving throw.',
+
+  onRoll: function(rollResult, rollType, rollName) {
+    debug.log(`🎵 Bardic Inspiration onRoll called with: ${rollResult}, ${rollType}, ${rollName}`);
+
+    // Check if it's a d20 roll (ability check, attack, or save)
+    if (rollType && rollType.includes('d20')) {
+      debug.log(`🎵 Bardic Inspiration: Checking if we should offer inspiration for ${rollName}`);
+
+      // Check if character has Bardic Inspiration uses available
+      const inspirationResource = getBardicInspirationResource();
+      if (!inspirationResource || inspirationResource.current <= 0) {
+        debug.log(`🎵 Bardic Inspiration: No uses available (${inspirationResource?.current || 0})`);
+        return false;
+      }
+
+      debug.log(`🎵 Bardic Inspiration: Has ${inspirationResource.current} uses available`);
+
+      // Get the inspiration die size based on bard level
+      const level = characterData.level || 1;
+      const inspirationDie = level < 5 ? 'd6' : level < 10 ? 'd8' : level < 15 ? 'd10' : 'd12';
+
+      // Offer Bardic Inspiration on any d20 roll
+      debug.log(`🎵 Bardic Inspiration: TRIGGERED! Offering ${inspirationDie}`);
+
+      // Show the Bardic Inspiration popup with error handling
+      try {
+        showBardicInspirationPopup({
+          rollResult: parseInt(rollResult),
+          baseRoll: parseInt(rollResult),
+          rollType: rollType,
+          rollName: rollName,
+          inspirationDie: inspirationDie,
+          usesRemaining: inspirationResource.current
+        });
+      } catch (error) {
+        debug.error('❌ Error showing Bardic Inspiration popup:', error);
+        // Fallback notification
+        showNotification(`🎵 Bardic Inspiration available! (${inspirationDie})`, 'info');
+      }
+
+      return true; // Trait triggered
+    }
+
+    debug.log(`🎵 Bardic Inspiration: No trigger - Type: ${rollType}`);
+    return false; // No trigger
+  }
+};
+
+function getBardicInspirationResource() {
+  if (!characterData || !characterData.resources) {
+    debug.log('🎵 No characterData or resources for Bardic Inspiration detection');
+    return null;
+  }
+
+  // Find Bardic Inspiration in resources (flexible matching)
+  const inspirationResource = characterData.resources.find(r => {
+    const lowerName = r.name.toLowerCase().trim();
+    return (
+      lowerName.includes('bardic inspiration') ||
+      lowerName === 'bardic inspiration' ||
+      lowerName === 'inspiration' ||
+      lowerName.includes('inspiration die') ||
+      lowerName.includes('inspiration dice')
+    );
+  });
+
+  if (inspirationResource) {
+    debug.log(`🎵 Found Bardic Inspiration resource: ${inspirationResource.name} (${inspirationResource.current}/${inspirationResource.max})`);
+  } else {
+    debug.log('🎵 No Bardic Inspiration resource found in character data');
+  }
+
+  return inspirationResource;
+}
+
+function useBardicInspiration() {
+  debug.log('🎵 useBardicInspiration called');
+  const inspirationResource = getBardicInspirationResource();
+  debug.log('🎵 Bardic Inspiration resource found:', inspirationResource);
+
+  if (!inspirationResource) {
+    debug.error('❌ No Bardic Inspiration resource found');
+    return false;
+  }
+
+  if (inspirationResource.current <= 0) {
+    debug.error(`❌ No Bardic Inspiration uses available (current: ${inspirationResource.current})`);
+    return false;
+  }
+
+  // Decrement Bardic Inspiration uses
+  const oldCurrent = inspirationResource.current;
+  inspirationResource.current--;
+
+  debug.log(`✅ Used Bardic Inspiration (${oldCurrent} → ${inspirationResource.current})`);
+
+  // Save to storage
+  browserAPI.storage.local.set({ characterData: characterData });
+
+  // Refresh resources display
+  buildResourcesDisplay();
+
+  return true;
+}
 
 function getLuckyResource() {
   if (!characterData || !characterData.resources) {
