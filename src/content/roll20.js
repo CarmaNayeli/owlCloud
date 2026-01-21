@@ -663,6 +663,17 @@
     debug.log('📨 Chat message (text):', text);
     debug.log('📨 Chat message (html):', innerHTML);
 
+    // Skip our own announcements (turn changes, round starts, GM mode toggles)
+    // These start with specific emojis and should not be parsed as initiative rolls
+    const ownAnnouncementPrefixes = ['🎯', '⚔️', '👑'];
+    const trimmedText = text.trim();
+    for (const prefix of ownAnnouncementPrefixes) {
+      if (trimmedText.startsWith(prefix)) {
+        debug.log('⏭️ Skipping own announcement message');
+        return;
+      }
+    }
+
     // Check for Roll20's inline roll format in HTML
     // Look for dice rolls with "inlinerollresult" class
     const inlineRolls = messageNode.querySelectorAll('.inlinerollresult');
