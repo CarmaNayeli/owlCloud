@@ -508,12 +508,12 @@
       position: fixed;
       top: 80px;
       right: 20px;
-      width: 500px;
-      height: 600px;
+      width: 700px;
+      height: 750px;
       min-width: 400px;
       min-height: 400px;
-      max-width: 800px;
-      max-height: 80vh;
+      max-width: 900px;
+      max-height: 85vh;
       background: #2a2a2a;
       border-radius: 12px;
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
@@ -521,6 +521,7 @@
       z-index: 10000;
       display: flex;
       flex-direction: column;
+      resize: both;
     `;
 
     // Create tab content containers
@@ -642,6 +643,13 @@
 
     // ===== PLAYER OVERVIEW TAB CONTENT =====
     playersTab.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h3 style="margin: 0; font-size: 1em; color: #4ECDC4;">Party Overview</h3>
+        <div style="display: flex; gap: 8px;">
+          <button id="export-players-btn" style="padding: 6px 12px; background: #3498db; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 0.8em;">📋 Export</button>
+          <button id="refresh-players-btn" style="padding: 6px 12px; background: #9b59b6; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 0.8em;">🔄 Refresh</button>
+        </div>
+      </div>
       <div style="text-align: center; padding: 20px; color: #888;">
         <div style="font-size: 3em; margin-bottom: 10px;">👥</div>
         <p style="margin: 0;">No players tracked yet</p>
@@ -699,9 +707,9 @@
     `;
     tabNav.innerHTML = `
       <button class="gm-tab-btn" data-tab="initiative" style="flex: 1; padding: 12px; background: #2a2a2a; color: #4ECDC4; border: none; border-bottom: 3px solid #4ECDC4; cursor: pointer; font-weight: bold; font-size: 0.9em; transition: all 0.2s;">⚔️ Initiative</button>
+      <button class="gm-tab-btn" data-tab="history" style="flex: 1; padding: 12px; background: transparent; color: #888; border: none; border-bottom: 3px solid transparent; cursor: pointer; font-weight: bold; font-size: 0.9em; transition: all 0.2s;">📜 History</button>
       <button class="gm-tab-btn" data-tab="hidden-rolls" style="flex: 1; padding: 12px; background: transparent; color: #888; border: none; border-bottom: 3px solid transparent; cursor: pointer; font-weight: bold; font-size: 0.9em; transition: all 0.2s;">🎲 Hidden Rolls</button>
       <button class="gm-tab-btn" data-tab="players" style="flex: 1; padding: 12px; background: transparent; color: #888; border: none; border-bottom: 3px solid transparent; cursor: pointer; font-weight: bold; font-size: 0.9em; transition: all 0.2s;">👥 Players</button>
-      <button class="gm-tab-btn" data-tab="history" style="flex: 1; padding: 12px; background: transparent; color: #888; border: none; border-bottom: 3px solid transparent; cursor: pointer; font-weight: bold; font-size: 0.9em; transition: all 0.2s;">📜 History</button>
     `;
 
     // ===== CREATE CONTENT WRAPPER =====
@@ -738,7 +746,7 @@
   }
 
   /**
-   * Make element draggable
+   * Make element draggable with boundary constraints
    */
   function makeDraggable(element, handle) {
     let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
@@ -758,8 +766,23 @@
       pos2 = pos4 - e.clientY;
       pos3 = e.clientX;
       pos4 = e.clientY;
-      element.style.top = (element.offsetTop - pos2) + "px";
-      element.style.left = (element.offsetLeft - pos1) + "px";
+
+      // Calculate new position
+      let newTop = element.offsetTop - pos2;
+      let newLeft = element.offsetLeft - pos1;
+
+      // Apply boundary constraints
+      const minTop = 0;
+      const minLeft = 0;
+      const maxLeft = window.innerWidth - element.offsetWidth;
+      const maxTop = window.innerHeight - element.offsetHeight;
+
+      // Constrain within viewport
+      newTop = Math.max(minTop, Math.min(newTop, maxTop));
+      newLeft = Math.max(minLeft, Math.min(newLeft, maxLeft));
+
+      element.style.top = newTop + "px";
+      element.style.left = newLeft + "px";
       element.style.right = 'auto';
     }
 
@@ -898,6 +921,21 @@
       exportHistoryBtn.addEventListener('click', exportTurnHistory);
     }
 
+    // Export players button
+    const exportPlayersBtn = document.getElementById('export-players-btn');
+    if (exportPlayersBtn) {
+      exportPlayersBtn.addEventListener('click', exportPlayerData);
+    }
+
+    // Refresh players button
+    const refreshPlayersBtn = document.getElementById('refresh-players-btn');
+    if (refreshPlayersBtn) {
+      refreshPlayersBtn.addEventListener('click', () => {
+        updatePlayerOverviewDisplay();
+        debug.log('🔄 Refreshed player overview');
+      });
+    }
+
     debug.log('✅ GM Panel listeners attached');
   }
 
@@ -941,7 +979,7 @@
         </div>
         <div style="display: flex; gap: 8px;">
           <button onclick="revealHiddenRoll(${roll.id})" style="flex: 1; padding: 8px; background: #27ae60; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.85em;">
-            🔓 Reveal Roll
+            📢 Publish Roll
           </button>
           <button onclick="deleteHiddenRoll(${roll.id})" style="padding: 8px 12px; background: #e74c3c; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85em;">
             🗑️
@@ -963,14 +1001,9 @@
     const roll = hiddenRolls[rollIndex];
     debug.log('🔓 Revealing hidden roll:', roll);
 
-    // Format and post to Roll20 chat
-    const rollData = {
-      name: roll.name,
-      formula: roll.formula,
-      characterName: roll.characterName
-    };
-
-    const formattedMessage = formatRollForRoll20(rollData);
+    // Format the message as "GM roll: [Name] rolled [roll name]! **[calculated value]**"
+    // Use Roll20's inline roll syntax [[formula]] to evaluate the roll
+    const formattedMessage = `GM roll: **${roll.characterName}** rolled ${roll.name}! **[[${roll.formula}]]**`;
     const success = postChatMessage(formattedMessage);
 
     if (success) {
@@ -978,9 +1011,6 @@
       // Remove from hidden rolls
       hiddenRolls.splice(rollIndex, 1);
       updateHiddenRollsDisplay();
-
-      // Show notification
-      postChatMessage(`👑 GM revealed a hidden roll: ${roll.name}`);
     } else {
       debug.error('❌ Failed to reveal hidden roll');
     }
@@ -1025,65 +1055,125 @@
       if (emptyState) emptyState.style.display = 'none';
     }
 
-    playerOverviewList.innerHTML = players.map(name => {
+    playerOverviewList.innerHTML = players.map((name, index) => {
       const player = playerData[name];
       const hpPercent = player.maxHp > 0 ? (player.hp / player.maxHp) * 100 : 0;
       const hpColor = hpPercent > 50 ? '#27ae60' : hpPercent > 25 ? '#f39c12' : '#e74c3c';
+      const playerId = `player-${index}`;
 
       return `
-        <div style="background: #34495e; padding: 12px; border-radius: 8px; border-left: 4px solid ${hpColor};">
-          <div style="font-weight: bold; font-size: 1em; color: #4ECDC4; margin-bottom: 8px;">${name}</div>
-
-          <!-- HP Bar -->
-          <div style="margin-bottom: 8px;">
-            <div style="display: flex; justify-content: space-between; font-size: 0.85em; color: #ccc; margin-bottom: 4px;">
-              <span>HP</span>
-              <span>${player.hp}/${player.maxHp}</span>
-            </div>
-            <div style="width: 100%; height: 8px; background: #2c3e50; border-radius: 4px; overflow: hidden;">
-              <div style="width: ${hpPercent}%; height: 100%; background: ${hpColor}; transition: width 0.3s;"></div>
-            </div>
-          </div>
-
-          <!-- Stats Grid -->
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px;">
-            <div style="background: #2c3e50; padding: 6px; border-radius: 4px; text-align: center;">
-              <div style="font-size: 0.75em; color: #888;">AC</div>
-              <div style="font-weight: bold; color: #fff;">${player.ac || '—'}</div>
-            </div>
-            <div style="background: #2c3e50; padding: 6px; border-radius: 4px; text-align: center;">
-              <div style="font-size: 0.75em; color: #888;">Passive</div>
-              <div style="font-weight: bold; color: #fff;">${player.passivePerception || '—'}</div>
-            </div>
-            <div style="background: #2c3e50; padding: 6px; border-radius: 4px; text-align: center;">
-              <div style="font-size: 0.75em; color: #888;">Init</div>
-              <div style="font-weight: bold; color: #fff;">${player.initiative || '—'}</div>
-            </div>
-          </div>
-
-          <!-- Conditions -->
-          ${player.conditions && player.conditions.length > 0 ? `
-            <div style="margin-bottom: 6px;">
-              <div style="font-size: 0.75em; color: #888; margin-bottom: 4px;">Conditions:</div>
-              <div style="display: flex; flex-wrap: wrap; gap: 4px;">
-                ${player.conditions.map(c => `<span style="background: #e74c3c; padding: 2px 6px; border-radius: 4px; font-size: 0.75em;">${c}</span>`).join('')}
+        <div style="background: #34495e; border-radius: 8px; border-left: 4px solid ${hpColor}; overflow: hidden;">
+          <!-- Player Header (always visible) -->
+          <div onclick="togglePlayerDetails('${playerId}')" style="padding: 12px; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s;" onmouseover="this.style.background='#3d5a6e'" onmouseout="this.style.background='transparent'">
+            <div style="flex: 1;">
+              <div style="font-weight: bold; font-size: 1em; color: #4ECDC4; margin-bottom: 4px;">${name}</div>
+              <div style="display: flex; gap: 12px; font-size: 0.8em; color: #ccc;">
+                <span>HP: ${player.hp}/${player.maxHp}</span>
+                <span>AC: ${player.ac || '—'}</span>
+                <span>Init: ${player.initiative || '—'}</span>
               </div>
             </div>
-          ` : ''}
+            <span id="${playerId}-toggle" style="transition: transform 0.3s; transform: rotate(-90deg); color: #888;">▼</span>
+          </div>
 
-          <!-- Concentration -->
-          ${player.concentration ? `
-            <div style="background: #9b59b6; padding: 4px 8px; border-radius: 4px; font-size: 0.75em; margin-bottom: 6px;">
-              🧠 Concentrating: ${player.concentration}
-            </div>
-          ` : ''}
+          <!-- Detailed View (collapsible) -->
+          <div id="${playerId}-details" style="max-height: 0; opacity: 0; overflow: hidden; transition: max-height 0.3s ease-out, opacity 0.3s ease-out;">
+            <div style="padding: 0 12px 12px 12px;">
+              <!-- Character Sub-tabs -->
+              <div style="display: flex; gap: 4px; margin-bottom: 10px; border-bottom: 1px solid #2c3e50;">
+                <button class="player-subtab-btn" data-player="${playerId}" data-subtab="overview" style="padding: 8px 12px; background: transparent; color: #4ECDC4; border: none; border-bottom: 2px solid #4ECDC4; cursor: pointer; font-size: 0.8em; font-weight: bold;">Overview</button>
+                <button class="player-subtab-btn" data-player="${playerId}" data-subtab="combat" style="padding: 8px 12px; background: transparent; color: #888; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-size: 0.8em;">Combat</button>
+                <button class="player-subtab-btn" data-player="${playerId}" data-subtab="status" style="padding: 8px 12px; background: transparent; color: #888; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-size: 0.8em;">Status</button>
+              </div>
 
-          <!-- Death Saves (if unconscious) -->
-          ${player.deathSaves ? `
-            <div style="background: #c0392b; padding: 6px 8px; border-radius: 4px; font-size: 0.85em;">
-              💀 Death Saves: ✓${player.deathSaves.successes || 0} / ✗${player.deathSaves.failures || 0}
+              <!-- Overview Tab -->
+              <div class="player-subtab-content" data-player="${playerId}" data-subtab="overview" style="display: block;">
+                <!-- HP Bar -->
+                <div style="margin-bottom: 10px;">
+                  <div style="display: flex; justify-content: space-between; font-size: 0.85em; color: #ccc; margin-bottom: 4px;">
+                    <span>Hit Points</span>
+                    <span>${player.hp}/${player.maxHp}</span>
+                  </div>
+                  <div style="width: 100%; height: 10px; background: #2c3e50; border-radius: 5px; overflow: hidden;">
+                    <div style="width: ${hpPercent}%; height: 100%; background: ${hpColor}; transition: width 0.3s;"></div>
+                  </div>
+                </div>
+
+                <!-- Stats Grid -->
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+                  <div style="background: #2c3e50; padding: 8px; border-radius: 4px; text-align: center;">
+                    <div style="font-size: 0.75em; color: #888;">Armor Class</div>
+                    <div style="font-weight: bold; color: #fff; font-size: 1.2em;">${player.ac || '—'}</div>
+                  </div>
+                  <div style="background: #2c3e50; padding: 8px; border-radius: 4px; text-align: center;">
+                    <div style="font-size: 0.75em; color: #888;">Passive Perception</div>
+                    <div style="font-weight: bold; color: #fff; font-size: 1.2em;">${player.passivePerception || '—'}</div>
+                  </div>
+                  <div style="background: #2c3e50; padding: 8px; border-radius: 4px; text-align: center;">
+                    <div style="font-size: 0.75em; color: #888;">Initiative</div>
+                    <div style="font-weight: bold; color: #fff; font-size: 1.2em;">${player.initiative || '—'}</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Combat Tab -->
+              <div class="player-subtab-content" data-player="${playerId}" data-subtab="combat" style="display: none;">
+                <div style="background: #2c3e50; padding: 10px; border-radius: 4px; margin-bottom: 8px;">
+                  <div style="font-size: 0.85em; color: #888; margin-bottom: 6px;">Attack Roll</div>
+                  <div style="font-size: 0.8em; color: #ccc;">Click character sheet to make attacks</div>
+                </div>
+                <div style="background: #2c3e50; padding: 10px; border-radius: 4px;">
+                  <div style="font-size: 0.85em; color: #888; margin-bottom: 6px;">Combat Stats</div>
+                  <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span style="font-size: 0.8em; color: #ccc;">AC:</span>
+                    <span style="font-size: 0.8em; color: #fff; font-weight: bold;">${player.ac || '—'}</span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between;">
+                    <span style="font-size: 0.8em; color: #ccc;">Initiative:</span>
+                    <span style="font-size: 0.8em; color: #fff; font-weight: bold;">${player.initiative || '—'}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Status Tab -->
+              <div class="player-subtab-content" data-player="${playerId}" data-subtab="status" style="display: none;">
+                <!-- Conditions -->
+                ${player.conditions && player.conditions.length > 0 ? `
+                  <div style="margin-bottom: 10px;">
+                    <div style="font-size: 0.85em; color: #888; margin-bottom: 6px;">Active Conditions</div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                      ${player.conditions.map(c => `<span style="background: #e74c3c; padding: 4px 10px; border-radius: 4px; font-size: 0.8em; font-weight: bold;">${c}</span>`).join('')}
+                    </div>
+                  </div>
+                ` : '<div style="padding: 10px; text-align: center; color: #888; font-size: 0.85em;">No active conditions</div>'}
+
+                <!-- Concentration -->
+                ${player.concentration ? `
+                  <div style="background: #9b59b6; padding: 10px; border-radius: 4px; margin-bottom: 10px;">
+                    <div style="font-size: 0.85em; font-weight: bold; margin-bottom: 4px;">🧠 Concentrating</div>
+                    <div style="font-size: 0.8em;">${player.concentration}</div>
+                  </div>
+                ` : ''}
+
+                <!-- Death Saves (if unconscious) -->
+                ${player.deathSaves ? `
+                  <div style="background: #c0392b; padding: 10px; border-radius: 4px;">
+                    <div style="font-size: 0.85em; font-weight: bold; margin-bottom: 6px;">💀 Death Saving Throws</div>
+                    <div style="display: flex; justify-content: space-around; font-size: 0.8em;">
+                      <div>
+                        <div style="color: #27ae60; font-weight: bold;">Successes</div>
+                        <div style="font-size: 1.2em; text-align: center;">✓ ${player.deathSaves.successes || 0}</div>
+                      </div>
+                      <div>
+                        <div style="color: #e74c3c; font-weight: bold;">Failures</div>
+                        <div style="font-size: 1.2em; text-align: center;">✗ ${player.deathSaves.failures || 0}</div>
+                      </div>
+                    </div>
+                  </div>
+                ` : ''}
+              </div>
             </div>
-          ` : ''}
+          </div>
         </div>
       `;
     }).join('');
@@ -1108,6 +1198,102 @@
     }
 
     debug.log(`👤 Updated player data for ${characterName}:`, playerData[characterName]);
+  }
+
+  /**
+   * Toggle player details expansion
+   */
+  window.togglePlayerDetails = function(playerId) {
+    const details = document.getElementById(`${playerId}-details`);
+    const toggle = document.getElementById(`${playerId}-toggle`);
+
+    if (!details || !toggle) return;
+
+    const isExpanded = details.style.maxHeight && details.style.maxHeight !== '0px';
+
+    if (isExpanded) {
+      // Collapse
+      details.style.maxHeight = '0';
+      details.style.opacity = '0';
+      toggle.style.transform = 'rotate(-90deg)';
+    } else {
+      // Expand
+      details.style.maxHeight = '1000px';
+      details.style.opacity = '1';
+      toggle.style.transform = 'rotate(0deg)';
+
+      // Attach sub-tab listeners for this player
+      attachPlayerSubtabListeners(playerId);
+    }
+  };
+
+  /**
+   * Attach event listeners for player sub-tabs
+   */
+  function attachPlayerSubtabListeners(playerId) {
+    const subtabBtns = document.querySelectorAll(`.player-subtab-btn[data-player="${playerId}"]`);
+    const subtabContents = document.querySelectorAll(`.player-subtab-content[data-player="${playerId}"]`);
+
+    subtabBtns.forEach(btn => {
+      // Remove existing listener if any
+      btn.replaceWith(btn.cloneNode(true));
+    });
+
+    // Re-query after replacing
+    const newSubtabBtns = document.querySelectorAll(`.player-subtab-btn[data-player="${playerId}"]`);
+
+    newSubtabBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetSubtab = btn.dataset.subtab;
+
+        // Update button styles
+        newSubtabBtns.forEach(b => {
+          if (b.dataset.subtab === targetSubtab) {
+            b.style.color = '#4ECDC4';
+            b.style.borderBottom = '2px solid #4ECDC4';
+          } else {
+            b.style.color = '#888';
+            b.style.borderBottom = '2px solid transparent';
+          }
+        });
+
+        // Show target content, hide others
+        subtabContents.forEach(content => {
+          content.style.display = content.dataset.subtab === targetSubtab ? 'block' : 'none';
+        });
+      });
+    });
+  }
+
+  /**
+   * Export player data to clipboard
+   */
+  function exportPlayerData() {
+    if (Object.keys(playerData).length === 0) {
+      debug.log('⚠️ No player data to export');
+      return;
+    }
+
+    const exportText = Object.keys(playerData).map(name => {
+      const player = playerData[name];
+      return `**${name}**
+HP: ${player.hp}/${player.maxHp}
+AC: ${player.ac || '—'}
+Initiative: ${player.initiative || '—'}
+Passive Perception: ${player.passivePerception || '—'}
+${player.conditions && player.conditions.length > 0 ? `Conditions: ${player.conditions.join(', ')}` : ''}
+${player.concentration ? `Concentrating: ${player.concentration}` : ''}
+${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗${player.deathSaves.failures || 0}` : ''}
+`;
+    }).join('\n---\n\n');
+
+    // Copy to clipboard
+    navigator.clipboard.writeText(exportText).then(() => {
+      debug.log('✅ Player data copied to clipboard');
+      postChatMessage('📋 GM exported party overview to clipboard');
+    }).catch(err => {
+      debug.error('❌ Failed to copy player data:', err);
+    });
   }
 
   /**
