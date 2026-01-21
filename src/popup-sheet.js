@@ -34,6 +34,9 @@ if (typeof ThemeManager !== 'undefined') {
 // Store character data globally so we can update it
 let characterData = null;
 
+// Track current character slot ID (e.g., "slot-1") for persistence
+let currentSlotId = null;
+
 // Track Feline Agility usage
 let felineAgilityUsed = false;
 
@@ -44,6 +47,10 @@ window.addEventListener('message', async (event) => {
   if (event.data && event.data.action === 'initCharacterSheet') {
     debug.log('✅ Initializing character sheet with data:', event.data.data.name);
     characterData = event.data.data;  // Store globally
+
+    // Get and store current slot ID for persistence
+    currentSlotId = await getActiveCharacterId();
+    debug.log('📋 Current slot ID set to:', currentSlotId);
 
     // Build tabs first (need to load profiles from storage)
     await loadAndBuildTabs();
@@ -141,6 +148,10 @@ async function loadCharacterWithTabs() {
   try {
     // Build tabs first
     await loadAndBuildTabs();
+
+    // Get and store current slot ID for persistence
+    currentSlotId = await getActiveCharacterId();
+    debug.log('📋 Current slot ID set to:', currentSlotId);
 
     // Get active character data
     const activeResponse = await browserAPI.runtime.sendMessage({ action: 'getCharacterData' });
@@ -263,21 +274,28 @@ async function switchToCharacter(characterId) {
 
     // Save current character data before switching to preserve local state
     // CRITICAL: Save to BOTH cache AND browser storage to persist through refresh
-    if (characterData && characterData.id !== characterId) {
+    if (characterData && currentSlotId && currentSlotId !== characterId) {
       debug.log('💾 Saving current character data before switching');
       const dataToSave = JSON.parse(JSON.stringify(characterData));
 
       // Save to cache (for quick access in current session)
-      characterCache.set(characterData.id, dataToSave);
-      debug.log(`✅ Cached current character data: ${characterData.name}`);
+      if (characterData.id) {
+        characterCache.set(characterData.id, dataToSave);
+        debug.log(`✅ Cached current character data: ${characterData.name}`);
+      }
 
-      // Save to browser storage (persists through refresh/close)
+      // Save to browser storage (persists through refresh/close) WITH slotId
       await browserAPI.runtime.sendMessage({
         action: 'storeCharacterData',
-        data: dataToSave
+        data: dataToSave,
+        slotId: currentSlotId  // CRITICAL: Pass current slotId for proper persistence
       });
-      debug.log(`💾 Saved current character to browser storage: ${characterData.name}`);
+      debug.log(`💾 Saved current character to browser storage: ${characterData.name} (slotId: ${currentSlotId})`);
     }
+
+    // Update current slot ID
+    currentSlotId = characterId;
+    debug.log('📋 Current slot ID updated to:', currentSlotId);
 
     // Set active character
     await browserAPI.runtime.sendMessage({
@@ -3521,9 +3539,10 @@ function saveCharacterData() {
   // CRITICAL: Save to browser storage to persist through refresh/close
   browserAPI.runtime.sendMessage({
     action: 'storeCharacterData',
-    data: characterData
+    data: characterData,
+    slotId: currentSlotId  // CRITICAL: Pass slotId for proper persistence
   }).then(() => {
-    debug.log('💾 Saved character data to browser storage');
+    debug.log(`💾 Saved character data to browser storage (slotId: ${currentSlotId})`);
   }).catch(err => {
     debug.error('❌ Failed to save character data:', err);
   });
@@ -4866,14 +4885,15 @@ if (document.readyState === 'loading') {
 // Save character data when window is about to close/refresh
 // This ensures local modifications persist through browser refresh
 window.addEventListener('beforeunload', () => {
-  if (characterData && characterData.id) {
+  if (characterData && currentSlotId) {
     debug.log('💾 Saving character data before window closes');
     // Use sendMessage synchronously during unload
     browserAPI.runtime.sendMessage({
       action: 'storeCharacterData',
-      data: characterData
+      data: characterData,
+      slotId: currentSlotId  // CRITICAL: Pass slotId for proper persistence
     });
-    debug.log(`✅ Saved character data: ${characterData.name}`);
+    debug.log(`✅ Saved character data: ${characterData.name} (slotId: ${currentSlotId})`);
   }
 });
 
