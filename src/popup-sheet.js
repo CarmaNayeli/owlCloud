@@ -5103,7 +5103,16 @@ debug.log('✅ Popup script fully loaded');
 // Halfling Luck Popup Functions
 function showHalflingLuckPopup(rollData) {
   debug.log('🍀 Halfling Luck popup called with:', rollData);
-  
+
+  // Check if document.body exists
+  if (!document.body) {
+    debug.error('❌ document.body not available for Halfling Luck popup');
+    showNotification('🍀 Halfling Luck triggered! (Popup failed to display)', 'info');
+    return;
+  }
+
+  debug.log('🍀 Creating popup overlay...');
+
   // Create popup overlay
   const popupOverlay = document.createElement('div');
   popupOverlay.style.cssText = `
@@ -5119,7 +5128,7 @@ function showHalflingLuckPopup(rollData) {
     z-index: 10000;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   `;
-  
+
   // Create popup content
   const popupContent = document.createElement('div');
   popupContent.style.cssText = `
@@ -5131,7 +5140,9 @@ function showHalflingLuckPopup(rollData) {
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
     text-align: center;
   `;
-  
+
+  debug.log('🍀 Setting popup content HTML...');
+
   popupContent.innerHTML = `
     <div style="font-size: 24px; margin-bottom: 16px;">🍀</div>
     <h2 style="margin: 0 0 8px 0; color: #2D8B83;">Halfling Luck!</h2>
@@ -5166,7 +5177,9 @@ function showHalflingLuckPopup(rollData) {
       ">Keep Roll</button>
     </div>
   `;
-  
+
+  debug.log('🍀 Appending popup to document.body...');
+
   popupOverlay.appendChild(popupContent);
   document.body.appendChild(popupOverlay);
   
@@ -5236,22 +5249,28 @@ const HalflingLuck = {
   onRoll: function(rollResult, rollType, rollName) {
     debug.log(`🧬 Halfling Luck onRoll called with: ${rollResult}, ${rollType}, ${rollName}`);
     debug.log(`🧬 Halfling Luck DEBUG - rollType exists: ${!!rollType}, includes d20: ${rollType && rollType.includes('d20')}, rollResult === 1: ${rollResult === 1}`);
-    
+
     // Check if it's a d20 roll and the result is 1
     if (rollType && rollType.includes('d20') && rollResult === 1) {
       debug.log(`🧬 Halfling Luck: TRIGGERED! Roll was ${rollResult}`);
-      
-      // Show the popup
-      showHalflingLuckPopup({
-        rollResult: rollResult,
-        baseRoll: rollResult,
-        rollType: rollType,
-        rollName: rollName
-      });
-      
+
+      // Show the popup with error handling
+      try {
+        showHalflingLuckPopup({
+          rollResult: rollResult,
+          baseRoll: rollResult,
+          rollType: rollType,
+          rollName: rollName
+        });
+      } catch (error) {
+        debug.error('❌ Error showing Halfling Luck popup:', error);
+        // Fallback notification
+        showNotification('🍀 Halfling Luck triggered! Check console for details.', 'info');
+      }
+
       return true; // Trait triggered
     }
-    
+
     debug.log(`🧬 Halfling Luck: No trigger - Roll: ${rollResult}, Type: ${rollType}`);
     return false; // No trigger
   }
