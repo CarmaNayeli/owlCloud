@@ -960,9 +960,15 @@
           if (description) {
             // Look for spell attack patterns like "ranged spell attack" or "melee spell attack"
             // Check this even if damage is already found, since many spells have both
-            if (!attackRoll && description.toLowerCase().includes('spell attack')) {
+            const lowerDesc = description.toLowerCase();
+            debug.log(`  🔍 Checking description for spell attack (attackRoll currently: "${attackRoll}")`);
+            if (!attackRoll && lowerDesc.includes('spell attack')) {
               attackRoll = 'use_spell_attack_bonus'; // Flag to use calculated spell attack bonus
               debug.log(`  💡 Found "spell attack" in description, marking for spell attack bonus`);
+            } else if (!attackRoll) {
+              debug.log(`  ⚠️ No "spell attack" found in description for "${prop.name}"`);
+            } else {
+              debug.log(`  ℹ️ Attack roll already set from child properties, skipping description check`);
             }
 
             // Look for damage patterns like "4d6" or "1d10" only if no damage found yet
@@ -1004,6 +1010,17 @@
                 debug.log(`  ✅ Removed spellSniper expression (fallback): "${cleanRange}"`);
               }
             }
+          }
+
+          // Log final attack/damage values before adding to spells array
+          if (attackRoll || damage) {
+            debug.log(`📊 Spell "${prop.name}" final values:`, {
+              attackRoll: attackRoll || '(none)',
+              damage: damage || '(none)',
+              damageType: damageType || '(none)',
+              hasDescription: !!description,
+              descriptionSnippet: description ? description.substring(0, 100) : ''
+            });
           }
 
           characterData.spells.push({
