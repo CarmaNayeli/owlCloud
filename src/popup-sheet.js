@@ -5016,13 +5016,19 @@ function checkOptionalEffects(rollName, formula, onApply) {
   for (const effect of optionalEffects) {
     let applicable = false;
 
-    // Check for skill check modifiers (for Guidance)
-    if ((rollLower.includes('check') || rollLower.includes('perception') ||
-         rollLower.includes('stealth') || rollLower.includes('investigation') ||
-         rollLower.includes('insight') || rollLower.includes('persuasion') ||
-         rollLower.includes('deception') || rollLower.includes('intimidation') ||
-         rollLower.includes('athletics') || rollLower.includes('acrobatics')) &&
-        effect.modifier.skill) {
+    // Check for skill check modifiers (for Guidance) - ALL skills
+    const isSkillCheck = rollLower.includes('check') || 
+                        rollLower.includes('acrobatics') || rollLower.includes('animal') ||
+                        rollLower.includes('arcana') || rollLower.includes('athletics') ||
+                        rollLower.includes('deception') || rollLower.includes('history') ||
+                        rollLower.includes('insight') || rollLower.includes('intimidation') ||
+                        rollLower.includes('investigation') || rollLower.includes('medicine') ||
+                        rollLower.includes('nature') || rollLower.includes('perception') ||
+                        rollLower.includes('performance') || rollLower.includes('persuasion') ||
+                        rollLower.includes('religion') || rollLower.includes('sleight') ||
+                        rollLower.includes('stealth') || rollLower.includes('survival');
+    
+    if (isSkillCheck && effect.modifier.skill) {
       applicable = true;
     }
 
@@ -5170,69 +5176,67 @@ function roll(name, formula, prerolledResult = null) {
   // Resolve any variables in the formula
   let resolvedFormula = resolveVariablesInFormula(formula);
 
-  // Check for optional effects first
-  checkOptionalEffects(name, resolvedFormula, (chosenEffect) => {
-    // Apply the chosen effect and then roll
-    const { modifiedFormula, effectNotes } = applyEffectModifiers(name, resolvedFormula);
-    let finalFormula = modifiedFormula;
-    
-    // Add the chosen effect's modifier
-    const rollLower = name.toLowerCase();
-    let modifierAdded = false;
-
-    if (chosenEffect.modifier.skill && (rollLower.includes('check') || rollLower.includes('perception') ||
-        rollLower.includes('stealth') || rollLower.includes('investigation') ||
-        rollLower.includes('insight') || rollLower.includes('persuasion') ||
-        rollLower.includes('deception') || rollLower.includes('intimidation') ||
-        rollLower.includes('athletics') || rollLower.includes('acrobatics'))) {
-      finalFormula += ` + ${chosenEffect.modifier.skill}`;
-      effectNotes.push(`[${chosenEffect.icon} ${chosenEffect.name}: ${chosenEffect.modifier.skill}]`);
-      modifierAdded = true;
-    } else if (chosenEffect.modifier.attack && rollLower.includes('attack')) {
-      finalFormula += ` + ${chosenEffect.modifier.attack}`;
-      effectNotes.push(`[${chosenEffect.icon} ${chosenEffect.name}: ${chosenEffect.modifier.attack}]`);
-      modifierAdded = true;
-    } else if (chosenEffect.modifier.save && rollLower.includes('save')) {
-      finalFormula += ` + ${chosenEffect.modifier.save}`;
-      effectNotes.push(`[${chosenEffect.icon} ${chosenEffect.name}: ${chosenEffect.modifier.save}]`);
-      modifierAdded = true;
-    }
-    
-    // Remove the chosen effect from active effects since it's been used
-    if (chosenEffect.type === 'positive') {
-      activeBuffs = activeBuffs.filter(e => e !== chosenEffect.name);
-    } else {
-      activeConditions = activeConditions.filter(e => e !== chosenEffect.name);
-    }
-    updateEffectsDisplay();
-    
-    // Proceed with the roll
-    executeRoll(name, finalFormula, effectNotes, prerolledResult);
-  });
-
-  // If no optional effects were found, proceed normally
-  const { modifiedFormula, effectNotes } = applyEffectModifiers(name, resolvedFormula);
-  const finalFormula = modifiedFormula;
-  
-  // Check if we already have optional effects being handled
+  // Check if there are any optional effects that could apply to this roll
+  const rollLower = name.toLowerCase();
   const optionalEffects = [
     ...activeBuffs.map(name => ({ ...POSITIVE_EFFECTS.find(e => e.name === name), type: 'buff' })),
     ...activeConditions.map(name => ({ ...NEGATIVE_EFFECTS.find(e => e.name === name), type: 'debuff' }))
   ].filter(e => e && !e.autoApply && e.modifier);
 
   const hasApplicableOptionalEffects = optionalEffects.some(effect => {
-    const rollLower = name.toLowerCase();
-    return ((rollLower.includes('check') || rollLower.includes('perception') ||
-             rollLower.includes('stealth') || rollLower.includes('investigation') ||
-             rollLower.includes('insight') || rollLower.includes('persuasion') ||
-             rollLower.includes('deception') || rollLower.includes('intimidation') ||
-             rollLower.includes('athletics') || rollLower.includes('acrobatics')) && effect.modifier.skill) ||
-            (rollLower.includes('attack') && effect.modifier.attack);
+    // Check if this is a skill check (any skill name or the word "check")
+    const isSkillCheck = rollLower.includes('check') || 
+                        rollLower.includes('acrobatics') || rollLower.includes('animal') ||
+                        rollLower.includes('arcana') || rollLower.includes('athletics') ||
+                        rollLower.includes('deception') || rollLower.includes('history') ||
+                        rollLower.includes('insight') || rollLower.includes('intimidation') ||
+                        rollLower.includes('investigation') || rollLower.includes('medicine') ||
+                        rollLower.includes('nature') || rollLower.includes('perception') ||
+                        rollLower.includes('performance') || rollLower.includes('persuasion') ||
+                        rollLower.includes('religion') || rollLower.includes('sleight') ||
+                        rollLower.includes('stealth') || rollLower.includes('survival');
+    
+    return (isSkillCheck && effect.modifier.skill) ||
+           (rollLower.includes('attack') && effect.modifier.attack);
   });
 
-  if (!hasApplicableOptionalEffects) {
-    executeRoll(name, finalFormula, effectNotes, prerolledResult);
+  // If there are applicable optional effects, show popup and wait for user choice
+  if (hasApplicableOptionalEffects) {
+    debug.log('🎯 Found applicable optional effects, showing popup...');
+    checkOptionalEffects(name, resolvedFormula, (chosenEffect) => {
+      // Apply the chosen effect and then roll
+      const { modifiedFormula, effectNotes } = applyEffectModifiers(name, resolvedFormula);
+      let finalFormula = modifiedFormula;
+      
+      // Add the chosen effect's modifier
+      if (chosenEffect.modifier.skill && rollLower.includes('check')) {
+        finalFormula += ` + ${chosenEffect.modifier.skill}`;
+        effectNotes.push(`[${chosenEffect.icon} ${chosenEffect.name}: ${chosenEffect.modifier.skill}]`);
+      } else if (chosenEffect.modifier.attack && rollLower.includes('attack')) {
+        finalFormula += ` + ${chosenEffect.modifier.attack}`;
+        effectNotes.push(`[${chosenEffect.icon} ${chosenEffect.name}: ${chosenEffect.modifier.attack}]`);
+      }
+      
+      // Remove the chosen effect from active effects since it's been used
+      if (chosenEffect.type === 'buff') {
+        activeBuffs = activeBuffs.filter(e => e !== chosenEffect.name);
+        debug.log(`🗑️ Removed buff: ${chosenEffect.name}`);
+      } else if (chosenEffect.type === 'debuff') {
+        activeConditions = activeConditions.filter(e => e !== chosenEffect.name);
+        debug.log(`🗑️ Removed debuff: ${chosenEffect.name}`);
+      }
+      updateEffectsDisplay();
+      
+      // Proceed with the roll
+      executeRoll(name, finalFormula, effectNotes, prerolledResult);
+    });
+    // Return early - don't execute the roll yet, wait for popup response
+    return;
   }
+
+  // No optional effects, proceed with normal roll
+  const { modifiedFormula, effectNotes } = applyEffectModifiers(name, resolvedFormula);
+  executeRoll(name, modifiedFormula, effectNotes, prerolledResult);
 }
 
 /**
