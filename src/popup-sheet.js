@@ -40,60 +40,78 @@ let currentSlotId = null;
 // Track Feline Agility usage
 let felineAgilityUsed = false;
 
+// Track if DOM is ready
+let domReady = false;
+
+// Queue for operations waiting for DOM
+let pendingOperations = [];
+
 // Listen for character data from parent window via postMessage
 window.addEventListener('message', async (event) => {
   debug.log('✅ Received message in popup:', event.data);
 
   if (event.data && event.data.action === 'initCharacterSheet') {
     debug.log('✅ Initializing character sheet with data:', event.data.data.name);
-    characterData = event.data.data;  // Store globally
-
-    // Get and store current slot ID for persistence
-    currentSlotId = await getActiveCharacterId();
-    debug.log('📋 Current slot ID set to:', currentSlotId);
-
-    // Build tabs first (need to load profiles from storage)
-    await loadAndBuildTabs();
-
-    // Then build the sheet with character data
-    buildSheet(characterData);
     
-    // Initialize racial traits based on character data
-    initRacialTraits();
+    // Function to initialize the sheet
+    const initSheet = async () => {
+      characterData = event.data.data;  // Store globally
 
-    // Initialize feat traits based on character data
-    initFeatTraits();
+      // Get and store current slot ID for persistence
+      currentSlotId = await getActiveCharacterId();
+      debug.log('📋 Current slot ID set to:', currentSlotId);
 
-    // Initialize class features based on character data
-    initClassFeatures();
+      // Build tabs first (need to load profiles from storage)
+      await loadAndBuildTabs();
 
-    // Initialize character cache with current data
-    if (characterData && characterData.id) {
-      characterCache.set(characterData.id, JSON.parse(JSON.stringify(characterData)));
-      debug.log(`📂 Initialized cache for character: ${characterData.name}`);
-    }
-
-    // Register this character with GM Initiative Tracker (if it exists)
-    // Use postMessage to avoid CORS issues - send character name only
-    if (window.opener) {
-      window.opener.postMessage({
-        action: 'registerPopup',
-        characterName: event.data.data.name
-      }, '*');
-      debug.log(`✅ Sent registration message for: ${event.data.data.name}`);
+      // Then build the sheet with character data
+      buildSheet(characterData);
       
-      // Check if it's currently this character's turn by reading recent chat
-      // Add a small delay to ensure combat system has processed start of combat
-      setTimeout(() => {
-        checkCurrentTurnFromChat(event.data.data.name);
-      }, 500);
+      // Initialize racial traits based on character data
+      initRacialTraits();
+
+      // Initialize feat traits based on character data
+      initFeatTraits();
+
+      // Initialize class features based on character data
+      initClassFeatures();
+
+      // Initialize character cache with current data
+      if (characterData && characterData.id) {
+        characterCache.set(characterData.id, JSON.parse(JSON.stringify(characterData)));
+        debug.log(`📂 Initialized cache for character: ${characterData.name}`);
+      }
+
+      // Register this character with GM Initiative Tracker (if it exists)
+      // Use postMessage to avoid CORS issues - send character name only
+      if (window.opener) {
+        window.opener.postMessage({
+          action: 'registerPopup',
+          characterName: event.data.data.name
+        }, '*');
+        debug.log(`✅ Sent registration message for: ${event.data.data.name}`);
+        
+        // Check if it's currently this character's turn by reading recent chat
+        // Add a small delay to ensure combat system has processed start of combat
+        setTimeout(() => {
+          checkCurrentTurnFromChat(event.data.data.name);
+        }, 500);
+      } else {
+        debug.warn(`⚠️ No window.opener available for: ${event.data.data.name}`);
+      }
+    };
+
+    // Only initialize if DOM is ready, otherwise queue it
+    if (domReady) {
+      await initSheet();
     } else {
-      debug.warn(`⚠️ No window.opener available for: ${event.data.data.name}`);
+      debug.log('⏳ DOM not ready yet, queuing initialization...');
+      pendingOperations.push(initSheet);
     }
   }
 });
 
-// Tell parent window we're ready - wait for window to be fully loaded
+// Tell parent window we're ready - wait for DOM to be fully loaded
 // This prevents race conditions in Firefox
 function notifyParentReady() {
   try {
@@ -108,19 +126,46 @@ function notifyParentReady() {
   }
 }
 
-// Send ready message after a short delay to ensure parent is listening
-setTimeout(notifyParentReady, 100);
+// Wait for DOM to be ready before doing anything
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', async () => {
+    debug.log('✅ DOM is ready');
+    domReady = true;
+    
+    // Send ready message to parent
+    notifyParentReady();
+    
+    // Execute any pending operations
+    for (const operation of pendingOperations) {
+      await operation();
+    }
+    pendingOperations = [];
+  });
+} else {
+  // DOM is already ready
+  debug.log('✅ DOM already ready');
+  domReady = true;
+  notifyParentReady();
+}
 
 debug.log('✅ Waiting for character data via postMessage...');
 
-// Fallback: If we don't receive data via postMessage within 1 second,
+// Fallback: If we don't receive data via postMessage within 1.5 seconds,
 // load directly from storage (Firefox sometimes blocks postMessage between windows)
 setTimeout(() => {
-  if (!characterData) {
+  if (!characterData && domReady) {
     debug.log('⏱️ No data received via postMessage, loading from storage...');
     loadCharacterWithTabs();
+  } else if (!characterData && !domReady) {
+    debug.log('⏳ DOM not ready yet, will retry fallback...');
+    setTimeout(() => {
+      if (!characterData) {
+        debug.log('⏱️ Retry: Loading from storage...');
+        loadCharacterWithTabs();
+      }
+    }, 500);
   }
-}, 1000);
+}, 1500);
 
 // Load profiles and build tabs (without building sheet)
 async function loadAndBuildTabs() {
@@ -145,6 +190,13 @@ async function loadAndBuildTabs() {
 
 // Load character data and build tabs
 async function loadCharacterWithTabs() {
+  // Wait for DOM to be ready
+  if (!domReady) {
+    debug.log('⏳ DOM not ready, queuing loadCharacterWithTabs...');
+    pendingOperations.push(loadCharacterWithTabs);
+    return;
+  }
+
   try {
     // Build tabs first
     await loadAndBuildTabs();
@@ -161,6 +213,15 @@ async function loadCharacterWithTabs() {
     if (activeCharacter) {
       characterData = activeCharacter;
       buildSheet(characterData);
+      
+      // Initialize racial traits based on character data
+      initRacialTraits();
+
+      // Initialize feat traits based on character data
+      initFeatTraits();
+
+      // Initialize class features based on character data
+      initClassFeatures();
     } else {
       debug.error('❌ No character data found in storage');
     }
@@ -404,8 +465,22 @@ function buildSheet(data) {
   debug.log('📊 Character data received:', data);
   debug.log('✨ Spell slots data:', data.spellSlots);
 
-  // Character name
+  // Safety check: Ensure critical DOM elements exist before building
   const charNameEl = document.getElementById('char-name');
+  if (!charNameEl) {
+    debug.error('❌ Critical DOM elements not found! DOM may not be ready yet.');
+    debug.log('⏳ Queuing buildSheet for when DOM is ready...');
+    if (!domReady) {
+      pendingOperations.push(() => buildSheet(data));
+    } else {
+      // DOM claims to be ready but elements aren't there - retry after a short delay
+      debug.log('⏱️ DOM ready but elements missing - retrying in 100ms...');
+      setTimeout(() => buildSheet(data), 100);
+    }
+    return;
+  }
+
+  // Character name
   charNameEl.textContent = data.name || 'Character';
 
   // Update color picker emoji in systems bar
@@ -490,7 +565,7 @@ function buildSheet(data) {
   document.getElementById('char-hit-dice').textContent = `${data.hitDice.current}/${data.hitDice.max} ${data.hitDice.type}`;
 
   // Layer 2: AC, Speed, Proficiency, Death Saves, Inspiration
-  document.getElementById('char-ac').textContent = data.armorClass || 10;
+  document.getElementById('char-ac').textContent = calculateTotalAC();
   document.getElementById('char-speed').textContent = `${data.speed || 30} ft`;
   document.getElementById('char-proficiency').textContent = `+${data.proficiencyBonus || 0}`;
 
@@ -552,7 +627,7 @@ function buildSheet(data) {
   // Add click handler for initiative button
   initiativeNew.addEventListener('click', () => {
     const initiativeBonus = data.initiative || 0;
-    rollWithBuffCheck('Initiative', `1d20+${initiativeBonus}`);
+    roll('Initiative', `1d20+${initiativeBonus}`);
   });
 
   // Add click handler for death saves display
@@ -586,7 +661,7 @@ function buildSheet(data) {
     const score = data.attributes?.[ability] || 10;
     const mod = data.attributeMods?.[ability] || 0;
     const card = createCard(ability.substring(0, 3).toUpperCase(), score, `+${mod}`, () => {
-      rollWithBuffCheck(`${ability.charAt(0).toUpperCase() + ability.slice(1)}`, `1d20+${mod}`);
+      roll(`${ability.charAt(0).toUpperCase() + ability.slice(1)}`, `1d20+${mod}`);
     });
     abilitiesGrid.appendChild(card);
   });
@@ -597,7 +672,7 @@ function buildSheet(data) {
   abilities.forEach(ability => {
     const bonus = data.savingThrows?.[ability] || 0;
     const card = createCard(`${ability.substring(0, 3).toUpperCase()}`, `+${bonus}`, '', () => {
-      rollWithBuffCheck(`${ability.toUpperCase()} Save`, `1d20+${bonus}`);
+      roll(`${ability.toUpperCase()} Save`, `1d20+${bonus}`);
     });
     savesGrid.appendChild(card);
   });
@@ -624,7 +699,7 @@ function buildSheet(data) {
   sortedSkills.forEach(({ skill, bonus }) => {
     const displayName = skill.charAt(0).toUpperCase() + skill.slice(1).replace(/-/g, ' ');
     const card = createCard(displayName, `${bonus >= 0 ? '+' : ''}${bonus}`, '', () => {
-      rollWithBuffCheck(displayName, `1d20${bonus >= 0 ? '+' : ''}${bonus}`);
+      roll(displayName, `1d20${bonus >= 0 ? '+' : ''}${bonus}`);
     });
     skillsGrid.appendChild(card);
   });
@@ -669,10 +744,33 @@ function buildSheet(data) {
     activeBuffs = [];
     activeConditions = [];
   }
+  
+  // Sync conditions from Dicecloud (if any were detected as active)
+  if (data.conditions && data.conditions.length > 0) {
+    debug.log('✨ Syncing conditions from Dicecloud:', data.conditions);
+    data.conditions.forEach(condition => {
+      // Map Dicecloud condition names to our effect names
+      const conditionName = condition.name;
+      const isPositive = POSITIVE_EFFECTS.some(e => e.name === conditionName);
+      const isNegative = NEGATIVE_EFFECTS.some(e => e.name === conditionName);
+      
+      if (isPositive && !activeBuffs.includes(conditionName)) {
+        activeBuffs.push(conditionName);
+        debug.log(`  ✅ Added buff from Dicecloud: ${conditionName}`);
+      } else if (isNegative && !activeConditions.includes(conditionName)) {
+        activeConditions.push(conditionName);
+        debug.log(`  ✅ Added debuff from Dicecloud: ${conditionName}`);
+      }
+    });
+  }
+  
   updateEffectsDisplay();
 
   // Initialize color palette after sheet is built
   initColorPalette();
+
+  // Initialize filter event listeners
+  initializeFilters();
 
   debug.log('✅ Sheet built successfully');
 }
@@ -681,10 +779,43 @@ function buildSpellsBySource(container, spells) {
   debug.log(`📚 buildSpellsBySource called with ${spells.length} spells`);
   debug.log(`📚 Spell names: ${spells.map(s => s.name).join(', ')}`);
 
+  // Apply filters first
+  let filteredSpells = spells.filter(spell => {
+    // Filter by spell level
+    if (spellFilters.level !== 'all') {
+      const spellLevel = parseInt(spell.level) || 0;
+      if (spellLevel.toString() !== spellFilters.level) {
+        return false;
+      }
+    }
+    
+    // Filter by category
+    if (spellFilters.category !== 'all') {
+      const category = categorizeSpell(spell);
+      if (category !== spellFilters.category) {
+        return false;
+      }
+    }
+    
+    // Filter by search term
+    if (spellFilters.search) {
+      const searchLower = spellFilters.search;
+      const name = (spell.name || '').toLowerCase();
+      const desc = (spell.description || '').toLowerCase();
+      if (!name.includes(searchLower) && !desc.includes(searchLower)) {
+        return false;
+      }
+    }
+    
+    return true;
+  });
+
+  debug.log(`🔍 Filtered ${spells.length} spells to ${filteredSpells.length} spells`);
+
   // Group spells by actual spell level (not source)
   const spellsByLevel = {};
 
-  spells.forEach((spell, index) => {
+  filteredSpells.forEach((spell, index) => {
     // Add index to spell for tracking
     spell.index = index;
 
@@ -766,6 +897,134 @@ let sneakAttackDamage = '';
 let elementalWeaponEnabled = false;  // Always starts unchecked - user manually enables when needed
 let elementalWeaponDamage = '1d4';  // Default to level 3 (base damage)
 
+// Filter state for actions
+let actionFilters = {
+  actionType: 'all',
+  category: 'all',
+  search: ''
+};
+
+// Filter state for spells
+let spellFilters = {
+  level: 'all',
+  category: 'all',
+  search: ''
+};
+
+// Helper function to categorize an action
+function categorizeAction(action) {
+  const name = (action.name || '').toLowerCase();
+  const desc = (action.description || '').toLowerCase();
+  const damageType = (action.damageType || '').toLowerCase();
+  
+  // Check for healing
+  if (damageType.includes('heal') || name.includes('heal') || desc.includes('healing') || desc.includes('hit points')) {
+    return 'healing';
+  }
+  
+  // Check for damage
+  if (action.damage && action.damage.includes('d')) {
+    return 'damage';
+  }
+  
+  // Everything else is utility
+  return 'utility';
+}
+
+// Helper function to categorize a spell
+function categorizeSpell(spell) {
+  const name = (spell.name || '').toLowerCase();
+  const desc = (spell.description || '').toLowerCase();
+  
+  // Check for healing
+  if (name.includes('heal') || name.includes('cure') || desc.includes('healing') || desc.includes('hit points')) {
+    return 'healing';
+  }
+  
+  // Check for damage
+  if (desc.includes('damage') || desc.includes('d6') || desc.includes('d8') || desc.includes('d10') || desc.includes('d12')) {
+    return 'damage';
+  }
+  
+  // Everything else is utility
+  return 'utility';
+}
+
+// Initialize filter event listeners
+function initializeFilters() {
+  // Actions filters
+  const actionsSearch = document.getElementById('actions-search');
+  if (actionsSearch) {
+    actionsSearch.addEventListener('input', (e) => {
+      actionFilters.search = e.target.value.toLowerCase();
+      rebuildActions();
+    });
+  }
+  
+  // Action type filters
+  document.querySelectorAll('[data-type="action-type"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      actionFilters.actionType = btn.dataset.filter;
+      document.querySelectorAll('[data-type="action-type"]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      rebuildActions();
+    });
+  });
+  
+  // Action category filters
+  document.querySelectorAll('[data-type="action-category"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      actionFilters.category = btn.dataset.filter;
+      document.querySelectorAll('[data-type="action-category"]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      rebuildActions();
+    });
+  });
+  
+  // Spells filters
+  const spellsSearch = document.getElementById('spells-search');
+  if (spellsSearch) {
+    spellsSearch.addEventListener('input', (e) => {
+      spellFilters.search = e.target.value.toLowerCase();
+      rebuildSpells();
+    });
+  }
+  
+  // Spell level filters
+  document.querySelectorAll('[data-type="spell-level"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      spellFilters.level = btn.dataset.filter;
+      document.querySelectorAll('[data-type="spell-level"]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      rebuildSpells();
+    });
+  });
+  
+  // Spell category filters
+  document.querySelectorAll('[data-type="spell-category"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      spellFilters.category = btn.dataset.filter;
+      document.querySelectorAll('[data-type="spell-category"]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      rebuildSpells();
+    });
+  });
+}
+
+// Rebuild actions with current filters
+function rebuildActions() {
+  if (!characterData || !characterData.actions) return;
+  const container = document.getElementById('actions-container');
+  buildActionsDisplay(container, characterData.actions);
+}
+
+// Rebuild spells with current filters
+function rebuildSpells() {
+  if (!characterData || !characterData.spells) return;
+  const container = document.getElementById('spells-container');
+  buildSpellsBySource(container, characterData.spells);
+}
+
 function buildActionsDisplay(container, actions) {
   // Clear container
   container.innerHTML = '';
@@ -834,6 +1093,39 @@ function buildActionsDisplay(container, actions) {
   });
 
   debug.log(`📊 Deduplicated ${actions.length} actions to ${deduplicatedActions.length} unique actions`);
+
+  // Apply filters
+  let filteredActions = deduplicatedActions.filter(action => {
+    // Filter by action type
+    if (actionFilters.actionType !== 'all') {
+      const actionType = (action.actionType || '').toLowerCase();
+      if (actionType !== actionFilters.actionType) {
+        return false;
+      }
+    }
+    
+    // Filter by category
+    if (actionFilters.category !== 'all') {
+      const category = categorizeAction(action);
+      if (category !== actionFilters.category) {
+        return false;
+      }
+    }
+    
+    // Filter by search term
+    if (actionFilters.search) {
+      const searchLower = actionFilters.search;
+      const name = (action.name || '').toLowerCase();
+      const desc = (action.description || '').toLowerCase();
+      if (!name.includes(searchLower) && !desc.includes(searchLower)) {
+        return false;
+      }
+    }
+    
+    return true;
+  });
+
+  debug.log(`🔍 Filtered ${deduplicatedActions.length} actions to ${filteredActions.length} actions`);
 
   // Check if character has Sneak Attack available (from DiceCloud)
   // We only check if it EXISTS, not whether it's enabled on DiceCloud
@@ -968,7 +1260,7 @@ function buildActionsDisplay(container, actions) {
     container.appendChild(luckyActionSection);
   }
 
-  deduplicatedActions.forEach((action, index) => {
+  filteredActions.forEach((action, index) => {
     // Skip rendering standalone Sneak Attack button if it exists
     if ((action.name === 'Sneak Attack' || action.name.toLowerCase().includes('sneak attack')) && action.actionType === 'feature') {
       debug.log('⏭️ Skipping standalone Sneak Attack button (using toggle instead)');
@@ -1025,7 +1317,7 @@ function buildActionsDisplay(container, actions) {
         // Mark action as used for attacks
         markActionAsUsed('action');
         
-        rollWithBuffCheck(`${action.name} Attack`, formula);
+        roll(`${action.name} Attack`, formula);
       });
       buttonsDiv.appendChild(attackBtn);
     }
@@ -1546,7 +1838,7 @@ function buildCompanionsDisplay(companions) {
         e.stopPropagation();
         const name = btn.dataset.name;
         const bonus = parseInt(btn.dataset.bonus);
-        rollWithBuffCheck(`${name} - Attack`, `1d20+${bonus}`);
+        roll(`${name} - Attack`, `1d20+${bonus}`);
       });
     });
 
@@ -2325,7 +2617,7 @@ function createSpellCard(spell, index) {
       const afterCast = (spell, slot) => {
         const attackBonus = getSpellAttackBonus();
         const attackFormula = attackBonus >= 0 ? `1d20+${attackBonus}` : `1d20${attackBonus}`;
-        rollWithBuffCheck(`${spell.name} - Spell Attack`, attackFormula);
+        roll(`${spell.name} - Spell Attack`, attackFormula);
       };
       castSpell(spell, index, afterCast);
     });
@@ -2950,6 +3242,30 @@ function getSpellAttackBonus() {
   const spellMod = getSpellcastingAbilityMod();
   const profBonus = characterData.proficiencyBonus || 0;
   return spellMod + profBonus;
+}
+
+// Calculate total AC including active effects
+function calculateTotalAC() {
+  const baseAC = characterData.armorClass || 10;
+  let totalAC = baseAC;
+
+  // Combine all active effects
+  const allEffects = [
+    ...activeBuffs.map(name => ({ ...POSITIVE_EFFECTS.find(e => e.name === name), type: 'buff' })),
+    ...activeConditions.map(name => ({ ...NEGATIVE_EFFECTS.find(e => e.name === name), type: 'debuff' }))
+  ].filter(e => e && e.autoApply && e.modifier && e.modifier.ac);
+
+  // Apply AC modifiers from active effects
+  for (const effect of allEffects) {
+    const acMod = effect.modifier.ac;
+    if (typeof acMod === 'number') {
+      totalAC += acMod;
+      debug.log(`🛡️ Applied AC modifier: ${acMod} from ${effect.name} (${effect.type})`);
+    }
+  }
+
+  debug.log(`🛡️ Total AC calculation: ${baseAC} (base) + modifiers = ${totalAC}`);
+  return totalAC;
 }
 
 function announceSpellCast(spell, resourceUsed) {
@@ -4554,24 +4870,18 @@ function evaluateMathInFormula(formula) {
  * Apply active effect modifiers to a roll
  * @param {string} rollName - Name of the roll (e.g., "Attack", "Perception", "Strength Save")
  * @param {string} formula - Original formula
- * @param {Array} optionalBuffsToApply - Optional buffs user chose to apply (e.g., ['Bardic Inspiration', 'Guidance'])
  * @returns {object} - { modifiedFormula, effectNotes }
  */
-function applyEffectModifiers(rollName, formula, optionalBuffsToApply = []) {
+function applyEffectModifiers(rollName, formula) {
   const rollLower = rollName.toLowerCase();
   let modifiedFormula = formula;
   const effectNotes = [];
 
-  // Combine all active effects:
-  // 1. Auto-apply buffs (like Bless)
-  // 2. Optionally selected buffs (like Bardic Inspiration, Guidance)
+  // Combine all active effects
   const allEffects = [
-    // Auto-apply buffs and debuffs
-    ...activeBuffs.map(name => ({ ...POSITIVE_EFFECTS.find(e => e.name === name), type: 'buff' })).filter(e => e && e.autoApply),
-    ...activeConditions.map(name => ({ ...NEGATIVE_EFFECTS.find(e => e.name === name), type: 'debuff' })).filter(e => e && e.autoApply),
-    // Optionally selected buffs (from pre-roll popup)
-    ...optionalBuffsToApply.map(name => ({ ...POSITIVE_EFFECTS.find(e => e.name === name), type: 'buff' })).filter(e => e)
-  ];
+    ...activeBuffs.map(name => ({ ...POSITIVE_EFFECTS.find(e => e.name === name), type: 'buff' })),
+    ...activeConditions.map(name => ({ ...NEGATIVE_EFFECTS.find(e => e.name === name), type: 'debuff' }))
+  ].filter(e => e && e.autoApply);
 
   debug.log(`🎲 Checking effects for roll: ${rollName}`, allEffects);
 
@@ -4655,109 +4965,75 @@ function applyEffectModifiers(rollName, formula, optionalBuffsToApply = []) {
 }
 
 /**
- * Wrapper function that checks for optional buffs before rolling
- * This is the main entry point for all rolls
+ * Check for optional effects that could apply to a roll and show popup if found
+ * @param {string} rollName - Name of the roll
+ * @param {string} formula - Original formula
+ * @param {function} onApply - Callback function to apply the effect
  */
-function rollWithBuffCheck(name, formula, prerolledResult = null) {
-  debug.log('🎲 rollWithBuffCheck:', name, formula);
-
-  // Check if this is a d20 roll (ability checks, attacks, saves)
-  const isD20Roll = formula.includes('1d20') || formula.includes('d20');
-
-  if (!isD20Roll) {
-    // Not a d20 roll (damage, etc.) - roll immediately without checking buffs
-    debug.log('🎲 Not a d20 roll, rolling immediately');
-    roll(name, formula, prerolledResult, []);
-    return;
-  }
-
-  // Get applicable optional buffs for this roll type
-  const applicableBuffs = getApplicableOptionalBuffs(name);
-
-  if (applicableBuffs.length === 0) {
-    // No optional buffs available - roll immediately
-    debug.log('🎲 No optional buffs available, rolling immediately');
-    roll(name, formula, prerolledResult, []);
-    return;
-  }
-
-  // Show popup asking which buffs to apply
-  debug.log(`🎲 ${applicableBuffs.length} optional buff(s) available, showing popup`);
-  showOptionalBuffsPopup(name, formula, prerolledResult, applicableBuffs);
-}
-
-/**
- * Get list of optional buffs that can be applied to this roll
- */
-function getApplicableOptionalBuffs(rollName) {
+function checkOptionalEffects(rollName, formula, onApply) {
   const rollLower = rollName.toLowerCase();
-  const applicableBuffs = [];
 
-  for (const buffName of activeBuffs) {
-    const buff = POSITIVE_EFFECTS.find(e => e.name === buffName);
+  // Combine all active effects that are NOT autoApply
+  const optionalEffects = [
+    ...activeBuffs.map(name => ({ ...POSITIVE_EFFECTS.find(e => e.name === name), type: 'buff' })),
+    ...activeConditions.map(name => ({ ...NEGATIVE_EFFECTS.find(e => e.name === name), type: 'debuff' }))
+  ].filter(e => e && !e.autoApply && e.modifier);
 
-    // Skip if buff doesn't exist or is auto-apply
-    if (!buff || buff.autoApply) continue;
+  if (optionalEffects.length === 0) return;
 
-    // Check if this buff applies to this roll type
-    let applies = false;
+  debug.log(`🎲 Checking optional effects for roll: ${rollName}`, optionalEffects);
 
-    // Bardic Inspiration (all variants): ability checks, attacks, saves
-    if (buff.name.startsWith('Bardic Inspiration')) {
-      applies = rollLower.includes('check') ||
-                rollLower.includes('attack') ||
-                rollLower.includes('save') ||
-                rollLower.includes('perception') ||
-                rollLower.includes('stealth') ||
-                rollLower.includes('investigation') ||
-                rollLower.includes('insight') ||
-                rollLower.includes('persuasion') ||
-                rollLower.includes('deception') ||
-                rollLower.includes('intimidation') ||
-                rollLower.includes('athletics') ||
-                rollLower.includes('acrobatics');
+  const applicableEffects = [];
+
+  for (const effect of optionalEffects) {
+    let applicable = false;
+
+    // Check for skill check modifiers (for Guidance)
+    if ((rollLower.includes('check') || rollLower.includes('perception') ||
+         rollLower.includes('stealth') || rollLower.includes('investigation') ||
+         rollLower.includes('insight') || rollLower.includes('persuasion') ||
+         rollLower.includes('deception') || rollLower.includes('intimidation') ||
+         rollLower.includes('athletics') || rollLower.includes('acrobatics')) &&
+        effect.modifier.skill) {
+      applicable = true;
     }
 
-    // Guidance: ability checks only
-    else if (buff.name === 'Guidance') {
-      applies = rollLower.includes('check') ||
-                rollLower.includes('perception') ||
-                rollLower.includes('stealth') ||
-                rollLower.includes('investigation') ||
-                rollLower.includes('insight') ||
-                rollLower.includes('persuasion') ||
-                rollLower.includes('deception') ||
-                rollLower.includes('intimidation') ||
-                rollLower.includes('athletics') ||
-                rollLower.includes('acrobatics');
+    // Check for attack roll modifiers
+    if (rollLower.includes('attack') && effect.modifier.attack) {
+      applicable = true;
     }
 
-    if (applies) {
-      applicableBuffs.push(buff);
+    // Check for saving throw modifiers
+    if ((rollLower.includes('save') || rollLower.includes('strength') || rollLower.includes('dexterity')) &&
+        (effect.modifier.strSave || effect.modifier.dexSave)) {
+      applicable = true;
+    }
+
+    if (applicable) {
+      applicableEffects.push(effect);
     }
   }
 
-  return applicableBuffs;
+  if (applicableEffects.length > 0) {
+    showOptionalEffectPopup(applicableEffects, rollName, formula, onApply);
+  }
 }
 
 /**
- * Show popup asking user which optional buffs to apply
+ * Show popup for optional effects
  */
-function showOptionalBuffsPopup(rollName, formula, prerolledResult, applicableBuffs) {
-  debug.log('✨ Showing optional buffs popup for:', rollName, applicableBuffs);
+function showOptionalEffectPopup(effects, rollName, formula, onApply) {
+  debug.log('🎯 Showing optional effect popup for:', effects);
 
-  // Check if document.body exists
   if (!document.body) {
-    debug.error('❌ document.body not available for optional buffs popup');
-    // Fall back to rolling without buffs
-    roll(rollName, formula, prerolledResult, []);
+    debug.error('❌ document.body not available for optional effect popup');
     return;
   }
 
   // Get theme-aware colors
   const colors = getPopupThemeColors();
 
-  // Create popup overlay
+  // Create modal overlay
   const popupOverlay = document.createElement('div');
   popupOverlay.style.cssText = `
     position: fixed;
@@ -4765,12 +5041,12 @@ function showOptionalBuffsPopup(rollName, formula, prerolledResult, applicableBu
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.8);
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(2px);
+    z-index: 10000;
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 10000;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   `;
 
   // Create popup content
@@ -4779,131 +5055,138 @@ function showOptionalBuffsPopup(rollName, formula, prerolledResult, applicableBu
     background: ${colors.background};
     border-radius: 12px;
     padding: 24px;
-    max-width: 450px;
+    max-width: 400px;
     width: 90%;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
     text-align: center;
+    border: 2px solid var(--accent-primary);
   `;
 
-  // Build buff selection checkboxes
-  let buffsHTML = '';
-  applicableBuffs.forEach((buff, index) => {
-    const die = buff.modifier.attack || buff.modifier.skill || buff.modifier.save || 'd8';
-    buffsHTML += `
-      <label style="
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 12px;
-        background: ${colors.infoBox};
-        border-radius: 8px;
-        margin-bottom: 8px;
-        cursor: pointer;
-        transition: background 0.2s;
-        border-left: 4px solid ${buff.color};
-      " onmouseover="this.style.background='${colors.border}'" onmouseout="this.style.background='${colors.infoBox}'">
-        <input type="checkbox" id="buff-${index}" checked style="width: 20px; height: 20px; cursor: pointer;">
-        <span style="font-size: 20px;">${buff.icon}</span>
+  // Build effects list
+  const effectsList = effects.map(effect => `
+    <div style="margin: 12px 0; padding: 12px; background: ${effect.color}20; border: 2px solid ${effect.color}; border-radius: 8px; cursor: pointer; transition: all 0.2s;" 
+         onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.15)'"
+         onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'"
+         data-effect="${effect.name}" data-type="${effect.type}">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 1.2em;">${effect.icon}</span>
         <div style="flex: 1; text-align: left;">
-          <div style="font-weight: bold; color: ${colors.text};">${buff.name}</div>
-          <div style="font-size: 13px; color: ${colors.infoText};">Add ${die} to this roll</div>
+          <div style="font-weight: bold; color: var(--text-primary);">${effect.name}</div>
+          <div style="font-size: 0.85em; color: var(--text-secondary); margin-top: 2px;">${effect.description}</div>
         </div>
-      </label>
-    `;
-  });
+      </div>
+    </div>
+  `).join('');
 
   popupContent.innerHTML = `
-    <div style="font-size: 32px; margin-bottom: 16px;">✨</div>
-    <h2 style="margin: 0 0 8px 0; color: ${colors.heading};">Apply Buffs?</h2>
+    <div style="font-size: 24px; margin-bottom: 16px;">🎯</div>
+    <h2 style="margin: 0 0 8px 0; color: ${colors.heading};">Optional Effect Available!</h2>
     <p style="margin: 0 0 16px 0; color: ${colors.text};">
-      You're about to roll <strong>${rollName}</strong>
+      You can apply an optional effect to your <strong>${rollName}</strong> roll:
     </p>
-    <div style="margin-bottom: 20px; padding: 12px; background: ${colors.infoBox}; border-radius: 8px; color: ${colors.text}; font-size: 14px;">
-      <strong>Formula:</strong> ${formula}
-    </div>
-    <div style="margin-bottom: 20px; text-align: left;">
-      <div style="font-weight: bold; margin-bottom: 10px; color: ${colors.text};">Available Buffs:</div>
-      ${buffsHTML}
-    </div>
-    <div style="display: flex; gap: 12px; justify-content: center;">
-      <button id="applyBuffsBtn" style="
-        background: #27ae60;
-        color: white;
-        border: none;
-        padding: 12px 24px;
-        border-radius: 8px;
-        cursor: pointer;
-        font-weight: bold;
-        font-size: 14px;
-        transition: background 0.2s;
-      ">🎲 Roll</button>
-      <button id="rollWithoutBuffsBtn" style="
-        background: #7f8c8d;
-        color: white;
-        border: none;
-        padding: 12px 24px;
-        border-radius: 8px;
-        cursor: pointer;
-        font-weight: bold;
-        font-size: 14px;
-        transition: background 0.2s;
-      ">Roll Without Buffs</button>
+    ${effectsList}
+    <div style="margin-top: 20px; display: flex; gap: 10px; justify-content: center;">
+      <button id="skip-effect" style="background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">
+        Skip
+      </button>
     </div>
   `;
 
   popupOverlay.appendChild(popupContent);
   document.body.appendChild(popupOverlay);
 
-  // Add event listeners
-  document.getElementById('applyBuffsBtn').addEventListener('click', () => {
-    // Get selected buffs
-    const selectedBuffs = [];
-    applicableBuffs.forEach((buff, index) => {
-      const checkbox = document.getElementById(`buff-${index}`);
-      if (checkbox && checkbox.checked) {
-        selectedBuffs.push(buff.name);
+  // Add click handlers for effect options
+  popupContent.querySelectorAll('[data-effect]').forEach(effectDiv => {
+    effectDiv.addEventListener('click', () => {
+      const effectName = effectDiv.dataset.effect;
+      const effectType = effectDiv.dataset.type;
+      const effect = effects.find(e => e.name === effectName);
+      
+      if (effect && onApply) {
+        onApply(effect);
       }
+      
+      document.body.removeChild(popupOverlay);
     });
-
-    debug.log(`✅ Rolling with selected buffs: ${selectedBuffs.join(', ')}`);
-    document.body.removeChild(popupOverlay);
-    roll(rollName, formula, prerolledResult, selectedBuffs);
   });
 
-  document.getElementById('rollWithoutBuffsBtn').addEventListener('click', () => {
-    debug.log('🎲 Rolling without buffs');
+  // Skip button
+  document.getElementById('skip-effect').addEventListener('click', () => {
     document.body.removeChild(popupOverlay);
-    roll(rollName, formula, prerolledResult, []);
   });
 
   // Close on overlay click
   popupOverlay.addEventListener('click', (e) => {
     if (e.target === popupOverlay) {
-      debug.log('🎲 Popup closed, rolling without buffs');
       document.body.removeChild(popupOverlay);
-      roll(rollName, formula, prerolledResult, []);
     }
   });
 
-  debug.log('✨ Optional buffs popup displayed');
+  debug.log('🎯 Optional effect popup displayed');
 }
 
-function roll(name, formula, prerolledResult = null, optionalBuffsToApply = []) {
-  debug.log('🎲 Rolling:', name, formula, prerolledResult ? `(prerolled: ${prerolledResult})` : '', `Optional buffs: ${optionalBuffsToApply.join(', ')}`);
+function roll(name, formula, prerolledResult = null) {
+  debug.log('🎲 Rolling:', name, formula, prerolledResult ? `(prerolled: ${prerolledResult})` : '');
 
   // Resolve any variables in the formula
   let resolvedFormula = resolveVariablesInFormula(formula);
 
-  // Apply active effect modifiers (auto-apply buffs + optionally selected buffs)
-  const { modifiedFormula, effectNotes } = applyEffectModifiers(name, resolvedFormula, optionalBuffsToApply);
-  resolvedFormula = modifiedFormula;
+  // Check for optional effects first
+  checkOptionalEffects(name, resolvedFormula, (chosenEffect) => {
+    // Apply the chosen effect and then roll
+    const { modifiedFormula, effectNotes } = applyEffectModifiers(name, resolvedFormula);
+    let finalFormula = modifiedFormula;
+    
+    // Add the chosen effect's modifier
+    if (chosenEffect.modifier.skill && name.toLowerCase().includes('check')) {
+      finalFormula += ` + ${chosenEffect.modifier.skill}`;
+      effectNotes.push(`[${chosenEffect.icon} ${chosenEffect.name}: ${chosenEffect.modifier.skill}]`);
+    } else if (chosenEffect.modifier.attack && name.toLowerCase().includes('attack')) {
+      finalFormula += ` + ${chosenEffect.modifier.attack}`;
+      effectNotes.push(`[${chosenEffect.icon} ${chosenEffect.name}: ${chosenEffect.modifier.attack}]`);
+    }
+    
+    // Remove the chosen effect from active effects since it's been used
+    if (chosenEffect.type === 'positive') {
+      activeBuffs = activeBuffs.filter(e => e !== chosenEffect.name);
+    } else {
+      activeConditions = activeConditions.filter(e => e !== chosenEffect.name);
+    }
+    updateEffectsDisplay();
+    
+    // Proceed with the roll
+    executeRoll(name, finalFormula, effectNotes, prerolledResult);
+  });
 
-  // Remove consumed optional buffs (Bardic Inspiration, Guidance use once)
-  for (const buffName of optionalBuffsToApply) {
-    removeEffect(buffName, 'positive');
-    debug.log(`✅ Consumed ${buffName} buff`);
+  // If no optional effects were found, proceed normally
+  const { modifiedFormula, effectNotes } = applyEffectModifiers(name, resolvedFormula);
+  const finalFormula = modifiedFormula;
+  
+  // Check if we already have optional effects being handled
+  const optionalEffects = [
+    ...activeBuffs.map(name => ({ ...POSITIVE_EFFECTS.find(e => e.name === name), type: 'buff' })),
+    ...activeConditions.map(name => ({ ...NEGATIVE_EFFECTS.find(e => e.name === name), type: 'debuff' }))
+  ].filter(e => e && !e.autoApply && e.modifier);
+
+  const hasApplicableOptionalEffects = optionalEffects.some(effect => {
+    const rollLower = name.toLowerCase();
+    return ((rollLower.includes('check') || rollLower.includes('perception') ||
+             rollLower.includes('stealth') || rollLower.includes('investigation') ||
+             rollLower.includes('insight') || rollLower.includes('persuasion') ||
+             rollLower.includes('deception') || rollLower.includes('intimidation') ||
+             rollLower.includes('athletics') || rollLower.includes('acrobatics')) && effect.modifier.skill) ||
+            (rollLower.includes('attack') && effect.modifier.attack);
+  });
+
+  if (!hasApplicableOptionalEffects) {
+    executeRoll(name, finalFormula, effectNotes, prerolledResult);
   }
+}
 
+/**
+ * Execute the roll after optional effects have been handled
+ */
+function executeRoll(name, formula, effectNotes, prerolledResult = null) {
   const colorBanner = getColoredBanner();
   // Format: "🔵 CharacterName rolls Initiative"
   let rollName = `${colorBanner}${characterData.name} rolls ${name}`;
@@ -4917,7 +5200,7 @@ function roll(name, formula, prerolledResult = null, optionalBuffsToApply = []) 
   const messageData = {
     action: 'rollFromPopout',
     name: rollName,
-    formula: resolvedFormula,
+    formula: formula,
     color: characterData.notificationColor,
     characterName: characterData.name
   };
@@ -5674,39 +5957,15 @@ const POSITIVE_EFFECTS = [
     color: '#3498db',
     description: '+1d4 to one ability check',
     modifier: { skill: '1d4' },
-    autoApply: true
+    autoApply: false // User choice required
   },
   {
-    name: 'Bardic Inspiration (d6)',
+    name: 'Bardic Inspiration',
     icon: '🎵',
     color: '#9b59b6',
-    description: 'Bard levels 1-4: +d6 to ability check, attack, or save',
-    modifier: { attack: 'd6', skill: 'd6', save: 'd6' },
-    autoApply: false
-  },
-  {
-    name: 'Bardic Inspiration (d8)',
-    icon: '🎵',
-    color: '#9b59b6',
-    description: 'Bard levels 5-9: +d8 to ability check, attack, or save',
+    description: '+d6/d8/d10/d12 to ability check, attack, or save',
     modifier: { attack: 'd8', skill: 'd8', save: 'd8' },
-    autoApply: false
-  },
-  {
-    name: 'Bardic Inspiration (d10)',
-    icon: '🎵',
-    color: '#9b59b6',
-    description: 'Bard levels 10-14: +d10 to ability check, attack, or save',
-    modifier: { attack: 'd10', skill: 'd10', save: 'd10' },
-    autoApply: false
-  },
-  {
-    name: 'Bardic Inspiration (d12)',
-    icon: '🎵',
-    color: '#9b59b6',
-    description: 'Bard levels 15-20: +d12 to ability check, attack, or save',
-    modifier: { attack: 'd12', skill: 'd12', save: 'd12' },
-    autoApply: false
+    autoApply: false // Manual application
   },
   {
     name: 'Haste',
@@ -6176,8 +6435,8 @@ function updateEffectsDisplay() {
           <div style="display: flex; align-items: center; gap: 8px;">
             <span class="effect-badge-icon" style="font-size: 1.2em;">${effect.icon}</span>
             <div style="flex: 1;">
-              <div style="font-weight: bold; color: #2c3e50;">${effect.name}</div>
-              <div style="font-size: 0.75em; color: #7f8c8d; margin-top: 2px;">${effect.description}</div>
+              <div style="font-weight: bold; color: var(--text-primary);">${effect.name}</div>
+              <div style="font-size: 0.75em; color: var(--text-secondary); margin-top: 2px;">${effect.description}</div>
             </div>
             <span class="effect-badge-remove" style="font-weight: bold; opacity: 0.7; color: #e74c3c;">✕</span>
           </div>
@@ -6198,8 +6457,8 @@ function updateEffectsDisplay() {
           <div style="display: flex; align-items: center; gap: 8px;">
             <span class="effect-badge-icon" style="font-size: 1.2em;">${effect.icon}</span>
             <div style="flex: 1;">
-              <div style="font-weight: bold; color: #2c3e50;">${effect.name}</div>
-              <div style="font-size: 0.75em; color: #7f8c8d; margin-top: 2px;">${effect.description}</div>
+              <div style="font-weight: bold; color: var(--text-primary);">${effect.name}</div>
+              <div style="font-size: 0.75em; color: var(--text-secondary); margin-top: 2px;">${effect.description}</div>
             </div>
             <span class="effect-badge-remove" style="font-weight: bold; opacity: 0.7; color: #e74c3c;">✕</span>
           </div>
@@ -6215,6 +6474,12 @@ function updateEffectsDisplay() {
   }
 
   container.innerHTML = html;
+
+  // Update AC display to reflect any changes
+  const acElement = document.getElementById('char-ac');
+  if (acElement) {
+    acElement.textContent = calculateTotalAC();
+  }
 
   // Add click handlers to remove effects
   container.querySelectorAll('.effect-badge').forEach(badge => {
@@ -6371,7 +6636,7 @@ window.addEventListener('message', (event) => {
       // Check if any racial traits trigger (use baseRoll for the actual d20 roll)
       const racialTraitTriggered = checkRacialTraits(baseRoll, rollType, rollName);
       const triggeredRacialTraits = [];
-
+      
       // Check if any feat traits trigger (use baseRoll for the actual d20 roll)
       const featTraitTriggered = checkFeatTraits(baseRoll, rollType, rollName);
       const triggeredFeatTraits = [];
@@ -6537,6 +6802,12 @@ function initClassFeatures() {
     activeFeatTraits.push(ReliableTalent);
   }
 
+  // Bardic Inspiration (Bard)
+  if (characterClass.includes('bard') && level >= 1) {
+    debug.log('🎵 Bard detected, adding Bardic Inspiration');
+    activeFeatTraits.push(BardicInspiration);
+  }
+
   // Jack of All Trades (Bard)
   if (characterClass.includes('bard') && level >= 2) {
     debug.log('🎵 Bard detected, adding Jack of All Trades');
@@ -6606,9 +6877,9 @@ function checkRacialTraits(rollResult, rollType, rollName) {
 function checkFeatTraits(rollResult, rollType, rollName) {
   debug.log(`🎖️ Checking feat traits for roll: ${rollResult} (${rollType}) - ${rollName}`);
   debug.log(`🎖️ Active feat traits count: ${activeFeatTraits.length}`);
-
+  
   let traitTriggered = false;
-
+  
   for (const trait of activeFeatTraits) {
     if (trait.onRoll && typeof trait.onRoll === 'function') {
       const result = trait.onRoll(rollResult, rollType, rollName);
@@ -6618,7 +6889,7 @@ function checkFeatTraits(rollResult, rollType, rollName) {
       }
     }
   }
-
+  
   return traitTriggered;
 }
 
@@ -7196,6 +7467,179 @@ function showWildMagicSurgePopup(d100Roll, effect) {
   }
 
   debug.log('🌀 Wild Magic Surge popup displayed');
+}
+
+// Bardic Inspiration Popup Functions
+function showBardicInspirationPopup(rollData) {
+  debug.log('🎵 Bardic Inspiration popup called with:', rollData);
+
+  // Check if document.body exists
+  if (!document.body) {
+    debug.error('❌ document.body not available for Bardic Inspiration popup');
+    showNotification('🎵 Bardic Inspiration available! (Popup failed to display)', 'info');
+    return;
+  }
+
+  debug.log('🎵 Creating Bardic Inspiration popup overlay...');
+
+  // Get theme-aware colors
+  const colors = getPopupThemeColors();
+
+  // Create popup overlay
+  const popupOverlay = document.createElement('div');
+  popupOverlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  `;
+
+  // Create popup content
+  const popupContent = document.createElement('div');
+  popupContent.style.cssText = `
+    background: ${colors.background};
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 450px;
+    width: 90%;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    text-align: center;
+  `;
+
+  debug.log('🎵 Setting Bardic Inspiration popup content HTML...');
+
+  popupContent.innerHTML = `
+    <div style="font-size: 32px; margin-bottom: 16px;">🎵</div>
+    <h2 style="margin: 0 0 8px 0; color: ${colors.heading};">Bardic Inspiration!</h2>
+    <p style="margin: 0 0 16px 0; color: ${colors.text};">
+      Add a <strong>${rollData.inspirationDie}</strong> to this roll?
+    </p>
+    <div style="margin: 0 0 16px 0; padding: 12px; background: ${colors.infoBox}; border-radius: 8px; border-left: 4px solid #9b59b6; color: ${colors.text};">
+      <strong>Current Roll:</strong> ${rollData.rollName}<br>
+      <strong>Base Result:</strong> ${rollData.baseRoll}<br>
+      <strong>Inspiration Die:</strong> ${rollData.inspirationDie}<br>
+      <strong>Uses Left:</strong> ${rollData.usesRemaining}
+    </div>
+    <div style="margin-bottom: 16px; padding: 12px; background: ${colors.infoBox}; border-radius: 8px; color: ${colors.text}; font-size: 13px; text-align: left;">
+      <strong>💡 How it works:</strong><br>
+      • Roll the inspiration die and add it to your total<br>
+      • Can be used on ability checks, attack rolls, or saves<br>
+      • Only one inspiration die can be used per roll
+    </div>
+    <div style="display: flex; gap: 12px; justify-content: center;">
+      <button id="bardicUseBtn" style="
+        background: #9b59b6;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: bold;
+        font-size: 14px;
+        transition: background 0.2s;
+      ">🎲 Use Inspiration</button>
+      <button id="bardicDeclineBtn" style="
+        background: #7f8c8d;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: bold;
+        font-size: 14px;
+        transition: background 0.2s;
+      ">Decline</button>
+    </div>
+  `;
+
+  debug.log('🎵 Appending Bardic Inspiration popup to document.body...');
+
+  popupOverlay.appendChild(popupContent);
+  document.body.appendChild(popupOverlay);
+
+  // Add hover effects
+  const useBtn = document.getElementById('bardicUseBtn');
+  const declineBtn = document.getElementById('bardicDeclineBtn');
+
+  useBtn.addEventListener('mouseenter', () => {
+    useBtn.style.background = '#8e44ad';
+  });
+  useBtn.addEventListener('mouseleave', () => {
+    useBtn.style.background = '#9b59b6';
+  });
+
+  declineBtn.addEventListener('mouseenter', () => {
+    declineBtn.style.background = '#95a5a6';
+  });
+  declineBtn.addEventListener('mouseleave', () => {
+    declineBtn.style.background = '#7f8c8d';
+  });
+
+  // Add event listeners
+  useBtn.addEventListener('click', () => {
+    debug.log('🎵 User chose to use Bardic Inspiration');
+    performBardicInspirationRoll(rollData);
+    document.body.removeChild(popupOverlay);
+  });
+
+  declineBtn.addEventListener('click', () => {
+    debug.log('🎵 User declined Bardic Inspiration');
+    showNotification('Bardic Inspiration declined', 'info');
+    document.body.removeChild(popupOverlay);
+  });
+
+  // Close on overlay click
+  popupOverlay.addEventListener('click', (e) => {
+    if (e.target === popupOverlay) {
+      debug.log('🎵 User closed Bardic Inspiration popup');
+      document.body.removeChild(popupOverlay);
+    }
+  });
+
+  debug.log('🎵 Bardic Inspiration popup displayed');
+}
+
+function performBardicInspirationRoll(rollData) {
+  debug.log('🎵 Performing Bardic Inspiration roll with data:', rollData);
+
+  // Use one Bardic Inspiration use
+  const success = useBardicInspiration();
+  if (!success) {
+    debug.error('❌ Failed to use Bardic Inspiration (no uses left?)');
+    showNotification('❌ Failed to use Bardic Inspiration', 'error');
+    return;
+  }
+
+  // Roll the inspiration die
+  const dieSize = parseInt(rollData.inspirationDie.substring(1)); // "d6" -> 6
+  const inspirationRoll = Math.floor(Math.random() * dieSize) + 1;
+
+  debug.log(`🎵 Rolled ${rollData.inspirationDie}: ${inspirationRoll}`);
+
+  // Create the roll message
+  const inspirationMessage = `/roll ${rollData.inspirationDie}`;
+  const chatMessage = `🎵 Bardic Inspiration for ${rollData.rollName}: [[${inspirationRoll}]] (${rollData.inspirationDie})`;
+
+  // Show notification
+  showNotification(`🎵 Bardic Inspiration: +${inspirationRoll}!`, 'success');
+
+  // Post to Roll20 chat
+  browserAPI.runtime.sendMessage({
+    action: 'rollDice',
+    rollData: {
+      message: chatMessage,
+      characterName: characterData.name || 'Character'
+    }
+  });
+
+  debug.log('🎵 Bardic Inspiration roll complete');
 }
 
 // Elven Accuracy Popup
@@ -7913,8 +8357,114 @@ const WildMagicSurge = {
   }
 };
 
-// Note: Bardic Inspiration and Guidance are now checked PRE-ROLL via the optional buffs system
-// See rollWithBuffCheck() and showOptionalBuffsPopup() for the new implementation
+// Bardic Inspiration (Bard)
+const BardicInspiration = {
+  name: 'Bardic Inspiration',
+  description: 'You can inspire others through stirring words or music. As a bonus action, grant an ally a Bardic Inspiration die they can add to an ability check, attack roll, or saving throw.',
+
+  onRoll: function(rollResult, rollType, rollName) {
+    debug.log(`🎵 Bardic Inspiration onRoll called with: ${rollResult}, ${rollType}, ${rollName}`);
+
+    // Check if it's a d20 roll (ability check, attack, or save)
+    if (rollType && rollType.includes('d20')) {
+      debug.log(`🎵 Bardic Inspiration: Checking if we should offer inspiration for ${rollName}`);
+
+      // Check if character has Bardic Inspiration uses available
+      const inspirationResource = getBardicInspirationResource();
+      if (!inspirationResource || inspirationResource.current <= 0) {
+        debug.log(`🎵 Bardic Inspiration: No uses available (${inspirationResource?.current || 0})`);
+        return false;
+      }
+
+      debug.log(`🎵 Bardic Inspiration: Has ${inspirationResource.current} uses available`);
+
+      // Get the inspiration die size based on bard level
+      const level = characterData.level || 1;
+      const inspirationDie = level < 5 ? 'd6' : level < 10 ? 'd8' : level < 15 ? 'd10' : 'd12';
+
+      // Offer Bardic Inspiration on any d20 roll
+      debug.log(`🎵 Bardic Inspiration: TRIGGERED! Offering ${inspirationDie}`);
+
+      // Show the Bardic Inspiration popup with error handling
+      try {
+        showBardicInspirationPopup({
+          rollResult: parseInt(rollResult),
+          baseRoll: parseInt(rollResult),
+          rollType: rollType,
+          rollName: rollName,
+          inspirationDie: inspirationDie,
+          usesRemaining: inspirationResource.current
+        });
+      } catch (error) {
+        debug.error('❌ Error showing Bardic Inspiration popup:', error);
+        // Fallback notification
+        showNotification(`🎵 Bardic Inspiration available! (${inspirationDie})`, 'info');
+      }
+
+      return true; // Trait triggered
+    }
+
+    debug.log(`🎵 Bardic Inspiration: No trigger - Type: ${rollType}`);
+    return false; // No trigger
+  }
+};
+
+function getBardicInspirationResource() {
+  if (!characterData || !characterData.resources) {
+    debug.log('🎵 No characterData or resources for Bardic Inspiration detection');
+    return null;
+  }
+
+  // Find Bardic Inspiration in resources (flexible matching)
+  const inspirationResource = characterData.resources.find(r => {
+    const lowerName = r.name.toLowerCase().trim();
+    return (
+      lowerName.includes('bardic inspiration') ||
+      lowerName === 'bardic inspiration' ||
+      lowerName === 'inspiration' ||
+      lowerName.includes('inspiration die') ||
+      lowerName.includes('inspiration dice')
+    );
+  });
+
+  if (inspirationResource) {
+    debug.log(`🎵 Found Bardic Inspiration resource: ${inspirationResource.name} (${inspirationResource.current}/${inspirationResource.max})`);
+  } else {
+    debug.log('🎵 No Bardic Inspiration resource found in character data');
+  }
+
+  return inspirationResource;
+}
+
+function useBardicInspiration() {
+  debug.log('🎵 useBardicInspiration called');
+  const inspirationResource = getBardicInspirationResource();
+  debug.log('🎵 Bardic Inspiration resource found:', inspirationResource);
+
+  if (!inspirationResource) {
+    debug.error('❌ No Bardic Inspiration resource found');
+    return false;
+  }
+
+  if (inspirationResource.current <= 0) {
+    debug.error(`❌ No Bardic Inspiration uses available (current: ${inspirationResource.current})`);
+    return false;
+  }
+
+  // Decrement Bardic Inspiration uses
+  const oldCurrent = inspirationResource.current;
+  inspirationResource.current--;
+
+  debug.log(`✅ Used Bardic Inspiration (${oldCurrent} → ${inspirationResource.current})`);
+
+  // Save to storage
+  browserAPI.storage.local.set({ characterData: characterData });
+
+  // Refresh resources display
+  buildResourcesDisplay();
+
+  return true;
+}
 
 function getLuckyResource() {
   if (!characterData || !characterData.resources) {
@@ -7987,4 +8537,848 @@ function updateLuckyButtonText() {
     `;
     debug.log(`🎖️ Lucky button updated to show ${luckPointsAvailable}/3`);
   }
+}
+
+// ============================================================================
+// WINDOW SIZE PERSISTENCE
+// ============================================================================
+
+/**
+ * Save current window dimensions to storage
+ */
+function saveWindowSize() {
+  const width = window.outerWidth;
+  const height = window.outerHeight;
+  
+  browserAPI.storage.local.set({
+    popupWindowSize: { width, height }
+  });
+  
+  debug.log(`💾 Saved window size: ${width}x${height}`);
+}
+
+/**
+ * Load and apply saved window dimensions
+ */
+async function loadWindowSize() {
+  try {
+    const result = await browserAPI.storage.local.get(['popupWindowSize']);
+    if (result.popupWindowSize) {
+      const { width, height } = result.popupWindowSize;
+      window.resizeTo(width, height);
+      debug.log(`📐 Restored window size: ${width}x${height}`);
+    }
+  } catch (error) {
+    debug.warn('⚠️ Could not restore window size:', error);
+  }
+}
+
+/**
+ * Initialize window size tracking
+ */
+function initWindowSizeTracking() {
+  // Load saved size on startup
+  loadWindowSize();
+  
+  // Save size when window is resized
+  let resizeTimeout;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+      saveWindowSize();
+    }, 500); // Debounce to avoid excessive saves
+  });
+  
+  debug.log('📐 Window size tracking initialized');
+}
+
+// Initialize window size tracking when DOM is ready
+if (domReady) {
+  initWindowSizeTracking();
+} else {
+  pendingOperations.push(initWindowSizeTracking);
+}
+
+// ============================================================================
+// CUSTOM ROLL MACROS
+// ============================================================================
+
+let customMacros = [];
+
+/**
+ * Load custom macros from storage
+ */
+async function loadCustomMacros() {
+  try {
+    const result = await browserAPI.storage.local.get(['customMacros']);
+    customMacros = result.customMacros || [];
+    debug.log(`🎲 Loaded ${customMacros.length} custom macros`);
+    updateMacrosDisplay();
+  } catch (error) {
+    debug.error('❌ Failed to load custom macros:', error);
+  }
+}
+
+/**
+ * Save custom macros to storage
+ */
+function saveCustomMacros() {
+  browserAPI.storage.local.set({ customMacros });
+  debug.log(`💾 Saved ${customMacros.length} custom macros`);
+}
+
+/**
+ * Add a new custom macro
+ */
+function addCustomMacro(name, formula, description = '') {
+  const macro = {
+    id: Date.now().toString(),
+    name,
+    formula,
+    description,
+    createdAt: Date.now()
+  };
+  
+  customMacros.push(macro);
+  saveCustomMacros();
+  updateMacrosDisplay();
+  
+  debug.log(`✅ Added custom macro: ${name} (${formula})`);
+  return macro;
+}
+
+/**
+ * Delete a custom macro
+ */
+function deleteCustomMacro(macroId) {
+  customMacros = customMacros.filter(m => m.id !== macroId);
+  saveCustomMacros();
+  updateMacrosDisplay();
+  debug.log(`🗑️ Deleted macro: ${macroId}`);
+}
+
+/**
+ * Execute a custom macro (roll the formula)
+ */
+function executeMacro(macro) {
+  debug.log(`🎲 Executing macro: ${macro.name} (${macro.formula})`);
+  
+  // Use the existing roll announcement system
+  announceAction(
+    macro.name,
+    macro.formula,
+    '',
+    macro.description || `Custom macro: ${macro.formula}`
+  );
+}
+
+/**
+ * Update the macros display in the UI
+ */
+function updateMacrosDisplay() {
+  const container = document.getElementById('custom-macros-container');
+  if (!container) return;
+  
+  if (customMacros.length === 0) {
+    container.innerHTML = '<p style="text-align: center; color: #888; padding: 15px;">No custom macros yet. Click "Add Macro" to create one.</p>';
+    return;
+  }
+  
+  container.innerHTML = customMacros.map(macro => `
+    <div class="macro-item" style="
+      background: var(--bg-secondary);
+      border: 2px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.2s;
+    ">
+      <div style="flex: 1;">
+        <div style="font-weight: bold; color: var(--text-primary); margin-bottom: 4px;">
+          ${macro.name}
+        </div>
+        <div style="font-family: monospace; color: var(--accent-info); font-size: 0.9em; margin-bottom: 4px;">
+          ${macro.formula}
+        </div>
+        ${macro.description ? `<div style="font-size: 0.85em; color: var(--text-secondary);">${macro.description}</div>` : ''}
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button class="macro-roll-btn" data-macro-id="${macro.id}" style="
+          background: var(--accent-primary);
+          color: white;
+          border: none;
+          padding: 8px 16px;
+          border-radius: 6px;
+          cursor: pointer;
+          font-weight: bold;
+          transition: all 0.2s;
+        ">
+          🎲 Roll
+        </button>
+        <button class="macro-delete-btn" data-macro-id="${macro.id}" style="
+          background: var(--accent-danger);
+          color: white;
+          border: none;
+          padding: 8px 12px;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: all 0.2s;
+        ">
+          🗑️
+        </button>
+      </div>
+    </div>
+  `).join('');
+  
+  // Add event listeners
+  container.querySelectorAll('.macro-roll-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const macroId = btn.dataset.macroId;
+      const macro = customMacros.find(m => m.id === macroId);
+      if (macro) executeMacro(macro);
+    });
+  });
+  
+  container.querySelectorAll('.macro-delete-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const macroId = btn.dataset.macroId;
+      const macro = customMacros.find(m => m.id === macroId);
+      if (macro && confirm(`Delete macro "${macro.name}"?`)) {
+        deleteCustomMacro(macroId);
+      }
+    });
+  });
+}
+
+/**
+ * Show the add macro modal
+ */
+function showAddMacroModal() {
+  const modal = document.createElement('div');
+  modal.id = 'add-macro-modal';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+  `;
+  
+  modal.innerHTML = `
+    <div style="
+      background: var(--bg-secondary);
+      border: 2px solid var(--border-color);
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 500px;
+      width: 90%;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    ">
+      <h3 style="margin: 0 0 20px 0; color: var(--text-primary);">🎲 Add Custom Macro</h3>
+      
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; margin-bottom: 6px; font-weight: bold; color: var(--text-primary);">
+          Macro Name
+        </label>
+        <input type="text" id="macro-name-input" placeholder="e.g., Sneak Attack" style="
+          width: 100%;
+          padding: 10px;
+          border: 2px solid var(--border-color);
+          border-radius: 6px;
+          font-size: 14px;
+          background: var(--bg-primary);
+          color: var(--text-primary);
+        ">
+      </div>
+      
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; margin-bottom: 6px; font-weight: bold; color: var(--text-primary);">
+          Roll Formula
+        </label>
+        <input type="text" id="macro-formula-input" placeholder="e.g., 3d6" style="
+          width: 100%;
+          padding: 10px;
+          border: 2px solid var(--border-color);
+          border-radius: 6px;
+          font-size: 14px;
+          font-family: monospace;
+          background: var(--bg-primary);
+          color: var(--text-primary);
+        ">
+        <small style="color: var(--text-secondary); font-size: 0.85em;">
+          Examples: 1d20+5, 2d6+3, 8d6, 1d20+dexterity.modifier
+        </small>
+      </div>
+      
+      <div style="margin-bottom: 20px;">
+        <label style="display: block; margin-bottom: 6px; font-weight: bold; color: var(--text-primary);">
+          Description (optional)
+        </label>
+        <input type="text" id="macro-description-input" placeholder="e.g., Extra damage on hit" style="
+          width: 100%;
+          padding: 10px;
+          border: 2px solid var(--border-color);
+          border-radius: 6px;
+          font-size: 14px;
+          background: var(--bg-primary);
+          color: var(--text-primary);
+        ">
+      </div>
+      
+      <div style="display: flex; gap: 10px; justify-content: flex-end;">
+        <button id="macro-cancel-btn" style="
+          padding: 10px 20px;
+          background: var(--bg-tertiary);
+          color: var(--text-primary);
+          border: 2px solid var(--border-color);
+          border-radius: 6px;
+          cursor: pointer;
+          font-weight: bold;
+        ">
+          Cancel
+        </button>
+        <button id="macro-save-btn" style="
+          padding: 10px 20px;
+          background: var(--accent-primary);
+          color: white;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-weight: bold;
+        ">
+          Save Macro
+        </button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  // Focus the name input
+  document.getElementById('macro-name-input').focus();
+  
+  // Event listeners
+  document.getElementById('macro-cancel-btn').addEventListener('click', () => {
+    document.body.removeChild(modal);
+  });
+  
+  document.getElementById('macro-save-btn').addEventListener('click', () => {
+    const name = document.getElementById('macro-name-input').value.trim();
+    const formula = document.getElementById('macro-formula-input').value.trim();
+    const description = document.getElementById('macro-description-input').value.trim();
+    
+    if (!name || !formula) {
+      alert('Please enter both a name and formula for the macro.');
+      return;
+    }
+    
+    addCustomMacro(name, formula, description);
+    document.body.removeChild(modal);
+  });
+  
+  // Close on background click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      document.body.removeChild(modal);
+    }
+  });
+}
+
+/**
+ * Show settings modal with tabs
+ */
+function showSettingsModal() {
+  // Remove existing modal if any
+  const existingModal = document.getElementById('settings-modal');
+  if (existingModal) {
+    document.body.removeChild(existingModal);
+  }
+  
+  const modal = document.createElement('div');
+  modal.id = 'settings-modal';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+  `;
+  
+  modal.innerHTML = `
+    <div style="
+      background: var(--bg-secondary);
+      border: 2px solid var(--border-color);
+      border-radius: 12px;
+      max-width: 700px;
+      width: 90%;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    ">
+      <!-- Header -->
+      <div style="
+        padding: 20px;
+        border-bottom: 2px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      ">
+        <h3 style="margin: 0; color: var(--text-primary);">⚙️ Settings</h3>
+        <button id="settings-close-btn" style="
+          background: var(--accent-danger);
+          color: white;
+          border: none;
+          padding: 6px 12px;
+          border-radius: 6px;
+          cursor: pointer;
+          font-weight: bold;
+        ">✕</button>
+      </div>
+      
+      <!-- Tabs -->
+      <div style="
+        display: flex;
+        border-bottom: 2px solid var(--border-color);
+        background: var(--bg-tertiary);
+      ">
+        <button class="settings-tab active" data-tab="theme" style="
+          flex: 1;
+          padding: 12px;
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          font-weight: bold;
+          color: var(--text-secondary);
+          transition: all 0.2s;
+        ">🎨 Theme</button>
+        <button class="settings-tab" data-tab="macros" style="
+          flex: 1;
+          padding: 12px;
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          font-weight: bold;
+          color: var(--text-secondary);
+          transition: all 0.2s;
+        ">🎲 Custom Macros</button>
+      </div>
+      
+      <!-- Content -->
+      <div style="
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px;
+      ">
+        <!-- Theme Tab -->
+        <div id="theme-tab-content" class="settings-tab-content">
+          <h4 style="margin: 0 0 15px 0; color: var(--text-primary);">Choose Theme</h4>
+          <div style="display: flex; gap: 15px; margin-bottom: 20px;">
+            <button class="theme-option" data-theme="light" style="
+              flex: 1;
+              padding: 20px;
+              background: var(--bg-primary);
+              border: 3px solid var(--border-color);
+              border-radius: 8px;
+              cursor: pointer;
+              transition: all 0.2s;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              gap: 8px;
+            ">
+              <span style="font-size: 2em;">☀️</span>
+              <span style="font-weight: bold; color: var(--text-primary);">Light</span>
+            </button>
+            <button class="theme-option" data-theme="dark" style="
+              flex: 1;
+              padding: 20px;
+              background: var(--bg-primary);
+              border: 3px solid var(--border-color);
+              border-radius: 8px;
+              cursor: pointer;
+              transition: all 0.2s;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              gap: 8px;
+            ">
+              <span style="font-size: 2em;">🌙</span>
+              <span style="font-weight: bold; color: var(--text-primary);">Dark</span>
+            </button>
+            <button class="theme-option active" data-theme="system" style="
+              flex: 1;
+              padding: 20px;
+              background: var(--bg-primary);
+              border: 3px solid var(--accent-primary);
+              border-radius: 8px;
+              cursor: pointer;
+              transition: all 0.2s;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              gap: 8px;
+            ">
+              <span style="font-size: 2em;">💻</span>
+              <span style="font-weight: bold; color: var(--text-primary);">System</span>
+            </button>
+          </div>
+          <p style="color: var(--text-secondary); font-size: 0.9em; margin: 0;">
+            System theme automatically matches your operating system's appearance settings.
+          </p>
+        </div>
+        
+        <!-- Macros Tab -->
+        <div id="macros-tab-content" class="settings-tab-content" style="display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h4 style="margin: 0; color: var(--text-primary);">Your Custom Macros</h4>
+            <button id="add-macro-btn-settings" style="
+              padding: 8px 16px;
+              background: var(--accent-primary);
+              color: white;
+              border: none;
+              border-radius: 6px;
+              cursor: pointer;
+              font-weight: bold;
+            ">➕ Add Macro</button>
+          </div>
+          <div id="custom-macros-container-settings"></div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  // Set up tab switching
+  modal.querySelectorAll('.settings-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const tabName = tab.dataset.tab;
+      
+      // Update tab buttons
+      modal.querySelectorAll('.settings-tab').forEach(t => {
+        t.classList.remove('active');
+        t.style.color = 'var(--text-secondary)';
+        t.style.background = 'transparent';
+      });
+      tab.classList.add('active');
+      tab.style.color = 'var(--text-primary)';
+      tab.style.background = 'var(--bg-secondary)';
+      
+      // Update content
+      modal.querySelectorAll('.settings-tab-content').forEach(content => {
+        content.style.display = 'none';
+      });
+      modal.querySelector(`#${tabName}-tab-content`).style.display = 'block';
+    });
+  });
+  
+  // Set up theme options
+  const currentTheme = ThemeManager.getCurrentTheme();
+  modal.querySelectorAll('.theme-option').forEach(option => {
+    if (option.dataset.theme === currentTheme) {
+      option.style.borderColor = 'var(--accent-primary)';
+      option.classList.add('active');
+    }
+    
+    option.addEventListener('click', () => {
+      const theme = option.dataset.theme;
+      ThemeManager.setTheme(theme);
+      
+      // Update active state
+      modal.querySelectorAll('.theme-option').forEach(opt => {
+        opt.style.borderColor = 'var(--border-color)';
+        opt.classList.remove('active');
+      });
+      option.style.borderColor = 'var(--accent-primary)';
+      option.classList.add('active');
+    });
+  });
+  
+  // Load macros into settings
+  updateMacrosDisplayInSettings();
+  
+  // Set up add macro button
+  modal.querySelector('#add-macro-btn-settings').addEventListener('click', () => {
+    showAddMacroModal();
+  });
+  
+  // Close button
+  modal.querySelector('#settings-close-btn').addEventListener('click', () => {
+    document.body.removeChild(modal);
+  });
+  
+  // Close on background click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      document.body.removeChild(modal);
+    }
+  });
+}
+
+/**
+ * Show add macro modal (simplified version for settings)
+ */
+function showAddMacroModal() {
+  const modal = document.createElement('div');
+  modal.id = 'add-macro-modal';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10001;
+  `;
+  
+  modal.innerHTML = `
+    <div style="
+      background: var(--bg-secondary);
+      border: 2px solid var(--border-color);
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 500px;
+      width: 90%;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    ">
+      <h3 style="margin: 0 0 20px 0; color: var(--text-primary);">🎲 Add Custom Macro</h3>
+      
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; margin-bottom: 6px; font-weight: bold; color: var(--text-primary);">
+          Macro Name
+        </label>
+        <input type="text" id="macro-name-input" placeholder="e.g., Sneak Attack" style="
+          width: 100%;
+          padding: 10px;
+          border: 2px solid var(--border-color);
+          border-radius: 6px;
+          font-size: 14px;
+          background: var(--bg-primary);
+          color: var(--text-primary);
+        ">
+      </div>
+      
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; margin-bottom: 6px; font-weight: bold; color: var(--text-primary);">
+          Roll Formula
+        </label>
+        <input type="text" id="macro-formula-input" placeholder="e.g., 3d6" style="
+          width: 100%;
+          padding: 10px;
+          border: 2px solid var(--border-color);
+          border-radius: 6px;
+          font-size: 14px;
+          font-family: monospace;
+          background: var(--bg-primary);
+          color: var(--text-primary);
+        ">
+        <small style="color: var(--text-secondary); font-size: 0.85em;">
+          Examples: 1d20+5, 2d6+3, 8d6, 1d20+dexterity.modifier
+        </small>
+      </div>
+      
+      <div style="margin-bottom: 20px;">
+        <label style="display: block; margin-bottom: 6px; font-weight: bold; color: var(--text-primary);">
+          Description (optional)
+        </label>
+        <input type="text" id="macro-description-input" placeholder="e.g., Extra damage on hit" style="
+          width: 100%;
+          padding: 10px;
+          border: 2px solid var(--border-color);
+          border-radius: 6px;
+          font-size: 14px;
+          background: var(--bg-primary);
+          color: var(--text-primary);
+        ">
+      </div>
+      
+      <div style="display: flex; gap: 10px; justify-content: flex-end;">
+        <button id="macro-cancel-btn" style="
+          padding: 10px 20px;
+          background: var(--bg-tertiary);
+          color: var(--text-primary);
+          border: 2px solid var(--border-color);
+          border-radius: 6px;
+          cursor: pointer;
+          font-weight: bold;
+        ">
+          Cancel
+        </button>
+        <button id="macro-save-btn" style="
+          padding: 10px 20px;
+          background: var(--accent-primary);
+          color: white;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          font-weight: bold;
+        ">
+          Save Macro
+        </button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  document.getElementById('macro-name-input').focus();
+  
+  document.getElementById('macro-cancel-btn').addEventListener('click', () => {
+    document.body.removeChild(modal);
+  });
+  
+  document.getElementById('macro-save-btn').addEventListener('click', () => {
+    const name = document.getElementById('macro-name-input').value.trim();
+    const formula = document.getElementById('macro-formula-input').value.trim();
+    const description = document.getElementById('macro-description-input').value.trim();
+    
+    if (!name || !formula) {
+      alert('Please enter both a name and formula for the macro.');
+      return;
+    }
+    
+    addCustomMacro(name, formula, description);
+    document.body.removeChild(modal);
+    updateMacrosDisplayInSettings();
+  });
+  
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      document.body.removeChild(modal);
+    }
+  });
+}
+
+/**
+ * Update macros display in settings modal
+ */
+function updateMacrosDisplayInSettings() {
+  const container = document.getElementById('custom-macros-container-settings');
+  if (!container) return;
+  
+  if (customMacros.length === 0) {
+    container.innerHTML = '<p style="text-align: center; color: #888; padding: 15px;">No custom macros yet. Click "Add Macro" to create one.</p>';
+    return;
+  }
+  
+  container.innerHTML = customMacros.map(macro => `
+    <div class="macro-item" style="
+      background: var(--bg-primary);
+      border: 2px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.2s;
+    ">
+      <div style="flex: 1;">
+        <div style="font-weight: bold; color: var(--text-primary); margin-bottom: 4px;">
+          ${macro.name}
+        </div>
+        <div style="font-family: monospace; color: var(--accent-info); font-size: 0.9em; margin-bottom: 4px;">
+          ${macro.formula}
+        </div>
+        ${macro.description ? `<div style="font-size: 0.85em; color: var(--text-secondary);">${macro.description}</div>` : ''}
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button class="macro-roll-btn" data-macro-id="${macro.id}" style="
+          background: var(--accent-primary);
+          color: white;
+          border: none;
+          padding: 8px 16px;
+          border-radius: 6px;
+          cursor: pointer;
+          font-weight: bold;
+          transition: all 0.2s;
+        ">
+          🎲 Roll
+        </button>
+        <button class="macro-delete-btn" data-macro-id="${macro.id}" style="
+          background: var(--accent-danger);
+          color: white;
+          border: none;
+          padding: 8px 12px;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: all 0.2s;
+        ">
+          🗑️
+        </button>
+      </div>
+    </div>
+  `).join('');
+  
+  container.querySelectorAll('.macro-roll-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const macroId = btn.dataset.macroId;
+      const macro = customMacros.find(m => m.id === macroId);
+      if (macro) {
+        executeMacro(macro);
+        // Close settings modal after rolling
+        const settingsModal = document.getElementById('settings-modal');
+        if (settingsModal) {
+          document.body.removeChild(settingsModal);
+        }
+      }
+    });
+  });
+  
+  container.querySelectorAll('.macro-delete-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const macroId = btn.dataset.macroId;
+      const macro = customMacros.find(m => m.id === macroId);
+      if (macro && confirm(`Delete macro "${macro.name}"?`)) {
+        deleteCustomMacro(macroId);
+        updateMacrosDisplayInSettings();
+      }
+    });
+  });
+}
+
+/**
+ * Initialize custom macros system
+ */
+function initCustomMacros() {
+  loadCustomMacros();
+  debug.log('🎲 Custom macros system initialized');
+}
+
+/**
+ * Initialize settings button
+ */
+function initSettingsButton() {
+  const settingsBtn = document.getElementById('settings-btn');
+  if (settingsBtn) {
+    settingsBtn.addEventListener('click', showSettingsModal);
+    debug.log('⚙️ Settings button initialized');
+  }
+}
+
+// Initialize macros when DOM is ready
+if (domReady) {
+  initCustomMacros();
+  initSettingsButton();
+} else {
+  pendingOperations.push(initCustomMacros);
+  pendingOperations.push(initSettingsButton);
 }

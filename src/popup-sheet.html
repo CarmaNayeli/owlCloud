@@ -175,6 +175,21 @@
       transition: all 0.2s;
       text-align: center;
     }
+    .settings-btn {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1em;
+      transition: all 0.2s;
+      margin-right: 8px;
+    }
+    .settings-btn:hover {
+      background: var(--bg-tertiary);
+      transform: translateY(-1px);
+    }
     .close-btn {
       background: var(--accent-danger);
       color: var(--text-inverse);
@@ -929,29 +944,50 @@
     .gm-mode-toggle:hover {
       opacity: 0.9;
     }
+
+    /* Filter Buttons */
+    .filter-btn {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.85em;
+      transition: all 0.2s;
+      font-weight: 500;
+    }
+
+    .filter-btn:hover {
+      background: var(--bg-card-hover);
+      transform: translateY(-1px);
+    }
+
+    .filter-btn.active {
+      background: var(--accent-primary);
+      color: var(--text-inverse);
+      border-color: var(--accent-primary);
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <!-- Systems Bar -->
     <div class="systems-bar">
-      <div class="theme-switcher">
-        <span style="font-size: 0.75em; color: var(--text-secondary); margin-right: 3px;">Theme:</span>
-        <button class="theme-btn" id="theme-light" data-theme="light">☀️</button>
-        <button class="theme-btn" id="theme-dark" data-theme="dark">🌙</button>
-        <button class="theme-btn active" id="theme-system" data-theme="system">💻</button>
-      </div>
       <div class="color-picker-container">
+        <span style="font-size: 0.75em; color: var(--text-secondary); margin-right: 6px;">Color:</span>
         <button id="color-toggle" class="color-btn" title="Change notification color">
-          <span id="color-emoji">🔵</span> 🎨
+          <span id="color-emoji">🔵</span>
         </button>
-        <div id="color-palette" style="display: none; position: absolute; left: 50%; top: 100%; transform: translateX(-50%); background: rgba(0,0,0,0.9); padding: 12px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 1000; margin-top: 5px;">
+        <div id="color-palette" style="display: none; position: absolute; left: 0; top: 100%; background: rgba(0,0,0,0.9); padding: 12px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 1000; margin-top: 5px;">
         </div>
       </div>
       <div class="gm-mode-container">
         <span class="gm-mode-label"><span>👑</span> GM Mode</span>
         <button class="gm-mode-toggle" id="gm-mode-toggle" title="Toggle GM Mode" aria-label="Toggle GM Mode"></button>
       </div>
+      <button class="settings-btn" id="settings-btn" title="Settings">⚙️</button>
       <button class="close-btn" id="close-btn">✕</button>
     </div>
 
@@ -1067,6 +1103,22 @@
         </div>
       </div>
 
+    <!-- Resources & Spell Slots (right after Action Economy) -->
+    <div class="section">
+      <h3>💎 Resources</h3>
+      <div class="section-content">
+        <div id="resources-container"></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>✨ Spell Slots</h3>
+      <div class="section-content">
+        <div id="spell-slots-container"></div>
+      </div>
+    </div>
+
+    <!-- Abilities, Saves, Skills -->
     <div class="section">
       <h3>⚡ Abilities</h3>
       <div class="section-content">
@@ -1088,20 +1140,7 @@
       </div>
     </div>
 
-    <div class="section">
-      <h3>⚔️ Actions & Attacks</h3>
-      <div class="section-content">
-        <div id="actions-container"></div>
-      </div>
-    </div>
-
-    <div class="section">
-      <h3>💎 Resources</h3>
-      <div class="section-content">
-        <div id="resources-container"></div>
-      </div>
-    </div>
-
+    <!-- Companions (if any) -->
     <div class="section" id="companions-section" style="display: none;">
       <h3>🐾 Companions</h3>
       <div class="section-content">
@@ -1109,16 +1148,59 @@
       </div>
     </div>
 
+    <!-- Actions & Spells at the bottom with filters -->
     <div class="section">
-      <h3>✨ Spell Slots</h3>
+      <h3>⚔️ Actions & Attacks</h3>
       <div class="section-content">
-        <div id="spell-slots-container"></div>
+        <div id="actions-filters" style="margin-bottom: 15px;">
+          <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 10px;">
+            <input type="text" id="actions-search" placeholder="🔍 Search actions..." style="flex: 1; min-width: 200px; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-secondary); color: var(--text-primary);">
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="filter-btn active" data-filter="all" data-type="action-type">All</button>
+            <button class="filter-btn" data-filter="action" data-type="action-type">⚔️ Action</button>
+            <button class="filter-btn" data-filter="bonus" data-type="action-type">⚡ Bonus</button>
+            <button class="filter-btn" data-filter="reaction" data-type="action-type">🛡️ Reaction</button>
+            <button class="filter-btn" data-filter="free" data-type="action-type">🆓 Free</button>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;">
+            <button class="filter-btn active" data-filter="all" data-type="action-category">All Types</button>
+            <button class="filter-btn" data-filter="damage" data-type="action-category">💥 Damage</button>
+            <button class="filter-btn" data-filter="healing" data-type="action-category">💚 Healing</button>
+            <button class="filter-btn" data-filter="utility" data-type="action-category">🔧 Utility</button>
+          </div>
+        </div>
+        <div id="actions-container"></div>
       </div>
     </div>
 
     <div class="section">
       <h3>🔮 Spells</h3>
       <div class="section-content">
+        <div id="spells-filters" style="margin-bottom: 15px;">
+          <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 10px;">
+            <input type="text" id="spells-search" placeholder="🔍 Search spells..." style="flex: 1; min-width: 200px; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-secondary); color: var(--text-primary);">
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="filter-btn active" data-filter="all" data-type="spell-level">All Levels</button>
+            <button class="filter-btn" data-filter="0" data-type="spell-level">Cantrips</button>
+            <button class="filter-btn" data-filter="1" data-type="spell-level">1st</button>
+            <button class="filter-btn" data-filter="2" data-type="spell-level">2nd</button>
+            <button class="filter-btn" data-filter="3" data-type="spell-level">3rd</button>
+            <button class="filter-btn" data-filter="4" data-type="spell-level">4th</button>
+            <button class="filter-btn" data-filter="5" data-type="spell-level">5th</button>
+            <button class="filter-btn" data-filter="6" data-type="spell-level">6th</button>
+            <button class="filter-btn" data-filter="7" data-type="spell-level">7th</button>
+            <button class="filter-btn" data-filter="8" data-type="spell-level">8th</button>
+            <button class="filter-btn" data-filter="9" data-type="spell-level">9th</button>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;">
+            <button class="filter-btn active" data-filter="all" data-type="spell-category">All Types</button>
+            <button class="filter-btn" data-filter="damage" data-type="spell-category">💥 Damage</button>
+            <button class="filter-btn" data-filter="healing" data-type="spell-category">💚 Healing</button>
+            <button class="filter-btn" data-filter="utility" data-type="spell-category">🔧 Utility</button>
+          </div>
+        </div>
         <div id="spells-container"></div>
       </div>
     </div>

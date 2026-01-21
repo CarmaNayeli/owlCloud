@@ -181,6 +181,135 @@
     debug.log('📊 Variables count:', Object.keys(variables).length);
     debug.log('📋 Properties count:', properties.length);
 
+    // Calculate AC from properties with armor stat effects
+    const calculateArmorClass = () => {
+      let baseAC = 10;
+      let armorAC = null;
+      const acBonuses = [];
+      
+      debug.log('🛡️ Calculating AC from properties...');
+      debug.log(`🛡️ Total properties to scan: ${properties.length}`);
+      
+      // Debug: Log all properties with type 'effect' to see structure
+      const effectProps = properties.filter(p => p.type === 'effect');
+      debug.log(`🛡️ Found ${effectProps.length} effect properties`);
+      if (effectProps.length > 0) {
+        debug.log('🛡️ Sample effect properties:', effectProps.slice(0, 5).map(p => ({
+          name: p.name,
+          type: p.type,
+          stat: p.stat,
+          stats: p.stats,
+          operation: p.operation,
+          amount: p.amount,
+          inactive: p.inactive,
+          disabled: p.disabled
+        })));
+        
+        // Look specifically for armor-related effects
+        const armorEffects = effectProps.filter(p => 
+          p.stat === 'armor' || 
+          (Array.isArray(p.stats) && p.stats.includes('armor')) ||
+          (typeof p.stats === 'string' && p.stats === 'armor') ||
+          (p.name && p.name.toLowerCase().includes('armor'))
+        );
+        debug.log(`🛡️ Found ${armorEffects.length} armor-related effects:`, armorEffects.map(p => ({
+          name: p.name,
+          type: p.type,
+          stat: p.stat,
+          stats: p.stats,
+          operation: p.operation,
+          amount: p.amount,
+          inactive: p.inactive,
+          disabled: p.disabled,
+          enabled: p.enabled,
+          equipped: p.equipped,
+          parent: p.parent
+        })));
+      }
+      
+      // Find all effects that modify the "armor" stat
+      properties.forEach(prop => {
+        if (prop.inactive || prop.disabled) return;
+        
+        // Skip spell effects - they only apply when the spell is active
+        // Common spell names that affect AC temporarily
+        const spellACEffects = ['shield', 'shield of faith', 'armor of agathys', 'mage armor', 'barkskin'];
+        if (prop.name && spellACEffects.some(spell => prop.name.toLowerCase().includes(spell))) {
+          debug.log(`  ⏭️ Skipping spell effect: ${prop.name} (only applies when spell is active)`);
+          return;
+        }
+        
+        // Check if this property has an effect on armor stat
+        // Handle both string and array formats for stats
+        const hasArmorStat = prop.stat === 'armor' || 
+                            (Array.isArray(prop.stats) && prop.stats.includes('armor')) ||
+                            (typeof prop.stats === 'string' && prop.stats === 'armor');
+        
+        if (hasArmorStat) {
+          // Extract amount - can be a number, string, or object with calculation property
+          let amount = null;
+          if (typeof prop.amount === 'number') {
+            amount = prop.amount;
+          } else if (typeof prop.amount === 'string') {
+            amount = parseFloat(prop.amount);
+          } else if (prop.amount && typeof prop.amount === 'object' && prop.amount.calculation) {
+            // For calculated amounts, try to parse the calculation string
+            // This handles formulas like "14+min(dexterity.modifier, 2)"
+            const calc = prop.amount.calculation;
+            debug.log(`🛡️ Found calculated armor amount: "${calc}" for ${prop.name || 'Unnamed'}`);
+            // Try to extract a base number from the calculation (e.g., "14" from "14+...")
+            const baseMatch = calc.match(/^(\d+)/);
+            if (baseMatch) {
+              amount = parseInt(baseMatch[1]);
+              debug.log(`  📊 Extracted base AC value: ${amount} from calculation`);
+            }
+          }
+          
+          if (amount !== null && !isNaN(amount)) {
+            const operation = prop.operation || '';
+            debug.log(`🛡️ Found armor effect: ${prop.name || 'Unnamed'} - Operation: ${operation}, Amount: ${amount}`);
+            
+            // Base value operations set the AC directly (like armor)
+            if (operation === 'base' || operation === 'Base value') {
+              if (armorAC === null || amount > armorAC) {
+                armorAC = amount;
+                debug.log(`  ✅ Set armor AC to ${amount} from ${prop.name || 'Unnamed'}`);
+              }
+            }
+            // Add operations add to AC (like shields, bonuses)
+            else if (operation === 'add' || operation === 'Add') {
+              acBonuses.push({ name: prop.name, amount });
+              debug.log(`  ✅ Added AC bonus: +${amount} from ${prop.name || 'Unnamed'}`);
+            }
+          }
+        }
+      });
+      
+      // Dicecloud pre-calculates AC including all formulas and modifiers
+      // Use that value if available, otherwise calculate from our detected effects
+      debug.log('🛡️ Full armorClass variable object:', variables.armorClass);
+      
+      // Check if Dicecloud provided a calculated AC
+      if (variables.armorClass && (variables.armorClass.total || variables.armorClass.value)) {
+        const variableAC = variables.armorClass.total || variables.armorClass.value;
+        debug.log(`🛡️ Using Dicecloud's calculated AC: ${variableAC}`);
+        return variableAC;
+      }
+      
+      // Dicecloud didn't provide AC, so calculate from our detected effects
+      let finalAC = armorAC !== null ? armorAC : baseAC;
+      acBonuses.forEach(bonus => {
+        finalAC += bonus.amount;
+      });
+      
+      debug.log(`🛡️ Dicecloud didn't provide AC variable, calculating from effects:`);
+      debug.log(`   Base: ${armorAC !== null ? armorAC + ' (armor)' : baseAC + ' (unarmored)'}`);
+      debug.log(`   Bonuses: ${acBonuses.map(b => `+${b.amount} (${b.name})`).join(', ') || 'none'}`);
+      debug.log(`   Final AC: ${finalAC}`);
+      
+      return finalAC;
+    };
+
     const characterData = {
       id: creature._id || getCharacterIdFromUrl(),  // CRITICAL: Store character ID for proper persistence
       name: creature.name || '',
@@ -204,7 +333,7 @@
         current: (variables.hitPoints && variables.hitPoints.value) || 0,
         max: (variables.hitPoints && variables.hitPoints.total) || 0
       },
-      armorClass: (variables.armorClass && (variables.armorClass.total || variables.armorClass.value)) || 10,
+      armorClass: calculateArmorClass(),
       speed: (variables.speed && (variables.speed.total || variables.speed.value)) || 30,
       initiative: (variables.initiative && (variables.initiative.total || variables.initiative.value)) || 0,
       proficiencyBonus: (variables.proficiencyBonus && (variables.proficiencyBonus.total || variables.proficiencyBonus.value)) || 0,
@@ -214,6 +343,7 @@
       },
       resources: [],  // Ki Points, Sorcery Points, Rage, etc.
       companions: [],  // NEW: Store companion creatures (Animal Companions, Find Familiar, etc.)
+      conditions: [],  // Active conditions (Guidance, Bless, etc.) that affect rolls
       kingdom: {},
       army: {},
       otherVariables: {}
@@ -592,6 +722,13 @@
           debug.log(`🔘 Found toggle: ${prop.name} (enabled on DiceCloud: ${prop.enabled})`);
           debug.log(`🔘 Toggle full object:`, prop);
 
+            // Check if this is a condition toggle (affects rolls)
+            const conditionNames = ['guidance', 'bless', 'bane', 'bardic inspiration', 'inspiration', 
+                                   'advantage', 'disadvantage', 'resistance', 'vulnerability'];
+            const isConditionToggle = conditionNames.some(cond => 
+              prop.name && prop.name.toLowerCase().includes(cond)
+            );
+
             // Find child properties of this toggle
             const toggleChildren = apiData.creatureProperties.filter(child => {
               return child.parent && child.parent.id === prop._id;
@@ -599,6 +736,29 @@
 
             debug.log(`🔘 Toggle "${prop.name}" has ${toggleChildren.length} children:`, toggleChildren.map(c => c.name));
             debug.log(`🔘 Toggle children full objects:`, toggleChildren);
+            
+            // If this is a condition toggle and it's enabled, add it to conditions
+            if (isConditionToggle && prop.enabled) {
+              // Extract the effect value from children
+              let effectValue = '';
+              toggleChildren.forEach(child => {
+                if (child.type === 'effect' && child.amount) {
+                  if (typeof child.amount === 'string') {
+                    effectValue = child.amount;
+                  } else if (typeof child.amount === 'object' && child.amount.calculation) {
+                    effectValue = child.amount.calculation;
+                  }
+                }
+              });
+              
+              characterData.conditions.push({
+                name: prop.name,
+                effect: effectValue || '1d4', // Default to 1d4 if no effect found
+                active: true,
+                source: 'dicecloud'
+              });
+              debug.log(`✨ Added active condition: ${prop.name} (${effectValue || '1d4'})`);
+            }
 
             // Debug: Log child types
             toggleChildren.forEach(child => {
