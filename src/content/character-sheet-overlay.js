@@ -1334,12 +1334,11 @@
    */
   function rollSimultaneously(name, formula) {
     debug.log(`🎲 Rolling ${name} with formula ${formula}...`);
-    debug.log('🔍 Debug: rollSimultaneously called');
-    
+
     // Check advantage mode and modify formula for Roll20 syntax
     const advantageMode = rollStats.settings.advantageMode;
     let modifiedFormula = formula;
-    
+
     if (advantageMode === 'advantage') {
       // Roll20 syntax for advantage: 2d20kh1 (keep highest)
       modifiedFormula = formula.replace(/^1d20/, '2d20kh1');
@@ -1349,70 +1348,36 @@
       modifiedFormula = formula.replace(/^1d20/, '2d20kl1');
       debug.log(`🎲 Disadvantage mode: ${formula} → ${modifiedFormula}`);
     }
-    
-    // Check if we're in a popup window or in Roll20
-    const isPopupWindow = window.opener !== null || window.location.hostname !== 'app.roll20.net';
-    debug.log(`🔍 Debug: isPopupWindow: ${isPopupWindow}, hostname: ${window.location.hostname}`);
-    
-    if (isPopupWindow) {
-      // In popup window - use background script to coordinate with Dice Cloud
-      debug.log('📍 In popup window, using background script to roll in Dice Cloud');
-      showNotification(`Rolling ${name} in Dice Cloud... 🎲`, 'info');
-      
-      // Send to background script to find Dice Cloud tab and roll there
-      debug.log('🔍 Debug: Sending message to background script');
-      browserAPI.runtime.sendMessage({
-        action: 'rollInDiceCloudAndForward',
-        roll: {
-          name: name,
-          formula: modifiedFormula,
-          originalFormula: formula,
-          advantageMode: advantageMode,
-          timestamp: Date.now()
-        }
-      }, (response) => {
-        debug.log('🔍 Debug: Background script response:', response);
-        if (browserAPI.runtime.lastError) {
-          debug.error('❌ Background script error:', browserAPI.runtime.lastError);
-          showNotification('Failed to roll in Dice Cloud. Is Dice Cloud open?', 'error');
-        } else if (response && response.success) {
-          debug.log('✅ Roll initiated in Dice Cloud via background script');
-          showNotification(`${name} roll initiated in Dice Cloud! 🎲`, 'success');
-          // Roll will be forwarded to Roll20 automatically via background script
-        } else {
-          debug.error('❌ Failed to roll in Dice Cloud:', response?.error);
-          showNotification('Failed to roll in Dice Cloud. Is Dice Cloud open?', 'error');
-        }
+
+    // Post roll directly to Roll20 - no DiceCloud needed!
+    debug.log('🎯 Posting roll directly to Roll20 (no DiceCloud!)');
+    showNotification(`Rolling ${name}... 🎲`, 'info');
+
+    // Format roll for Roll20
+    const rollMessage = `&{template:default} {{name=${name}}} {{Roll=[[${modifiedFormula}]]}}`;
+
+    // Post to Roll20 chat
+    const success = postChatMessage(rollMessage);
+
+    if (success) {
+      debug.log('✅ Roll posted directly to Roll20!');
+      showNotification(`${name} rolled! 🎲`, 'success');
+
+      // Track the roll in overlay history
+      addToRollHistory({
+        name: name,
+        formula: modifiedFormula,
+        timestamp: Date.now()
       });
+
+      // Update overlay display if visible
+      if (overlayVisible) {
+        updateRollHistoryDisplay();
+        updateStatsDisplay();
+      }
     } else {
-      // In Roll20 - use background script to coordinate with Dice Cloud tab
-      debug.log('📍 In Roll20, using background script to roll in Dice Cloud');
-      showNotification(`Rolling ${name} in Dice Cloud... 🎲`, 'info');
-      
-      // Send to background script to find Dice Cloud tab and roll there
-      debug.log('🔍 Debug: Sending message to background script from Roll20');
-      browserAPI.runtime.sendMessage({
-        action: 'rollInDiceCloudAndForward',
-        roll: {
-          name: name,
-          formula: modifiedFormula,
-          originalFormula: formula,
-          advantageMode: advantageMode,
-          timestamp: Date.now()
-        }
-      }, (response) => {
-        debug.log('🔍 Debug: Background script response from Roll20:', response);
-        if (browserAPI.runtime.lastError) {
-          debug.error('❌ Background script error:', browserAPI.runtime.lastError);
-          showNotification('Failed to roll in Dice Cloud. Is Dice Cloud open?', 'error');
-        } else if (response && response.success) {
-          debug.log('✅ Roll initiated in Dice Cloud via background script');
-          showNotification(`${name} roll initiated in Dice Cloud! 🎲`, 'success');
-        } else {
-          debug.error('❌ Failed to roll in Dice Cloud:', response?.error);
-          showNotification('Failed to roll in Dice Cloud. Is Dice Cloud open?', 'error');
-        }
-      });
+      debug.error('❌ Failed to post roll to Roll20');
+      showNotification('Failed to roll. Make sure you\'re on Roll20!', 'error');
     }
   }
 

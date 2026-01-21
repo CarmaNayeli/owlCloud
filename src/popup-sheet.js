@@ -5218,9 +5218,9 @@ function performHalflingReroll(originalRollData) {
       ...rerollData
     }, '*');
   } else {
-    // Fallback: try background script
+    // Fallback: send directly to Roll20 via background script
     browserAPI.runtime.sendMessage({
-      action: 'rollInDiceCloudAndForward',
+      action: 'relayRollToRoll20',
       roll: rerollData
     });
   }
