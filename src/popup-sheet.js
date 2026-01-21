@@ -667,6 +667,9 @@ function buildSheet(data) {
 }
 
 function buildSpellsBySource(container, spells) {
+  debug.log(`📚 buildSpellsBySource called with ${spells.length} spells`);
+  debug.log(`📚 Spell names: ${spells.map(s => s.name).join(', ')}`);
+
   // Group spells by actual spell level (not source)
   const spellsByLevel = {};
 
@@ -713,6 +716,7 @@ function buildSpellsBySource(container, spells) {
     const deduplicatedSpells = [];
     const spellsByName = {};
 
+    debug.log(`📚 Deduplicating ${sortedSpells.length} spells in ${levelKey}`);
     sortedSpells.forEach(spell => {
       const spellName = spell.name || 'Unnamed Spell';
 
@@ -720,15 +724,18 @@ function buildSpellsBySource(container, spells) {
         // First occurrence of this spell
         spellsByName[spellName] = spell;
         deduplicatedSpells.push(spell);
+        debug.log(`📚 First occurrence: "${spellName}"`);
       } else {
         // Duplicate spell - combine sources
         const existingSpell = spellsByName[spellName];
+        debug.log(`📚 Found duplicate: "${spellName}" - combining sources`);
         if (spell.source && !existingSpell.source.includes(spell.source)) {
           existingSpell.source += '; ' + spell.source;
           debug.log(`📚 Combined duplicate spell "${spellName}": ${existingSpell.source}`);
         }
       }
     });
+    debug.log(`📚 After deduplication: ${deduplicatedSpells.length} unique spells in ${levelKey}`);
 
     // Add deduplicated spells
     deduplicatedSpells.forEach(spell => {
@@ -2254,8 +2261,10 @@ function createSpellCard(spell, index) {
   const castBtn = header.querySelector('.cast-btn');
   castBtn.addEventListener('click', (e) => {
     e.stopPropagation();
+    e.preventDefault(); // Prevent any default behavior
+    debug.log(`🎯 Cast button clicked for ${spell.name} (index: ${index})`);
     castSpell(spell, index);
-  });
+  }, { once: false }); // Allow multiple casts, but one listener
 
   // Roll button
   const rollBtn = desc.querySelector('.roll-btn');
@@ -2282,7 +2291,7 @@ function castSpell(spell, index) {
   // Cantrips (level 0) don't need slots
   if (!spell.level || spell.level === 0 || spell.level === '0') {
     debug.log('✨ Casting cantrip (no resource needed)');
-    markActionAsUsed(spell.castingTime);
+    // Don't call markActionAsUsed - announceSpellCast already announces to chat
     announceSpellCast(spell);
     showNotification(`✨ Cast ${spell.name}!`);
     return;
@@ -2687,8 +2696,7 @@ function castWithSlot(spell, slot, metamagicOptions = []) {
     }
   }
 
-  // Mark action as used based on casting time
-  markActionAsUsed(spell.castingTime);
+  // Don't call markActionAsUsed - announceSpellCast already announces to chat
 
   saveCharacterData();
 
@@ -2723,10 +2731,9 @@ function useClassResource(resource, spell) {
   }
 
   characterData.otherVariables[resource.varName] = resource.current - 1;
-  
-  // Mark action as used based on casting time
-  markActionAsUsed(spell.castingTime);
-  
+
+  // Don't call markActionAsUsed - announceSpellCast already announces to chat
+
   saveCharacterData();
 
   debug.log(`✅ Used ${resource.name}. Remaining: ${characterData.otherVariables[resource.varName]}/${resource.max}`);
