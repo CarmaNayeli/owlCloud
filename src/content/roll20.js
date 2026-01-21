@@ -148,6 +148,7 @@
 
   let gmModeEnabled = false;
   let gmPanel = null;
+  const characterPopups = {}; // Track popup windows by character name
   let initiativeTracker = {
     combatants: [],
     currentTurnIndex: 0,
@@ -594,21 +595,34 @@
     const current = getCurrentCombatant();
     if (!current) return;
 
-    // Try to find character sheet popup window and send message
-    // This will activate their action economy
-    try {
-      const popupWindows = window.opener ? [window.opener] : [];
-      popupWindows.forEach(win => {
-        if (win && !win.closed) {
-          win.postMessage({
-            action: 'activateTurn',
+    debug.log(`🎯 Notifying turn for: ${current.name}`);
+
+    // Send activateTurn to all popup windows
+    // The popup will check if it matches the current combatant
+    Object.keys(characterPopups).forEach(characterName => {
+      const popup = characterPopups[characterName];
+      try {
+        if (popup && !popup.closed) {
+          const isTheirTurn = characterName === current.name ||
+                              current.name.includes(characterName) ||
+                              characterName.includes(current.name);
+
+          popup.postMessage({
+            action: isTheirTurn ? 'activateTurn' : 'deactivateTurn',
             combatant: current.name
           }, '*');
+
+          debug.log(`📤 Sent ${isTheirTurn ? 'activateTurn' : 'deactivateTurn'} to ${characterName}`);
+        } else {
+          // Clean up closed popups
+          delete characterPopups[characterName];
+          debug.log(`🗑️ Removed closed popup for ${characterName}`);
         }
-      });
-    } catch (error) {
-      debug.warn('Could not notify character sheet:', error);
-    }
+      } catch (error) {
+        debug.warn(`⚠️ Could not notify ${characterName}:`, error);
+        delete characterPopups[characterName];
+      }
+    });
   }
 
   /**
@@ -756,6 +770,17 @@
       }
     }
   }
+
+  /**
+   * Register a character popup window
+   * Called by character-sheet-overlay when opening a popup
+   */
+  window.rollcloudRegisterPopup = function(characterName, popupWindow) {
+    if (characterName && popupWindow) {
+      characterPopups[characterName] = popupWindow;
+      debug.log(`✅ Registered popup for: ${characterName}`);
+    }
+  };
 
   /**
    * Listen for messages to toggle GM mode and post chat messages

@@ -4772,6 +4772,11 @@ window.addEventListener('message', (event) => {
     }
 
     showNotification('⚔️ Your turn!', 'success');
+  } else if (event.data && event.data.action === 'deactivateTurn') {
+    debug.log('⏸️ Turn ended. Deactivating action economy...');
+
+    // Deactivate turn state
+    deactivateTurn();
   }
 });
 
