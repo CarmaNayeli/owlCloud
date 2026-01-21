@@ -309,10 +309,26 @@
       handleDiceCloudRoll(request.roll);
       sendResponse({ success: true });
     } else if (request.action === 'rollFromPopout') {
-      // Skip immediate posting - wait for the actual result from Dice Cloud
-      // This prevents duplicate rolls (one from request, one from result)
-      debug.log('🔄 Roll request received, waiting for Dice Cloud result...');
-      sendResponse({ success: true });
+      // Post roll directly to Roll20 - no DiceCloud needed!
+      debug.log('🎲 Received roll request from popup:', request);
+
+      const rollData = {
+        name: request.name || request.roll?.name,
+        formula: request.formula || request.roll?.formula,
+        characterName: request.characterName || request.roll?.characterName
+      };
+
+      // Format and post to Roll20 chat
+      const formattedMessage = formatRollForRoll20(rollData);
+      const success = postChatMessage(formattedMessage);
+
+      if (success) {
+        debug.log('✅ Roll posted directly to Roll20 (no DiceCloud!)');
+        // Observe Roll20's result for natural 1s/20s
+        observeNextRollResult(rollData);
+      }
+
+      sendResponse({ success: success });
     } else if (request.action === 'announceSpell') {
       // Handle spell/action announcements relayed from background script (Firefox)
       if (request.message) {
@@ -391,9 +407,24 @@
       // Handle general chat messages (like spell descriptions)
       postChatMessage(event.data.message);
     } else if (event.data.action === 'rollFromPopout') {
-      // Skip immediate posting - wait for the actual result from Dice Cloud
-      // This prevents duplicate rolls (one from request, one from result)
-      debug.log('🔄 Roll request received from popup, waiting for Dice Cloud result...');
+      // Post roll directly to Roll20 - no DiceCloud needed!
+      debug.log('🎲 Received roll request from popup via postMessage:', event.data);
+
+      const rollData = {
+        name: event.data.name,
+        formula: event.data.formula,
+        characterName: event.data.characterName
+      };
+
+      // Format and post to Roll20 chat
+      const formattedMessage = formatRollForRoll20(rollData);
+      const success = postChatMessage(formattedMessage);
+
+      if (success) {
+        debug.log('✅ Roll posted directly to Roll20 (no DiceCloud!)');
+        // Observe Roll20's result for natural 1s/20s
+        observeNextRollResult(rollData);
+      }
     } else if (event.data.action === 'announceSpell') {
       // Handle spell/action announcements with pre-formatted messages
       if (event.data.message) {

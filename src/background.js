@@ -103,7 +103,9 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
 
         case 'rollInDiceCloudAndForward':
-          await rollInDiceCloudAndForward(request.roll);
+          // Legacy action - now routes directly to Roll20 (no DiceCloud!)
+          debug.log('📡 Routing roll directly to Roll20 (skipping DiceCloud):', request.roll);
+          await sendRollToAllRoll20Tabs(request.roll);
           response = { success: true };
           break;
 
