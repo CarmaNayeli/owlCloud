@@ -507,7 +507,12 @@
       position: fixed;
       top: 80px;
       right: 20px;
-      width: 380px;
+      width: 500px;
+      height: 600px;
+      min-width: 400px;
+      min-height: 400px;
+      max-width: 800px;
+      max-height: 900px;
       background: #2a2a2a;
       border: 3px solid #4ECDC4;
       border-radius: 12px;
@@ -516,6 +521,8 @@
       display: none;
       font-family: Arial, sans-serif;
       color: #fff;
+      resize: both;
+      overflow: auto;
     `;
 
     // Create header
