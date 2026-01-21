@@ -271,11 +271,11 @@ function buildSheet(data) {
     colorEmojiEl.textContent = currentColorEmoji;
   }
 
-  // Populate color palette in systems bar
+  // Populate color palette in systems bar (but keep it hidden initially)
   const colorPaletteEl = document.getElementById('color-palette');
   if (colorPaletteEl) {
     colorPaletteEl.innerHTML = createColorPalette(data.notificationColor || '#3498db');
-    colorPaletteEl.style.display = 'grid';
+    colorPaletteEl.style.display = 'none'; // Start hidden - user must click to show
     colorPaletteEl.style.gridTemplateColumns = 'repeat(4, 1fr)';
     colorPaletteEl.style.gap = '10px';
     colorPaletteEl.style.width = '180px';
@@ -478,6 +478,16 @@ function buildSheet(data) {
   // Companions (Animal Companions, Familiars, Summons, etc.)
   if (data.companions && data.companions.length > 0) {
     buildCompanionsDisplay(data.companions);
+  } else {
+    // Hide companions section if character has no companions
+    const companionsSection = document.getElementById('companions-section');
+    const companionsContainer = document.getElementById('companions-container');
+    if (companionsSection) {
+      companionsSection.style.display = 'none';
+    }
+    if (companionsContainer) {
+      companionsContainer.innerHTML = '';
+    }
   }
 
   // Spells - organized by source then level
