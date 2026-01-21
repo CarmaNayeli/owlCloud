@@ -357,6 +357,7 @@
    * Toggle GM Mode
    */
   function toggleGMMode(enabled) {
+    const previousState = gmModeEnabled;
     gmModeEnabled = enabled !== undefined ? enabled : !gmModeEnabled;
 
     if (!gmPanel) {
@@ -365,11 +366,32 @@
 
     gmPanel.style.display = gmModeEnabled ? 'block' : 'none';
 
+    // Visual feedback - change border color when active
+    if (gmModeEnabled) {
+      gmPanel.style.borderColor = '#27ae60'; // Green border when active
+      gmPanel.style.boxShadow = '0 8px 32px rgba(39, 174, 96, 0.3)'; // Green glow
+    } else {
+      gmPanel.style.borderColor = '#4ECDC4'; // Default cyan border
+      gmPanel.style.boxShadow = '0 8px 32px rgba(0,0,0,0.5)'; // Default shadow
+    }
+
     // Start/stop chat monitoring
     if (gmModeEnabled) {
       startChatMonitoring();
     } else {
       stopChatMonitoring();
+    }
+
+    // Post chat announcement only when state actually changes
+    if (previousState !== gmModeEnabled) {
+      const message = gmModeEnabled
+        ? '👑 GM Initiative Tracker is now active - monitoring chat for initiative rolls'
+        : '👑 GM Initiative Tracker deactivated';
+
+      // Use setTimeout to ensure the chat is ready
+      setTimeout(() => {
+        postChatMessage(message);
+      }, 100);
     }
 
     debug.log(`👑 GM Mode ${gmModeEnabled ? 'enabled' : 'disabled'}`);
@@ -571,13 +593,23 @@
   function checkForInitiativeRoll(messageNode) {
     const text = messageNode.textContent || '';
 
+    // Debug: Log the message to see format
+    debug.log('📨 Chat message:', text);
+
     // Look for patterns like:
-    // "rolled a 15 for initiative"
+    // "Grey rolls Initiative Roll 21"
+    // "Test 1 rolls Initiative Roll 22"
+    // "CharacterName rolled a 15 for initiative"
     // "Initiative: 18"
-    // "rolls Initiative (15)"
     const initiativePatterns = [
-      /(\w+(?:\s+\w+)*?).*?(?:rolled?|rolls?).*?initiative.*?(\d+)/i,
-      /(\w+(?:\s+\w+)*?).*?initiative.*?(\d+)/i
+      // Pattern 1: "Name rolls Initiative Roll 21"
+      /^(.+?)\s+rolls?\s+Initiative.*?Roll\s+(\d+)/i,
+      // Pattern 2: "Name rolls Initiative" followed by number
+      /^(.+?)\s+rolls?\s+Initiative.*?(\d+)/i,
+      // Pattern 3: "Name rolled 15 for initiative"
+      /^(.+?)\s+rolled?\s+(?:a\s+)?(\d+)\s+for\s+initiative/i,
+      // Pattern 4: Generic "Name ... initiative ... 15"
+      /^(.+?).*?initiative.*?(\d+)/i
     ];
 
     for (const pattern of initiativePatterns) {
@@ -586,7 +618,7 @@
         const name = match[1].trim();
         const initiative = parseInt(match[2]);
 
-        if (name && !isNaN(initiative)) {
+        if (name && !isNaN(initiative) && initiative >= 0 && initiative <= 50) {
           debug.log(`🎲 Detected initiative roll: ${name} = ${initiative}`);
           addCombatant(name, initiative, 'chat');
           return;
