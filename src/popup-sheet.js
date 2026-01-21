@@ -4395,7 +4395,7 @@ function initActionEconomy() {
   // Set initial state - only reaction available when not your turn
   updateActionEconomyAvailability();
 
-  // Click to toggle used state
+  // Click to toggle used state (can only mark as used, not restore manually)
   [actionIndicator, bonusActionIndicator, movementIndicator, reactionIndicator].forEach(indicator => {
     if (indicator) {
       indicator.addEventListener('click', () => {
@@ -4407,11 +4407,15 @@ function initActionEconomy() {
 
         const isUsed = indicator.dataset.used === 'true';
         const actionLabel = indicator.querySelector('.action-label').textContent;
-        indicator.dataset.used = !isUsed;
-        debug.log(`🎯 ${actionLabel} ${isUsed ? 'restored' : 'used'}`);
 
-        // Post to Roll20 chat
-        postActionToChat(actionLabel, isUsed ? 'restored' : 'used');
+        // Can only mark as used, not restore manually (use reset buttons for that)
+        if (!isUsed) {
+          indicator.dataset.used = 'true';
+          debug.log(`🎯 ${actionLabel} used`);
+          postActionToChat(actionLabel, 'used');
+        } else {
+          showNotification(`⚠️ Use Turn/Round Reset to restore ${actionLabel}`);
+        }
       });
     }
   });
@@ -4463,7 +4467,8 @@ function updateActionEconomyAvailability() {
     [...turnBasedActions, reactionIndicator].forEach(indicator => {
       if (indicator) {
         indicator.dataset.disabled = 'false';
-        indicator.style.opacity = '1';
+        // Remove inline styles to let CSS data-used attribute work
+        indicator.style.opacity = '';
         indicator.style.cursor = 'pointer';
       }
     });
@@ -4472,7 +4477,8 @@ function updateActionEconomyAvailability() {
     turnBasedActions.forEach(indicator => {
       if (indicator) {
         indicator.dataset.disabled = 'true';
-        indicator.style.opacity = '0.4';
+        // Use inline opacity only when disabled (not your turn)
+        indicator.style.opacity = '0.3';
         indicator.style.cursor = 'not-allowed';
       }
     });
@@ -4480,7 +4486,7 @@ function updateActionEconomyAvailability() {
     // Keep reaction enabled
     if (reactionIndicator) {
       reactionIndicator.dataset.disabled = 'false';
-      reactionIndicator.style.opacity = '1';
+      reactionIndicator.style.opacity = '';
       reactionIndicator.style.cursor = 'pointer';
     }
   }
