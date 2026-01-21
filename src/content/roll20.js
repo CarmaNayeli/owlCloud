@@ -353,6 +353,16 @@
         handleDiceCloudRoll(request);
       }
       sendResponse({ success: true });
+    } else if (request.action === 'postChatMessageFromPopup') {
+      // Handle character broadcast messages from popup
+      if (request.message) {
+        debug.log('📨 Received postChatMessageFromPopup:', request.message);
+        const success = postChatMessage(request.message);
+        sendResponse({ success: success });
+      } else {
+        debug.warn('⚠️ postChatMessageFromPopup missing message');
+        sendResponse({ success: false, error: 'No message provided' });
+      }
     } else if (request.action === 'testRoll20Connection') {
       // Test if we can access Roll20 chat
       const chatInput = document.querySelector('#textchat-input textarea');
