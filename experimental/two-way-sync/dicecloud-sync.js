@@ -133,12 +133,15 @@ class DiceCloudSync {
                 }
                 
                 // Cache class-specific HP as the main "Hit Points" if no main HP was found
-                if (propertyName.includes('Hit Points') && propertyName !== 'Hit Points') {
-                  const classHP = properties.find(p => 
-                    p.type !== 'skill' && 
+                // BUT: Don't cache Temporary Hit Points - only class-specific ones like "Hit Points: Monk"
+                if (propertyName.includes('Hit Points') &&
+                    propertyName !== 'Hit Points' &&
+                    !propertyName.includes('Temporary')) {
+                  const classHP = properties.find(p =>
+                    p.type !== 'skill' &&
                     (p.value !== undefined || p.skillValue !== undefined)
                   );
-                  
+
                   if (classHP) {
                     this.propertyCache.set('Hit Points', classHP._id);
                     console.log(`[DiceCloud Sync] Cached class-specific HP as main Hit Points: ${propertyName} -> ${classHP._id} (type: ${classHP.type})`);
