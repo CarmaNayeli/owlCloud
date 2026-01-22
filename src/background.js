@@ -59,6 +59,12 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
           response = { success: true };
           break;
 
+        case 'loginToDiceCloud': {
+          const authData = await loginToDiceCloud(request.username, request.password);
+          response = { success: true, authData };
+          break;
+        }
+
         case 'setApiToken': {
           await setApiToken(request.token);
           response = { success: true };
@@ -150,6 +156,44 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // Return true to keep the message channel open for async sendResponse
   return true;
 });
+
+/**
+ * Logs in to DiceCloud API with username/password
+ */
+async function loginToDiceCloud(username, password) {
+  try {
+    const response = await fetch(`${API_BASE}/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        username: username,
+        password: password
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Login failed: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+
+    // Store authentication data
+    await browserAPI.storage.local.set({
+      diceCloudToken: data.token,
+      diceCloudUserId: data.id,
+      username: username
+    });
+
+    debug.log('Successfully logged in to DiceCloud');
+    return data;
+  } catch (error) {
+    debug.error('Failed to login to DiceCloud:', error);
+    throw error;
+  }
+}
 
 /**
  * Stores the API token

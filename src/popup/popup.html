@@ -18,9 +18,36 @@
       <div id="loginSection" class="hidden">
         <div class="login-box">
           <h3>Connect to DiceCloud</h3>
-          <p class="help-text">Enter your DiceCloud API token to access character data</p>
 
-          <form id="loginForm">
+          <!-- Login Method Tabs -->
+          <div class="login-tabs" style="display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 2px solid #e0e0e0;">
+            <button type="button" id="usernameTab" class="tab-btn active" style="flex: 1; padding: 10px; background: none; border: none; border-bottom: 3px solid #4ECDC4; cursor: pointer; font-weight: bold; color: #4ECDC4;">
+              Username/Password
+            </button>
+            <button type="button" id="apiTokenTab" class="tab-btn" style="flex: 1; padding: 10px; background: none; border: none; border-bottom: 3px solid transparent; cursor: pointer; color: #666;">
+              API Token
+            </button>
+          </div>
+
+          <!-- Username/Password Form -->
+          <form id="usernameLoginForm" class="login-method">
+            <p class="help-text">Enter your DiceCloud credentials</p>
+            <div class="form-group">
+              <label for="username">Username or Email</label>
+              <input type="text" id="username" name="username" required autocomplete="username">
+            </div>
+            <div class="form-group">
+              <label for="password">Password</label>
+              <input type="password" id="password" name="password" required autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn btn-primary" id="usernameLoginBtn">
+              🔐 Login to DiceCloud
+            </button>
+          </form>
+
+          <!-- API Token Form -->
+          <form id="apiTokenLoginForm" class="login-method hidden">
+            <p class="help-text">Enter your DiceCloud API token to access character data</p>
             <div class="form-group">
               <label for="apiToken">API Token</label>
               <input type="password" id="apiToken" name="apiToken" required placeholder="Paste your API token here">
@@ -28,24 +55,23 @@
                 💡 Get your token: DiceCloud → Click username (top left) → Account → API Key
               </small>
             </div>
-
-            <button type="submit" class="btn btn-primary" id="loginBtn">
-              🔐 Connect to DiceCloud
+            <button type="submit" class="btn btn-primary" id="apiTokenLoginBtn">
+              🔐 Connect with API Token
             </button>
+
+            <div class="help-box" style="margin-top: 15px; padding: 10px; background: #f0f8ff; border-radius: 5px; font-size: 0.9em;">
+              <strong>📖 How to get your API token:</strong>
+              <ol style="margin: 5px 0; padding-left: 20px;">
+                <li>Go to <a href="https://dicecloud.com" target="_blank">DiceCloud.com</a> and log in (with Google or username/password)</li>
+                <li>Click your <strong>username</strong> in the top left corner</li>
+                <li>Go to <strong>Account</strong> page</li>
+                <li>Find and copy your <strong>API Key</strong></li>
+                <li>Paste it above and click Connect</li>
+              </ol>
+            </div>
           </form>
 
           <div id="loginError" class="error-message hidden"></div>
-
-          <div class="help-box" style="margin-top: 15px; padding: 10px; background: #f0f8ff; border-radius: 5px; font-size: 0.9em;">
-            <strong>📖 How to get your API token:</strong>
-            <ol style="margin: 5px 0; padding-left: 20px;">
-              <li>Go to <a href="https://dicecloud.com" target="_blank">DiceCloud.com</a> and log in (with Google or username/password)</li>
-              <li>Click your <strong>username</strong> in the top left corner</li>
-              <li>Go to <strong>Account</strong> page</li>
-              <li>Find and copy your <strong>API Key</strong></li>
-              <li>Paste it above and click Connect</li>
-            </ol>
-          </div>
         </div>
       </div>
 

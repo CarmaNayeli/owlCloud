@@ -45,9 +45,15 @@ function initializePopup() {
   const mainSection = document.getElementById('mainSection');
 
   // DOM Elements - Login
-  const loginForm = document.getElementById('loginForm');
+  const usernameLoginForm = document.getElementById('usernameLoginForm');
+  const apiTokenLoginForm = document.getElementById('apiTokenLoginForm');
+  const usernameTab = document.getElementById('usernameTab');
+  const apiTokenTab = document.getElementById('apiTokenTab');
+  const usernameInput = document.getElementById('username');
+  const passwordInput = document.getElementById('password');
   const apiTokenInput = document.getElementById('apiToken');
-  const loginBtn = document.getElementById('loginBtn');
+  const usernameLoginBtn = document.getElementById('usernameLoginBtn');
+  const apiTokenLoginBtn = document.getElementById('apiTokenLoginBtn');
   const loginError = document.getElementById('loginError');
 
   // DOM Elements - Main Interface
@@ -82,8 +88,13 @@ function initializePopup() {
   // Initialize
   checkLoginStatus();
 
-  // Event Listeners - Login
-  loginForm.addEventListener('submit', handleLogin);
+  // Event Listeners - Login Tabs
+  usernameTab.addEventListener('click', () => switchLoginTab('username'));
+  apiTokenTab.addEventListener('click', () => switchLoginTab('apiToken'));
+
+  // Event Listeners - Login Forms
+  usernameLoginForm.addEventListener('submit', handleUsernameLogin);
+  apiTokenLoginForm.addEventListener('submit', handleApiTokenLogin);
 
   // Event Listeners - Main Interface
   logoutBtn.addEventListener('click', handleLogout);
@@ -138,9 +149,76 @@ function initializePopup() {
   }
 
   /**
-   * Handles login form submission
+   * Switches between login tabs
    */
-  async function handleLogin(event) {
+  function switchLoginTab(tab) {
+    if (tab === 'username') {
+      usernameTab.classList.add('active');
+      usernameTab.style.borderBottomColor = '#4ECDC4';
+      usernameTab.style.color = '#4ECDC4';
+      apiTokenTab.classList.remove('active');
+      apiTokenTab.style.borderBottomColor = 'transparent';
+      apiTokenTab.style.color = '#666';
+      usernameLoginForm.classList.remove('hidden');
+      apiTokenLoginForm.classList.add('hidden');
+    } else {
+      apiTokenTab.classList.add('active');
+      apiTokenTab.style.borderBottomColor = '#4ECDC4';
+      apiTokenTab.style.color = '#4ECDC4';
+      usernameTab.classList.remove('active');
+      usernameTab.style.borderBottomColor = 'transparent';
+      usernameTab.style.color = '#666';
+      apiTokenLoginForm.classList.remove('hidden');
+      usernameLoginForm.classList.add('hidden');
+    }
+    hideLoginError();
+  }
+
+  /**
+   * Handles username/password login
+   */
+  async function handleUsernameLogin(event) {
+    event.preventDefault();
+
+    const username = usernameInput.value.trim();
+    const password = passwordInput.value;
+
+    if (!username || !password) {
+      showLoginError('Please enter both username and password');
+      return;
+    }
+
+    try {
+      usernameLoginBtn.disabled = true;
+      usernameLoginBtn.textContent = '⏳ Logging in...';
+      hideLoginError();
+
+      const response = await browserAPI.runtime.sendMessage({
+        action: 'loginToDiceCloud',
+        username: username,
+        password: password
+      });
+
+      if (response.success) {
+        usernameLoginForm.reset();
+        showMainSection(username);
+        loadCharacterData();
+      } else {
+        showLoginError(response.error || 'Login failed');
+      }
+    } catch (error) {
+      debug.error('Login error:', error);
+      showLoginError('Login failed: ' + error.message);
+    } finally {
+      usernameLoginBtn.disabled = false;
+      usernameLoginBtn.textContent = '🔐 Login to DiceCloud';
+    }
+  }
+
+  /**
+   * Handles API token login
+   */
+  async function handleApiTokenLogin(event) {
     event.preventDefault();
 
     const apiToken = apiTokenInput.value.trim();
@@ -151,8 +229,8 @@ function initializePopup() {
     }
 
     try {
-      loginBtn.disabled = true;
-      loginBtn.textContent = '⏳ Connecting...';
+      apiTokenLoginBtn.disabled = true;
+      apiTokenLoginBtn.textContent = '⏳ Connecting...';
       hideLoginError();
 
       const response = await browserAPI.runtime.sendMessage({
@@ -161,7 +239,7 @@ function initializePopup() {
       });
 
       if (response.success) {
-        loginForm.reset();
+        apiTokenLoginForm.reset();
         showMainSection('DiceCloud User');
         loadCharacterData();
       } else {
@@ -171,8 +249,8 @@ function initializePopup() {
       debug.error('Login error:', error);
       showLoginError('Connection failed: ' + error.message);
     } finally {
-      loginBtn.disabled = false;
-      loginBtn.textContent = '🔐 Connect to DiceCloud';
+      apiTokenLoginBtn.disabled = false;
+      apiTokenLoginBtn.textContent = '🔐 Connect with API Token';
     }
   }
 
