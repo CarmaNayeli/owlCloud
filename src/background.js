@@ -459,6 +459,32 @@ async function setActiveCharacter(characterId) {
       activeCharacterId: characterId
     });
     debug.log(`Active character set to: ${characterId}`);
+
+    // Notify Roll20 tabs about the character change for experimental sync
+    try {
+      const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
+      if (tabs.length > 0) {
+        // Get the character data to send the DiceCloud character ID
+        const result = await browserAPI.storage.local.get(['characterProfiles']);
+        const characterProfiles = result.characterProfiles || {};
+        const characterData = characterProfiles[characterId];
+
+        if (characterData && characterData.id) {
+          debug.log(`Broadcasting active character change to Roll20 tabs: ${characterData.id}`);
+          for (const tab of tabs) {
+            browserAPI.tabs.sendMessage(tab.id, {
+              action: 'activeCharacterChanged',
+              characterId: characterData.id,
+              slotId: characterId
+            }).catch(err => {
+              debug.warn(`Failed to notify tab ${tab.id} about character change:`, err);
+            });
+          }
+        }
+      }
+    } catch (error) {
+      debug.warn('Failed to broadcast character change to Roll20 tabs:', error);
+    }
   } catch (error) {
     debug.error('Failed to set active character:', error);
     throw error;

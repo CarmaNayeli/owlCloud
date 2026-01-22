@@ -2641,6 +2641,29 @@ ${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗
       toggleGMMode(request.enabled);
       sendResponse({ success: true });
     }
+
+    // Handle active character changes for experimental two-way sync
+    if (request.action === 'activeCharacterChanged') {
+      debug.log('🔄 Active character changed, re-initializing sync:', request.characterId);
+
+      // Re-initialize the sync with the new character
+      if (window.diceCloudSync && typeof window.diceCloudSync.initialize === 'function') {
+        debug.log('🔄 Re-initializing DiceCloud sync with character:', request.characterId);
+        window.diceCloudSync.initialize(request.characterId)
+          .then(() => {
+            debug.log('✅ DiceCloud sync re-initialized successfully');
+            sendResponse({ success: true });
+          })
+          .catch(error => {
+            debug.error('❌ Failed to re-initialize DiceCloud sync:', error);
+            sendResponse({ success: false, error: error.message });
+          });
+        return true; // Keep message channel open for async response
+      } else {
+        debug.warn('⚠️ DiceCloud sync not available for re-initialization');
+        sendResponse({ success: false, error: 'Sync not available' });
+      }
+    }
   });
 
   // Listen for openGMMode custom event from character-sheet-overlay.js
