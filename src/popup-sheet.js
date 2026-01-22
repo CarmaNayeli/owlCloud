@@ -1043,9 +1043,9 @@ let spellFilters = {
   search: ''
 };
 
-// Filter state for inventory
+// Filter state for inventory (default to equipped only)
 let inventoryFilters = {
-  filter: 'all', // all, equipped, attuned, container
+  filter: 'equipped', // all, equipped, attuned, container
   search: ''
 };
 
