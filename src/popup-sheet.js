@@ -440,7 +440,12 @@ async function switchToCharacter(characterId) {
           name: characterData.name,
           hp: characterData.hitPoints.current,
           tempHp: characterData.temporaryHP || 0,
-          maxHp: characterData.hitPoints.max
+          maxHp: characterData.hitPoints.max,
+          spellSlots: characterData.spellSlots || {},
+          channelDivinity: characterData.channelDivinity,
+          resources: characterData.resources || [],
+          deathSaves: characterData.deathSaves,
+          inspiration: characterData.inspiration
         }
       };
       
@@ -4208,7 +4213,12 @@ function saveCharacterData() {
       name: characterData.name,
       hp: characterData.hitPoints.current,
       tempHp: characterData.temporaryHP || 0,
-      maxHp: characterData.hitPoints.max
+      maxHp: characterData.hitPoints.max,
+      spellSlots: characterData.spellSlots || {},
+      channelDivinity: characterData.channelDivinity,
+      resources: characterData.resources || [],
+      deathSaves: characterData.deathSaves,
+      inspiration: characterData.inspiration
     }
   };
   

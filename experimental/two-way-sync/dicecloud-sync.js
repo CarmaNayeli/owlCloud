@@ -905,7 +905,7 @@ class DiceCloudSync {
     }
 
     console.log('[DiceCloud Sync] Handling character data update:', characterData.name);
-    
+
     // Update HP if changed
     if (characterData.hp !== undefined) {
       await this.updateAttributeValue('Hit Points', characterData.hp);
@@ -919,6 +919,50 @@ class DiceCloudSync {
     // Update max HP if changed
     if (characterData.maxHp !== undefined) {
       await this.updateAttributeValue('Max Hit Points', characterData.maxHp);
+    }
+
+    // Update spell slots if they exist (level1SpellSlots, level2SpellSlots, etc.)
+    if (characterData.spellSlots) {
+      for (let level = 1; level <= 9; level++) {
+        const currentKey = `level${level}SpellSlots`;
+        const maxKey = `level${level}SpellSlotsMax`;
+
+        if (characterData.spellSlots[currentKey] !== undefined && characterData.spellSlots[maxKey] !== undefined) {
+          // Only sync if max > 0 (character has slots of this level)
+          if (characterData.spellSlots[maxKey] > 0) {
+            console.log(`[DiceCloud Sync] Syncing spell slot level ${level}: ${characterData.spellSlots[currentKey]}/${characterData.spellSlots[maxKey]}`);
+            await this.updateSpellSlot(level, characterData.spellSlots[currentKey]);
+          }
+        }
+      }
+    }
+
+    // Update Channel Divinity if it exists
+    if (characterData.channelDivinity !== undefined) {
+      console.log(`[DiceCloud Sync] Syncing Channel Divinity: ${characterData.channelDivinity.current}/${characterData.channelDivinity.max}`);
+      await this.updateChannelDivinity(characterData.channelDivinity.current);
+    }
+
+    // Update other tracked resources
+    if (characterData.resources && Array.isArray(characterData.resources)) {
+      for (const resource of characterData.resources) {
+        if (resource.name && resource.current !== undefined) {
+          console.log(`[DiceCloud Sync] Syncing resource ${resource.name}: ${resource.current}/${resource.max}`);
+          await this.updateResource(resource.name, resource.current);
+        }
+      }
+    }
+
+    // Update death saves if changed
+    if (characterData.deathSaves) {
+      if (characterData.deathSaves.successes !== undefined || characterData.deathSaves.failures !== undefined) {
+        await this.updateDeathSaves(characterData.deathSaves.successes, characterData.deathSaves.failures);
+      }
+    }
+
+    // Update inspiration if changed
+    if (characterData.inspiration !== undefined) {
+      await this.updateInspiration(characterData.inspiration);
     }
   }
 
