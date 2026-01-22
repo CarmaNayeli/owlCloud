@@ -55,6 +55,22 @@ function Build-ChromeExperimental {
     $chromeManifest.name = $chromeManifest.name + " (Experimental Sync)"
     $chromeManifest.version = $chromeManifest.version + ".1"
 
+    # Add experimental sync files to Roll20 content script
+    foreach ($script in $chromeManifest.content_scripts) {
+        if ($script.matches -contains "https://app.roll20.net/*") {
+            # Find the index of roll20.js
+            $roll20Index = [Array]::IndexOf($script.js, "src/content/roll20.js")
+            if ($roll20Index -ge 0) {
+                # Insert sync files before roll20.js
+                $newJs = @($script.js[0..($roll20Index-1)])
+                $newJs += "src/lib/meteor-ddp-client.js"
+                $newJs += "src/lib/dicecloud-sync.js"
+                $newJs += @($script.js[$roll20Index..($script.js.Length-1)])
+                $script.js = $newJs
+            }
+        }
+    }
+
     # Add web_accessible_resources
     if (-not $chromeManifest.web_accessible_resources) {
         $chromeManifest.web_accessible_resources = @()
@@ -103,6 +119,22 @@ function Build-FirefoxExperimental {
     $firefoxManifest = Get-Content "$FIREFOX_DIR\manifest.json" | ConvertFrom-Json
     $firefoxManifest.name = $firefoxManifest.name + " (Experimental Sync)"
     $firefoxManifest.version = $firefoxManifest.version + ".1"
+
+    # Add experimental sync files to Roll20 content script
+    foreach ($script in $firefoxManifest.content_scripts) {
+        if ($script.matches -contains "https://app.roll20.net/*") {
+            # Find the index of roll20.js
+            $roll20Index = [Array]::IndexOf($script.js, "src/content/roll20.js")
+            if ($roll20Index -ge 0) {
+                # Insert sync files before roll20.js
+                $newJs = @($script.js[0..($roll20Index-1)])
+                $newJs += "src/lib/meteor-ddp-client.js"
+                $newJs += "src/lib/dicecloud-sync.js"
+                $newJs += @($script.js[$roll20Index..($script.js.Length-1)])
+                $script.js = $newJs
+            }
+        }
+    }
 
     # Add web_accessible_resources
     if (-not $firefoxManifest.web_accessible_resources) {

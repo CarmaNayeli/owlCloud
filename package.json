@@ -6,8 +6,8 @@
     "build": "node build-scripts/build.js",
     "build:chrome": "node build-scripts/build.js && echo 'Chrome build: dist/chrome/'",
     "build:firefox": "node build-scripts/build.js && echo 'Firefox build: dist/firefox/'",
-    "build:experimental": "bash build-scripts/build-experimental.sh",
-    "build:exp": "bash build-scripts/build-experimental.sh",
+    "build:experimental": "node -e \"require('child_process').execSync(process.platform==='win32'?'powershell -ExecutionPolicy Bypass -File build-scripts/build-experimental.ps1 -All':'bash build-scripts/build-experimental.sh all',{stdio:'inherit'})\"",
+    "build:exp": "node -e \"require('child_process').execSync(process.platform==='win32'?'powershell -ExecutionPolicy Bypass -File build-scripts/build-experimental.ps1 -All':'bash build-scripts/build-experimental.sh all',{stdio:'inherit'})\"",
     "clean": "node -e \"const fs=require('fs'); if(fs.existsSync('dist'))fs.rmSync('dist',{recursive:true}); if(fs.existsSync('dist-experimental'))fs.rmSync('dist-experimental',{recursive:true});\""
   },
   "keywords": [
