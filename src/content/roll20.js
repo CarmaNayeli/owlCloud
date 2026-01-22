@@ -713,7 +713,7 @@
         <h3 style="margin: 0; font-size: 1em; color: #4ECDC4;">Last 10 Turns</h3>
         <button id="export-history-btn" style="padding: 6px 12px; background: #3498db; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 0.8em;">📋 Copy</button>
       </div>
-      <div style="text-align: center; padding: 20px; color: #888;">
+      <div id="turn-history-empty-state" style="text-align: center; padding: 20px; color: #888;">
         <div style="font-size: 3em; margin-bottom: 10px;">📜</div>
         <p style="margin: 0;">No turn history yet</p>
         <p style="font-size: 0.85em; margin-top: 8px;">Combat actions will be logged here</p>
@@ -1769,25 +1769,18 @@ ${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗
    */
   function updateTurnHistoryDisplay() {
     const turnHistoryList = document.getElementById('turn-history-list');
+    const emptyState = document.getElementById('turn-history-empty-state');
     if (!turnHistoryList) return;
 
     if (turnHistory.length === 0) {
       turnHistoryList.innerHTML = '';
       // Show empty state
-      const tabContent = gmPanel.querySelector('[data-tab="history"]');
-      if (tabContent) {
-        const emptyState = tabContent.querySelector('div[style*="text-align: center"]');
-        if (emptyState) emptyState.style.display = 'block';
-      }
+      if (emptyState) emptyState.style.display = 'block';
       return;
     }
 
     // Hide empty state
-    const tabContent = gmPanel.querySelector('[data-tab="history"]');
-    if (tabContent) {
-      const emptyState = tabContent.querySelector('div[style*="text-align: center"]');
-      if (emptyState) emptyState.style.display = 'none';
-    }
+    if (emptyState) emptyState.style.display = 'none';
 
     turnHistoryList.innerHTML = turnHistory.map((entry, index) => {
       const actionIcon = entry.action === 'attack' ? '⚔️' :
