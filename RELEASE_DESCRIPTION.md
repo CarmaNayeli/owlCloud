@@ -1,42 +1,34 @@
 # RollCloud v1.1.0 - Complete Sheet Update
 
-## 🎨 Major Release: Complete Character Sheet Overhaul
+## 🎨 Complete Character Sheet Redesign
 
-We're thrilled to announce RollCloud v1.1.0, featuring a complete redesign of the character sheet interface alongside powerful new features for players and Game Masters alike!
+The character sheet has been completely rebuilt from scratch with a new layout, better responsiveness on different screen sizes, smoother interactions, and improved keyboard navigation.
 
----
+## ✨ New Features
 
-## ✨ What's New in v1.1.0
+### 🍀 Lucky Feat Support
+- Full Lucky feat implementation with popup interface
+- Automatic Lucky point tracking and deduction
+- Roll20 chat integration for Lucky rolls
+- Lucky points tracked separately from other resources
 
-### 🎨 Complete Character Sheet Overhaul
-- **Fully Redesigned Interface**: Beautiful new layout with improved visual hierarchy
-- **Responsive Design**: Better adaptation to different screen sizes and resolutions
-- **Enhanced Interactions**: Smoother animations and more intuitive controls
-- **Improved Accessibility**: Better keyboard navigation and screen reader support
+### 🎮 GM Tools
+- Hidden rolls for dramatic reveals
+- Party overview showing HP, AC, and conditions
+- Combat logging with export functionality
+- Support for delayed and readied actions
 
-### 🍀 Lucky Feat Integration
-- **Modal Interface**: Elegant popup for choosing offensive or defensive Lucky usage
-- **Automatic Tracking**: Lucky points monitored and deducted in real-time
-- **Smart Integration**: Seamlessly works with Roll20 chat for dramatic reveals
-- **Resource Filtering**: Lucky points hidden from regular resources display
+### 🔮 Effects & Conditions System
+- Visual display of active buffs and debuffs
+- Automatic modifiers applied to relevant rolls
+- Condition duration and management
+- Effects persist when switching characters
 
-### 🎮 Enhanced GM Panel
-- **Hidden Rolls**: GM Mode allows hiding rolls until dramatically revealed
-- **Player Overview**: Real-time party status with HP, AC, and conditions
-- **Turn History**: Complete combat log with export functionality
-- **Delayed Actions**: Support for readied actions and delayed turns
-
-### 🔮 Effects & Buffs System
-- **Active Effects Management**: Visual display of all buffs and debuffs
-- **Automatic Modifiers**: Effects automatically apply to relevant rolls
-- **Persistent State**: Effects maintained across character switching
-- **Condition Tracking**: Comprehensive condition duration and management
-
-### 💾 Performance & Stability
-- **Character State Preservation**: Advanced caching prevents data loss
-- **Smart Loading**: Cache-first approach with storage fallback
-- **Enhanced Debug Logging**: Comprehensive tracking for troubleshooting
-- **Memory Optimization**: Reduced memory footprint and faster switching
+### 💾 Performance Improvements
+- Faster character switching with better caching
+- Reduced memory usage during long sessions
+- Enhanced debugging and error tracking
+- Improved state preservation
 
 ---
 
@@ -47,97 +39,48 @@ We're thrilled to announce RollCloud v1.1.0, featuring a complete redesign of th
 - **Chrome/Edge**: [rollcloud-chrome.zip](dist/rollcloud-chrome.zip) *(200 KB)*
 - **Safari**: [rollcloud-safari.zip](dist/rollcloud-safari.zip) *(200 KB)*
 
-### Installation Instructions
-1. **Download** the appropriate package for your browser
-2. **Extract** the ZIP file to a folder
-3. **Install** following your browser's extension installation process
-4. **Login** to DiceCloud through the extension popup
-5. **Import** your character and enjoy the new interface!
+### Installation
+1. Download the package for your browser
+2. Extract the ZIP file
+3. Install in your browser extension settings
+4. Login to DiceCloud through the extension
+5. Import your character data
 
 ---
 
-## 🎯 Key Improvements
+## 🔄 Upgrading from v1.0.0
 
-### For Players
-- **Better Character Sheet**: More intuitive layout with all information at your fingertips
-- **Lucky Feat Support**: Full feat integration with smart resource tracking
-- **Effects Management**: Easy tracking of buffs, debuffs, and conditions
-- **Seamless Switching**: Switch between characters without losing your place
-
-### For Game Masters
-- **Enhanced Combat Tracking**: Better turn detection and action economy monitoring
-- **Party Management**: Overview of all player status and conditions
-- **Hidden Rolls**: Add drama to critical moments with concealed rolls
-- **Combat History**: Complete log for session recap and analysis
-
-### Technical Improvements
-- **Faster Performance**: Optimized caching and loading mechanisms
-- **Better Stability**: Improved error handling and state management
-- **Enhanced Debugging**: Better logging and troubleshooting tools
-- **Cross-Browser Compatibility**: Consistent experience across all supported browsers
-
----
-
-## 🔄 Upgrade from v1.0.0
-
-Upgrading is simple and seamless:
-1. **Remove** the old extension from your browser
-2. **Install** the new v1.1.0 package
-3. **Login** to DiceCloud (credentials preserved)
-4. **Import** your characters (data automatically migrated)
-
-All your existing character data and settings are preserved during the upgrade process.
+1. Remove the old extension
+2. Install v1.1.0
+3. Login to DiceCloud
+4. Import characters (data migrates automatically)
 
 ---
 
 ## 🐛 Bug Fixes
 
-- **Character Switching**: Fixed issues with data loss when switching between characters
-- **Resource Tracking**: Improved accuracy for spell slots and other resources
-- **Combat Detection**: Better turn detection in various Roll20 campaigns
-- **UI Responsiveness**: Fixed layout issues on smaller screens
-- **Memory Leaks**: Resolved memory usage issues during extended sessions
+- Character switching data loss resolved
+- Improved resource tracking accuracy
+- Better combat detection in Roll20
+- Fixed UI layout issues on small screens
+- Resolved memory usage during long sessions
 
 ---
 
-## 🚀 Coming Soon
+## � System Requirements
 
-Looking ahead to future releases:
-- **Divine Smite Integration**: Quick-add smite damage for paladins
-- **Bardic Inspiration**: Inspiration dice tracking and management
-- **Ammunition Tracking**: Automatic arrow/bolt counting
-- **Reaction Prompts**: Smart notifications for reaction opportunities
-
----
-
-## 🙏 Thank You
-
-This release represents months of development and incorporates feedback from hundreds of D&D players. Thank you to our amazing community for your suggestions, bug reports, and support!
-
-**Special thanks to:**
-- The DiceCloud development team for their excellent API
-- The Roll20 community for integration feedback
-- Our beta testers for thorough testing and valuable insights
+- Chrome/Edge/Brave: Latest version
+- Firefox: Version 109+
+- Safari: Version 14.0+ (requires Xcode)
+- DiceCloud account with characters
+- Roll20 campaign with character sheets
 
 ---
 
-## 📋 System Requirements
+## 📦 Download
 
-- **Chrome/Edge/Brave**: Latest version (Manifest V3)
-- **Firefox**: Version 109+ (Manifest V2)
-- **Safari**: Version 14.0+ with Xcode for conversion
-- **DiceCloud**: Account with at least one character
-- **Roll20**: Active campaign with character sheets
+- `dist/rollcloud-chrome.zip` - Chrome/Edge/Brave
+- `dist/rollcloud-firefox.zip` - Firefox  
+- `dist/rollcloud-safari.zip` - Safari
 
----
-
-**Download RollCloud v1.1.0 today and experience the complete character sheet overhaul!** 🎲✨
-
----
-
-*File Locations:*
-- `dist/rollcloud-chrome.zip` - Chrome/Edge/Brave package
-- `dist/rollcloud-firefox.zip` - Firefox package  
-- `dist/rollcloud-safari.zip` - Safari package
-
-*All packages built on January 22, 2026 at 3:24 AM UTC*
+*Built January 22, 2026*
