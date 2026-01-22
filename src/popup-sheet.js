@@ -1917,16 +1917,21 @@ function calculateTotalCurrency(inventory) {
     const quantity = item.quantity || 0;
 
     if ((itemName.includes('platinum') && (itemName.includes('piece') || itemName.includes('coin')))) {
+      debug.log(`💰 Counting platinum: ${item.name} (qty: ${quantity})`);
       pp += quantity;
     } else if ((itemName.includes('gold') && (itemName.includes('piece') || itemName.includes('coin')))) {
+      debug.log(`💰 Counting gold: ${item.name} (qty: ${quantity})`);
       gp += quantity;
     } else if ((itemName.includes('silver') && (itemName.includes('piece') || itemName.includes('coin')))) {
+      debug.log(`💰 Counting silver: ${item.name} (qty: ${quantity})`);
       sp += quantity;
     } else if ((itemName.includes('copper') && (itemName.includes('piece') || itemName.includes('coin')))) {
+      debug.log(`💰 Counting copper: ${item.name} (qty: ${quantity})`);
       cp += quantity;
     }
   });
 
+  debug.log(`💰 Final currency totals: pp=${pp}, gp=${gp}, sp=${sp}, cp=${cp}`);
   return { pp, gp, sp, cp };
 }
 
