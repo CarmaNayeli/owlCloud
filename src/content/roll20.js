@@ -951,23 +951,35 @@
       pos3 = e.clientX;
       pos4 = e.clientY;
 
-      // Calculate new position
-      let newTop = element.offsetTop - pos2;
-      let newLeft = element.offsetLeft - pos1;
+      // Use requestAnimationFrame to avoid forced reflow
+      requestAnimationFrame(() => {
+        // Read layout properties first (batched reads)
+        const offsetTop = element.offsetTop;
+        const offsetLeft = element.offsetLeft;
+        const offsetWidth = element.offsetWidth;
+        const offsetHeight = element.offsetHeight;
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
 
-      // Apply boundary constraints
-      const minTop = 0;
-      const minLeft = 0;
-      const maxLeft = window.innerWidth - element.offsetWidth;
-      const maxTop = window.innerHeight - element.offsetHeight;
+        // Calculate new position
+        let newTop = offsetTop - pos2;
+        let newLeft = offsetLeft - pos1;
 
-      // Constrain within viewport
-      newTop = Math.max(minTop, Math.min(newTop, maxTop));
-      newLeft = Math.max(minLeft, Math.min(newLeft, maxLeft));
+        // Apply boundary constraints
+        const minTop = 0;
+        const minLeft = 0;
+        const maxLeft = viewportWidth - offsetWidth;
+        const maxTop = viewportHeight - offsetHeight;
 
-      element.style.top = newTop + "px";
-      element.style.left = newLeft + "px";
-      element.style.right = 'auto';
+        // Constrain within viewport
+        newTop = Math.max(minTop, Math.min(newTop, maxTop));
+        newLeft = Math.max(minLeft, Math.min(newLeft, maxLeft));
+
+        // Batch all style writes together
+        element.style.top = newTop + "px";
+        element.style.left = newLeft + "px";
+        element.style.right = 'auto';
+      });
     }
 
     function closeDragElement() {

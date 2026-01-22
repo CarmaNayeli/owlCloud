@@ -171,7 +171,7 @@ class DiceCloudSync {
    */
   async buildPropertyCache() {
     console.log('[DiceCloud Sync] Building property cache...');
-    
+
     // First, try to get the stored character data
     const result = await browserAPI.storage.local.get(['activeCharacterId', 'characterProfiles']);
     const { activeCharacterId, characterProfiles } = result;
@@ -180,6 +180,13 @@ class DiceCloudSync {
     if (activeCharacterId && characterProfiles && characterProfiles[activeCharacterId]) {
       const characterData = characterProfiles[activeCharacterId];
       console.log('[DiceCloud Sync] Building cache from character data:', characterData.name);
+
+      // CRITICAL: Verify this character has DiceCloud data before proceeding
+      if (!characterData.id) {
+        console.warn('[DiceCloud Sync] Character data has no DiceCloud ID, skipping cache build');
+        console.warn('[DiceCloud Sync] This is likely the default/placeholder character');
+        return;
+      }
       
       // Get the DiceCloud API token for fetching raw data
       const tokenResult = await browserAPI.storage.local.get(['diceCloudToken']);
@@ -1182,6 +1189,14 @@ class DiceCloudSync {
     }
 
     console.log('[DiceCloud Sync] Handling character data update:', characterData.name);
+
+    // If previousValues is completely empty, this is the very first update
+    // Initialize all values from this update without syncing
+    if (this.previousValues.size === 0) {
+      console.log('[DiceCloud Sync] 🔧 previousValues is empty, initializing from first update (no sync)');
+      await this.initializePreviousValues(characterData);
+      return; // Don't sync anything on first initialization
+    }
 
     // Helper function to check if value has changed
     const hasChanged = (key, newValue) => {

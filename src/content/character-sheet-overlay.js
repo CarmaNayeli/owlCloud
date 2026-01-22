@@ -35,30 +35,40 @@
 
   /**
    * Utility function to position popup within viewport bounds
+   * Cached viewport dimensions to avoid forced reflows
    * @param {number} x - Initial X position (clientX)
    * @param {number} y - Initial Y position (clientY)
    * @param {number} width - Popup width (default: 200)
    * @param {number} height - Popup height (default: 150)
    * @returns {Object} - Adjusted x, y coordinates within viewport
    */
+  const viewportCache = { width: 0, height: 0, lastUpdate: 0 };
   function getPopupPosition(x, y, width = 200, height = 150) {
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    
+    // Cache viewport dimensions for 100ms to avoid repeated layout reads
+    const now = Date.now();
+    if (now - viewportCache.lastUpdate > 100) {
+      viewportCache.width = window.innerWidth;
+      viewportCache.height = window.innerHeight;
+      viewportCache.lastUpdate = now;
+    }
+
+    const viewportWidth = viewportCache.width;
+    const viewportHeight = viewportCache.height;
+
     // Adjust horizontal position
     let adjustedX = x;
     if (x + width > viewportWidth) {
       adjustedX = viewportWidth - width - 10; // 10px margin from edge
       if (adjustedX < 10) adjustedX = 10; // Ensure minimum margin from left edge
     }
-    
+
     // Adjust vertical position
     let adjustedY = y;
     if (y + height > viewportHeight) {
       adjustedY = viewportHeight - height - 10; // 10px margin from edge
       if (adjustedY < 10) adjustedY = 10; // Ensure minimum margin from top edge
     }
-    
+
     return { x: adjustedX, y: adjustedY };
   }
 
@@ -1809,8 +1819,11 @@
         const newLeft = initialLeft + deltaX;
         const newTop = initialTop + deltaY;
 
-        button.style.left = `${newLeft}px`;
-        button.style.top = `${newTop}px`;
+        // Use requestAnimationFrame to avoid forced reflow
+        requestAnimationFrame(() => {
+          button.style.left = `${newLeft}px`;
+          button.style.top = `${newTop}px`;
+        });
       }
     });
 
