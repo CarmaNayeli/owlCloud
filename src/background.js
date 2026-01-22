@@ -77,6 +77,12 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
           break;
         }
 
+        case 'getManifest': {
+          const manifest = browserAPI.runtime.getManifest();
+          response = { success: true, manifest };
+          break;
+        }
+
         case 'logout':
           await logout();
           response = { success: true };

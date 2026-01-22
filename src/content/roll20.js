@@ -2660,25 +2660,28 @@ ${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗
 
   // Initialize experimental two-way sync if available
   if (typeof browserAPI !== 'undefined' && browserAPI.runtime) {
-    // Check if this is an experimental build
-    try {
-      const manifest = browserAPI.runtime.getManifest();
-      debug.log('🔍 Manifest check:', manifest);
-      debug.log('🔍 Manifest name:', manifest.name);
-      
-      if (manifest && manifest.name && manifest.name.includes('EXPERIMENTAL')) {
-        debug.log('🧪 Experimental build detected, loading two-way sync...');
+    // Check if this is an experimental build by asking background script
+    browserAPI.runtime.sendMessage({ action: 'getManifest' }).then(response => {
+      if (response && response.success && response.manifest) {
+        debug.log('🔍 Manifest check:', response.manifest);
+        debug.log('🔍 Manifest name:', response.manifest.name);
         
-        // Load experimental sync modules
-        loadExperimentalSync().catch(error => {
-          debug.error('❌ Failed to load experimental sync:', error);
-        });
+        if (response.manifest.name && response.manifest.name.includes('EXPERIMENTAL')) {
+          debug.log('🧪 Experimental build detected, loading two-way sync...');
+          
+          // Load experimental sync modules
+          loadExperimentalSync().catch(error => {
+            debug.error('❌ Failed to load experimental sync:', error);
+          });
+        } else {
+          debug.log('📦 Standard build detected, skipping experimental sync');
+        }
       } else {
-        debug.log('📦 Standard build detected, skipping experimental sync');
+        debug.log('📦 Could not get manifest info, assuming standard build');
       }
-    } catch (e) {
-      debug.log('📦 Standard build detected (error), skipping experimental sync:', e);
-    }
+    }).catch(error => {
+      debug.log('📦 Standard build detected (error), skipping experimental sync:', error);
+    });
   } else {
     debug.log('❌ browserAPI.runtime not available');
   }
