@@ -1414,16 +1414,21 @@ function buildActionsDisplay(container, actions) {
       attackBtn.className = 'attack-btn';
       attackBtn.textContent = '🎯 Attack';
       attackBtn.addEventListener('click', () => {
+        // Announce the action with description first if it has one
+        if (action.description) {
+          announceAction(action);
+        }
+
         // Convert to full formula if it's just a number (legacy data)
         let formula = action.attackRoll;
         if (typeof formula === 'number' || !formula.includes('d20')) {
           const bonus = parseInt(formula);
           formula = bonus >= 0 ? `1d20+${bonus}` : `1d20${bonus}`;
         }
-        
+
         // Mark action as used for attacks
         markActionAsUsed('action');
-        
+
         roll(`${action.name} Attack`, formula);
       });
       buttonsDiv.appendChild(attackBtn);
@@ -1493,11 +1498,6 @@ function buildActionsDisplay(container, actions) {
         // Check and decrement other resources (Wild Shape, Breath Weapon, etc.)
         if (!decrementActionResources(action)) {
           return; // Not enough resources
-        }
-
-        // Announce the action with description first if it has one
-        if (action.description) {
-          announceAction(action);
         }
 
         let damageName = action.damageType ?

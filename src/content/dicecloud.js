@@ -1292,44 +1292,59 @@
 
             let damage = '';
             let damageType = '';
+            let damageComponents = []; // Track multiple damage types
 
             if (damageProperties.length > 0) {
-              // Use the first damage property (weapons typically have one main damage)
-              const damageProp = damageProperties[0];
+              // Process ALL damage properties (not just the first one)
+              // This handles multi-damage weapons (e.g., 1d8 slashing + 2d6 fire)
+              for (const damageProp of damageProperties) {
+                let damageFormula = '';
 
-              // Extract damage formula with modifiers
-              if (damageProp.amount) {
-                if (typeof damageProp.amount === 'string') {
-                  damage = damageProp.amount;
-                } else if (typeof damageProp.amount === 'object') {
-                  // Get base calculation (e.g., "1d8")
-                  damage = damageProp.amount.calculation || damageProp.amount.value || damageProp.amount.text || '';
+                // Extract damage formula with modifiers
+                if (damageProp.amount) {
+                  if (typeof damageProp.amount === 'string') {
+                    damageFormula = damageProp.amount;
+                  } else if (typeof damageProp.amount === 'object') {
+                    // Get base calculation (e.g., "1d8")
+                    damageFormula = damageProp.amount.calculation || damageProp.amount.value || damageProp.amount.text || '';
 
-                  // Add effects (modifiers) to build complete formula
-                  if (damageProp.amount.effects && Array.isArray(damageProp.amount.effects)) {
-                    for (const effect of damageProp.amount.effects) {
-                      if (effect.operation === 'add' && effect.amount) {
-                        // Skip dice formula calculations (like "3d6" from Sneak Attack toggle)
-                        // These are handled by separate action buttons
-                        if (effect.amount.calculation) {
-                          debug.log(`⏭️ Skipping dice formula effect in weapon damage: ${effect.amount.calculation} (handled by separate action)`);
-                          continue;
-                        }
-                        // Only add numeric modifiers (like +4 from Dex)
-                        if (effect.amount.value !== undefined) {
-                          const modifier = effect.amount.value;
-                          if (modifier !== 0) {
-                            damage += modifier >= 0 ? `+${modifier}` : `${modifier}`;
+                    // Add effects (modifiers) to build complete formula
+                    if (damageProp.amount.effects && Array.isArray(damageProp.amount.effects)) {
+                      for (const effect of damageProp.amount.effects) {
+                        if (effect.operation === 'add' && effect.amount) {
+                          // Skip dice formula calculations (like "3d6" from Sneak Attack toggle)
+                          // These are handled by separate action buttons
+                          if (effect.amount.calculation) {
+                            debug.log(`⏭️ Skipping dice formula effect in weapon damage: ${effect.amount.calculation} (handled by separate action)`);
+                            continue;
+                          }
+                          // Only add numeric modifiers (like +4 from Dex)
+                          if (effect.amount.value !== undefined) {
+                            const modifier = effect.amount.value;
+                            if (modifier !== 0) {
+                              damageFormula += modifier >= 0 ? `+${modifier}` : `${modifier}`;
+                            }
                           }
                         }
                       }
                     }
                   }
                 }
+
+                if (damageFormula) {
+                  damageComponents.push({
+                    formula: damageFormula,
+                    type: damageProp.damageType || ''
+                  });
+                }
               }
 
-              if (damageProp.damageType) {
-                damageType = damageProp.damageType;
+              // Combine all damage formulas
+              if (damageComponents.length > 0) {
+                damage = damageComponents.map(d => d.formula).join('+');
+                // Combine damage types (e.g., "slashing + fire")
+                const types = damageComponents.map(d => d.type).filter(t => t);
+                damageType = types.length > 0 ? types.join(' + ') : '';
               }
             }
 
@@ -1356,10 +1371,11 @@
 
             // Add action if it has attack roll OR if it's a non-attack action (bonus action, reaction, etc.)
             // BUT skip metamagic features (they're handled in spell casting UI)
+            // Filter out modifiers, effects, recharge buttons by requiring attackRoll or explicit actionType
             const validActionTypes = ['action', 'bonus', 'reaction', 'free', 'legendary', 'lair', 'other'];
             const hasValidActionType = prop.actionType && validActionTypes.includes(prop.actionType.toLowerCase());
 
-            if (!isMetamagic && (attackRoll || hasValidActionType || description)) {
+            if (!isMetamagic && (attackRoll || hasValidActionType)) {
               const action = {
                 name: prop.name,
                 actionType: prop.actionType || 'other',
