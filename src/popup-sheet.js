@@ -1912,28 +1912,6 @@ function calculateTotalCurrency(inventory) {
   let sp = 0;
   let cp = 0;
 
-  // First, find the Belt Pouch container specifically
-  let beltPouchId = null;
-  inventory.forEach(item => {
-    const itemName = (item.name || '').toLowerCase().trim();
-
-    // Log all containers for debugging
-    if (item.type === 'container' || itemName.includes('pouch') || itemName.includes('bag')) {
-      console.log(`💰 Container found: "${item.name}" (lowercase: "${itemName}", ID: ${item._id})`);
-    }
-
-    // Look specifically for "Belt Pouch" (flexible match)
-    if (itemName.includes('belt') && itemName.includes('pouch')) {
-      beltPouchId = item._id;
-      console.log(`💰 ✅ Found Belt Pouch: "${item.name}" (ID: ${item._id})`);
-    }
-  });
-
-  if (!beltPouchId) {
-    console.log(`💰 ⚠️ Belt Pouch not found in inventory, returning zeros`);
-    return { pp: 0, gp: 0, sp: 0, cp: 0 };
-  }
-
   inventory.forEach(item => {
     const itemName = (item.name || '').toLowerCase();
     const quantity = item.quantity;
@@ -1954,24 +1932,25 @@ function calculateTotalCurrency(inventory) {
 
     if (!isCurrency) return;
 
-    // ONLY count currency that's inside the Belt Pouch specifically
-    if (parentId !== beltPouchId) {
-      console.log(`💰 ❌ SKIPPED CURRENCY - not in Belt Pouch (parent: ${parentId}, beltPouch: ${beltPouchId})`);
+    // ONLY count currency that's inside ANY container (has a parent)
+    // Skip root-level currency items (no parent)
+    if (!parentId) {
+      console.log(`💰 ❌ SKIPPED CURRENCY - no parent (root-level item)`);
       return;
     }
 
-    // Count currency by type
+    // Count currency by type (inside containers only)
     if (itemName.includes('platinum')) {
-      console.log(`💰💰 ✅ MATCHED PLATINUM - adding ${quantity}`, item);
+      console.log(`💰💰 ✅ MATCHED PLATINUM in container - adding ${quantity}`, item);
       pp += quantity;
     } else if (itemName.includes('gold')) {
-      console.log(`💰💰 ✅ MATCHED GOLD - adding ${quantity}`, item);
+      console.log(`💰💰 ✅ MATCHED GOLD in container - adding ${quantity}`, item);
       gp += quantity;
     } else if (itemName.includes('silver')) {
-      console.log(`💰💰 ✅ MATCHED SILVER - adding ${quantity}`, item);
+      console.log(`💰💰 ✅ MATCHED SILVER in container - adding ${quantity}`, item);
       sp += quantity;
     } else if (itemName.includes('copper')) {
-      console.log(`💰💰 ✅ MATCHED COPPER - adding ${quantity}`, item);
+      console.log(`💰💰 ✅ MATCHED COPPER in container - adding ${quantity}`, item);
       cp += quantity;
     }
   });
