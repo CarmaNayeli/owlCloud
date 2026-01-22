@@ -890,20 +890,9 @@ class DiceCloudSync {
         if (debugResponse.success && debugResponse.data) {
           const spellSlotProp = debugResponse.data.creatureProperties.find(p => p._id === propertyId);
           if (spellSlotProp) {
-            console.log(`[DiceCloud Sync] 🔍 Spell slot property structure:`, {
-              id: spellSlotProp._id,
-              name: spellSlotProp.name,
-              type: spellSlotProp.type,
-              attributeType: spellSlotProp.attributeType,
-              value: spellSlotProp.value,
-              baseValue: spellSlotProp.baseValue,
-              total: spellSlotProp.total,
-              damage: spellSlotProp.damage,
-              quantity: spellSlotProp.quantity,
-              available: spellSlotProp.available,
-              used: spellSlotProp.used,
-              reset: spellSlotProp.reset
-            });
+            // Log as JSON for easy reading (all fields auto-expanded)
+            console.log(`[DiceCloud Sync] 🔍 Spell slot property structure:\n` +
+              JSON.stringify(spellSlotProp, null, 2));
           }
         }
       }
