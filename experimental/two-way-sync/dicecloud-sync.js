@@ -375,6 +375,28 @@ window.initializeDiceCloudSync = async function() {
     console.log('[DiceCloud Sync] Creating DDP client...');
     const ddpClient = new DDPClient('wss://dicecloud.com/websocket');
     
+    // Get DiceCloud token for authentication
+    const tokenResult = await browserAPI.storage.local.get(['diceCloudToken']);
+    const { diceCloudToken } = tokenResult;
+    
+    if (diceCloudToken) {
+      console.log('[DiceCloud Sync] Setting up DDP authentication...');
+      // Add authentication headers for DDP
+      ddpClient.on('connected', () => {
+        console.log('[DiceCloud Sync] DDP connected, authenticating...');
+        // Send authentication message with token
+        ddpClient.call('login', {
+          resume: diceCloudToken
+        }).then(() => {
+          console.log('[DiceCloud Sync] DDP authentication successful');
+        }).catch((error) => {
+          console.error('[DiceCloud Sync] DDP authentication failed:', error);
+        });
+      });
+    } else {
+      console.warn('[DiceCloud Sync] No DiceCloud token found for DDP authentication');
+    }
+    
     // Create sync instance
     const sync = new DiceCloudSync(ddpClient);
     window.diceCloudSync = sync;
