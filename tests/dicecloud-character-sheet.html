@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Dice Cloud Character Sheet</title>
+    <link rel="stylesheet" href="https://unpkg.com/purecss@2.0.6/build/pure-min.css">
+    <style>
+        .dicecloud-sheet {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .sheet-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .sheet-header h1 {
+            margin: 0 0 15px 0;
+            font-size: 2.5em;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .character-basic {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            font-size: 1.2em;
+            flex-wrap: wrap;
+        }
+        
+        .character-basic span {
+            background: rgba(255,255,255,0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border: 1px solid #e9ecef;
+        }
+        
+        .section h2 {
+            margin-top: 0;
+            color: #495057;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .abilities-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 20px;
+        }
+        
+        .ability-card {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            border: 2px solid #dee2e6;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .ability-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        }
+        
+        .ability-name {
+            font-weight: bold;
+            color: #6c757d;
+            font-size: 1.1em;
+            margin-bottom: 8px;
+        }
+        
+        .ability-score {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+            line-height: 1;
+            margin-bottom: 5px;
+        }
+        
+        .ability-mod {
+            color: #28a745;
+            font-size: 1.3em;
+            font-weight: bold;
+        }
+        
+        .combat-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+        
+        .combat-stat {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #dee2e6;
+        }
+        
+        .combat-stat label {
+            display: block;
+            font-weight: bold;
+            color: #6c757d;
+            margin-bottom: 8px;
+        }
+        
+        .combat-stat .value {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .saves-grid, .skills-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .save-card, .skill-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .save-name, .skill-name {
+            font-weight: bold;
+            color: #495057;
+        }
+        
+        .save-bonus, .skill-bonus {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #667eea;
+            background: white;
+            padding: 5px 12px;
+            border-radius: 15px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .feature-card, .spell-card, .item-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+            margin-bottom: 15px;
+        }
+        
+        .feature-card h3, .spell-card h3, .item-card h3 {
+            margin-top: 0;
+            color: #667eea;
+            font-size: 1.3em;
+        }
+        
+        .feature-meta, .spell-meta, .item-meta {
+            display: flex;
+            gap: 15px;
+            margin: 10px 0;
+            flex-wrap: wrap;
+        }
+        
+        .meta-item {
+            background: white;
+            padding: 5px 12px;
+            border-radius: 15px;
+            border: 1px solid #dee2e6;
+            font-size: 0.9em;
+        }
+        
+        .badge {
+            background: #28a745;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: bold;
+            display: inline-block;
+        }
+        
+        .import-button {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .import-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+        
+        .empty-state h3 {
+            color: #495057;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="dicecloud-sheet">
+        <!-- Character Header -->
+        <div class="sheet-header">
+            <h1><input type="text" name="attr_character_name" value="" placeholder="Character Name" style="background: transparent; border: none; color: white; text-align: center; font-size: inherit; font-weight: inherit; width: 300px;"></h1>
+            <div class="character-basic">
+                <span><input type="text" name="attr_class" value="" placeholder="Class" style="background: transparent; border: none; color: white; text-align: center; width: 100px;"></span>
+                <span>Level <input type="number" name="attr_level" value="" placeholder="1" style="background: transparent; border: none; color: white; text-align: center; width: 40px;"></span>
+                <span><input type="text" name="attr_race" value="" placeholder="Race" style="background: transparent; border: none; color: white; text-align: center; width: 100px;"></span>
+                <span><input type="text" name="attr_alignment" value="" placeholder="Alignment" style="background: transparent; border: none; color: white; text-align: center; width: 100px;"></span>
+            </div>
+        </div>
+
+        <!-- Ability Scores Section -->
+        <div class="section">
+            <h2>⚡ Ability Scores</h2>
+            <div class="abilities-grid">
+                <div class="ability-card">
+                    <div class="ability-name">STRENGTH</div>
+                    <div class="ability-score"><input type="number" name="attr_strength" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 60px;"></div>
+                    <div class="ability-mod">(<input type="number" name="attr_strength_mod" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 40px;">)</div>
+                </div>
+                <div class="ability-card">
+                    <div class="ability-name">DEXTERITY</div>
+                    <div class="ability-score"><input type="number" name="attr_dexterity" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 60px;"></div>
+                    <div class="ability-mod">(<input type="number" name="attr_dexterity_mod" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 40px;">)</div>
+                </div>
+                <div class="ability-card">
+                    <div class="ability-name">CONSTITUTION</div>
+                    <div class="ability-score"><input type="number" name="attr_constitution" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 60px;"></div>
+                    <div class="ability-mod">(<input type="number" name="attr_constitution_mod" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 40px;">)</div>
+                </div>
+                <div class="ability-card">
+                    <div class="ability-name">INTELLIGENCE</div>
+                    <div class="ability-score"><input type="number" name="attr_intelligence" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 60px;"></div>
+                    <div class="ability-mod">(<input type="number" name="attr_intelligence_mod" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 40px;">)</div>
+                </div>
+                <div class="ability-card">
+                    <div class="ability-name">WISDOM</div>
+                    <div class="ability-score"><input type="number" name="attr_wisdom" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 60px;"></div>
+                    <div class="ability-mod">(<input type="number" name="attr_wisdom_mod" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 40px;">)</div>
+                </div>
+                <div class="ability-card">
+                    <div class="ability-name">CHARISMA</div>
+                    <div class="ability-score"><input type="number" name="attr_charisma" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 60px;"></div>
+                    <div class="ability-mod">(<input type="number" name="attr_charisma_mod" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 40px;">)</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Combat Stats Section -->
+        <div class="section">
+            <h2>⚔️ Combat Stats</h2>
+            <div class="combat-stats">
+                <div class="combat-stat">
+                    <label>Armor Class</label>
+                    <div class="value"><input type="number" name="attr_ac" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></div>
+                </div>
+                <div class="combat-stat">
+                    <label>Hit Points</label>
+                    <div class="value"><input type="number" name="attr_hp" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;">/<input type="number" name="attr_hp_max" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></div>
+                </div>
+                <div class="combat-stat">
+                    <label>Speed</label>
+                    <div class="value"><input type="number" name="attr_speed" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></div>
+                </div>
+                <div class="combat-stat">
+                    <label>Initiative</label>
+                    <div class="value"><input type="number" name="attr_initiative_bonus" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></div>
+                </div>
+                <div class="combat-stat">
+                    <label>Proficiency</label>
+                    <div class="value">+<input type="number" name="attr_proficiency" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 40px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Saving Throws Section -->
+        <div class="section">
+            <h2>🛡️ Saving Throws</h2>
+            <div class="saves-grid">
+                <div class="save-card">
+                    <span class="save-name">Strength</span>
+                    <span class="save-bonus">+<input type="number" name="attr_strength_save_bonus" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 40px;"></span>
+                </div>
+                <div class="save-card">
+                    <span class="save-name">Dexterity</span>
+                    <span class="save-bonus">+<input type="number" name="attr_dexterity_save_bonus" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 40px;"></span>
+                </div>
+                <div class="save-card">
+                    <span class="save-name">Constitution</span>
+                    <span class="save-bonus">+<input type="number" name="attr_constitution_save_bonus" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 40px;"></span>
+                </div>
+                <div class="save-card">
+                    <span class="save-name">Intelligence</span>
+                    <span class="save-bonus">+<input type="number" name="attr_intelligence_save_bonus" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 40px;"></span>
+                </div>
+                <div class="save-card">
+                    <span class="save-name">Wisdom</span>
+                    <span class="save-bonus">+<input type="number" name="attr_wisdom_save_bonus" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 40px;"></span>
+                </div>
+                <div class="save-card">
+                    <span class="save-name">Charisma</span>
+                    <span class="save-bonus">+<input type="number" name="attr_charisma_save_bonus" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 40px;"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Skills Section -->
+        <div class="section">
+            <h2>🎯 Skills</h2>
+            <div class="skills-grid">
+                <div class="skill-card">
+                    <span class="skill-name">Acrobatics</span>
+                    <span class="skill-bonus">+<input type="number" name="attr_acrobatics_bonus" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 40px;"></span>
+                </div>
+                <div class="skill-card">
+                    <span class="skill-name">Animal Handling</span>
+                    <span class="skill-bonus">+<input type="number" name="attr_animal_handling_bonus" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 40px;"></span>
+                </div>
+                <div class="skill-card">
+                    <span class="skill-name">Arcana</span>
+                    <span class="skill-bonus">+<input type="number" name="attr_arcana_bonus" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 40px;"></span>
+                </div>
+                <div class="skill-card">
+                    <span class="skill-name">Athletics</span>
+                    <span class="skill-bonus">+<input type="number" name="attr_athletics_bonus" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 40px;"></span>
+                </div>
+                <div class="skill-card">
+                    <span class="skill-name">Deception</span>
+                    <span class="skill-bonus">+<input type="number" name="attr_deception_bonus" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 40px;"></span>
+                </div>
+                <div class="skill-card">
+                    <span class="skill-name">History</span>
+                    <span class="skill-bonus">+<input type="number" name="attr_history_bonus" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 40px;"></span>
+                </div>
+                <div class="skill-card">
+                    <span class="skill-name">Insight</span>
+                    <span class="skill-bonus">+<input type="number" name="attr_insight_bonus" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 40px;"></span>
+                </div>
+                <div class="skill-card">
+                    <span class="skill-name">Intimidation</span>
+                    <span class="skill-bonus">+<input type="number" name="attr_intimidation_bonus" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 40px;"></span>
+                </div>
+                <div class="skill-card">
+                    <span class="skill-name">Investigation</span>
+                    <span class="skill-bonus">+<input type="number" name="attr_investigation_bonus" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 40px;"></span>
+                </div>
+                <div class="skill-card">
+                    <span class="skill-name">Medicine</span>
+                    <span class="skill-bonus">+<input type="number" name="attr_medicine_bonus" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 40px;"></span>
+                </div>
+                <div class="skill-card">
+                    <span class="skill-name">Nature</span>
+                    <span class="skill-bonus">+<input type="number" name="attr_nature_bonus" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 40px;"></span>
+                </div>
+                <div class="skill-card">
+                    <span class="skill-name">Perception</span>
+                    <span class="skill-bonus">+<input type="number" name="attr_perception_bonus" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 40px;"></span>
+                </div>
+                <div class="skill-card">
+                    <span class="skill-name">Performance</span>
+                    <span class="skill-bonus">+<input type="number" name="attr_performance_bonus" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 40px;"></span>
+                </div>
+                <div class="skill-card">
+                    <span class="skill-name">Persuasion</span>
+                    <span class="skill-bonus">+<input type="number" name="attr_persuasion_bonus" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 40px;"></span>
+                </div>
+                <div class="skill-card">
+                    <span class="skill-name">Religion</span>
+                    <span class="skill-bonus">+<input type="number" name="attr_religion_bonus" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 40px;"></span>
+                </div>
+                <div class="skill-card">
+                    <span class="skill-name">Sleight of Hand</span>
+                    <span class="skill-bonus">+<input type="number" name="attr_sleight_of_hand_bonus" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 40px;"></span>
+                </div>
+                <div class="skill-card">
+                    <span class="skill-name">Stealth</span>
+                    <span class="skill-bonus">+<input type="number" name="attr_stealth_bonus" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 40px;"></span>
+                </div>
+                <div class="skill-card">
+                    <span class="skill-name">Survival</span>
+                    <span class="skill-bonus">+<input type="number" name="attr_survival_bonus" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 40px;"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Resources Section (Vexus Library Fields) -->
+        <div class="section">
+            <h2>🔮 Resources & Spell Slots</h2>
+            <div class="combat-stats">
+                <div class="combat-stat">
+                    <label>Level 1 Slots</label>
+                    <div class="value"><input type="number" name="attr_level1SpellSlots" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></div>
+                </div>
+                <div class="combat-stat">
+                    <label>Level 2 Slots</label>
+                    <div class="value"><input type="number" name="attr_level2SpellSlots" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></div>
+                </div>
+                <div class="combat-stat">
+                    <label>Level 3 Slots</label>
+                    <div class="value"><input type="number" name="attr_level3SpellSlots" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></div>
+                </div>
+                <div class="combat-stat">
+                    <label>Level 4 Slots</label>
+                    <div class="value"><input type="number" name="attr_level4SpellSlots" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></div>
+                </div>
+                <div class="combat-stat">
+                    <label>Level 5 Slots</label>
+                    <div class="value"><input type="number" name="attr_level5SpellSlots" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></div>
+                </div>
+                <div class="combat-stat">
+                    <label>Level 6 Slots</label>
+                    <div class="value"><input type="number" name="attr_level6SpellSlots" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></div>
+                </div>
+                <div class="combat-stat">
+                    <label>Level 7 Slots</label>
+                    <div class="value"><input type="number" name="attr_level7SpellSlots" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></div>
+                </div>
+                <div class="combat-stat">
+                    <label>Level 8 Slots</label>
+                    <div class="value"><input type="number" name="attr_level8SpellSlots" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></div>
+                </div>
+                <div class="combat-stat">
+                    <label>Level 9 Slots</label>
+                    <div class="value"><input type="number" name="attr_level9SpellSlots" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></div>
+                </div>
+                <div class="combat-stat">
+                    <label>Ki Points</label>
+                    <div class="value"><input type="number" name="attr_ki" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></div>
+                </div>
+                <div class="combat-stat">
+                    <label>Sorcery Points</label>
+                    <div class="value"><input type="number" name="attr_sorceryPoints" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></div>
+                </div>
+                <div class="combat-stat">
+                    <label>Rages</label>
+                    <div class="value"><input type="number" name="attr_rages" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></div>
+                </div>
+                <div class="combat-stat">
+                    <label>Superiority Dice</label>
+                    <div class="value"><input type="number" name="attr_superiorityDice" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></div>
+                </div>
+                <div class="combat-stat">
+                    <label>Expertise Dice</label>
+                    <div class="value"><input type="number" name="attr_expertiseDice" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></div>
+                </div>
+                <div class="combat-stat">
+                    <label>Rage Damage</label>
+                    <div class="value"><input type="number" name="attr_rageDamage" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Additional Stats Section -->
+        <div class="section">
+            <h2>📊 Additional Stats</h2>
+            <div class="combat-stats">
+                <div class="combat-stat">
+                    <label>Temp HP</label>
+                    <div class="value"><input type="number" name="attr_tempHP" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></div>
+                </div>
+                <div class="combat-stat">
+                    <label>Experience</label>
+                    <div class="value"><input type="number" name="attr_experience" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 80px;"></div>
+                </div>
+                <div class="combat-stat">
+                    <label>Armor</label>
+                    <div class="value"><input type="number" name="attr_armor" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></div>
+                </div>
+                <div class="combat-stat">
+                    <label>Dexterity Armor</label>
+                    <div class="value"><input type="number" name="attr_dexterityArmor" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hit Dice Section -->
+        <div class="section">
+            <h2>🎲 Hit Dice</h2>
+            <div class="combat-stats">
+                <div class="combat-stat">
+                    <label>d6 Hit Dice</label>
+                    <div class="value"><input type="number" name="attr_d6HitDice" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></div>
+                </div>
+                <div class="combat-stat">
+                    <label>d8 Hit Dice</label>
+                    <div class="value"><input type="number" name="attr_d8HitDice" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></div>
+                </div>
+                <div class="combat-stat">
+                    <label>d10 Hit Dice</label>
+                    <div class="value"><input type="number" name="attr_d10HitDice" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></div>
+                </div>
+                <div class="combat-stat">
+                    <label>d12 Hit Dice</label>
+                    <div class="value"><input type="number" name="attr_d12HitDice" value="" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Damage Modifiers Section -->
+        <div class="section">
+            <h2>🛡️ Damage Modifiers</h2>
+            <div class="skills-grid">
+                <div class="skill-card">
+                    <span class="skill-name">Acid</span>
+                    <span class="skill-bonus"><input type="number" name="attr_acidMultiplier" value="" step="0.5" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></span>
+                </div>
+                <div class="skill-card">
+                    <span class="skill-name">Bludgeoning</span>
+                    <span class="skill-bonus"><input type="number" name="attr_bludgeoningMultiplier" value="" step="0.5" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></span>
+                </div>
+                <div class="skill-card">
+                    <span class="skill-name">Cold</span>
+                    <span class="skill-bonus"><input type="number" name="attr_coldMultiplier" value="" step="0.5" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></span>
+                </div>
+                <div class="skill-card">
+                    <span class="skill-name">Fire</span>
+                    <span class="skill-bonus"><input type="number" name="attr_fireMultiplier" value="" step="0.5" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></span>
+                </div>
+                <div class="skill-card">
+                    <span class="skill-name">Force</span>
+                    <span class="skill-bonus"><input type="number" name="attr_forceMultiplier" value="" step="0.5" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></span>
+                </div>
+                <div class="skill-card">
+                    <span class="skill-name">Lightning</span>
+                    <span class="skill-bonus"><input type="number" name="attr_lightningMultiplier" value="" step="0.5" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></span>
+                </div>
+                <div class="skill-card">
+                    <span class="skill-name">Necrotic</span>
+                    <span class="skill-bonus"><input type="number" name="attr_necroticMultiplier" value="" step="0.5" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></span>
+                </div>
+                <div class="skill-card">
+                    <span class="skill-name">Piercing</span>
+                    <span class="skill-bonus"><input type="number" name="attr_piercingMultiplier" value="" step="0.5" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></span>
+                </div>
+                <div class="skill-card">
+                    <span class="skill-name">Poison</span>
+                    <span class="skill-bonus"><input type="number" name="attr_poisonMultiplier" value="" step="0.5" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></span>
+                </div>
+                <div class="skill-card">
+                    <span class="skill-name">Psychic</span>
+                    <span class="skill-bonus"><input type="number" name="attr_psychicMultiplier" value="" step="0.5" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></span>
+                </div>
+                <div class="skill-card">
+                    <span class="skill-name">Radiant</span>
+                    <span class="skill-bonus"><input type="number" name="attr_radiantMultiplier" value="" step="0.5" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></span>
+                </div>
+                <div class="skill-card">
+                    <span class="skill-name">Slashing</span>
+                    <span class="skill-bonus"><input type="number" name="attr_slashingMultiplier" value="" step="0.5" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></span>
+                </div>
+                <div class="skill-card">
+                    <span class="skill-name">Thunder</span>
+                    <span class="skill-bonus"><input type="number" name="attr_thunderMultiplier" value="" step="0.5" style="background: transparent; border: none; color: inherit; text-align: center; font-size: inherit; font-weight: inherit; width: 50px;"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Import Button -->
+        <div class="section" style="text-align: center;">
+            <button class="import-button" onclick="importFromDiceCloud()">🚀 Import from Dice Cloud</button>
+            <div id="import-status" style="margin-top: 15px; color: #6c757d;"></div>
+        </div>
+    </div>
+
+    <script>
+        // This will be called by the RollCloud extension
+        function importFromDiceCloud() {
+            document.getElementById('import-status').textContent = 'Waiting for Dice Cloud data...';
+            
+            // Request character data from extension
+            if (typeof chrome !== 'undefined' && chrome.runtime) {
+                chrome.runtime.sendMessage({ action: 'getCharacterData' }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        document.getElementById('import-status').textContent = 'Extension error: ' + chrome.runtime.lastError.message;
+                        return;
+                    }
+                    
+                    if (response && response.data) {
+                        populateSheet(response.data);
+                        document.getElementById('import-status').textContent = '✅ Successfully imported ' + response.data.name + '!';
+                    } else {
+                        document.getElementById('import-status').textContent = '❌ No character data found. Export from Dice Cloud first.';
+                    }
+                });
+            } else {
+                document.getElementById('import-status').textContent = '❌ Extension not available. Please install RollCloud extension.';
+            }
+        }
+        
+        function populateSheet(characterData) {
+            console.log('Populating sheet with:', characterData);
+            
+            // Basic info
+            setFieldValue('character_name', characterData.name || '');
+            setFieldValue('class', characterData.class || '');
+            setFieldValue('level', characterData.level || 1);
+            setFieldValue('race', characterData.race || '');
+            setFieldValue('alignment', characterData.alignment || '');
+            
+            // Ability scores
+            const abilities = ['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma'];
+            abilities.forEach(ability => {
+                setFieldValue(ability, characterData.attributes?.[ability] || 10);
+                setFieldValue(ability + '_mod', characterData.attributeMods?.[ability] || 0);
+            });
+            
+            // Combat stats
+            setFieldValue('ac', characterData.armorClass || 10);
+            setFieldValue('hp', characterData.hitPoints?.current || characterData.hitPoints || 0);
+            setFieldValue('hp_max', characterData.hitPoints?.max || characterData.hitPoints || 0);
+            setFieldValue('speed', characterData.speed || 30);
+            setFieldValue('initiative_bonus', characterData.initiative || 0);
+            setFieldValue('proficiency', characterData.proficiencyBonus || 2);
+            
+            // Additional stats from Vexus libraries
+            setFieldValue('tempHP', characterData.otherVariables?.tempHP || 0);
+            setFieldValue('experience', characterData.otherVariables?.experience || 0);
+            setFieldValue('armor', characterData.otherVariables?.armor || 0);
+            setFieldValue('dexterityArmor', characterData.otherVariables?.dexterityArmor || 0);
+            
+            // Hit Dice
+            setFieldValue('d6HitDice', characterData.otherVariables?.d6HitDice || 0);
+            setFieldValue('d8HitDice', characterData.otherVariables?.d8HitDice || 0);
+            setFieldValue('d10HitDice', characterData.otherVariables?.d10HitDice || 0);
+            setFieldValue('d12HitDice', characterData.otherVariables?.d12HitDice || 0);
+            
+            // Resources (spell slots, ki, sorcery points, etc.)
+            const spellSlots = ['level1SpellSlots', 'level2SpellSlots', 'level3SpellSlots', 'level4SpellSlots', 
+                               'level5SpellSlots', 'level6SpellSlots', 'level7SpellSlots', 'level8SpellSlots', 'level9SpellSlots'];
+            spellSlots.forEach(slot => {
+                setFieldValue(slot, characterData.otherVariables?.[slot] || 0);
+            });
+            
+            setFieldValue('ki', characterData.otherVariables?.ki || 0);
+            setFieldValue('sorceryPoints', characterData.otherVariables?.sorceryPoints || 0);
+            setFieldValue('rages', characterData.otherVariables?.rages || 0);
+            setFieldValue('superiorityDice', characterData.otherVariables?.superiorityDice || 0);
+            setFieldValue('expertiseDice', characterData.otherVariables?.expertiseDice || 0);
+            setFieldValue('rageDamage', characterData.otherVariables?.rageDamage || 0);
+            
+            // Damage multipliers (resistance/immunity/vulnerability)
+            const damageTypes = ['acid', 'bludgeoning', 'cold', 'fire', 'force', 'lightning', 
+                                'necrotic', 'piercing', 'poison', 'psychic', 'radiant', 'slashing', 'thunder'];
+            damageTypes.forEach(type => {
+                setFieldValue(type + 'Multiplier', characterData.otherVariables?.[type + 'Multiplier'] || 1);
+            });
+            
+            // Saving throws
+            const saves = ['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma'];
+            saves.forEach(save => {
+                setFieldValue(save + '_save_bonus', characterData.saves?.[save] || 0);
+            });
+            
+            // Skills (including initiative and dexterityArmor)
+            const skills = [
+                'acrobatics', 'animal_handling', 'arcana', 'athletics', 'deception', 'history',
+                'insight', 'intimidation', 'investigation', 'medicine', 'nature', 'perception',
+                'performance', 'persuasion', 'religion', 'sleight_of_hand', 'stealth', 'survival',
+                'initiative', 'dexterityArmor'
+            ];
+            skills.forEach(skill => {
+                setFieldValue(skill + '_bonus', characterData.skills?.[skill] || 0);
+            });
+            
+            // Class-specific levels (e.g., FighterLevel, RogueLevel, etc.)
+            if (characterData.class) {
+                const classes = characterData.class.split(' / ');
+                classes.forEach(className => {
+                    const levelField = className.trim() + 'Level';
+                    setFieldValue(levelField, characterData.otherVariables?.[levelField] || characterData.level || 0);
+                });
+            }
+            
+            // Kingdom Builder variables (if present)
+            if (characterData.kingdom) {
+                Object.keys(characterData.kingdom).forEach(key => {
+                    setFieldValue('kingdom' + key.charAt(0).toUpperCase() + key.slice(1), characterData.kingdom[key]);
+                });
+            }
+            
+            // Army variables (if present)
+            if (characterData.army) {
+                Object.keys(characterData.army).forEach(key => {
+                    setFieldValue('army' + key.charAt(0).toUpperCase() + key.slice(1), characterData.army[key]);
+                });
+            }
+            
+            // Import all other variables as fallback
+            if (characterData.otherVariables) {
+                Object.keys(characterData.otherVariables).forEach(varName => {
+                    if (!varName.startsWith('_') && !document.querySelector(`[name="attr_${varName}"]`)) {
+                        // Create a hidden field for unknown variables
+                        const hiddenField = document.createElement('input');
+                        hiddenField.type = 'hidden';
+                        hiddenField.name = 'attr_' + varName;
+                        hiddenField.value = characterData.otherVariables[varName];
+                        document.body.appendChild(hiddenField);
+                        console.log(`Created hidden field for: ${varName} = ${characterData.otherVariables[varName]}`);
+                    }
+                    setFieldValue(varName, characterData.otherVariables[varName]);
+                });
+            }
+        }
+        
+        function setFieldValue(fieldName, value) {
+            const field = document.querySelector(`[name="attr_${fieldName}"]`);
+            if (field) {
+                field.value = value;
+                field.dispatchEvent(new Event('change', { bubbles: true }));
+                console.log(`Set ${fieldName} = ${value}`);
+            } else {
+                console.warn(`Field not found: ${fieldName}`);
+            }
+        }
+        
+        // Auto-populate if data is available
+        window.addEventListener('load', () => {
+            if (typeof chrome !== 'undefined' && chrome.runtime) {
+                chrome.runtime.sendMessage({ action: 'getCharacterData' }, (response) => {
+                    if (response && response.data && response.data.name) {
+                        populateSheet(response.data);
+                        document.getElementById('import-status').textContent = '✅ ' + response.data.name + ' loaded automatically!';
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dice Cloud Extension Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success {
+            background: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background: #d1ecf1;
+            border-color: #bee5eb;
+            color: #0c5460;
+        }
+        #console-output {
+            background: #1e1e1e;
+            color: #fff;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎲 RollCloud Extension Test</h1>
+        <p>This page simulates a Dice Cloud environment to test the extension initialization.</p>
+        
+        <div class="test-section info">
+            <h3>📋 Test Instructions</h3>
+            <ol>
+                <li>Load this extension in Chrome developer mode</li>
+                <li>Navigate to this test page (or https://dicecloud.com)</li>
+                <li>Check the console for initialization messages</li>
+                <li>Look for the "Export to Roll20" button</li>
+                <li>Test the extraction functionality</li>
+            </ol>
+        </div>
+
+        <div class="test-section">
+            <h3>🧪 Test Controls</h3>
+            <button onclick="testExtensionAPI()">Test Extension API</button>
+            <button onclick="simulateDiceCloudPage()">Simulate Dice Cloud Page</button>
+            <button onclick="clearConsole()">Clear Console</button>
+        </div>
+
+        <div class="test-section">
+            <h3>📝 Console Output</h3>
+            <div id="console-output">Console output will appear here...</div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔍 Expected Results</h3>
+            <ul>
+                <li>✅ Extension should log "RollCloud: DiceCloud content script loaded"</li>
+                <li>✅ Export button should appear in bottom-right corner</li>
+                <li>✅ Debug button should appear for roll testing</li>
+                <li>✅ Roll history and stats panels should be created</li>
+                <li>✅ No JavaScript errors in console</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Mock Chrome APIs for testing
+        if (typeof chrome === 'undefined') {
+            window.chrome = {
+                runtime: {
+                    sendMessage: function(message, callback) {
+                        logToConsole('Mock Chrome Runtime Message:', message);
+                        
+                        // Simulate extension context invalidation for testing
+                        if (message.action === 'getCharacterData' && Math.random() < 0.3) {
+                            const error = new Error('Extension context invalidated.');
+                            if (callback) callback({ success: false, error: error.message });
+                            return;
+                        }
+                        
+                        // Default success response
+                        if (callback) callback({ success: true });
+                    },
+                    onMessage: {
+                        addListener: function(callback) {
+                            logToConsole('Mock message listener added');
+                        }
+                    },
+                    lastError: null
+                },
+                storage: {
+                    local: {
+                        get: function(keys, callback) {
+                            logToConsole('Mock Chrome Storage Get:', keys);
+                            if (callback) callback({});
+                        },
+                        set: function(items, callback) {
+                            logToConsole('Mock Chrome Storage Set:', items);
+                            if (callback) callback();
+                        }
+                    }
+                }
+            };
+        }
+
+        function logToConsole(...args) {
+            const output = document.getElementById('console-output');
+            const timestamp = new Date().toLocaleTimeString();
+            const message = args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+            ).join(' ');
+            output.textContent += `[${timestamp}] ${message}\n`;
+            output.scrollTop = output.scrollHeight;
+            
+            // Also log to real console
+            console.log(...args);
+        }
+
+        function testExtensionAPI() {
+            logToConsole('🧪 Testing Extension API...');
+            
+            // Test message sending
+            chrome.runtime.sendMessage({
+                action: 'test',
+                message: 'Hello from test page'
+            }, (response) => {
+                logToConsole('📨 Response:', response);
+            });
+
+            // Test storage
+            chrome.storage.local.set({
+                testKey: 'testValue',
+                timestamp: Date.now()
+            }, () => {
+                logToConsole('💾 Storage set successful');
+            });
+
+            chrome.storage.local.get(['testKey'], (result) => {
+                logToConsole('📂 Storage get result:', result);
+            });
+        }
+
+        function simulateDiceCloudPage() {
+            logToConsole('🎭 Simulating Dice Cloud page environment...');
+            
+            // Change URL to match Dice Cloud pattern
+            history.pushState({}, '', '/character/ABC123/TestCharacter');
+            
+            // Add Dice Cloud-like elements
+            const body = document.body;
+            
+            // Add a mock roll log
+            const rollLog = document.createElement('div');
+            rollLog.className = 'card-raised-background';
+            rollLog.innerHTML = `
+                <div class="log-entry">
+                    <h4 class="content-name">Strength Check</h4>
+                    <div class="content-value">
+                        <p>1d20 [ 16 ] + 2 = <strong>18</strong></p>
+                    </div>
+                </div>
+            `;
+            body.appendChild(rollLog);
+            
+            // Trigger DOM events that extension might be listening for
+            const event = new Event('DOMContentLoaded');
+            document.dispatchEvent(event);
+            
+            logToConsole('✅ Dice Cloud simulation complete');
+            logToConsole('📍 Current URL:', window.location.href);
+            logToConsole('🎲 Added mock roll log element');
+        }
+
+        function clearConsole() {
+            document.getElementById('console-output').textContent = '';
+        }
+
+        // Override console methods to capture output
+        const originalConsole = {
+            log: console.log,
+            error: console.error,
+            warn: console.warn,
+            info: console.info
+        };
+
+        console.log = function(...args) {
+            originalConsole.log(...args);
+            logToConsole('📝', ...args);
+        };
+
+        console.error = function(...args) {
+            originalConsole.error(...args);
+            logToConsole('❌ ERROR:', ...args);
+        };
+
+        console.warn = function(...args) {
+            originalConsole.warn(...args);
+            logToConsole('⚠️ WARNING:', ...args);
+        };
+
+        console.info = function(...args) {
+            originalConsole.info(...args);
+            logToConsole('ℹ️ INFO:', ...args);
+        };
+
+        // Log page load
+        logToConsole('🚀 Test page loaded successfully');
+        logToConsole('🌐 URL:', window.location.href);
+        logToConsole('📄 Ready state:', document.readyState);
+    </script>
+</body>
+</html>
