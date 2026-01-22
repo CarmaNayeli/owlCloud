@@ -1912,21 +1912,21 @@ function calculateTotalCurrency(inventory) {
   let sp = 0;
   let cp = 0;
 
-  // First, find container IDs for pouches/bags to filter currency
-  const containerIds = new Set();
+  // First, find the Belt Pouch container specifically
+  let beltPouchId = null;
   inventory.forEach(item => {
     const itemName = (item.name || '').toLowerCase();
-    // Look for containers that typically hold currency (pouch, bag, purse, wallet, etc.)
-    if (itemName.includes('pouch') || itemName.includes('bag') ||
-        itemName.includes('purse') || itemName.includes('wallet')) {
-      if (item._id) {
-        containerIds.add(item._id);
-        console.log(`💰 Found currency container: "${item.name}" (ID: ${item._id})`);
-      }
+    // Look specifically for "Belt Pouch"
+    if (itemName === 'belt pouch') {
+      beltPouchId = item._id;
+      console.log(`💰 Found Belt Pouch: "${item.name}" (ID: ${item._id})`);
     }
   });
 
-  console.log(`💰 Currency containers found: ${containerIds.size}`);
+  if (!beltPouchId) {
+    console.log(`💰 ⚠️ Belt Pouch not found, returning zeros`);
+    return { pp: 0, gp: 0, sp: 0, cp: 0 };
+  }
 
   inventory.forEach(item => {
     const itemName = (item.name || '').toLowerCase();
@@ -1948,9 +1948,9 @@ function calculateTotalCurrency(inventory) {
 
     if (!isCurrency) return;
 
-    // ONLY count currency that's inside a pouch/bag container
-    if (!parentId || !containerIds.has(parentId)) {
-      console.log(`💰 ❌ SKIPPED CURRENCY - not in a container (parent: ${parentId})`);
+    // ONLY count currency that's inside the Belt Pouch specifically
+    if (parentId !== beltPouchId) {
+      console.log(`💰 ❌ SKIPPED CURRENCY - not in Belt Pouch (parent: ${parentId}, beltPouch: ${beltPouchId})`);
       return;
     }
 
