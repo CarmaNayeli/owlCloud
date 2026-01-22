@@ -373,26 +373,36 @@
     } else if (request.action === 'showCharacterSheet') {
       debug.log('🔍 showCharacterSheet called, checking playerData:', playerData);
       debug.log('🔍 playerData keys:', Object.keys(playerData || {}));
-      
+
       // Check if there's any character data synced
       if (!playerData || Object.keys(playerData).length === 0) {
-        debug.log('⚠️ No character data found - opening GM panel');
-        // No character data found - post message to chat and open GM panel
-        try {
-          postChatMessage('⚠️ No character data found. Opening GM mode...');
-          debug.log('✅ Chat message posted successfully');
-        } catch (error) {
-          debug.error('❌ Error posting chat message:', error);
+        debug.log('⚠️ No character data found - asking user about GM mode');
+
+        // Ask user if they want to open GM mode
+        const userConfirmed = confirm('No character data found.\n\nWould you like to open GM mode instead?');
+
+        if (userConfirmed) {
+          // User clicked "Yes" - open GM panel
+          try {
+            postChatMessage('👑 Opening GM mode...');
+            debug.log('✅ Chat message posted successfully');
+          } catch (error) {
+            debug.error('❌ Error posting chat message:', error);
+          }
+
+          try {
+            toggleGMMode(true);
+            debug.log('✅ GM panel opened successfully');
+          } catch (error) {
+            debug.error('❌ Error opening GM panel:', error);
+          }
+
+          sendResponse({ success: true, message: 'GM mode opened' });
+        } else {
+          // User clicked "Cancel" - do nothing
+          debug.log('ℹ️ User cancelled GM mode opening');
+          sendResponse({ success: false, error: 'No character data found' });
         }
-        
-        try {
-          toggleGMMode(true);
-          debug.log('✅ GM panel opened successfully');
-        } catch (error) {
-          debug.error('❌ Error opening GM panel:', error);
-        }
-        
-        sendResponse({ success: false, error: 'No character data found - GM mode opened' });
         return;
       }
 
@@ -2630,6 +2640,17 @@ ${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗
       toggleGMMode(request.enabled);
       sendResponse({ success: true });
     }
+  });
+
+  // Listen for openGMMode custom event from character-sheet-overlay.js
+  document.addEventListener('openGMMode', () => {
+    debug.log('✅ Received openGMMode event - opening GM panel');
+    try {
+      postChatMessage('👑 Opening GM mode...');
+    } catch (error) {
+      debug.error('❌ Error posting chat message:', error);
+    }
+    toggleGMMode(true);
   });
 
   debug.log('✅ Roll20 script ready - listening for roll announcements and GM mode');

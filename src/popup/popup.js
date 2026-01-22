@@ -466,6 +466,22 @@ function initializePopup() {
         return;
       }
 
+      // Check if there's any synced character data
+      const profilesResponse = await browserAPI.runtime.sendMessage({ action: 'getAllCharacterProfiles' });
+      const profiles = profilesResponse.success ? profilesResponse.profiles : {};
+      const hasCharacters = Object.keys(profiles).length > 0;
+
+      if (!hasCharacters) {
+        // No character data - ask if user wants to go to GM mode
+        const userConfirmed = confirm('No character data found.\n\nWould you like to open GM mode instead?');
+
+        if (!userConfirmed) {
+          showSheetBtn.disabled = false;
+          showSheetBtn.textContent = '📋 Show Character Sheet';
+          return;
+        }
+      }
+
       // Send message to Roll20 content script to show sheet
       debug.log('📋 Sending showCharacterSheet message to Roll20 tab:', tab.id);
       const response = await browserAPI.tabs.sendMessage(tab.id, { action: 'showCharacterSheet' });
@@ -473,6 +489,9 @@ function initializePopup() {
 
       if (response && response.success) {
         showSuccess('Character sheet opened!');
+      } else if (!hasCharacters) {
+        // If no characters, the GM mode was opened
+        showSuccess('GM mode opened!');
       } else {
         debug.error('📋 Failed to open character sheet. Response:', response);
         showError('Failed to open character sheet');
