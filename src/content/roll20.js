@@ -1422,82 +1422,75 @@
    * Save player data to storage
    */
   function savePlayerDataToStorage() {
-    try {
-      debug.log('💾 Attempting to save player data:', Object.keys(playerData));
+    debug.log('💾 Attempting to save player data:', Object.keys(playerData));
 
-      // First, load existing characterProfiles to avoid overwriting synced character data
-      browserAPI.storage.local.get(['characterProfiles']).then(result => {
-        const existingProfiles = result.characterProfiles || {};
+    // First, load existing characterProfiles to avoid overwriting synced character data
+    return browserAPI.storage.local.get(['characterProfiles']).then(result => {
+      const existingProfiles = result.characterProfiles || {};
 
-        // Remove old rollcloudPlayer entries first
-        Object.keys(existingProfiles).forEach(key => {
-          if (existingProfiles[key].type === 'rollcloudPlayer') {
-            delete existingProfiles[key];
-          }
-        });
+      // Remove old rollcloudPlayer entries first
+      Object.keys(existingProfiles).forEach(key => {
+        if (existingProfiles[key].type === 'rollcloudPlayer') {
+          delete existingProfiles[key];
+        }
+      });
 
-        // Add current player data to existing profiles
-        Object.keys(playerData).forEach(playerName => {
-          existingProfiles[playerName] = {
-            ...playerData[playerName],
-            type: 'rollcloudPlayer',
-            lastUpdated: new Date().toISOString()
-          };
-          debug.log(`💾 Preparing to save player: ${playerName}, type: rollcloudPlayer`);
-        });
+      // Add current player data to existing profiles
+      Object.keys(playerData).forEach(playerName => {
+        existingProfiles[playerName] = {
+          ...playerData[playerName],
+          type: 'rollcloudPlayer',
+          lastUpdated: new Date().toISOString()
+        };
+        debug.log(`💾 Preparing to save player: ${playerName}, type: rollcloudPlayer`);
+      });
 
-        // Save merged data back to storage
+      // Save merged data back to storage (convert callback-based to Promise-based)
+      return new Promise((resolve, reject) => {
         browserAPI.storage.local.set({
           characterProfiles: existingProfiles
         }, () => {
-          debug.log('✅ Successfully saved player data to characterProfiles storage');
-          debug.log('💾 Total profiles in storage:', Object.keys(existingProfiles).length);
+          if (browserAPI.runtime.lastError) {
+            debug.error('❌ Error saving to storage:', browserAPI.runtime.lastError);
+            reject(browserAPI.runtime.lastError);
+          } else {
+            debug.log('✅ Successfully saved player data to characterProfiles storage');
+            debug.log('💾 Total profiles in storage:', Object.keys(existingProfiles).length);
+            resolve();
+          }
         });
-      }).catch(error => {
-        debug.error('❌ Error reading existing profiles before save:', error);
       });
-    } catch (error) {
-      debug.error('❌ Error saving player data to storage:', error);
-    }
+    }).catch(error => {
+      debug.error('❌ Error reading existing profiles before save:', error);
+      throw error;
+    });
   }
 
   /**
    * Load player data from storage
    */
   function loadPlayerDataFromStorage() {
-    try {
-      // Use Promise-based API like the working test
-      browserAPI.storage.local.get(['characterProfiles']).then(result => {
-        debug.log('🔍 Storage check - characterProfiles:', result.characterProfiles ? Object.keys(result.characterProfiles) : 'none');
-        
-        if (result.characterProfiles) {
-          // Load only rollcloudPlayer entries from characterProfiles
-          playerData = {};
-          Object.keys(result.characterProfiles).forEach(key => {
-            const profile = result.characterProfiles[key];
-            debug.log(`🔍 Checking profile: ${key}, type: ${profile.type}`);
-            if (profile.type === 'rollcloudPlayer') {
-              playerData[key] = profile;
-              debug.log(`✅ Loaded rollcloudPlayer: ${key}`);
-            }
-          });
-          
-          debug.log(`📂 Loaded ${Object.keys(playerData).length} players from characterProfiles storage`);
-          debug.log('👥 Player data loaded:', Object.keys(playerData));
-          
-          // Update display if GM panel is open
-          if (gmModeEnabled) {
-            updatePlayerOverviewDisplay();
+    return browserAPI.storage.local.get(['characterProfiles']).then(result => {
+      if (result.characterProfiles) {
+        // Load only rollcloudPlayer entries from characterProfiles
+        playerData = {};
+        Object.keys(result.characterProfiles).forEach(key => {
+          const profile = result.characterProfiles[key];
+          if (profile.type === 'rollcloudPlayer') {
+            playerData[key] = profile;
           }
-        } else {
-          debug.log('⚠️ No characterProfiles found in storage');
+        });
+
+        debug.log(`📂 Loaded ${Object.keys(playerData).length} GM players from storage`);
+
+        // Update display if GM panel is open
+        if (gmModeEnabled) {
+          updatePlayerOverviewDisplay();
         }
-      }).catch(error => {
-        debug.error('❌ Error loading player data from storage:', error);
-      });
-    } catch (error) {
-      debug.error('❌ Error in loadPlayerDataFromStorage:', error);
-    }
+      }
+    }).catch(error => {
+      debug.error('❌ Error loading player data from storage:', error);
+    });
   }
 
   /**
