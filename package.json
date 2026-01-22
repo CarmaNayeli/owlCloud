@@ -5,7 +5,10 @@
   "scripts": {
     "build": "node build.js",
     "build:chrome": "node build.js && echo 'Chrome build: dist/chrome/'",
-    "build:firefox": "node build.js && echo 'Firefox build: dist/firefox/'"
+    "build:firefox": "node build.js && echo 'Firefox build: dist/firefox/'",
+    "build:experimental": "node build.js --experimental",
+    "build:exp": "node build.js --experimental",
+    "clean": "node -e \"const fs=require('fs'); if(fs.existsSync('dist'))fs.rmSync('dist',{recursive:true}); if(fs.existsSync('dist-experimental'))fs.rmSync('dist-experimental',{recursive:true});\""
   },
   "keywords": [
     "dicecloud",
