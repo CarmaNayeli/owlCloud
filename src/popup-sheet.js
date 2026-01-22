@@ -4304,6 +4304,54 @@ function resolveVariablesInFormula(formula) {
     // Strip # prefix if present (DiceCloud reference notation)
     const cleanPath = varPath.startsWith('#') ? varPath.substring(1) : varPath;
 
+    // Handle special DiceCloud spell references (e.g., "spellList.abilityMod")
+    // These reference the spellcasting ability modifier for the character's class
+    if (cleanPath === 'spellList.abilityMod' || cleanPath === 'spellList.ability') {
+      // Determine spellcasting ability based on character class
+      const charClass = (characterData.class || '').toLowerCase();
+      let spellcastingAbility = null;
+
+      // Map classes to their spellcasting abilities
+      if (charClass.includes('cleric') || charClass.includes('druid') || charClass.includes('ranger')) {
+        spellcastingAbility = 'wisdom';
+      } else if (charClass.includes('wizard') || charClass.includes('artificer')) {
+        spellcastingAbility = 'intelligence';
+      } else if (charClass.includes('bard') || charClass.includes('paladin') || charClass.includes('sorcerer') || charClass.includes('warlock')) {
+        spellcastingAbility = 'charisma';
+      }
+
+      // Return the modifier for the spellcasting ability
+      if (spellcastingAbility && characterData.attributeMods && characterData.attributeMods[spellcastingAbility] !== undefined) {
+        const modifier = characterData.attributeMods[spellcastingAbility];
+        debug.log(`✅ Resolved ${cleanPath} to ${spellcastingAbility} modifier: ${modifier}`);
+        return modifier;
+      }
+    }
+
+    // Handle spellList.dc (spell save DC)
+    if (cleanPath === 'spellList.dc') {
+      // Spell Save DC = 8 + proficiency bonus + spellcasting ability modifier
+      const profBonus = characterData.proficiencyBonus || 0;
+      const spellMod = getVariableValue('#spellList.abilityMod');
+      if (spellMod !== null) {
+        const spellDC = 8 + profBonus + spellMod;
+        debug.log(`✅ Calculated spell DC: 8 + ${profBonus} + ${spellMod} = ${spellDC}`);
+        return spellDC;
+      }
+    }
+
+    // Handle spellList.attackBonus (spell attack bonus)
+    if (cleanPath === 'spellList.attackBonus') {
+      // Spell Attack Bonus = proficiency bonus + spellcasting ability modifier
+      const profBonus = characterData.proficiencyBonus || 0;
+      const spellMod = getVariableValue('#spellList.abilityMod');
+      if (spellMod !== null) {
+        const attackBonus = profBonus + spellMod;
+        debug.log(`✅ Calculated spell attack bonus: ${profBonus} + ${spellMod} = ${attackBonus}`);
+        return attackBonus;
+      }
+    }
+
     // Try direct lookup first
     if (characterData.otherVariables.hasOwnProperty(cleanPath)) {
       const val = characterData.otherVariables[cleanPath];
@@ -4341,9 +4389,28 @@ function resolveVariablesInFormula(formula) {
     return null;
   };
 
-  // Pattern 1: Find variables in parentheses like (variableName)
-  const parenthesesPattern = /\(([a-zA-Z_][a-zA-Z0-9_]*)\)/g;
+  // Pattern 1a: Find DiceCloud references in parentheses like (#spellList.abilityMod)
+  const diceCloudRefPattern = /\((#[a-zA-Z_][a-zA-Z0-9_.]*)\)/g;
   let match;
+
+  while ((match = diceCloudRefPattern.exec(formula)) !== null) {
+    const varRef = match[1]; // e.g., "#spellList.abilityMod"
+    const fullMatch = match[0]; // e.g., "(#spellList.abilityMod)"
+
+    // Use getVariableValue which handles # prefix and dot notation
+    const value = getVariableValue(varRef);
+
+    if (value !== null && typeof value === 'number') {
+      resolvedFormula = resolvedFormula.replace(fullMatch, value);
+      variablesResolved.push(`${varRef}=${value}`);
+      debug.log(`✅ Resolved DiceCloud reference: ${varRef} = ${value}`);
+    } else {
+      debug.log(`⚠️ Could not resolve DiceCloud reference: ${varRef}, value: ${value}`);
+    }
+  }
+
+  // Pattern 1b: Find simple variables in parentheses like (variableName)
+  const parenthesesPattern = /\(([a-zA-Z_][a-zA-Z0-9_]*)\)/g;
 
   while ((match = parenthesesPattern.exec(formula)) !== null) {
     const variableName = match[1];
