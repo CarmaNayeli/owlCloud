@@ -45,12 +45,28 @@ build_chrome_experimental() {
       manifest.version = manifest.version + '.1';
       manifest.name = manifest.name + ' (Experimental Sync)';
 
+      // Add experimental sync files to Roll20 content script
+      const roll20Script = manifest.content_scripts.find(cs =>
+        cs.matches.includes('https://app.roll20.net/*')
+      );
+
+      if (roll20Script) {
+        // Insert sync files before roll20.js (after debug.js, before roll20.js)
+        const roll20Index = roll20Script.js.indexOf('src/content/roll20.js');
+        if (roll20Index !== -1) {
+          roll20Script.js.splice(roll20Index, 0,
+            'src/lib/meteor-ddp-client.js',
+            'src/lib/dicecloud-sync.js'
+          );
+        }
+      }
+
       // Add web_accessible_resources if not present
       if (!manifest.web_accessible_resources) {
         manifest.web_accessible_resources = [];
       }
 
-      // Add experimental files to web accessible resources
+      // Add experimental files to web accessible resources (for popup access)
       manifest.web_accessible_resources.push({
         resources: [
           'src/lib/meteor-ddp-client.js',
@@ -98,12 +114,28 @@ build_firefox_experimental() {
       manifest.version = manifest.version + '.1';
       manifest.name = manifest.name + ' (Experimental Sync)';
 
+      // Add experimental sync files to Roll20 content script
+      const roll20Script = manifest.content_scripts.find(cs =>
+        cs.matches.includes('https://app.roll20.net/*')
+      );
+
+      if (roll20Script) {
+        // Insert sync files before roll20.js (after debug.js, before roll20.js)
+        const roll20Index = roll20Script.js.indexOf('src/content/roll20.js');
+        if (roll20Index !== -1) {
+          roll20Script.js.splice(roll20Index, 0,
+            'src/lib/meteor-ddp-client.js',
+            'src/lib/dicecloud-sync.js'
+          );
+        }
+      }
+
       // Add web_accessible_resources if not present
       if (!manifest.web_accessible_resources) {
         manifest.web_accessible_resources = [];
       }
 
-      // Add experimental files to web accessible resources
+      // Add experimental files to web accessible resources (for popup access)
       manifest.web_accessible_resources.push({
         resources: [
           'src/lib/meteor-ddp-client.js',
