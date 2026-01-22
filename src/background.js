@@ -66,7 +66,7 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
 
         case 'setApiToken': {
-          await setApiToken(request.token);
+          await setApiToken(request.token, request.userId, request.tokenExpires, request.username);
           response = { success: true };
           break;
         }
@@ -159,15 +159,23 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 /**
  * Logs in to DiceCloud API with username/password
+ * Per DiceCloud API docs: POST https://dicecloud.com/api/login
+ * Accepts either username or email with password
  */
 async function loginToDiceCloud(username, password) {
   try {
+    // Try to determine if input is email or username
+    const isEmail = username.includes('@');
+
     const response = await fetch(`${API_BASE}/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
+      body: JSON.stringify(isEmail ? {
+        email: username,
+        password: password
+      } : {
         username: username,
         password: password
       })
@@ -180,14 +188,16 @@ async function loginToDiceCloud(username, password) {
 
     const data = await response.json();
 
-    // Store authentication data
+    // Store authentication data including token expiry
     await browserAPI.storage.local.set({
       diceCloudToken: data.token,
       diceCloudUserId: data.id,
+      tokenExpires: data.tokenExpires,
       username: username
     });
 
     debug.log('Successfully logged in to DiceCloud');
+    debug.log('Token expires:', data.tokenExpires);
     return data;
   } catch (error) {
     debug.error('Failed to login to DiceCloud:', error);
@@ -196,20 +206,30 @@ async function loginToDiceCloud(username, password) {
 }
 
 /**
- * Stores the API token
+ * Stores the API token (extracted from DiceCloud session or manually entered)
  */
-async function setApiToken(token) {
+async function setApiToken(token, userId = null, tokenExpires = null, username = null) {
   try {
     // Validate token format (basic check)
     if (!token || token.length < 10) {
       throw new Error('Invalid API token format');
     }
 
-    // Store the API token
-    await browserAPI.storage.local.set({
+    // Store the API token with optional metadata
+    const storageData = {
       diceCloudToken: token,
-      username: 'DiceCloud User'
-    });
+      username: username || 'DiceCloud User'
+    };
+
+    if (userId) {
+      storageData.diceCloudUserId = userId;
+    }
+
+    if (tokenExpires) {
+      storageData.tokenExpires = tokenExpires;
+    }
+
+    await browserAPI.storage.local.set(storageData);
 
     debug.log('Successfully stored API token');
     return { success: true };
@@ -221,13 +241,25 @@ async function setApiToken(token) {
 
 /**
  * Gets the stored API token
+ * Checks expiry for tokens obtained via username/password login
  */
 async function getApiToken() {
   try {
-    const result = await browserAPI.storage.local.get(['diceCloudToken']);
+    const result = await browserAPI.storage.local.get(['diceCloudToken', 'tokenExpires']);
 
     if (!result.diceCloudToken) {
       return null;
+    }
+
+    // Check if token is expired (only if tokenExpires exists - API tokens don't expire)
+    if (result.tokenExpires) {
+      const expiryDate = new Date(result.tokenExpires);
+      const now = new Date();
+      if (now >= expiryDate) {
+        debug.warn('API token has expired');
+        await logout();
+        return null;
+      }
     }
 
     return result.diceCloudToken;
@@ -239,13 +271,25 @@ async function getApiToken() {
 
 /**
  * Checks if the user is logged in
+ * Also validates token expiry for username/password logins
  */
 async function checkLoginStatus() {
   try {
-    const result = await browserAPI.storage.local.get(['diceCloudToken', 'username']);
+    const result = await browserAPI.storage.local.get(['diceCloudToken', 'username', 'tokenExpires']);
 
     if (!result.diceCloudToken) {
       return { loggedIn: false };
+    }
+
+    // Check if token is expired (only if tokenExpires exists - API tokens don't expire)
+    if (result.tokenExpires) {
+      const expiryDate = new Date(result.tokenExpires);
+      const now = new Date();
+      if (now >= expiryDate) {
+        debug.warn('Session expired - please login again');
+        await logout();
+        return { loggedIn: false };
+      }
     }
 
     return {

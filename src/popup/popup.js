@@ -45,15 +45,11 @@ function initializePopup() {
   const mainSection = document.getElementById('mainSection');
 
   // DOM Elements - Login
+  const autoConnectBtn = document.getElementById('autoConnectBtn');
   const usernameLoginForm = document.getElementById('usernameLoginForm');
-  const apiTokenLoginForm = document.getElementById('apiTokenLoginForm');
-  const usernameTab = document.getElementById('usernameTab');
-  const apiTokenTab = document.getElementById('apiTokenTab');
   const usernameInput = document.getElementById('username');
   const passwordInput = document.getElementById('password');
-  const apiTokenInput = document.getElementById('apiToken');
   const usernameLoginBtn = document.getElementById('usernameLoginBtn');
-  const apiTokenLoginBtn = document.getElementById('apiTokenLoginBtn');
   const loginError = document.getElementById('loginError');
 
   // DOM Elements - Main Interface
@@ -88,13 +84,9 @@ function initializePopup() {
   // Initialize
   checkLoginStatus();
 
-  // Event Listeners - Login Tabs
-  usernameTab.addEventListener('click', () => switchLoginTab('username'));
-  apiTokenTab.addEventListener('click', () => switchLoginTab('apiToken'));
-
-  // Event Listeners - Login Forms
+  // Event Listeners - Login
+  autoConnectBtn.addEventListener('click', handleAutoConnect);
   usernameLoginForm.addEventListener('submit', handleUsernameLogin);
-  apiTokenLoginForm.addEventListener('submit', handleApiTokenLogin);
 
   // Event Listeners - Main Interface
   logoutBtn.addEventListener('click', handleLogout);
@@ -149,29 +141,87 @@ function initializePopup() {
   }
 
   /**
-   * Switches between login tabs
+   * Handles auto-connect - opens DiceCloud and captures token
    */
-  function switchLoginTab(tab) {
-    if (tab === 'username') {
-      usernameTab.classList.add('active');
-      usernameTab.style.borderBottomColor = '#4ECDC4';
-      usernameTab.style.color = '#4ECDC4';
-      apiTokenTab.classList.remove('active');
-      apiTokenTab.style.borderBottomColor = 'transparent';
-      apiTokenTab.style.color = '#666';
-      usernameLoginForm.classList.remove('hidden');
-      apiTokenLoginForm.classList.add('hidden');
-    } else {
-      apiTokenTab.classList.add('active');
-      apiTokenTab.style.borderBottomColor = '#4ECDC4';
-      apiTokenTab.style.color = '#4ECDC4';
-      usernameTab.classList.remove('active');
-      usernameTab.style.borderBottomColor = 'transparent';
-      usernameTab.style.color = '#666';
-      apiTokenLoginForm.classList.remove('hidden');
-      usernameLoginForm.classList.add('hidden');
+  async function handleAutoConnect() {
+    try {
+      autoConnectBtn.disabled = true;
+      autoConnectBtn.textContent = '⏳ Opening DiceCloud...';
+      hideLoginError();
+
+      // Open DiceCloud in a new tab
+      const dicecloudTab = await browserAPI.tabs.create({
+        url: 'https://dicecloud.com',
+        active: true
+      });
+
+      // Update button text
+      autoConnectBtn.textContent = '⏳ Waiting for login...';
+
+      // Show instructions
+      showLoginError('Please log in to DiceCloud in the new tab, then click "Capture Token" below');
+
+      // Add a "Capture Token" button
+      let captureBtn = document.getElementById('captureTokenBtn');
+      if (!captureBtn) {
+        captureBtn = document.createElement('button');
+        captureBtn.id = 'captureTokenBtn';
+        captureBtn.className = 'btn btn-primary';
+        captureBtn.style.width = '100%';
+        captureBtn.style.marginTop = '10px';
+        captureBtn.textContent = '✓ Capture Token (Click after logging in)';
+        autoConnectBtn.parentElement.appendChild(captureBtn);
+
+        captureBtn.addEventListener('click', async () => {
+          try {
+            captureBtn.disabled = true;
+            captureBtn.textContent = '⏳ Capturing token...';
+
+            // Send message to DiceCloud tab to extract token
+            const response = await browserAPI.tabs.sendMessage(dicecloudTab.id, {
+              action: 'extractAuthToken'
+            });
+
+            if (response && response.success && response.token) {
+              // Store the token with metadata
+              await browserAPI.runtime.sendMessage({
+                action: 'setApiToken',
+                token: response.token,
+                userId: response.userId,
+                tokenExpires: response.tokenExpires,
+                username: response.username
+              });
+
+              // Close DiceCloud tab
+              await browserAPI.tabs.remove(dicecloudTab.id);
+
+              // Remove capture button
+              captureBtn.remove();
+
+              // Show success and load data
+              hideLoginError();
+              showMainSection(response.username || 'DiceCloud User');
+              loadCharacterData();
+            } else {
+              showLoginError('Failed to capture token. Make sure you are logged in to DiceCloud.');
+              captureBtn.disabled = false;
+              captureBtn.textContent = '✓ Capture Token (Click after logging in)';
+            }
+          } catch (error) {
+            debug.error('Error capturing token:', error);
+            showLoginError('Error: ' + error.message);
+            captureBtn.disabled = false;
+            captureBtn.textContent = '✓ Capture Token (Click after logging in)';
+          }
+        });
+      }
+    } catch (error) {
+      debug.error('Auto-connect error:', error);
+      showLoginError('Error: ' + error.message);
+    } finally {
+      autoConnectBtn.disabled = false;
+      autoConnectBtn.textContent = '🔐 Connect with DiceCloud';
     }
-    hideLoginError();
   }
 
   /**
@@ -212,45 +262,6 @@ function initializePopup() {
     } finally {
       usernameLoginBtn.disabled = false;
       usernameLoginBtn.textContent = '🔐 Login to DiceCloud';
-    }
-  }
-
-  /**
-   * Handles API token login
-   */
-  async function handleApiTokenLogin(event) {
-    event.preventDefault();
-
-    const apiToken = apiTokenInput.value.trim();
-
-    if (!apiToken) {
-      showLoginError('Please enter your API token');
-      return;
-    }
-
-    try {
-      apiTokenLoginBtn.disabled = true;
-      apiTokenLoginBtn.textContent = '⏳ Connecting...';
-      hideLoginError();
-
-      const response = await browserAPI.runtime.sendMessage({
-        action: 'setApiToken',
-        token: apiToken
-      });
-
-      if (response.success) {
-        apiTokenLoginForm.reset();
-        showMainSection('DiceCloud User');
-        loadCharacterData();
-      } else {
-        showLoginError(response.error || 'Connection failed');
-      }
-    } catch (error) {
-      debug.error('Login error:', error);
-      showLoginError('Connection failed: ' + error.message);
-    } finally {
-      apiTokenLoginBtn.disabled = false;
-      apiTokenLoginBtn.textContent = '🔐 Connect with API Token';
     }
   }
 

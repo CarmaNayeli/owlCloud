@@ -2496,6 +2496,49 @@
         }
         return true;
 
+      case 'extractAuthToken':
+        // Extract authentication token from DiceCloud session
+        try {
+          // Try to get token from localStorage (Meteor.loginToken)
+          const loginToken = localStorage.getItem('Meteor.loginToken');
+          const loginTokenExpires = localStorage.getItem('Meteor.loginTokenExpires');
+          const userId = localStorage.getItem('Meteor.userId');
+
+          if (loginToken && userId) {
+            debug.log('✅ Found auth token in localStorage');
+
+            // Try to get username from the page
+            let username = 'DiceCloud User';
+            const usernameEl = document.querySelector('[data-id="username"]') ||
+                              document.querySelector('.user-name') ||
+                              document.querySelector('.username');
+            if (usernameEl) {
+              username = usernameEl.textContent.trim();
+            }
+
+            sendResponse({
+              success: true,
+              token: loginToken,
+              userId: userId,
+              tokenExpires: loginTokenExpires,
+              username: username
+            });
+          } else {
+            debug.warn('⚠️ No auth token found - user may not be logged in');
+            sendResponse({
+              success: false,
+              error: 'Not logged in to DiceCloud. Please log in first.'
+            });
+          }
+        } catch (error) {
+          debug.error('❌ Error extracting auth token:', error);
+          sendResponse({
+            success: false,
+            error: 'Failed to extract token: ' + error.message
+          });
+        }
+        return true;
+
       default:
         debug.warn('Unknown action:', request.action);
         sendResponse({ success: false, error: 'Unknown action' });
