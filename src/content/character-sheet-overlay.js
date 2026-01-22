@@ -1801,12 +1801,17 @@
         startX = e.clientX;
         startY = e.clientY;
 
+        // Batch layout read before style writes to avoid forced reflow
         const rect = button.getBoundingClientRect();
         initialLeft = rect.left;
         initialTop = rect.top;
 
-        button.style.cursor = 'grabbing';
-        button.style.transform = 'none'; // Remove any transform during drag
+        // Defer style writes to next frame
+        requestAnimationFrame(() => {
+          button.style.cursor = 'grabbing';
+          button.style.transform = 'none'; // Remove any transform during drag
+        });
+
         e.preventDefault();
       }
     });

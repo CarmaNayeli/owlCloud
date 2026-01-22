@@ -2929,16 +2929,20 @@
           const newX = dragState.elementX + dx;
           const newY = dragState.elementY + dy;
 
-          // Keep element on screen
-          const maxX = window.innerWidth - element.offsetWidth;
-          const maxY = window.innerHeight - element.offsetHeight;
+          // Use requestAnimationFrame to batch layout reads and style writes
+          requestAnimationFrame(() => {
+            // Keep element on screen - batch layout reads
+            const maxX = window.innerWidth - element.offsetWidth;
+            const maxY = window.innerHeight - element.offsetHeight;
 
-          const clampedX = Math.max(0, Math.min(newX, maxX));
-          const clampedY = Math.max(0, Math.min(newY, maxY));
+            const clampedX = Math.max(0, Math.min(newX, maxX));
+            const clampedY = Math.max(0, Math.min(newY, maxY));
 
-          element.style.left = clampedX + 'px';
-          element.style.top = clampedY + 'px';
-          element.style.right = 'auto';
+            // Batch style writes
+            element.style.left = clampedX + 'px';
+            element.style.top = clampedY + 'px';
+            element.style.right = 'auto';
+          });
           element.style.bottom = 'auto';
         }
       }
@@ -2956,17 +2960,24 @@
       dragState.isDragging = false;
       dragState.currentElement = null;
 
+      // Read layout before writing styles to avoid forced reflow
+      let positionToSave = null;
+      if (wasDragging) {
+        const rect = element.getBoundingClientRect();
+        positionToSave = {
+          x: rect.left,
+          y: rect.top
+        };
+      }
+
+      // Now safe to write styles
       element.style.transition = '';
       element.style.opacity = '1';
       handle.style.cursor = 'move';
 
       // Save position if we actually dragged
-      if (wasDragging) {
-        const rect = element.getBoundingClientRect();
-        dragState.positions[elementId] = {
-          x: rect.left,
-          y: rect.top
-        };
+      if (positionToSave) {
+        dragState.positions[elementId] = positionToSave;
         savePositions();
       }
     });
@@ -3991,11 +4002,16 @@
         startX = e.clientX;
         startY = e.clientY;
 
+        // Batch layout read before style write to avoid forced reflow
         const rect = button.getBoundingClientRect();
         initialLeft = rect.left;
         initialTop = rect.top;
 
-        button.style.cursor = 'grabbing';
+        // Defer style write to next frame
+        requestAnimationFrame(() => {
+          button.style.cursor = 'grabbing';
+        });
+
         e.preventDefault();
       }
     });

@@ -194,6 +194,10 @@ class DiceCloudSync {
       
       if (diceCloudToken && characterData.id) {
         console.log('[DiceCloud Sync] Fetching raw DiceCloud API data for property cache...');
+
+        // Object to store current values extracted from API for initialization
+        const currentValuesFromAPI = {};
+
         try {
           // Route API request through background script to avoid CORS
           const response = await browserAPI.runtime.sendMessage({
@@ -201,7 +205,7 @@ class DiceCloudSync {
             url: `https://dicecloud.com/api/creature/${characterData.id}`,
             token: diceCloudToken
           });
-          
+
           if (response.success && response.data) {
             const apiData = response.data;
             console.log('[DiceCloud Sync] Received API data for property cache');
@@ -270,6 +274,12 @@ class DiceCloudSync {
                   if (hpProperty) {
                     this.propertyCache.set('Hit Points', hpProperty._id);
                     console.log(`[DiceCloud Sync] Selected Hit Points property: ${hpProperty.name} -> ${hpProperty._id} (type: ${hpProperty.type}, attributeType: ${hpProperty.attributeType || 'none'}, value: ${hpProperty.value}, total: ${hpProperty.total}, baseValue: ${hpProperty.baseValue}, damage: ${hpProperty.damage})`);
+
+                    // Extract current HP value for initialization
+                    // Current HP = total - damage
+                    const currentHP = (hpProperty.total || 0) - (hpProperty.damage || 0);
+                    currentValuesFromAPI['Hit Points'] = currentHP;
+                    console.log(`[DiceCloud Sync] 📊 Extracted current HP value: ${currentHP} (total: ${hpProperty.total}, damage: ${hpProperty.damage})`);
                   } else {
                     console.log(`[DiceCloud Sync] No suitable Hit Points property found`);
                   }
@@ -310,8 +320,14 @@ class DiceCloudSync {
                   if (spellSlotAttr) {
                     // Cache with both the full name and a short key
                     this.propertyCache.set(propertyName, spellSlotAttr._id);
-                    this.propertyCache.set(`spellSlot${spellSlotMatch[1].replace(/\D/g, '')}`, spellSlotAttr._id);
+                    const slotLevel = spellSlotMatch[1].replace(/\D/g, '');
+                    this.propertyCache.set(`spellSlot${slotLevel}`, spellSlotAttr._id);
                     console.log(`[DiceCloud Sync] Cached spell slot: ${propertyName} -> ${spellSlotAttr._id} (attributeType: ${spellSlotAttr.attributeType})`);
+
+                    // Extract current spell slot value for initialization
+                    const currentSlots = spellSlotAttr.value || 0;
+                    currentValuesFromAPI[`spellSlot${slotLevel}`] = currentSlots;
+                    console.log(`[DiceCloud Sync] 📊 Extracted current spell slot value for level ${slotLevel}: ${currentSlots}`);
                   }
                   continue;
                 }
@@ -331,6 +347,11 @@ class DiceCloudSync {
                   if (channelDivinity) {
                     this.propertyCache.set('Channel Divinity', channelDivinity._id);
                     console.log(`[DiceCloud Sync] Cached Channel Divinity: ${channelDivinity._id} (attributeType: ${channelDivinity.attributeType})`);
+
+                    // Extract current Channel Divinity value for initialization
+                    const currentCD = channelDivinity.value || 0;
+                    currentValuesFromAPI['Channel Divinity'] = currentCD;
+                    console.log(`[DiceCloud Sync] 📊 Extracted current Channel Divinity value: ${currentCD}`);
                   }
                   continue;
                 }
@@ -387,6 +408,11 @@ class DiceCloudSync {
               if (!this.propertyCache.has(resource.name)) {
                 this.propertyCache.set(resource.name, resource._id);
                 console.log(`[DiceCloud Sync] Cached class resource: ${resource.name} -> ${resource._id} (attributeType: ${resource.attributeType})`);
+
+                // Extract current value for initialization
+                const currentValue = resource.value || 0;
+                currentValuesFromAPI[resource.name] = currentValue;
+                console.log(`[DiceCloud Sync] 📊 Extracted current value for ${resource.name}: ${currentValue}`);
               }
             }
 
@@ -402,6 +428,11 @@ class DiceCloudSync {
             if (tempHP) {
               this.propertyCache.set('Temporary Hit Points', tempHP._id);
               console.log(`[DiceCloud Sync] Cached Temporary Hit Points: ${tempHP._id} (attributeType: ${tempHP.attributeType})`);
+
+              // Extract current Temp HP value for initialization
+              const currentTempHP = tempHP.value || 0;
+              currentValuesFromAPI['Temporary Hit Points'] = currentTempHP;
+              console.log(`[DiceCloud Sync] 📊 Extracted current Temp HP value: ${currentTempHP}`);
             }
 
             // Cache Death Saves
@@ -480,6 +511,11 @@ class DiceCloudSync {
             for (const attr of allRemainingAttributes) {
               this.propertyCache.set(attr.name, attr._id);
               console.log(`[DiceCloud Sync] Cached custom attribute: ${attr.name} -> ${attr._id} (value: ${attr.value}, baseValue: ${attr.baseValue})`);
+
+              // Extract current value for initialization
+              const currentValue = attr.value !== undefined ? attr.value : (attr.baseValue || 0);
+              currentValuesFromAPI[attr.name] = currentValue;
+              console.log(`[DiceCloud Sync] 📊 Extracted current value for ${attr.name}: ${currentValue}`);
             }
 
             // Cache important toggles (conditions, active features, etc.)
@@ -529,7 +565,7 @@ class DiceCloudSync {
 
       // Initialize previousValues from current character data to avoid syncing everything on first update
       console.log('[DiceCloud Sync] Initializing previousValues from current character data...');
-      await this.initializePreviousValues(characterData);
+      await this.initializePreviousValues(characterData, currentValuesFromAPI);
     } else {
       console.warn('[DiceCloud Sync] No character data available for cache building');
       console.warn('[DiceCloud Sync] activeCharacterId:', activeCharacterId);
@@ -540,38 +576,54 @@ class DiceCloudSync {
   /**
    * Initialize previousValues from character data to avoid syncing everything on first update
    * @param {Object} characterData - Character data object
+   * @param {Object} apiValues - Current values extracted from DiceCloud API (optional)
    */
-  async initializePreviousValues(characterData) {
+  async initializePreviousValues(characterData, apiValues = {}) {
     console.log('[DiceCloud Sync] Populating previousValues to establish baseline...');
 
-    // HP values
-    if (characterData.hp !== undefined) {
+    // HP values - prefer API values if available, otherwise use stored character data
+    if (apiValues['Hit Points'] !== undefined) {
+      this.previousValues.set('Hit Points', apiValues['Hit Points']);
+      console.log(`[DiceCloud Sync] 📊 Initialized Hit Points from API: ${apiValues['Hit Points']}`);
+    } else if (characterData.hp !== undefined) {
       this.previousValues.set('Hit Points', characterData.hp);
     }
-    if (characterData.tempHp !== undefined) {
+
+    if (apiValues['Temporary Hit Points'] !== undefined) {
+      this.previousValues.set('Temporary Hit Points', apiValues['Temporary Hit Points']);
+      console.log(`[DiceCloud Sync] 📊 Initialized Temp HP from API: ${apiValues['Temporary Hit Points']}`);
+    } else if (characterData.tempHp !== undefined) {
       this.previousValues.set('Temporary Hit Points', characterData.tempHp);
     }
+
     if (characterData.maxHp !== undefined) {
       this.previousValues.set('Max Hit Points', characterData.maxHp);
     }
 
-    // Spell slots
-    if (characterData.spellSlots) {
-      for (let level = 1; level <= 9; level++) {
+    // Spell slots - prefer API values if available
+    for (let level = 1; level <= 9; level++) {
+      const cacheKey = `spellSlot${level}`;
+
+      if (apiValues[cacheKey] !== undefined) {
+        this.previousValues.set(cacheKey, apiValues[cacheKey]);
+        console.log(`[DiceCloud Sync] 📊 Initialized spell slot level ${level} from API: ${apiValues[cacheKey]}`);
+      } else if (characterData.spellSlots) {
         const currentKey = `level${level}SpellSlots`;
         const maxKey = `level${level}SpellSlotsMax`;
 
         if (characterData.spellSlots[currentKey] !== undefined && characterData.spellSlots[maxKey] !== undefined) {
           if (characterData.spellSlots[maxKey] > 0) {
-            const cacheKey = `spellSlot${level}`;
             this.previousValues.set(cacheKey, characterData.spellSlots[currentKey]);
           }
         }
       }
     }
 
-    // Channel Divinity
-    if (characterData.channelDivinity !== undefined && characterData.channelDivinity.current !== undefined) {
+    // Channel Divinity - prefer API values if available
+    if (apiValues['Channel Divinity'] !== undefined) {
+      this.previousValues.set('Channel Divinity', apiValues['Channel Divinity']);
+      console.log(`[DiceCloud Sync] 📊 Initialized Channel Divinity from API: ${apiValues['Channel Divinity']}`);
+    } else if (characterData.channelDivinity !== undefined && characterData.channelDivinity.current !== undefined) {
       this.previousValues.set('Channel Divinity', characterData.channelDivinity.current);
     }
 
@@ -597,6 +649,18 @@ class DiceCloudSync {
     // Inspiration
     if (characterData.inspiration !== undefined) {
       this.previousValues.set('Inspiration', characterData.inspiration);
+    }
+
+    // Initialize any remaining values from API that weren't explicitly handled above
+    // This catches class resources (Ki Points, Sorcery Points, etc.) and custom attributes
+    if (apiValues && Object.keys(apiValues).length > 0) {
+      for (const [key, value] of Object.entries(apiValues)) {
+        // Only set if not already set above
+        if (!this.previousValues.has(key)) {
+          this.previousValues.set(key, value);
+          console.log(`[DiceCloud Sync] 📊 Initialized ${key} from API: ${value}`);
+        }
+      }
     }
 
     console.log(`[DiceCloud Sync] Initialized ${this.previousValues.size} previous values`);
