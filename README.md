@@ -4,7 +4,7 @@ A browser extension that integrates Dice Cloud with Roll20. Import D&D character
 
 **🎲 Version 1.1.4 - Inventory Management & QoL Improvements**
 
-**Quick Download:** [Firefox](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-firefox.zip) | [Chrome](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-chrome.zip) | [Safari](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-safari.zip)
+**Quick Download:** [Firefox](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-firefox-v1.1.4.zip) | [Chrome](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-chrome-v1.1.4.zip) | [Safari](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-safari-v1.1.4.zip)
 
 ### 📋 Recent Changes
 
@@ -59,7 +59,7 @@ A browser extension that integrates Dice Cloud with Roll20. Import D&D character
 Download the pre-built extension for your browser:
 
 #### 🦊 Firefox
-[**Download RollCloud for Firefox**](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-firefox.zip)
+[**Download RollCloud for Firefox**](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-firefox-v1.1.4.zip)
 
 1. **Download** the Firefox ZIP file
 2. **Extract** the ZIP file to a folder
@@ -69,7 +69,7 @@ Download the pre-built extension for your browser:
 6. **Done!** The RollCloud icon appears in your toolbar
 
 #### 🌐 Chrome / Edge / Brave
-[**Download RollCloud for Chrome**](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-chrome.zip)
+[**Download RollCloud for Chrome**](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-chrome-v1.1.4.zip)
 
 1. **Download** the Chrome ZIP file
 2. **Extract** the ZIP file to a folder
@@ -79,7 +79,7 @@ Download the pre-built extension for your browser:
 6. **Done!** The RollCloud icon appears in your toolbar
 
 #### 🧭 Safari
-[**Download RollCloud for Safari**](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-safari.zip)
+[**Download RollCloud for Safari**](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-safari-v1.1.4.zip)
 
 **Requirements:**
 - macOS with Safari 14.0 or later
