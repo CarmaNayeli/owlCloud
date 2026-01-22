@@ -308,22 +308,36 @@ class DiceCloudSync {
                 name: property.name,
                 type: property.type,
                 value: property.value,
+                baseValue: property.baseValue,
+                damage: property.damage,
                 skillValue: property.skillValue,
                 dirty: property.dirty
               });
-              
-              // Determine the correct field name based on property type
+
+              // Determine the correct field name and value based on property type
               let fieldName = 'value'; // default
+              let updateValue = value; // default to the passed value
+
               if (property.type === 'skill') {
                 fieldName = 'skillValue';
               } else if (property.type === 'effect') {
                 // For effects, check if there's a calculation or if it uses value
                 fieldName = property.calculation ? 'calculation' : 'value';
+              } else if (property.type === 'attribute') {
+                // For attributes (like HP), the 'value' field is computed as baseValue - damage
+                // So we need to update the 'damage' field instead
+                // damage = baseValue - newCurrentValue
+                const baseValue = property.baseValue || property.total || 0;
+                const newDamage = Math.max(0, baseValue - value);
+                console.log(`[DiceCloud Sync] Attribute update: baseValue=${baseValue}, newCurrentValue=${value}, calculatedDamage=${newDamage}`);
+                fieldName = 'damage';
+                updateValue = newDamage;
               }
               console.log(`[DiceCloud Sync] Using field name: ${fieldName} for property type: ${property.type}`);
-              
-              // Update the payload with the correct field name
+
+              // Update the payload with the correct field name and value
               updatePayload.path = [fieldName];
+              updatePayload.value = updateValue;
             }
           }
         } else {
