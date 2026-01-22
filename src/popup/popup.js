@@ -645,13 +645,31 @@ function initializePopup() {
   function checkExperimentalBuild() {
     // Check for experimental build indicators
     const experimentalIndicators = [
-      () => browserAPI.runtime.getManifest().name.includes('Experimental'),
-      () => browserAPI.runtime.getManifest().version.endsWith('.1'),
+      () => {
+        try {
+          const manifest = browserAPI.runtime.getManifest();
+          return manifest && manifest.name && manifest.name.includes('Experimental');
+        } catch (e) {
+          debug.log('🔍 Could not check manifest name:', e);
+          return false;
+        }
+      },
+      () => {
+        try {
+          const manifest = browserAPI.runtime.getManifest();
+          return manifest && manifest.version && manifest.version.endsWith('.1');
+        } catch (e) {
+          debug.log('🔍 Could not check manifest version:', e);
+          return false;
+        }
+      },
       async () => {
         try {
-          const files = await browserAPI.runtime.getURL('src/lib/meteor-ddp-client.js');
-          return files && !files.includes('chrome-extension://');
+          const url = browserAPI.runtime.getURL('src/lib/meteor-ddp-client.js');
+          const response = await fetch(url);
+          return response.ok;
         } catch (e) {
+          debug.log('🔍 Experimental files not found:', e);
           return false;
         }
       }
