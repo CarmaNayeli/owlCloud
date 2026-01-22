@@ -326,6 +326,7 @@ if (typeof module !== 'undefined' && module.exports) {
 // Global initialization function for browser extension
 window.initializeDiceCloudSync = function() {
   console.log('[DiceCloud Sync] Global initialization called');
+  console.log('[DiceCloud Sync] Current URL:', window.location.href);
   
   // Check if we have a DDP client available
   if (typeof window.DDPClient === 'undefined') {
@@ -343,8 +344,12 @@ window.initializeDiceCloudSync = function() {
   
   // Function to try initialization
   const tryInitialize = () => {
+    console.log('[DiceCloud Sync] Trying to initialize...');
+    
     // Try to get current character ID from extension storage
     if (typeof browserAPI !== 'undefined' && browserAPI.storage) {
+      console.log('[DiceCloud Sync] Browser API available, checking storage...');
+      
       browserAPI.storage.local.get(['activeCharacterId'], (result) => {
         console.log('[DiceCloud Sync] Storage result:', result);
         
@@ -371,6 +376,8 @@ window.initializeDiceCloudSync = function() {
       });
     } else {
       console.log('[DiceCloud Sync] Browser storage not available, waiting for manual initialization');
+      console.log('[DiceCloud Sync] browserAPI type:', typeof browserAPI);
+      console.log('[DiceCloud Sync] browserAPI.storage type:', typeof browserAPI?.storage);
     }
   };
   
@@ -404,6 +411,8 @@ window.initializeDiceCloudSync = function() {
           clearInterval(retryInterval);
         }
       });
+    } else {
+      console.log(`[DiceCloud Sync] Browser API not available on retry ${retryCount}`);
     }
   }, 2000); // Check every 2 seconds
   
