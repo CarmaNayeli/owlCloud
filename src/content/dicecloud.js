@@ -120,7 +120,9 @@
     debug.log('✅ API token obtained');
     debug.log('📡 Fetching character data for ID:', characterId);
 
-    const apiUrl = `${API_BASE}/creature/${characterId}`;
+    // Add timestamp to URL to bypass any caching (cache busting)
+    const timestamp = Date.now();
+    const apiUrl = `${API_BASE}/creature/${characterId}?_t=${timestamp}`;
     debug.log('🌐 API URL:', apiUrl);
 
     // Fetch character data from API
@@ -129,8 +131,12 @@
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${tokenResponse.token}`,
-          'Content-Type': 'application/json'
-        }
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        },
+        cache: 'no-store'
       });
 
       debug.log('📨 API Response status:', response.status);
