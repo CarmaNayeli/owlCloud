@@ -40,8 +40,14 @@ class DiceCloudSync {
       // Note: We'll need to fetch the full character data to build our cache
       // The DiceCloud API GET /creature/:id returns all properties
       await this.buildPropertyCache();
-      this.enabled = true;
+
+      // Check user preference for auto backwards sync
+      const result = await browserAPI.storage.local.get(['autoBackwardsSync']);
+      const autoBackwardsSync = result.autoBackwardsSync !== false; // Default to true
+      this.enabled = autoBackwardsSync;
+
       console.log('[DiceCloud Sync] Initialized successfully');
+      console.log('[DiceCloud Sync] Auto backwards sync preference:', autoBackwardsSync);
       console.log('[DiceCloud Sync] Sync enabled:', this.enabled);
     } catch (error) {
       console.error('[DiceCloud Sync] Initialization failed:', error);

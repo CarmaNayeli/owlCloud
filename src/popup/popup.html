@@ -133,12 +133,24 @@
           <!-- Experimental Build Instructions (hidden by default) -->
           <div id="experimentalInstructions" class="experimental-instructions hidden" style="margin-top: 15px; padding: 12px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px;">
             <h4 style="margin-top: 0; color: #856404;">🧪 Experimental Features</h4>
-            <ul style="margin-bottom: 0; color: #856404;">
+            <ul style="margin-bottom: 10px; color: #856404;">
               <li><strong>Two-Way Sync:</strong> Changes in Roll20 automatically update DiceCloud</li>
               <li><strong>Real-time Updates:</strong> HP, resources, and conditions sync instantly</li>
               <li><strong>Action Tracking:</strong> Spell slots and ability uses tracked across platforms</li>
             </ul>
-            <p style="margin-bottom: 0; font-size: 0.85em; color: #856404;">
+
+            <!-- Auto Backwards Sync Toggle -->
+            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #ffeaa7;">
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: #856404; font-weight: bold;">
+                <input type="checkbox" id="autoBackwardsSyncToggle" style="width: 18px; height: 18px; cursor: pointer;">
+                <span>Enable Auto Backwards Sync</span>
+              </label>
+              <p style="margin: 5px 0 0 28px; font-size: 0.8em; color: #856404;">
+                Automatically sync changes from Roll20 back to DiceCloud
+              </p>
+            </div>
+
+            <p style="margin-bottom: 0; margin-top: 10px; font-size: 0.85em; color: #856404;">
               <strong>⚠️ Experimental:</strong> These features are in testing - report any issues!
             </p>
           </div>

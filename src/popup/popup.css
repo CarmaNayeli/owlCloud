@@ -568,16 +568,57 @@ footer {
     grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
     gap: 8px;
   }
-  
+
   .spell-slot-card {
     padding: 10px 8px;
   }
-  
+
   .spell-slot-level {
     font-size: 12px;
   }
-  
+
   .spell-slot-count {
     font-size: 14px;
   }
+}
+
+/* Auto Backwards Sync Toggle Styles */
+#autoBackwardsSyncToggle {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #856404;
+  border-radius: 3px;
+  background: white;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+#autoBackwardsSyncToggle:checked {
+  background: #856404;
+  border-color: #856404;
+}
+
+#autoBackwardsSyncToggle:checked::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+#autoBackwardsSyncToggle:hover {
+  border-color: #6c520d;
+}
+
+#autoBackwardsSyncToggle:focus {
+  outline: 2px solid #ffeaa7;
+  outline-offset: 2px;
 }
