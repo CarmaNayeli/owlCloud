@@ -66,7 +66,7 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
 
         case 'setApiToken': {
-          await setApiToken(request.token);
+          await setApiToken(request.token, request.userId, request.tokenExpires, request.username);
           response = { success: true };
           break;
         }
@@ -206,20 +206,30 @@ async function loginToDiceCloud(username, password) {
 }
 
 /**
- * Stores the API token
+ * Stores the API token (extracted from DiceCloud session or manually entered)
  */
-async function setApiToken(token) {
+async function setApiToken(token, userId = null, tokenExpires = null, username = null) {
   try {
     // Validate token format (basic check)
     if (!token || token.length < 10) {
       throw new Error('Invalid API token format');
     }
 
-    // Store the API token
-    await browserAPI.storage.local.set({
+    // Store the API token with optional metadata
+    const storageData = {
       diceCloudToken: token,
-      username: 'DiceCloud User'
-    });
+      username: username || 'DiceCloud User'
+    };
+
+    if (userId) {
+      storageData.diceCloudUserId = userId;
+    }
+
+    if (tokenExpires) {
+      storageData.tokenExpires = tokenExpires;
+    }
+
+    await browserAPI.storage.local.set(storageData);
 
     debug.log('Successfully stored API token');
     return { success: true };
