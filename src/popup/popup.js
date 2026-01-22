@@ -74,6 +74,24 @@ function initializePopup() {
   const showSheetBtn = document.getElementById('showSheetBtn');
   const clearBtn = document.getElementById('clearBtn');
 
+  // Debug: Check if button exists
+  debug.log('🔍 showSheetBtn element:', showSheetBtn);
+
+  // Enable button for testing
+  if (showSheetBtn) {
+    showSheetBtn.disabled = false;
+    debug.log('✅ Enabled showSheetBtn for testing');
+    
+    // Add basic styling to make it visible
+    showSheetBtn.style.display = 'inline-block';
+    showSheetBtn.style.width = 'auto';
+    showSheetBtn.style.height = 'auto';
+    showSheetBtn.style.padding = '8px 16px';
+    showSheetBtn.style.margin = '5px';
+    showSheetBtn.style.visibility = 'visible';
+    debug.log('✅ Added basic styling to button');
+  }
+
   // Initialize
   checkLoginStatus();
 
@@ -84,7 +102,14 @@ function initializePopup() {
   logoutBtn.addEventListener('click', handleLogout);
   characterSelect.addEventListener('change', handleCharacterChange);
   syncBtn.addEventListener('click', handleSync);
-  showSheetBtn.addEventListener('click', handleShowSheet);
+  
+  if (showSheetBtn) {
+    debug.log('✅ Adding click listener to showSheetBtn');
+    showSheetBtn.addEventListener('click', handleShowSheet);
+  } else {
+    debug.error('❌ showSheetBtn not found!');
+  }
+  
   clearBtn.addEventListener('click', handleClear);
 
   // Modal event listeners
@@ -292,7 +317,8 @@ function initializePopup() {
     charLevel.textContent = '-';
     charClass.textContent = '-';
     charRace.textContent = '-';
-    showSheetBtn.disabled = true;
+    // Keep showSheetBtn enabled for testing
+    showSheetBtn.disabled = false;
     clearBtn.disabled = false;
   }
 
@@ -424,6 +450,7 @@ function initializePopup() {
    * Handles show sheet button click
    */
   async function handleShowSheet() {
+    debug.log('📋 handleShowSheet called!');
     try {
       showSheetBtn.disabled = true;
       showSheetBtn.textContent = '⏳ Opening...';
@@ -439,12 +466,34 @@ function initializePopup() {
         return;
       }
 
+      // Check if there's any synced character data
+      const profilesResponse = await browserAPI.runtime.sendMessage({ action: 'getAllCharacterProfiles' });
+      const profiles = profilesResponse.success ? profilesResponse.profiles : {};
+      const hasCharacters = Object.keys(profiles).length > 0;
+
+      if (!hasCharacters) {
+        // No character data - ask if user wants to go to GM mode
+        const userConfirmed = confirm('No character data found.\n\nWould you like to open GM mode instead?');
+
+        if (!userConfirmed) {
+          showSheetBtn.disabled = false;
+          showSheetBtn.textContent = '📋 Show Character Sheet';
+          return;
+        }
+      }
+
       // Send message to Roll20 content script to show sheet
+      debug.log('📋 Sending showCharacterSheet message to Roll20 tab:', tab.id);
       const response = await browserAPI.tabs.sendMessage(tab.id, { action: 'showCharacterSheet' });
+      debug.log('📋 Received response from Roll20:', response);
 
       if (response && response.success) {
         showSuccess('Character sheet opened!');
+      } else if (!hasCharacters) {
+        // If no characters, the GM mode was opened
+        showSuccess('GM mode opened!');
       } else {
+        debug.error('📋 Failed to open character sheet. Response:', response);
         showError('Failed to open character sheet');
       }
     } catch (error) {

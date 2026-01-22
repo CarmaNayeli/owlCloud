@@ -1681,8 +1681,24 @@
         debug.log('✅ Popup window opened successfully');
 
       } else {
-        debug.log('📋 No character data found');
-        showNotification('No character data found. Please sync from Dice Cloud first.', 'error');
+        debug.log('📋 No character data found - asking user about GM mode');
+
+        // Ask user if they want to open GM mode instead
+        const userConfirmed = confirm('No character data found.\n\nWould you like to open GM mode instead?');
+
+        if (userConfirmed) {
+          // User clicked "Yes" - trigger GM mode via roll20.js
+          debug.log('✅ User confirmed - requesting GM mode via showCharacterSheet');
+          // Send message to roll20.js to open GM mode
+          // This will trigger the same flow as the popup button
+          const event = new CustomEvent('openGMMode');
+          document.dispatchEvent(event);
+          showNotification('Opening GM mode...', 'success');
+        } else {
+          // User clicked "Cancel" - just show error
+          debug.log('ℹ️ User cancelled GM mode opening');
+          showNotification('No character data found. Please sync from Dice Cloud first.', 'error');
+        }
       }
     });
   }

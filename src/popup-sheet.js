@@ -46,12 +46,51 @@ let domReady = false;
 // Queue for operations waiting for DOM
 let pendingOperations = [];
 
+/**
+ * Hide GM controls when opened from GM panel (read-only mode)
+ */
+function hideGMControls() {
+  // Hide GM mode toggle
+  const gmModeContainer = document.querySelector('.gm-mode-container');
+  if (gmModeContainer) {
+    gmModeContainer.style.display = 'none';
+    debug.log('👑 Hidden GM mode toggle');
+  }
+  
+  // Hide settings button
+  const settingsBtn = document.getElementById('settings-btn');
+  if (settingsBtn) {
+    settingsBtn.style.display = 'none';
+    debug.log('👑 Hidden settings button');
+  }
+  
+  // Hide color picker
+  const colorPickerContainer = document.querySelector('.color-picker-container');
+  if (colorPickerContainer) {
+    colorPickerContainer.style.display = 'none';
+    debug.log('👑 Hidden color picker');
+  }
+  
+  // Update title to indicate read-only mode
+  const titleElement = document.querySelector('.char-name-section');
+  if (titleElement) {
+    titleElement.innerHTML = titleElement.innerHTML.replace('🎲 Character Sheet', '🎲 Character Sheet (Read Only)');
+  }
+}
+
 // Listen for character data from parent window via postMessage
 window.addEventListener('message', async (event) => {
   debug.log('✅ Received message in popup:', event.data);
 
   if (event.data && event.data.action === 'initCharacterSheet') {
     debug.log('✅ Initializing character sheet with data:', event.data.data.name);
+    
+    // Check if this is opened from GM panel (read-only mode)
+    const isFromGMPanel = event.data.source === 'gm-panel';
+    if (isFromGMPanel) {
+      debug.log('👑 Popup opened from GM panel - hiding GM controls');
+      hideGMControls();
+    }
     
     // Function to initialize the sheet
     const initSheet = async () => {
@@ -107,6 +146,46 @@ window.addEventListener('message', async (event) => {
     } else {
       debug.log('⏳ DOM not ready yet, queuing initialization...');
       pendingOperations.push(initSheet);
+    }
+  } else if (event.data && event.data.action === 'loadCharacterData') {
+    debug.log('📋 Loading character data from GM panel:', event.data.characterData.name);
+    
+    // This is from GM panel - hide GM controls
+    hideGMControls();
+    
+    // Load the character data using the same initialization process
+    characterData = event.data.characterData;
+    
+    // Function to initialize the sheet with GM panel data
+    const initSheetFromGM = async () => {
+      // Build tabs first (need to load profiles from storage)
+      await loadAndBuildTabs();
+
+      // Then build the sheet with character data
+      buildSheet(characterData);
+      
+      // Initialize racial traits based on character data
+      initRacialTraits();
+
+      // Initialize feat traits based on character data
+      initFeatTraits();
+
+      // Initialize class features based on character data
+      initClassFeatures();
+
+      // Initialize character cache with current data
+      if (characterData && characterData.id) {
+        characterCache.set(characterData.id, JSON.parse(JSON.stringify(characterData)));
+        debug.log(`📂 Initialized cache for character: ${characterData.name}`);
+      }
+    };
+
+    // Only initialize if DOM is ready, otherwise queue it
+    if (domReady) {
+      await initSheetFromGM();
+    } else {
+      debug.log('⏳ DOM not ready yet, queuing GM panel initialization...');
+      pendingOperations.push(initSheetFromGM);
     }
   }
 });
@@ -9605,6 +9684,13 @@ function initSettingsButton() {
     settingsBtn.addEventListener('click', showSettingsModal);
     debug.log('⚙️ Settings button initialized');
   }
+}
+
+// Check if opened from GM panel and request character data
+if (window.opener && !characterData) {
+  // Request character data from parent window
+  window.opener.postMessage({ action: 'requestCharacterData' }, '*');
+  debug.log('📋 Requested character data from parent window');
 }
 
 // Initialize macros when DOM is ready
