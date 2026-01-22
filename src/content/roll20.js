@@ -2693,21 +2693,33 @@ ${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗
     try {
       // Load the meteor-ddp-client script
       await loadScript(browserAPI.runtime.getURL('src/lib/meteor-ddp-client.js'));
-      debug.log(' Meteor DDP client loaded');
+      debug.log('🌐 Meteor DDP client loaded');
       
       // Load the dicecloud-sync script  
       await loadScript(browserAPI.runtime.getURL('src/lib/dicecloud-sync.js'));
-      debug.log(' DiceCloud sync module loaded');
+      debug.log('🔄 DiceCloud sync module loaded');
+      
+      // Wait a bit for scripts to fully initialize
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Debug: Check what's available on window
+      debug.log('🔍 Window objects check:', {
+        DDPClient: typeof window.DDPClient,
+        initializeDiceCloudSync: typeof window.initializeDiceCloudSync,
+        DiceCloudSync: typeof window.DiceCloudSync
+      });
       
       // Initialize the sync (this will be called from the dicecloud-sync.js)
       if (typeof window.initializeDiceCloudSync === 'function') {
+        debug.log('✅ Calling initializeDiceCloudSync function...');
         window.initializeDiceCloudSync();
-        debug.log(' Experimental two-way sync initialized');
+        debug.log('✅ Experimental two-way sync initialized');
       } else {
-        debug.warn(' DiceCloud sync initialization function not found');
+        debug.warn('⚠️ DiceCloud sync initialization function not found');
+        debug.warn('⚠️ Available window properties:', Object.keys(window).filter(key => key.toLowerCase().includes('dicecloud') || key.toLowerCase().includes('sync')));
       }
     } catch (error) {
-      debug.error(' Error loading experimental sync:', error);
+      debug.error('❌ Error loading experimental sync:', error);
       throw error;
     }
   }
