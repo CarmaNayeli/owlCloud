@@ -371,6 +371,31 @@
         message: chatInput ? 'Roll20 chat accessible' : 'Roll20 chat not found'
       });
     } else if (request.action === 'showCharacterSheet') {
+      debug.log('🔍 showCharacterSheet called, checking playerData:', playerData);
+      debug.log('🔍 playerData keys:', Object.keys(playerData || {}));
+      
+      // Check if there's any character data synced
+      if (!playerData || Object.keys(playerData).length === 0) {
+        debug.log('⚠️ No character data found - opening GM panel');
+        // No character data found - post message to chat and open GM panel
+        try {
+          postChatMessage('⚠️ No character data found. Opening GM mode...');
+          debug.log('✅ Chat message posted successfully');
+        } catch (error) {
+          debug.error('❌ Error posting chat message:', error);
+        }
+        
+        try {
+          toggleGMMode(true);
+          debug.log('✅ GM panel opened successfully');
+        } catch (error) {
+          debug.error('❌ Error opening GM panel:', error);
+        }
+        
+        sendResponse({ success: false, error: 'No character data found - GM mode opened' });
+        return;
+      }
+
       // Show the character sheet overlay
       try {
         // Try to access the character sheet overlay script
@@ -1515,499 +1540,29 @@
       return;
     }
 
-    // Create popout window
-    const popup = window.open('', `character-${playerName}`, 'width=900,height=700,scrollbars=yes,resizable=yes,toolbar=no,menubar=no,location=no,status=no');
+    // Create popout window and load the EXISTING popup-sheet.html file
+    const popup = window.open(browserAPI.runtime.getURL('src/popup-sheet.html'), `character-${playerName}`, 'width=900,height=700,scrollbars=yes,resizable=yes,toolbar=no,menubar=no,location=no,status=no');
     
     if (!popup) {
       debug.error('❌ Failed to open popup window - please allow popups for this site');
       return;
     }
 
-    // Generate character HTML
-    const hpPercent = player.maxHp > 0 ? (player.hp / player.maxHp) * 100 : 0;
-    const hpColor = hpPercent > 50 ? '#27ae60' : hpPercent > 25 ? '#f39c12' : '#e74c3c';
+    // Store player data for the popup to request
+    window.currentPopoutPlayer = player;
+    window.currentPopoutPlayerName = playerName;
 
-    let abilitiesHTML = '';
-    if (player.attributes) {
-      abilitiesHTML = `
-        <div class="section">
-          <h3>Abilities</h3>
-          <div class="abilities-grid">
-            ${['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma'].map(ability => {
-              const score = player.attributes[ability] || 10;
-              const mod = Math.floor((score - 10) / 2);
-              const sign = mod >= 0 ? '+' : '';
-              return `
-                <div class="ability-card">
-                  <div class="ability-name">${ability}</div>
-                  <div class="ability-score">${score}</div>
-                  <div class="ability-mod">${sign}${mod}</div>
-                </div>
-              `;
-            }).join('')}
-          </div>
-        </div>
-      `;
-    }
+    // Listen for data requests from the popup
+    window.addEventListener('message', function(event) {
+      if (event.data && event.data.action === 'requestCharacterData') {
+        // Send the character data to the popup
+        popup.postMessage({
+          action: 'loadCharacterData',
+          characterData: window.currentPopoutPlayer
+        }, '*');
+      }
+    });
 
-    let skillsHTML = '';
-    if (player.skills && player.skills.length > 0) {
-      skillsHTML = `
-        <div class="section">
-          <h3>Skills</h3>
-          <div class="skills-grid">
-            ${player.skills.slice(0, 12).map(skill => `
-              <div class="skill-item">
-                <span class="skill-name">${skill.name || skill}</span>
-                <span class="skill-bonus">${skill.bonus ? `+${skill.bonus}` : '—'}</span>
-              </div>
-            `).join('')}
-            ${player.skills.length > 12 ? `<div style="color: #aaa; font-size: 0.9em; text-align: center; padding: 12px;">... and ${player.skills.length - 12} more skills</div>` : ''}
-          </div>
-        </div>
-      `;
-    }
-
-    let actionsHTML = '';
-    if (player.actions && player.actions.length > 0) {
-      actionsHTML = player.actions.slice(0, 5).map(action => `
-        <div class="action-card">
-          <div class="action-name">${action.name}</div>
-          ${action.description ? `<div class="action-description">${action.description.substring(0, 200)}${action.description.length > 200 ? '...' : ''}</div>` : ''}
-        </div>
-      `).join('');
-    }
-
-    // Write EXACT popup sheet HTML to popup
-    popup.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Character Sheet - ${playerName}</title>
-        <meta charset="UTF-8">
-        <style>
-          /* CSS Variables for Theming */
-          :root {
-            /* Light theme (default) */
-            --bg-primary: #f5f5f5;
-            --bg-secondary: #ffffff;
-            --bg-tertiary: #f0f0f0;
-            --bg-card: #f0fff4;
-            --bg-card-hover: #e8f5e8;
-            --bg-spell: #fff3cd;
-            --bg-action: #e3f2fd;
-            --bg-resource: #f3e5f5;
-            --bg-feature: #fef5e7;
-
-            --text-primary: #2C3E50;
-            --text-secondary: #666666;
-            --text-muted: #999999;
-            --text-inverse: #ffffff;
-
-            --border-color: #ddd;
-            --border-card: #2D8B83;
-            --border-spell: #f39c12;
-            --border-action: #2196f3;
-
-            --accent-primary: #2D8B83;
-            --accent-success: #27ae60;
-            --accent-danger: #E74C3C;
-            --accent-warning: #f39c12;
-            --accent-info: #2196f3;
-            --accent-purple: #9b59b6;
-            --accent-purple-dark: #8e44ad;
-
-            --shadow: rgba(0,0,0,0.1);
-            --shadow-hover: rgba(0,0,0,0.15);
-          }
-
-          body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-          }
-          .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: var(--bg-secondary);
-            padding: 0;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px var(--shadow);
-          }
-          .systems-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 15px;
-            background: var(--bg-tertiary);
-            border-bottom: 1px solid var(--border-color);
-            border-radius: 8px 8px 0 0;
-            gap: 10px;
-          }
-          .close-btn {
-            background: #E74C3C;
-            color: white;
-            border: none;
-            padding: 4px 8px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.85em;
-          }
-          .content-area {
-            padding: 20px;
-          }
-          .header {
-            margin-bottom: 20px;
-          }
-          .char-name-section {
-            font-size: 1.5em;
-            font-weight: bold;
-            color: var(--text-primary);
-            margin-bottom: 15px;
-          }
-          .char-info-layer {
-            display: flex;
-            gap: 20px;
-            margin-bottom: 15px;
-            flex-wrap: wrap;
-          }
-          .char-info-layer.layer-1 {
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 15px;
-          }
-          .char-info-layer.layer-2 {
-            margin-bottom: 15px;
-          }
-          .layer-3 {
-            display: flex;
-            gap: 20px;
-            margin-bottom: 20px;
-          }
-          .stat-box {
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            padding: 10px;
-            text-align: center;
-            min-width: 80px;
-          }
-          .stat-label {
-            font-size: 0.8em;
-            color: var(--text-secondary);
-            margin-bottom: 5px;
-          }
-          .stat-value {
-            font-size: 1.3em;
-            font-weight: bold;
-            color: var(--text-primary);
-          }
-          .hp-box, .initiative-box {
-            background: var(--bg-card);
-            border: 2px solid var(--accent-primary);
-            border-radius: 8px;
-            padding: 15px;
-            text-align: center;
-            flex: 1;
-          }
-          .hp-box {
-            border-color: var(--accent-success);
-          }
-          .initiative-box {
-            border-color: var(--accent-info);
-          }
-          .section {
-            margin-bottom: 25px;
-          }
-          .section h3 {
-            color: var(--text-primary);
-            margin-bottom: 15px;
-            font-size: 1.2em;
-            border-bottom: 2px solid var(--accent-primary);
-            padding-bottom: 5px;
-          }
-          .section-content {
-            background: var(--bg-secondary);
-            border-radius: 6px;
-            padding: 15px;
-          }
-          .abilities-grid, .saves-grid, .skills-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 10px;
-          }
-          .ability-card, .save-card, .skill-card {
-            background: var(--bg-tertiary);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            padding: 10px;
-            text-align: center;
-          }
-          .ability-name, .save-name, .skill-name {
-            font-size: 0.9em;
-            color: var(--text-secondary);
-            margin-bottom: 5px;
-            text-transform: capitalize;
-          }
-          .ability-score, .save-value, .skill-value {
-            font-size: 1.3em;
-            font-weight: bold;
-            color: var(--text-primary);
-            margin-bottom: 5px;
-          }
-          .ability-mod, .save-mod, .skill-mod {
-            font-size: 1.1em;
-            font-weight: bold;
-            color: var(--accent-primary);
-          }
-          .action-card, .spell-card, .feature-card {
-            background: var(--bg-action);
-            border: 1px solid var(--border-action);
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 15px;
-          }
-          .spell-card {
-            background: var(--bg-spell);
-            border-color: var(--border-spell);
-          }
-          .feature-card {
-            background: var(--bg-feature);
-            border-color: var(--accent-warning);
-          }
-          .action-name, .spell-name, .feature-name {
-            font-weight: bold;
-            font-size: 1.1em;
-            color: var(--text-primary);
-            margin-bottom: 8px;
-          }
-          .action-description, .spell-description, .feature-description {
-            color: var(--text-secondary);
-            font-size: 0.9em;
-            line-height: 1.4;
-          }
-          .spell-level {
-            font-size: 0.85em;
-            color: var(--accent-warning);
-            font-weight: bold;
-            margin-bottom: 5px;
-          }
-          .resources-container, .spell-slots-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 10px;
-          }
-          .resource-card, .spell-slot-card {
-            background: var(--bg-resource);
-            border: 1px solid var(--accent-purple);
-            border-radius: 6px;
-            padding: 10px;
-            text-align: center;
-          }
-          .resource-name, .spell-slot-level {
-            font-size: 0.9em;
-            color: var(--text-secondary);
-            margin-bottom: 5px;
-          }
-          .resource-value, .spell-slot-value {
-            font-size: 1.2em;
-            font-weight: bold;
-            color: var(--accent-purple);
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <!-- Systems Bar -->
-          <div class="systems-bar">
-            <div style="font-weight: bold;">🎲 ${playerName} - Read Only Character Sheet</div>
-            <button class="close-btn" onclick="window.close()">✕</button>
-          </div>
-
-          <!-- Content Area -->
-          <div class="content-area">
-            <div class="header">
-              <!-- Character Name -->
-              <div class="char-name-section">
-                🎲 ${playerName}
-              </div>
-
-              <!-- Layer 1: Class, Level, Race, Hit Dice -->
-              <div class="char-info-layer layer-1">
-                <div><strong>Class:</strong> <span>${player.class || 'Unknown'}</span></div>
-                <div><strong>Level:</strong> <span>${player.level || '1'}</span></div>
-                <div><strong>Race:</strong> <span>${player.race || 'Unknown'}</span></div>
-                <div><strong>Hit Dice:</strong> <span>1d${player.hitDice || '10'}</span></div>
-              </div>
-
-              <!-- Layer 2: AC, Speed, Proficiency, Passive Perception, Initiative -->
-              <div class="char-info-layer layer-2">
-                <div class="stat-box">
-                  <div class="stat-label">Armor Class</div>
-                  <div class="stat-value">${player.ac || '10'}</div>
-                </div>
-                <div class="stat-box">
-                  <div class="stat-label">Speed</div>
-                  <div class="stat-value">${player.speed || '30 ft'}</div>
-                </div>
-                <div class="stat-box">
-                  <div class="stat-label">Proficiency</div>
-                  <div class="stat-value">+${player.proficiency || '0'}</div>
-                </div>
-                <div class="stat-box">
-                  <div class="stat-label">Passive Perception</div>
-                  <div class="stat-value">${player.passivePerception || '10'}</div>
-                </div>
-                <div class="stat-box">
-                  <div class="stat-label">Initiative</div>
-                  <div class="stat-value">+${player.initiative || '0'}</div>
-                </div>
-              </div>
-
-              <!-- Layer 3: Hit Points -->
-              <div class="layer-3">
-                <div class="hp-box">
-                  <div style="font-size: 0.8em; margin-bottom: 5px;">Hit Points</div>
-                  <div style="font-size: 1.5em;">${player.hp || '0'} / ${player.maxHp || '0'}</div>
-                </div>
-                <div class="initiative-box">
-                  <div style="font-size: 0.8em; margin-bottom: 5px;">Initiative</div>
-                  <div style="font-size: 1.5em;">+${player.initiative || '0'}</div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Resources & Spell Slots -->
-            ${player.resources && Object.keys(player.resources).length > 0 ? `
-              <div class="section">
-                <h3>💎 Resources</h3>
-                <div class="section-content">
-                  <div class="resources-container">
-                    ${Object.entries(player.resources).map(([key, value]) => `
-                      <div class="resource-card">
-                        <div class="resource-name">${key}</div>
-                        <div class="resource-value">${value.current || value.value || 0}/${value.max || value.total || '-'}</div>
-                      </div>
-                    `).join('')}
-                  </div>
-                </div>
-              </div>
-            ` : ''}
-
-            ${player.spellSlots && Object.keys(player.spellSlots).length > 0 ? `
-              <div class="section">
-                <h3>✨ Spell Slots</h3>
-                <div class="section-content">
-                  <div class="spell-slots-container">
-                    ${Object.entries(player.spellSlots).map(([level, slots]) => `
-                      <div class="spell-slot-card">
-                        <div class="spell-slot-level">Level ${level}</div>
-                        <div class="spell-slot-value">${slots.used || 0}/${slots.total || slots.max || 0}</div>
-                      </div>
-                    `).join('')}
-                  </div>
-                </div>
-              </div>
-            ` : ''}
-
-            <!-- Abilities -->
-            ${abilitiesHTML ? `
-              <div class="section">
-                <h3>⚡ Abilities</h3>
-                <div class="section-content">
-                  <div class="abilities-grid">
-                    ${abilitiesHTML}
-                  </div>
-                </div>
-              </div>
-            ` : ''}
-
-            <!-- Saving Throws -->
-            ${player.savingThrows ? `
-              <div class="section">
-                <h3>🛡️ Saving Throws</h3>
-                <div class="section-content">
-                  <div class="saves-grid">
-                    ${['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma'].map(saveName => {
-                      const save = player.savingThrows[saveName] || {};
-                      const mod = player.attributes?.[saveName] ? Math.floor((player.attributes[saveName] - 10) / 2) : 0;
-                      const profBonus = player.proficiency || 0;
-                      const total = mod + (save.proficient ? profBonus : 0);
-                      const sign = total >= 0 ? '+' : '';
-                      return `
-                        <div class="save-card">
-                          <div class="save-name">${saveName}</div>
-                          <div class="save-value">${sign}${total}</div>
-                          <div class="save-mod">${save.proficient ? '✓' : ''}</div>
-                        </div>
-                      `;
-                    }).join('')}
-                  </div>
-                </div>
-              </div>
-            ` : ''}
-
-            <!-- Skills -->
-            ${skillsHTML ? `
-              <div class="section">
-                <h3>🎯 Skills</h3>
-                <div class="section-content">
-                  <div class="skills-grid">
-                    ${skillsHTML}
-                  </div>
-                </div>
-              </div>
-            ` : ''}
-
-            <!-- Features -->
-            ${player.features && player.features.length > 0 ? `
-              <div class="section">
-                <h3>🌟 Features</h3>
-                <div class="section-content">
-                  ${player.features.slice(0, 10).map(feature => `
-                    <div class="feature-card">
-                      <div class="feature-name">${feature.name}</div>
-                      ${feature.description ? `<div class="feature-description">${(feature.description.text || feature.description).substring(0, 200)}${(feature.description.text || feature.description).length > 200 ? '...' : ''}</div>` : ''}
-                    </div>
-                  `).join('')}
-                  ${player.features.length > 10 ? `<div style="color: var(--text-muted); text-align: center; padding: 12px;">... and ${player.features.length - 10} more features</div>` : ''}
-                </div>
-              </div>
-            ` : ''}
-
-            <!-- Actions -->
-            ${actionsHTML ? `
-              <div class="section">
-                <h3>⚔️ Actions & Attacks</h3>
-                <div class="section-content">
-                  ${actionsHTML}
-                </div>
-              </div>
-            ` : ''}
-
-            <!-- Spells -->
-            ${player.spells && player.spells.length > 0 ? `
-              <div class="section">
-                <h3>🔮 Spells</h3>
-                <div class="section-content">
-                  ${player.spells.slice(0, 15).map(spell => `
-                    <div class="spell-card">
-                      <div class="spell-name">${spell.name}</div>
-                      ${spell.level ? `<div class="spell-level">Level ${spell.level}</div>` : ''}
-                      ${spell.description ? `<div class="spell-description">${spell.description.substring(0, 150)}${spell.description.length > 150 ? '...' : ''}</div>` : ''}
-                    </div>
-                  `).join('')}
-                  ${player.spells.length > 15 ? `<div style="color: var(--text-muted); text-align: center; padding: 12px;">... and ${player.spells.length - 15} more spells</div>` : ''}
-                </div>
-              </div>
-            ` : ''}
-          </div>
-        </div>
-      </body>
-      </html>
-    `);
-
-    popup.document.close();
     debug.log(`🪟 Opened character popup for ${playerName}`);
   };
 
@@ -2279,6 +1834,15 @@ ${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗
     }
 
     gmPanel.style.display = gmModeEnabled ? 'block' : 'none';
+    
+    // Debug: Check if panel is actually visible
+    if (gmModeEnabled) {
+      debug.log('🔍 GM Panel display set to block');
+      debug.log('🔍 GM Panel offsetWidth:', gmPanel.offsetWidth);
+      debug.log('🔍 GM Panel offsetHeight:', gmPanel.offsetHeight);
+      debug.log('🔍 GM Panel computed display:', window.getComputedStyle(gmPanel).display);
+      debug.log('🔍 GM Panel parent:', gmPanel.parentElement);
+    }
 
     // Visual feedback - enhance glow when active
     if (gmModeEnabled) {
