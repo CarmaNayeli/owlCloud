@@ -290,9 +290,12 @@ class DiceCloudSync {
                 const spellSlotMatch = propertyName.match(/^(\d+(?:st|nd|rd|th)) Level$/);
                 if (spellSlotMatch) {
                   // Find the attribute for this spell slot level
+                  // IMPORTANT: Must be type 'attribute' with attributeType 'spellSlot'
+                  // (not the toggle with the same name)
                   const spellSlotAttr = properties.find(p =>
                     p.name === propertyName &&
                     p.type === 'attribute' &&
+                    p.attributeType === 'spellSlot' &&
                     !p.removed &&
                     !p.inactive
                   );
@@ -301,23 +304,26 @@ class DiceCloudSync {
                     // Cache with both the full name and a short key
                     this.propertyCache.set(propertyName, spellSlotAttr._id);
                     this.propertyCache.set(`spellSlot${spellSlotMatch[1].replace(/\D/g, '')}`, spellSlotAttr._id);
-                    console.log(`[DiceCloud Sync] Cached spell slot: ${propertyName} -> ${spellSlotAttr._id}`);
+                    console.log(`[DiceCloud Sync] Cached spell slot: ${propertyName} -> ${spellSlotAttr._id} (attributeType: ${spellSlotAttr.attributeType})`);
                   }
                   continue;
                 }
 
                 // Cache Channel Divinity and similar limited-use class features
                 if (propertyName === 'Channel Divinity') {
+                  // IMPORTANT: Must be type 'attribute' with attributeType 'resource'
+                  // (not the feature or trigger with the same name)
                   const channelDivinity = properties.find(p =>
                     p.name === propertyName &&
                     p.type === 'attribute' &&
+                    p.attributeType === 'resource' &&
                     !p.removed &&
                     !p.inactive
                   );
 
                   if (channelDivinity) {
                     this.propertyCache.set('Channel Divinity', channelDivinity._id);
-                    console.log(`[DiceCloud Sync] Cached Channel Divinity: ${channelDivinity._id}`);
+                    console.log(`[DiceCloud Sync] Cached Channel Divinity: ${channelDivinity._id} (attributeType: ${channelDivinity.attributeType})`);
                   }
                   continue;
                 }
@@ -348,6 +354,7 @@ class DiceCloudSync {
             }
 
             // Cache common class resources (Ki Points, Sorcery Points, etc.)
+            // IMPORTANT: Must be type 'attribute' with attributeType 'resource'
             const classResourceNames = [
               'Ki Points', 'Sorcery Points', 'Bardic Inspiration', 'Superiority Dice',
               'Lay on Hands', 'Wild Shape', 'Rage', 'Action Surge', 'Indomitable',
@@ -358,6 +365,7 @@ class DiceCloudSync {
 
             const classResources = apiData.creatureProperties.filter(p =>
               p.type === 'attribute' &&
+              p.attributeType === 'resource' &&
               p.name &&
               classResourceNames.some(name => p.name.includes(name)) &&
               !p.removed &&
@@ -368,38 +376,44 @@ class DiceCloudSync {
             for (const resource of classResources) {
               if (!this.propertyCache.has(resource.name)) {
                 this.propertyCache.set(resource.name, resource._id);
-                console.log(`[DiceCloud Sync] Cached class resource: ${resource.name} -> ${resource._id}`);
+                console.log(`[DiceCloud Sync] Cached class resource: ${resource.name} -> ${resource._id} (attributeType: ${resource.attributeType})`);
               }
             }
 
             // Cache Temporary Hit Points
+            // Uses attributeType 'healthBar'
             const tempHP = apiData.creatureProperties.find(p =>
               p.name === 'Temporary Hit Points' &&
               p.type === 'attribute' &&
+              p.attributeType === 'healthBar' &&
               !p.removed &&
               !p.inactive
             );
             if (tempHP) {
               this.propertyCache.set('Temporary Hit Points', tempHP._id);
-              console.log(`[DiceCloud Sync] Cached Temporary Hit Points: ${tempHP._id}`);
+              console.log(`[DiceCloud Sync] Cached Temporary Hit Points: ${tempHP._id} (attributeType: ${tempHP.attributeType})`);
             }
 
             // Cache Death Saves
+            // Note: Death saves use attributeType 'spellSlot' for the UI component
             const deathSaveProps = apiData.creatureProperties.filter(p =>
               p.type === 'attribute' &&
+              p.attributeType === 'spellSlot' &&
               (p.name === 'Succeeded Saves' || p.name === 'Failed Saves') &&
               !p.removed &&
               !p.inactive
             );
             for (const deathSave of deathSaveProps) {
               this.propertyCache.set(deathSave.name, deathSave._id);
-              console.log(`[DiceCloud Sync] Cached Death Save: ${deathSave.name} -> ${deathSave._id}`);
+              console.log(`[DiceCloud Sync] Cached Death Save: ${deathSave.name} -> ${deathSave._id} (attributeType: ${deathSave.attributeType})`);
             }
 
             // Cache Hit Dice (d6, d8, d10, d12)
+            // IMPORTANT: Must be type 'attribute' with attributeType 'hitDice'
             const hitDiceNames = ['d6 Hit Dice', 'd8 Hit Dice', 'd10 Hit Dice', 'd12 Hit Dice'];
             const hitDice = apiData.creatureProperties.filter(p =>
               p.type === 'attribute' &&
+              p.attributeType === 'hitDice' &&
               p.name &&
               hitDiceNames.some(name => p.name.includes(name)) &&
               !p.removed &&
@@ -407,20 +421,22 @@ class DiceCloudSync {
             );
             for (const hitDie of hitDice) {
               this.propertyCache.set(hitDie.name, hitDie._id);
-              console.log(`[DiceCloud Sync] Cached Hit Die: ${hitDie.name} -> ${hitDie._id}`);
+              console.log(`[DiceCloud Sync] Cached Hit Die: ${hitDie.name} -> ${hitDie._id} (attributeType: ${hitDie.attributeType})`);
             }
 
             // Cache Heroic Inspiration (2024 rules)
+            // IMPORTANT: Must be type 'attribute' with attributeType 'resource'
             const inspiration = apiData.creatureProperties.find(p =>
               (p.name === 'Heroic Inspiration' || p.name === 'Inspiration') &&
               p.type === 'attribute' &&
+              p.attributeType === 'resource' &&
               !p.removed &&
               !p.inactive
             );
             if (inspiration) {
               this.propertyCache.set('Heroic Inspiration', inspiration._id);
               this.propertyCache.set('Inspiration', inspiration._id); // Cache both names
-              console.log(`[DiceCloud Sync] Cached Inspiration: ${inspiration._id}`);
+              console.log(`[DiceCloud Sync] Cached Inspiration: ${inspiration._id} (attributeType: ${inspiration.attributeType})`);
             }
 
             // Cache any other attributes with reset fields (short/long rest resources)
