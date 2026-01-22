@@ -2,7 +2,7 @@
 
 A powerful browser extension that seamlessly integrates Dice Cloud with Roll20. Import your D&D character data using the official DiceCloud REST API, enjoy interactive character sheets with click-to-roll functionality, manage combat with GM tools, and enhance your tabletop gaming experience with advanced features.
 
-**🎲 Version 1.1.0 - Complete Sheet Update**
+**🎲 Version 1.1.2 - Enhanced Authentication & Auto-Connect**
 
 **Quick Download:** [Firefox](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-firefox.zip) | [Chrome](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-chrome.zip) | [Safari](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-safari.zip)
 
@@ -12,6 +12,8 @@ A powerful browser extension that seamlessly integrates Dice Cloud with Roll20. 
 - **API-Powered**: Uses DiceCloud's official REST API for reliable, standardized data extraction
 - **Smart Parsing**: Leverages DiceCloud's standardized variable names (strength, dexterity, etc.)
 - **Secure Authentication**: Login with your DiceCloud credentials (stored locally in browser)
+- **Auto-Connect (NEW!)**: Automatically extracts authentication token from logged-in DiceCloud session
+- **Token Expiry Handling**: Proper token management per DiceCloud API documentation
 - **One-Click Export**: Extract character data from Dice Cloud with a single click
 - **Easy Import**: Import character data directly into Roll20 character sheets
 - **Data Persistence**: Character data is stored locally between Dice Cloud and Roll20 sessions
@@ -77,6 +79,20 @@ The extension uses DiceCloud's standardized variable names and property types to
 - Spells (with level, school, components, descriptions)
 - Equipment & Inventory Items
 - Proficiencies (weapons, armor, tools, languages)
+
+## 🔐 Authentication Improvements (Latest)
+
+### Enhanced Login Experience
+- **Auto-Connect Button**: One-click authentication using your existing DiceCloud session
+- **Session Token Extraction**: Automatically detects and uses your logged-in DiceCloud credentials
+- **Simplified Flow**: No more manual token entry - just click and connect
+- **Token Expiry Management**: Handles token refresh and expiration gracefully per API standards
+
+### Security & Reliability
+- **Local Storage**: Authentication tokens stored securely in your browser only
+- **API Compliance**: Follows DiceCloud's official authentication guidelines
+- **Error Handling**: Clear error messages for authentication issues
+- **Session Persistence**: Maintains login state across browser sessions
 
 ## Installation
 
@@ -610,7 +626,10 @@ If you encounter any issues:
 
 ## 📋 Version History
 
-### v1.1.0 - Complete Sheet Update
+### v1.1.2 - Enhanced Authentication & Auto-Connect
+- 🔐 **Auto-Connect Feature** - One-click authentication using existing DiceCloud session
+- 🎟️ **Token Management** - Proper token expiry handling per DiceCloud API documentation
+- 🔄 **Simplified Login Flow** - Automatic session detection, no manual token entry required
 - ✨ **Complete Character Sheet Overhaul** - Fully redesigned character sheet interface
 - 🍀 **Lucky Feat Integration** - Complete Lucky feat implementation with modal interface
 - 🎮 **Enhanced GM Panel** - Hidden rolls, player overview, turn history

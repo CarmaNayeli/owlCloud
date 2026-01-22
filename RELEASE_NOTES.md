@@ -1,17 +1,25 @@
-# Release Notes: RollCloud v1.1.0
+# Release Notes: RollCloud v1.1.2
 
-## 🎨 Complete Sheet Update
+## 🔐 Enhanced Authentication & Auto-Connect
 
-### Major Features Added:
-- **Complete Character Sheet Overhaul**: Fully redesigned character sheet interface with improved layout and responsiveness
-- **Lucky Feat**: Manual action button with modal interface for offensive/defensive usage
+### Major Authentication Improvements:
+- **Auto-Connect Feature**: One-click authentication using your existing DiceCloud session
+- **Session Token Extraction**: Automatically detects and uses logged-in DiceCloud credentials
+- **Token Expiry Management**: Proper token refresh and expiration handling per DiceCloud API docs
+- **Simplified Login Flow**: No more manual token entry - just click and connect
+- **Enhanced Security**: Local token storage with API-compliant authentication flow
+
+### Complete Character Sheet Overhaul:
+- **Fully Redesigned Interface**: Beautiful, responsive character sheet with improved layout
+- **Lucky Feat Integration**: Manual action button with modal interface for offensive/defensive usage
 - **Character State Preservation**: Cache system prevents resource refreshing when switching characters
 - **Resource Management**: Lucky points tracking without duplication (filtered from resources display)
 - **Roll20 Integration**: Lucky rolls sent to chat with proper formatting
 - **Dynamic UI Updates**: Real-time Lucky point count updates
-- **Enhanced UI/UX**: Better layout, responsive design, enhanced interactions
 
 ### Technical Improvements:
+- **Authentication System**: Auto-connect button with session token extraction
+- **Token Management**: Proper expiry handling per DiceCloud API documentation
 - **Character Cache**: `characterCache` Map preserves session state
 - **Smart Loading**: Cache first, storage fallback for character data
 - **Resource Filtering**: Lucky resources hidden from resources section
