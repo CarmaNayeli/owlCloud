@@ -210,6 +210,25 @@ class DiceCloudSync {
                 console.log(`[DiceCloud Sync] Cached property: ${propertyName} -> ${selectedProperty._id}`);
               }
             }
+
+            // Cache actions with limited uses from the raw API data
+            const actionsWithUses = apiData.creatureProperties.filter(p =>
+              p.type === 'action' &&
+              p.name &&
+              p.uses !== undefined &&
+              p.uses > 0 &&
+              !p.removed &&
+              !p.inactive
+            );
+
+            console.log(`[DiceCloud Sync] Found ${actionsWithUses.length} actions with limited uses`);
+            for (const action of actionsWithUses) {
+              // Only cache if not already cached by name
+              if (!this.propertyCache.has(action.name)) {
+                this.propertyCache.set(action.name, action._id);
+                console.log(`[DiceCloud Sync] Cached action with uses: ${action.name} -> ${action._id} (${action.usesUsed || 0}/${action.uses} used)`);
+              }
+            }
           } else {
             console.warn('[DiceCloud Sync] Failed to fetch API data for property cache:', response.error);
           }
