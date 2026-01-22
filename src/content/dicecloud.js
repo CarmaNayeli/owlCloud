@@ -4535,45 +4535,42 @@
             console.log('🔍 [DiceCloud Structure] ALL PROPERTIES (this will take a while...):');
             console.log('═══════════════════════════════════════════════════════');
 
-            // Log all properties with full details
+            // Log all properties with identifying info only (no values)
             properties.forEach((prop, index) => {
               const path = buildPath(prop._id);
-              console.log(`\n📍 [${index + 1}/${properties.length}] PATH: ${path}`);
-              console.log(`   Name: ${prop.name || 'Unnamed'}`);
-              console.log(`   ID: ${prop._id}`);
-              console.log(`   Type: ${prop.type}`);
-              console.log(`   AttributeType: ${prop.attributeType || 'N/A'}`);
-              console.log(`   Value: ${prop.value}`);
-              console.log(`   BaseValue: ${JSON.stringify(prop.baseValue)}`);
-              console.log(`   Total: ${prop.total}`);
-              console.log(`   Damage: ${prop.damage}`);
-              console.log(`   Reset: ${prop.reset}`);
-              console.log(`   Description: ${prop.description ? (typeof prop.description === 'string' ? (prop.description.substring(0, 100) + (prop.description.length > 100 ? '...' : '')) : JSON.stringify(prop.description).substring(0, 100)) : 'None'}`);
-              console.log(`   Parent: ${prop.parent ? JSON.stringify(prop.parent) : 'None'}`);
-              console.log(`   Tags: ${prop.tags ? prop.tags.join(', ') : 'None'}`);
-              console.log(`   Inactive: ${prop.inactive}`);
-              console.log(`   Removed: ${prop.removed}`);
-              console.log(`   Order: ${prop.order}`);
+              const logEntry = {
+                index: `[${index + 1}/${properties.length}]`,
+                path: path,
+                name: prop.name || 'Unnamed',
+                id: prop._id,
+                type: prop.type,
+                attributeType: prop.attributeType || undefined,
+                reset: prop.reset || undefined,
+                inactive: prop.inactive || undefined,
+                removed: prop.removed || undefined
+              };
 
-              // Log type-specific fields
+              // Add type-specific identifying fields (not values)
               if (prop.type === 'action') {
-                console.log(`   Uses: ${prop.uses} (used: ${prop.usesUsed})`);
-                console.log(`   Resources: ${JSON.stringify(prop.resources)}`);
+                logEntry.uses = prop.uses;
+                logEntry.hasResources = !!(prop.resources && prop.resources.length);
               } else if (prop.type === 'skill') {
-                console.log(`   SkillValue: ${prop.skillValue}`);
-                console.log(`   Ability: ${prop.ability}`);
+                logEntry.ability = prop.ability;
               } else if (prop.type === 'spell') {
-                console.log(`   Level: ${prop.level}`);
-                console.log(`   Prepared: ${prop.prepared}`);
-                console.log(`   AlwaysPrepared: ${prop.alwaysPrepared}`);
+                logEntry.level = prop.level;
+                logEntry.alwaysPrepared = prop.alwaysPrepared;
+              } else if (prop.type === 'attribute' && prop.attributeType === 'healthBar') {
+                logEntry.attributeType = 'healthBar (HP)';
               }
 
-              console.log('---------------------------------------------------');
+              console.log(logEntry);
             });
 
             console.log('═══════════════════════════════════════════════════════');
+            console.log('💡 TIP: Click the arrow next to each object to expand and see details');
+            console.log('💡 Use Ctrl+F in console to search for specific property names');
 
-            alert(`Structure analyzed!\n\nFound ${properties.length} total properties\n\nThis is A LOT of data. Check console for complete hierarchical structure with paths.\n\nProperty types found: ${Object.keys(byType).join(', ')}`);
+            alert(`Structure mapped!\n\nFound ${properties.length} total properties\n\nProperty types: ${Object.keys(byType).join(', ')}\n\nCheck console - each property is logged as a collapsible object.\nNo current values pulled, just IDs and structure for sync mapping.`);
           } else {
             console.error('🔍 [DiceCloud Structure] Failed to fetch character data:', response.status);
             alert('Failed to fetch character data. Make sure you\'re logged in.');
