@@ -1900,7 +1900,10 @@ When you move on your turn, you can double your speed until the end of the turn.
 
 // Calculate total currency from inventory items
 function calculateTotalCurrency(inventory) {
+  console.log('💰💰💰 calculateTotalCurrency called, inventory length:', inventory ? inventory.length : 0);
+
   if (!inventory || inventory.length === 0) {
+    console.log('💰 No inventory, returning zeros');
     return { pp: 0, gp: 0, sp: 0, cp: 0 };
   }
 
@@ -1911,27 +1914,28 @@ function calculateTotalCurrency(inventory) {
 
   inventory.forEach(item => {
     const itemName = (item.name || '').toLowerCase();
+    const quantity = item.quantity || 0;
+
+    console.log(`💰 Item: "${item.name}" | qty: ${quantity} | lowercase: "${itemName}"`);
 
     // Only count actual currency items - must match specific patterns
     // Match: "platinum piece", "gold coin", "copper pieces", etc.
-    const quantity = item.quantity || 0;
-
     if ((itemName.includes('platinum') && (itemName.includes('piece') || itemName.includes('coin')))) {
-      debug.log(`💰 Counting platinum: ${item.name} (qty: ${quantity})`);
+      console.log(`💰💰 ✅ MATCHED PLATINUM - adding ${quantity}`);
       pp += quantity;
     } else if ((itemName.includes('gold') && (itemName.includes('piece') || itemName.includes('coin')))) {
-      debug.log(`💰 Counting gold: ${item.name} (qty: ${quantity})`);
+      console.log(`💰💰 ✅ MATCHED GOLD - adding ${quantity}`);
       gp += quantity;
     } else if ((itemName.includes('silver') && (itemName.includes('piece') || itemName.includes('coin')))) {
-      debug.log(`💰 Counting silver: ${item.name} (qty: ${quantity})`);
+      console.log(`💰💰 ✅ MATCHED SILVER - adding ${quantity}`);
       sp += quantity;
     } else if ((itemName.includes('copper') && (itemName.includes('piece') || itemName.includes('coin')))) {
-      debug.log(`💰 Counting copper: ${item.name} (qty: ${quantity})`);
+      console.log(`💰💰 ✅ MATCHED COPPER - adding ${quantity}`);
       cp += quantity;
     }
   });
 
-  debug.log(`💰 Final currency totals: pp=${pp}, gp=${gp}, sp=${sp}, cp=${cp}`);
+  console.log(`💰💰💰 FINAL CURRENCY TOTALS: pp=${pp}, gp=${gp}, sp=${sp}, cp=${cp}`);
   return { pp, gp, sp, cp };
 }
 
