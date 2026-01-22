@@ -500,11 +500,80 @@ class DiceCloudSync {
 
       console.log(`[DiceCloud Sync] Property cache built with ${this.propertyCache.size} entries`);
       console.log('[DiceCloud Sync] Available properties:', Array.from(this.propertyCache.keys()));
+
+      // Initialize previousValues from current character data to avoid syncing everything on first update
+      console.log('[DiceCloud Sync] Initializing previousValues from current character data...');
+      await this.initializePreviousValues(characterData);
     } else {
       console.warn('[DiceCloud Sync] No character data available for cache building');
       console.warn('[DiceCloud Sync] activeCharacterId:', activeCharacterId);
       console.warn('[DiceCloud Sync] characterProfiles:', characterProfiles);
     }
+  }
+
+  /**
+   * Initialize previousValues from character data to avoid syncing everything on first update
+   * @param {Object} characterData - Character data object
+   */
+  async initializePreviousValues(characterData) {
+    console.log('[DiceCloud Sync] Populating previousValues to establish baseline...');
+
+    // HP values
+    if (characterData.hp !== undefined) {
+      this.previousValues.set('Hit Points', characterData.hp);
+    }
+    if (characterData.tempHp !== undefined) {
+      this.previousValues.set('Temporary Hit Points', characterData.tempHp);
+    }
+    if (characterData.maxHp !== undefined) {
+      this.previousValues.set('Max Hit Points', characterData.maxHp);
+    }
+
+    // Spell slots
+    if (characterData.spellSlots) {
+      for (let level = 1; level <= 9; level++) {
+        const currentKey = `level${level}SpellSlots`;
+        const maxKey = `level${level}SpellSlotsMax`;
+
+        if (characterData.spellSlots[currentKey] !== undefined && characterData.spellSlots[maxKey] !== undefined) {
+          if (characterData.spellSlots[maxKey] > 0) {
+            const cacheKey = `spellSlot${level}`;
+            this.previousValues.set(cacheKey, characterData.spellSlots[currentKey]);
+          }
+        }
+      }
+    }
+
+    // Channel Divinity
+    if (characterData.channelDivinity !== undefined && characterData.channelDivinity.current !== undefined) {
+      this.previousValues.set('Channel Divinity', characterData.channelDivinity.current);
+    }
+
+    // Resources
+    if (characterData.resources && Array.isArray(characterData.resources)) {
+      for (const resource of characterData.resources) {
+        if (resource.name && resource.current !== undefined) {
+          this.previousValues.set(resource.name, resource.current);
+        }
+      }
+    }
+
+    // Death saves
+    if (characterData.deathSaves) {
+      if (characterData.deathSaves.successes !== undefined) {
+        this.previousValues.set('Succeeded Saves', characterData.deathSaves.successes);
+      }
+      if (characterData.deathSaves.failures !== undefined) {
+        this.previousValues.set('Failed Saves', characterData.deathSaves.failures);
+      }
+    }
+
+    // Inspiration
+    if (characterData.inspiration !== undefined) {
+      this.previousValues.set('Inspiration', characterData.inspiration);
+    }
+
+    console.log(`[DiceCloud Sync] Initialized ${this.previousValues.size} previous values`);
   }
 
   /**
@@ -1081,11 +1150,10 @@ class DiceCloudSync {
       const oldValue = this.previousValues.get(key);
       const changed = oldValue !== newValue;
       if (changed) {
-        console.log(`[DiceCloud Sync] Value changed for ${key}: ${oldValue} -> ${newValue}`);
+        console.log(`[DiceCloud Sync] ✏️ Value changed for ${key}: ${oldValue} -> ${newValue} (will sync)`);
         this.previousValues.set(key, newValue);
-      } else {
-        console.log(`[DiceCloud Sync] Value unchanged for ${key}: ${newValue}`);
       }
+      // Skip logging for unchanged values to reduce console spam
       return changed;
     };
 
