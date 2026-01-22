@@ -149,14 +149,26 @@ function initializePopup() {
       autoConnectBtn.textContent = '⏳ Checking...';
       hideLoginError();
 
-      // Check if DiceCloud tab is already open
-      const tabs = await browserAPI.tabs.query({ url: 'https://dicecloud.com/*' });
+      // First, check if the current active tab is DiceCloud
+      const [activeTab] = await browserAPI.tabs.query({ active: true, currentWindow: true });
+      let dicecloudTab = null;
 
-      if (tabs.length > 0) {
+      if (activeTab && activeTab.url && activeTab.url.includes('dicecloud.com')) {
+        // User is currently on DiceCloud - use this tab
+        dicecloudTab = activeTab;
+        debug.log('Using current active DiceCloud tab');
+      } else {
+        // Check if any other tab has DiceCloud open
+        const tabs = await browserAPI.tabs.query({ url: 'https://dicecloud.com/*' });
+        if (tabs.length > 0) {
+          dicecloudTab = tabs[0];
+          debug.log('Found DiceCloud tab:', dicecloudTab.id);
+        }
+      }
+
+      if (dicecloudTab) {
         // DiceCloud is open - try to capture token
         autoConnectBtn.textContent = '⏳ Capturing token...';
-
-        const dicecloudTab = tabs[0];
 
         try {
           // Send message to DiceCloud tab to extract token
@@ -174,8 +186,10 @@ function initializePopup() {
               username: response.username
             });
 
-            // Close DiceCloud tab
-            await browserAPI.tabs.remove(dicecloudTab.id);
+            // Only close DiceCloud tab if it's not the current active tab
+            if (dicecloudTab.id !== activeTab.id) {
+              await browserAPI.tabs.remove(dicecloudTab.id);
+            }
 
             // Show success and load data
             hideLoginError();
