@@ -339,6 +339,7 @@ class DiceCloudSync {
               // Determine the correct field name and value based on property type
               let fieldName = 'value'; // default
               let updateValue = value; // default to the passed value
+              let useHealthBarMethod = false; // Flag to use creatureProperties.damage method
 
               if (property.type === 'skill') {
                 fieldName = 'skillValue';
@@ -346,23 +347,29 @@ class DiceCloudSync {
                 // For effects, check if there's a calculation or if it uses value
                 fieldName = property.calculation ? 'calculation' : 'value';
               } else if (property.type === 'attribute' && property.attributeType === 'healthBar') {
-                // For healthBar attributes (like HP), the 'value' field is computed as total - damage
-                // So we need to update the 'damage' field instead
-                // damage = maxHP - newCurrentHP
-                const maxHP = property.total || property.baseValue || 0;
-                const newDamage = Math.max(0, maxHP - value);
-                console.log(`[DiceCloud Sync] HealthBar update: maxHP=${maxHP}, newCurrentHP=${value}, calculatedDamage=${newDamage}, currentDamage=${property.damage}`);
-                fieldName = 'damage';
-                updateValue = newDamage;
+                // For healthBar attributes (like HP), we must use creatureProperties.damage method
+                // The damage field cannot be updated directly via creatureProperties.update
+                // Instead, use operation: 'set' with the new current HP value
+                console.log(`[DiceCloud Sync] HealthBar update: currentHP=${property.value}, newCurrentHP=${value}, total=${property.total}, currentDamage=${property.damage}`);
+                useHealthBarMethod = true;
+                updateValue = value; // Pass the new current HP value directly
               } else if (property.type === 'attribute') {
                 // For other attributes, update the value directly
                 fieldName = 'value';
               }
               console.log(`[DiceCloud Sync] Using field name: ${fieldName} for property type: ${property.type}, attributeType: ${property.attributeType || 'none'}`);
+              console.log(`[DiceCloud Sync] Use healthBar method: ${useHealthBarMethod}`);
 
               // Update the payload with the correct field name and value
-              updatePayload.path = [fieldName];
-              updatePayload.value = updateValue;
+              if (useHealthBarMethod) {
+                // For healthBar, use different payload structure for creatureProperties.damage
+                updatePayload.operation = 'set';
+                updatePayload.value = updateValue;
+                delete updatePayload.path; // Remove path field, not used in damage method
+              } else {
+                updatePayload.path = [fieldName];
+                updatePayload.value = updateValue;
+              }
             }
           }
         } else {
@@ -372,11 +379,19 @@ class DiceCloudSync {
         console.error('[DiceCloud Sync] Failed to get current property value:', error);
       }
       
+      // Determine which DDP method to use based on property type
+      let methodName = 'creatureProperties.update';
+      if (updatePayload.operation === 'set' && !updatePayload.path) {
+        // For healthBar attributes, use the damage method
+        methodName = 'creatureProperties.damage';
+      }
+
+      console.log(`[DiceCloud Sync] Using DDP method: ${methodName}`);
       console.log('[DiceCloud Sync] DDP update payload:', JSON.stringify(updatePayload, null, 2));
 
-      const result = await this.ddp.call('creatureProperties.update', updatePayload);
+      const result = await this.ddp.call(methodName, updatePayload);
 
-      console.log('[DiceCloud Sync] Attribute updated successfully:', result);
+      console.log(`[DiceCloud Sync] Attribute updated successfully using ${methodName}:`, result);
       console.log('[DiceCloud Sync] Checking if update was applied...');
       
       // Verify the update by checking the property again
