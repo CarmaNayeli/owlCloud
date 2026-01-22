@@ -1898,10 +1898,106 @@ When you move on your turn, you can double your speed until the end of the turn.
   });
 }
 
+// Calculate total currency from inventory items
+function calculateTotalCurrency(inventory) {
+  if (!inventory || inventory.length === 0) {
+    return { pp: 0, gp: 0, sp: 0, cp: 0 };
+  }
+
+  let totalCopper = 0;
+
+  inventory.forEach(item => {
+    if (!item.value || item.value <= 0) return;
+
+    const itemName = (item.name || '').toLowerCase();
+    const totalValue = item.value * item.quantity;
+
+    // Detect currency type from item name
+    if (itemName.includes('platinum')) {
+      totalCopper += totalValue * 1000; // 1 pp = 10 gp = 100 sp = 1000 cp
+    } else if (itemName.includes('gold')) {
+      totalCopper += totalValue * 100; // 1 gp = 10 sp = 100 cp
+    } else if (itemName.includes('silver')) {
+      totalCopper += totalValue * 10; // 1 sp = 10 cp
+    } else if (itemName.includes('copper')) {
+      totalCopper += totalValue; // 1 cp = 1 cp
+    } else {
+      // Default: assume value is in gold pieces
+      totalCopper += totalValue * 100;
+    }
+  });
+
+  // Convert total copper to proper denominations
+  const pp = Math.floor(totalCopper / 1000);
+  totalCopper %= 1000;
+  const gp = Math.floor(totalCopper / 100);
+  totalCopper %= 100;
+  const sp = Math.floor(totalCopper / 10);
+  const cp = totalCopper % 10;
+
+  return { pp, gp, sp, cp };
+}
+
+// Update currency display in inventory section header
+function updateInventoryCurrencyDisplay(inventory) {
+  const headerElement = document.querySelector('#inventory-section h3');
+  if (!headerElement) return;
+
+  const currency = calculateTotalCurrency(inventory);
+
+  // Remove existing currency display if any
+  const existingDisplay = headerElement.querySelector('.currency-display');
+  if (existingDisplay) {
+    existingDisplay.remove();
+  }
+
+  // Create currency display
+  const currencyDisplay = document.createElement('span');
+  currencyDisplay.className = 'currency-display';
+  currencyDisplay.style.cssText = 'margin-left: 12px; display: inline-flex; gap: 8px; font-size: 0.85em; font-weight: normal;';
+
+  // Add currency circles (only if value > 0)
+  if (currency.pp > 0) {
+    const ppCircle = document.createElement('span');
+    ppCircle.style.cssText = 'display: inline-flex; align-items: center; gap: 4px;';
+    ppCircle.innerHTML = `<span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #e8e8e8; border: 1px solid #ccc;"></span><span>${currency.pp}</span>`;
+    currencyDisplay.appendChild(ppCircle);
+  }
+
+  if (currency.gp > 0) {
+    const gpCircle = document.createElement('span');
+    gpCircle.style.cssText = 'display: inline-flex; align-items: center; gap: 4px;';
+    gpCircle.innerHTML = `<span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #ffd700; border: 1px solid #daa520;"></span><span>${currency.gp}</span>`;
+    currencyDisplay.appendChild(gpCircle);
+  }
+
+  if (currency.sp > 0) {
+    const spCircle = document.createElement('span');
+    spCircle.style.cssText = 'display: inline-flex; align-items: center; gap: 4px;';
+    spCircle.innerHTML = `<span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #c0c0c0; border: 1px solid #999;"></span><span>${currency.sp}</span>`;
+    currencyDisplay.appendChild(spCircle);
+  }
+
+  if (currency.cp > 0) {
+    const cpCircle = document.createElement('span');
+    cpCircle.style.cssText = 'display: inline-flex; align-items: center; gap: 4px;';
+    cpCircle.innerHTML = `<span style="display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #8b4513; border: 1px solid #654321;"></span><span>${currency.cp}</span>`;
+    currencyDisplay.appendChild(cpCircle);
+  }
+
+  // Only add if there's any currency
+  if (currency.pp > 0 || currency.gp > 0 || currency.sp > 0 || currency.cp > 0) {
+    headerElement.appendChild(currencyDisplay);
+  }
+}
+
 // Build and display inventory with filtering
 function buildInventoryDisplay(container, inventory) {
   // Clear container
   container.innerHTML = '';
+
+  // Update currency display in header
+  updateInventoryCurrencyDisplay(inventory);
 
   if (!inventory || inventory.length === 0) {
     container.innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 20px;">No items in inventory</p>';
@@ -2018,7 +2114,7 @@ function createInventoryCard(item) {
 
   header.appendChild(nameSection);
 
-  // Quantity and value
+  // Quantity display
   const metaSection = document.createElement('div');
   metaSection.style.cssText = 'display: flex; flex-direction: column; align-items: flex-end; gap: 4px;';
 
@@ -2027,14 +2123,6 @@ function createInventoryCard(item) {
     quantitySpan.textContent = `×${item.quantity}`;
     quantitySpan.style.cssText = 'color: var(--text-secondary); font-weight: bold; font-size: 1.1em;';
     metaSection.appendChild(quantitySpan);
-  }
-
-  if (item.value && item.value > 0) {
-    const valueSpan = document.createElement('span');
-    const totalValue = item.value * item.quantity;
-    valueSpan.textContent = `${totalValue} gp`;
-    valueSpan.style.cssText = 'color: #f39c12; font-size: 0.9em; font-weight: bold;';
-    metaSection.appendChild(valueSpan);
   }
 
   header.appendChild(metaSection);
