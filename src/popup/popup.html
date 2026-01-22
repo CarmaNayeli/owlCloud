@@ -17,26 +17,35 @@
       <!-- Login Form (shown when not authenticated) -->
       <div id="loginSection" class="hidden">
         <div class="login-box">
-          <h3>Login to DiceCloud</h3>
-          <p class="help-text">Enter your DiceCloud credentials to access character data via API</p>
+          <h3>Connect to DiceCloud</h3>
+          <p class="help-text">Enter your DiceCloud API token to access character data</p>
 
           <form id="loginForm">
             <div class="form-group">
-              <label for="username">Username or Email</label>
-              <input type="text" id="username" name="username" required autocomplete="username">
-            </div>
-
-            <div class="form-group">
-              <label for="password">Password</label>
-              <input type="password" id="password" name="password" required autocomplete="current-password">
+              <label for="apiToken">API Token</label>
+              <input type="password" id="apiToken" name="apiToken" required placeholder="Paste your API token here">
+              <small class="help-text" style="display: block; margin-top: 5px;">
+                💡 Get your token: DiceCloud → Click username (top left) → Account → API Key
+              </small>
             </div>
 
             <button type="submit" class="btn btn-primary" id="loginBtn">
-              🔐 Login to DiceCloud
+              🔐 Connect to DiceCloud
             </button>
           </form>
 
           <div id="loginError" class="error-message hidden"></div>
+
+          <div class="help-box" style="margin-top: 15px; padding: 10px; background: #f0f8ff; border-radius: 5px; font-size: 0.9em;">
+            <strong>📖 How to get your API token:</strong>
+            <ol style="margin: 5px 0; padding-left: 20px;">
+              <li>Go to <a href="https://dicecloud.com" target="_blank">DiceCloud.com</a> and log in (with Google or username/password)</li>
+              <li>Click your <strong>username</strong> in the top left corner</li>
+              <li>Go to <strong>Account</strong> page</li>
+              <li>Find and copy your <strong>API Key</strong></li>
+              <li>Paste it above and click Connect</li>
+            </ol>
+          </div>
         </div>
       </div>
 
