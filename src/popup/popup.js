@@ -4,11 +4,6 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-  debug.log('🚀 Popup DOMContentLoaded fired');
-  debug.log('🔍 browserAPI check:', typeof browserAPI);
-  debug.log('🔍 window.browserAPI check:', typeof window.browserAPI);
-  debug.log('🔍 chrome check:', typeof chrome);
-
   // Check if browserAPI is available
   if (typeof browserAPI === 'undefined' && typeof window.browserAPI === 'undefined') {
     debug.error('❌ FATAL: browserAPI is not defined!');
@@ -45,8 +40,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializePopup() {
-  debug.log('📋 Initializing popup UI...');
-
   // DOM Elements - Sections
   const loginSection = document.getElementById('loginSection');
   const mainSection = document.getElementById('mainSection');
@@ -74,14 +67,10 @@ function initializePopup() {
   const showSheetBtn = document.getElementById('showSheetBtn');
   const clearBtn = document.getElementById('clearBtn');
 
-  // Debug: Check if button exists
-  debug.log('🔍 showSheetBtn element:', showSheetBtn);
-
   // Enable button for testing
   if (showSheetBtn) {
     showSheetBtn.disabled = false;
-    debug.log('✅ Enabled showSheetBtn for testing');
-    
+
     // Add basic styling to make it visible
     showSheetBtn.style.display = 'inline-block';
     showSheetBtn.style.width = 'auto';
@@ -89,7 +78,6 @@ function initializePopup() {
     showSheetBtn.style.padding = '8px 16px';
     showSheetBtn.style.margin = '5px';
     showSheetBtn.style.visibility = 'visible';
-    debug.log('✅ Added basic styling to button');
   }
 
   // Initialize
@@ -102,14 +90,13 @@ function initializePopup() {
   logoutBtn.addEventListener('click', handleLogout);
   characterSelect.addEventListener('change', handleCharacterChange);
   syncBtn.addEventListener('click', handleSync);
-  
+
   if (showSheetBtn) {
-    debug.log('✅ Adding click listener to showSheetBtn');
     showSheetBtn.addEventListener('click', handleShowSheet);
   } else {
     debug.error('❌ showSheetBtn not found!');
   }
-  
+
   clearBtn.addEventListener('click', handleClear);
 
   // Modal event listeners
@@ -234,8 +221,10 @@ function initializePopup() {
       const activeResponse = await browserAPI.runtime.sendMessage({ action: 'getCharacterData' });
       const activeCharacter = activeResponse.success ? activeResponse.data : null;
 
-      // Populate character dropdown
-      const characterIds = Object.keys(profiles);
+      // Populate character dropdown (exclude GM player data)
+      const characterIds = Object.keys(profiles).filter(id =>
+        profiles[id].type !== 'rollcloudPlayer'
+      );
       if (characterIds.length > 0) {
         characterSelect.innerHTML = '';
         characterIds.forEach(id => {
@@ -286,7 +275,7 @@ function initializePopup() {
       await loadCharacterData();
       showSuccess('Switched to selected character');
     } catch (error) {
-      console.error('Error changing character:', error);
+      debug.error('Error changing character:', error);
       showError('Failed to switch character');
     }
   }
@@ -450,7 +439,6 @@ function initializePopup() {
    * Handles show sheet button click
    */
   async function handleShowSheet() {
-    debug.log('📋 handleShowSheet called!');
     try {
       showSheetBtn.disabled = true;
       showSheetBtn.textContent = '⏳ Opening...';
@@ -466,10 +454,13 @@ function initializePopup() {
         return;
       }
 
-      // Check if there's any synced character data
+      // Check if there's any synced character data (excluding GM player data)
       const profilesResponse = await browserAPI.runtime.sendMessage({ action: 'getAllCharacterProfiles' });
       const profiles = profilesResponse.success ? profilesResponse.profiles : {};
-      const hasCharacters = Object.keys(profiles).length > 0;
+      // Only count actual character slots, not rollcloudPlayer entries
+      const hasCharacters = Object.keys(profiles).some(key =>
+        profiles[key].type !== 'rollcloudPlayer'
+      );
 
       if (!hasCharacters) {
         // No character data - ask if user wants to go to GM mode
@@ -483,9 +474,7 @@ function initializePopup() {
       }
 
       // Send message to Roll20 content script to show sheet
-      debug.log('📋 Sending showCharacterSheet message to Roll20 tab:', tab.id);
       const response = await browserAPI.tabs.sendMessage(tab.id, { action: 'showCharacterSheet' });
-      debug.log('📋 Received response from Roll20:', response);
 
       if (response && response.success) {
         showSuccess('Character sheet opened!');
@@ -493,7 +482,7 @@ function initializePopup() {
         // If no characters, the GM mode was opened
         showSuccess('GM mode opened!');
       } else {
-        debug.error('📋 Failed to open character sheet. Response:', response);
+        debug.error('Failed to open character sheet:', response);
         showError('Failed to open character sheet');
       }
     } catch (error) {
