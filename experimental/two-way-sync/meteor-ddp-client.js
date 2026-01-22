@@ -119,7 +119,10 @@ class MeteorDDPClient {
     }
 
     const json = JSON.stringify(message);
-    console.log('[DDP] Sending:', message.msg, message);
+    // Only log non-heartbeat messages to reduce console spam
+    if (message.msg !== 'ping' && message.msg !== 'pong') {
+      console.log('[DDP] Sending:', message.msg, message);
+    }
     this.ws.send(json);
     return true;
   }
@@ -128,7 +131,10 @@ class MeteorDDPClient {
    * Handle incoming messages from server
    */
   handleMessage(message) {
-    console.log('[DDP] Received:', message.msg, message);
+    // Only log non-heartbeat messages to reduce console spam
+    if (message.msg !== 'ping' && message.msg !== 'pong') {
+      console.log('[DDP] Received:', message.msg, message);
+    }
 
     switch (message.msg) {
       case 'connected':
