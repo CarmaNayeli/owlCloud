@@ -4506,71 +4506,66 @@
               }
             });
 
-            // Build hierarchical structure with path tracking
-            const buildPath = (propId, visited = new Set()) => {
-              if (visited.has(propId)) return '[Circular]';
+            // Build hierarchical structure with children
+            const buildHierarchy = (propId, visited = new Set()) => {
+              if (visited.has(propId)) return { _circular: true };
               visited.add(propId);
 
               const prop = propertyMap.get(propId);
-              if (!prop) return '';
+              if (!prop) return null;
 
-              if (prop.parent && prop.parent.id && propertyMap.has(prop.parent.id)) {
-                const parentPath = buildPath(prop.parent.id, visited);
-                return parentPath ? `${parentPath} → ${prop.name || 'Unnamed'}` : (prop.name || 'Unnamed');
+              // Create a copy of the property with all its data
+              const propCopy = { ...prop };
+
+              // Find all children of this property
+              const children = properties.filter(p => p.parent && p.parent.id === propId);
+              if (children.length > 0) {
+                propCopy.children = children.map(child => buildHierarchy(child._id, new Set(visited)));
               }
-              return prop.name || 'Unnamed';
+
+              return propCopy;
             };
 
-            // Group properties by type
-            const byType = {};
-            properties.forEach(prop => {
-              const propType = prop.type || 'unknown';
-              if (!byType[propType]) byType[propType] = [];
-              byType[propType].push(prop);
-            });
+            // Find root properties (no parent or parent doesn't exist)
+            const rootProperties = properties.filter(p => !p.parent || !p.parent.id || !propertyMap.has(p.parent.id));
 
-            console.log('🔍 [DiceCloud Structure] Properties by type:', Object.keys(byType).map(type => `${type}: ${byType[type].length}`));
+            // Build complete hierarchical structure
+            const hierarchicalStructure = rootProperties.map(root => buildHierarchy(root._id));
 
-            console.log('═══════════════════════════════════════════════════════');
-            console.log('🔍 [DiceCloud Structure] ALL PROPERTIES (this will take a while...):');
-            console.log('═══════════════════════════════════════════════════════');
+            // Create export data
+            const exportData = {
+              characterId: characterId,
+              exportDate: new Date().toISOString(),
+              totalProperties: properties.length,
+              propertyTypes: Object.entries(
+                properties.reduce((acc, p) => {
+                  const type = p.type || 'unknown';
+                  acc[type] = (acc[type] || 0) + 1;
+                  return acc;
+                }, {})
+              ).map(([type, count]) => ({ type, count })),
+              properties: hierarchicalStructure,
+              allPropertiesFlat: properties
+            };
 
-            // Log all properties with identifying info only (no values)
-            properties.forEach((prop, index) => {
-              const path = buildPath(prop._id);
-              const logEntry = {
-                index: `[${index + 1}/${properties.length}]`,
-                path: path,
-                name: prop.name || 'Unnamed',
-                id: prop._id,
-                type: prop.type,
-                attributeType: prop.attributeType || undefined,
-                reset: prop.reset || undefined,
-                inactive: prop.inactive || undefined,
-                removed: prop.removed || undefined
-              };
+            // Create JSON blob
+            const jsonString = JSON.stringify(exportData, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
 
-              // Add type-specific identifying fields (not values)
-              if (prop.type === 'action') {
-                logEntry.uses = prop.uses;
-                logEntry.hasResources = !!(prop.resources && prop.resources.length);
-              } else if (prop.type === 'skill') {
-                logEntry.ability = prop.ability;
-              } else if (prop.type === 'spell') {
-                logEntry.level = prop.level;
-                logEntry.alwaysPrepared = prop.alwaysPrepared;
-              } else if (prop.type === 'attribute' && prop.attributeType === 'healthBar') {
-                logEntry.attributeType = 'healthBar (HP)';
-              }
+            // Create download link
+            const downloadLink = document.createElement('a');
+            downloadLink.href = url;
+            downloadLink.download = `dicecloud-structure-${characterId}-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
 
-              console.log(logEntry);
-            });
+            // Clean up
+            URL.revokeObjectURL(url);
 
-            console.log('═══════════════════════════════════════════════════════');
-            console.log('💡 TIP: Click the arrow next to each object to expand and see details');
-            console.log('💡 Use Ctrl+F in console to search for specific property names');
-
-            alert(`Structure mapped!\n\nFound ${properties.length} total properties\n\nProperty types: ${Object.keys(byType).join(', ')}\n\nCheck console - each property is logged as a collapsible object.\nNo current values pulled, just IDs and structure for sync mapping.`);
+            console.log('🔍 [DiceCloud Structure] JSON file generated and download initiated');
+            alert(`Structure exported!\n\nFound ${properties.length} total properties\n\nProperty types: ${exportData.propertyTypes.map(t => `${t.type}: ${t.count}`).join(', ')}\n\nJSON file will download shortly.`);
           } else {
             console.error('🔍 [DiceCloud Structure] Failed to fetch character data:', response.status);
             alert('Failed to fetch character data. Make sure you\'re logged in.');
