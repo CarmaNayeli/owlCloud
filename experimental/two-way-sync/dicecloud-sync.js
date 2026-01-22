@@ -229,6 +229,98 @@ class DiceCloudSync {
                 console.log(`[DiceCloud Sync] Cached action with uses: ${action.name} -> ${action._id} (${action.usesUsed || 0}/${action.uses} used)`);
               }
             }
+
+            // Cache common class resources (Ki Points, Sorcery Points, etc.)
+            const classResourceNames = [
+              'Ki Points', 'Sorcery Points', 'Bardic Inspiration', 'Superiority Dice',
+              'Lay on Hands', 'Wild Shape', 'Rage', 'Action Surge', 'Indomitable',
+              'Second Wind', 'Sneak Attack', 'Cunning Action', 'Arcane Recovery',
+              'Song of Rest', 'Font of Magic', 'Metamagic', 'Sorcery Point',
+              'Warlock Spell Slots', 'Pact Magic', 'Eldritch Invocations'
+            ];
+
+            const classResources = apiData.creatureProperties.filter(p =>
+              p.type === 'attribute' &&
+              p.name &&
+              classResourceNames.some(name => p.name.includes(name)) &&
+              !p.removed &&
+              !p.inactive
+            );
+
+            console.log(`[DiceCloud Sync] Found ${classResources.length} class resources`);
+            for (const resource of classResources) {
+              if (!this.propertyCache.has(resource.name)) {
+                this.propertyCache.set(resource.name, resource._id);
+                console.log(`[DiceCloud Sync] Cached class resource: ${resource.name} -> ${resource._id}`);
+              }
+            }
+
+            // Cache Temporary Hit Points
+            const tempHP = apiData.creatureProperties.find(p =>
+              p.name === 'Temporary Hit Points' &&
+              p.type === 'attribute' &&
+              !p.removed &&
+              !p.inactive
+            );
+            if (tempHP) {
+              this.propertyCache.set('Temporary Hit Points', tempHP._id);
+              console.log(`[DiceCloud Sync] Cached Temporary Hit Points: ${tempHP._id}`);
+            }
+
+            // Cache Death Saves
+            const deathSaveProps = apiData.creatureProperties.filter(p =>
+              p.type === 'attribute' &&
+              (p.name === 'Succeeded Saves' || p.name === 'Failed Saves') &&
+              !p.removed &&
+              !p.inactive
+            );
+            for (const deathSave of deathSaveProps) {
+              this.propertyCache.set(deathSave.name, deathSave._id);
+              console.log(`[DiceCloud Sync] Cached Death Save: ${deathSave.name} -> ${deathSave._id}`);
+            }
+
+            // Cache Hit Dice (d6, d8, d10, d12)
+            const hitDiceNames = ['d6 Hit Dice', 'd8 Hit Dice', 'd10 Hit Dice', 'd12 Hit Dice'];
+            const hitDice = apiData.creatureProperties.filter(p =>
+              p.type === 'attribute' &&
+              p.name &&
+              hitDiceNames.some(name => p.name.includes(name)) &&
+              !p.removed &&
+              !p.inactive
+            );
+            for (const hitDie of hitDice) {
+              this.propertyCache.set(hitDie.name, hitDie._id);
+              console.log(`[DiceCloud Sync] Cached Hit Die: ${hitDie.name} -> ${hitDie._id}`);
+            }
+
+            // Cache Heroic Inspiration (2024 rules)
+            const inspiration = apiData.creatureProperties.find(p =>
+              (p.name === 'Heroic Inspiration' || p.name === 'Inspiration') &&
+              p.type === 'attribute' &&
+              !p.removed &&
+              !p.inactive
+            );
+            if (inspiration) {
+              this.propertyCache.set('Heroic Inspiration', inspiration._id);
+              this.propertyCache.set('Inspiration', inspiration._id); // Cache both names
+              console.log(`[DiceCloud Sync] Cached Inspiration: ${inspiration._id}`);
+            }
+
+            // Cache any other attributes with reset fields (short/long rest resources)
+            const restorableAttributes = apiData.creatureProperties.filter(p =>
+              p.type === 'attribute' &&
+              p.name &&
+              p.reset &&
+              p.reset !== 'none' &&
+              !p.removed &&
+              !p.inactive &&
+              !this.propertyCache.has(p.name) // Don't duplicate
+            );
+            console.log(`[DiceCloud Sync] Found ${restorableAttributes.length} additional restorable attributes`);
+            for (const attr of restorableAttributes) {
+              this.propertyCache.set(attr.name, attr._id);
+              console.log(`[DiceCloud Sync] Cached restorable attribute: ${attr.name} (resets on ${attr.reset}) -> ${attr._id}`);
+            }
           } else {
             console.warn('[DiceCloud Sync] Failed to fetch API data for property cache:', response.error);
           }
@@ -601,6 +693,85 @@ class DiceCloudSync {
       console.error('[DiceCloud Sync] Failed to update Channel Divinity:', error);
       throw error;
     }
+  }
+
+  /**
+   * Update any generic resource by name
+   * @param {string} resourceName - Name of the resource (Ki Points, Sorcery Points, etc.)
+   * @param {number} value - New value
+   */
+  async updateResource(resourceName, value) {
+    if (!this.enabled) {
+      console.warn('[DiceCloud Sync] Sync not enabled');
+      return;
+    }
+
+    try {
+      const propertyId = this.findPropertyId(resourceName);
+      if (!propertyId) {
+        console.warn(`[DiceCloud Sync] Resource "${resourceName}" not found`);
+        return;
+      }
+
+      console.log(`[DiceCloud Sync] Updating ${resourceName} to ${value}`);
+
+      const result = await this.ddp.call('creatureProperties.update', {
+        _id: propertyId,
+        path: ['value'],
+        value: value
+      });
+
+      console.log(`[DiceCloud Sync] ${resourceName} updated successfully:`, result);
+      return result;
+    } catch (error) {
+      console.error(`[DiceCloud Sync] Failed to update ${resourceName}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update Temporary Hit Points
+   * @param {number} tempHP - Temporary HP value
+   */
+  async updateTemporaryHP(tempHP) {
+    return this.updateResource('Temporary Hit Points', tempHP);
+  }
+
+  /**
+   * Update Death Saves
+   * @param {number} succeeded - Number of succeeded death saves
+   * @param {number} failed - Number of failed death saves
+   */
+  async updateDeathSaves(succeeded, failed) {
+    const results = [];
+
+    if (succeeded !== undefined) {
+      results.push(await this.updateResource('Succeeded Saves', succeeded));
+    }
+
+    if (failed !== undefined) {
+      results.push(await this.updateResource('Failed Saves', failed));
+    }
+
+    return results;
+  }
+
+  /**
+   * Update Hit Dice remaining
+   * @param {string} dieType - Die type ('d6', 'd8', 'd10', 'd12')
+   * @param {number} remaining - Number of hit dice remaining
+   */
+  async updateHitDice(dieType, remaining) {
+    const resourceName = `${dieType} Hit Dice`;
+    return this.updateResource(resourceName, remaining);
+  }
+
+  /**
+   * Update Inspiration/Heroic Inspiration
+   * @param {number} value - Inspiration value (typically 0 or 1)
+   */
+  async updateInspiration(value) {
+    return this.updateResource('Heroic Inspiration', value);
   }
 
   /**
