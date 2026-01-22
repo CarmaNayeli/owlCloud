@@ -1898,6 +1898,7 @@ When you move on your turn, you can double your speed until the end of the turn.
   });
 }
 
+/*
 // Calculate total currency from inventory items
 function calculateTotalCurrency(inventory) {
   console.log('💰💰💰 calculateTotalCurrency called, inventory length:', inventory ? inventory.length : 0);
@@ -1967,7 +1968,9 @@ function calculateTotalCurrency(inventory) {
   console.log(`💰💰💰 FINAL CURRENCY TOTALS: pp=${pp}, gp=${gp}, sp=${sp}, cp=${cp}`);
   return { pp, gp, sp, cp };
 }
+*/
 
+/*
 // Update currency display in inventory section header
 function updateInventoryCurrencyDisplay(inventory) {
   const headerElement = document.querySelector('#inventory-section h3');
@@ -2020,6 +2023,7 @@ function updateInventoryCurrencyDisplay(inventory) {
     headerElement.appendChild(currencyDisplay);
   }
 }
+*/
 
 // Build and display inventory with filtering
 function buildInventoryDisplay(container, inventory) {
@@ -2027,7 +2031,7 @@ function buildInventoryDisplay(container, inventory) {
   container.innerHTML = '';
 
   // Update currency display in header
-  updateInventoryCurrencyDisplay(inventory);
+  // updateInventoryCurrencyDisplay(inventory); // Commented out currency viewer
 
   if (!inventory || inventory.length === 0) {
     container.innerHTML = '<p style="color: var(--text-secondary); text-align: center; padding: 20px;">No items in inventory</p>';
