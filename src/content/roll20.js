@@ -455,8 +455,26 @@
           delete characterPopups[characterName];
         }
       });
-      
+
       sendResponse({ success: true });
+    } else if (request.action === 'setAutoBackwardsSync') {
+      // Handle auto backwards sync toggle from popup
+      debug.log('🔄 Setting auto backwards sync:', request.enabled);
+
+      // Check if diceCloudSync exists (experimental build)
+      if (window.diceCloudSync) {
+        if (request.enabled) {
+          window.diceCloudSync.enable();
+          debug.log('✅ Auto backwards sync enabled');
+        } else {
+          window.diceCloudSync.disable();
+          debug.log('❌ Auto backwards sync disabled');
+        }
+        sendResponse({ success: true });
+      } else {
+        debug.warn('⚠️ diceCloudSync not available (not experimental build?)');
+        sendResponse({ success: false, error: 'Sync not available' });
+      }
     }
   });
 

@@ -71,6 +71,9 @@ function initializePopup() {
   const showSheetBtn = document.getElementById('showSheetBtn');
   const clearBtn = document.getElementById('clearBtn');
 
+  // DOM Elements - Experimental Features
+  const autoBackwardsSyncToggle = document.getElementById('autoBackwardsSyncToggle');
+
   // Enable button for testing
   if (showSheetBtn) {
     showSheetBtn.disabled = false;
@@ -106,6 +109,14 @@ function initializePopup() {
 
   // Modal event listeners
   document.getElementById('closeSlotModal').addEventListener('click', closeSlotModal);
+
+  // Experimental features event listeners
+  if (autoBackwardsSyncToggle) {
+    // Load initial state
+    loadAutoBackwardsSyncState();
+    // Add change listener
+    autoBackwardsSyncToggle.addEventListener('change', handleAutoBackwardsSyncToggle);
+  }
 
   /**
    * Checks if the user is logged in and shows appropriate section
@@ -637,6 +648,65 @@ function initializePopup() {
     setTimeout(() => {
       loadCharacterData();
     }, 3000);
+  }
+
+  /**
+   * Loads the auto backwards sync state from storage
+   */
+  async function loadAutoBackwardsSyncState() {
+    try {
+      const result = await browserAPI.storage.local.get(['autoBackwardsSync']);
+      const isEnabled = result.autoBackwardsSync !== false; // Default to true
+
+      if (autoBackwardsSyncToggle) {
+        autoBackwardsSyncToggle.checked = isEnabled;
+      }
+
+      debug.log('Auto backwards sync state loaded:', isEnabled);
+    } catch (error) {
+      debug.error('Error loading auto backwards sync state:', error);
+    }
+  }
+
+  /**
+   * Handles auto backwards sync toggle change
+   */
+  async function handleAutoBackwardsSyncToggle() {
+    try {
+      const isEnabled = autoBackwardsSyncToggle.checked;
+
+      // Save to storage
+      await browserAPI.storage.local.set({ autoBackwardsSync: isEnabled });
+
+      // Notify Roll20 content script to enable/disable sync
+      const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
+      for (const tab of tabs) {
+        try {
+          await browserAPI.tabs.sendMessage(tab.id, {
+            action: 'setAutoBackwardsSync',
+            enabled: isEnabled
+          });
+          debug.log('Sent auto backwards sync state to Roll20 tab:', tab.id, isEnabled);
+        } catch (error) {
+          debug.log('Could not send message to tab:', tab.id, error.message);
+        }
+      }
+
+      debug.log('Auto backwards sync toggled:', isEnabled);
+
+      // Show feedback
+      const previousText = statusText.textContent;
+      const previousIcon = statusIcon.textContent;
+      statusIcon.textContent = '✅';
+      statusText.textContent = `Auto backwards sync ${isEnabled ? 'enabled' : 'disabled'}`;
+      setTimeout(() => {
+        statusIcon.textContent = previousIcon;
+        statusText.textContent = previousText;
+      }, 2000);
+    } catch (error) {
+      debug.error('Error toggling auto backwards sync:', error);
+      showError('Failed to toggle auto backwards sync');
+    }
   }
 
   /**
