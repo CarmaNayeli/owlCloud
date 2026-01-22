@@ -1,13 +1,15 @@
-# Release Notes: RollCloud v1.0.0
+# Release Notes: RollCloud v1.1.0
 
-## 🎖️ Lucky Feat Implementation
+## 🎨 Complete Sheet Update
 
 ### Major Features Added:
+- **Complete Character Sheet Overhaul**: Fully redesigned character sheet interface with improved layout and responsiveness
 - **Lucky Feat**: Manual action button with modal interface for offensive/defensive usage
 - **Character State Preservation**: Cache system prevents resource refreshing when switching characters
 - **Resource Management**: Lucky points tracking without duplication (filtered from resources display)
 - **Roll20 Integration**: Lucky rolls sent to chat with proper formatting
 - **Dynamic UI Updates**: Real-time Lucky point count updates
+- **Enhanced UI/UX**: Better layout, responsive design, enhanced interactions
 
 ### Technical Improvements:
 - **Character Cache**: `characterCache` Map preserves session state

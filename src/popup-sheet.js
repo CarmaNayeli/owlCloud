@@ -6706,7 +6706,7 @@ function initShowToGM() {
             spells: characterData.spells || [],
             features: characterData.features || [],
             equipment: characterData.equipment || [],
-            inventory: characterData.inventory || [],
+            inventory: characterData.inventory || {},
             resources: characterData.resources || {},
             spellSlots: characterData.spellSlots || {},
             companions: characterData.companions || [],
@@ -6715,7 +6715,15 @@ function initShowToGM() {
             background: characterData.background || '',
             personality: characterData.personality || {},
             proficiencies: characterData.proficiencies || [],
-            languages: characterData.languages || []
+            languages: characterData.languages || [],
+            // Add simplified properties for popout compatibility
+            hp: characterData.hitPoints?.current || characterData.hp || 0,
+            maxHp: characterData.hitPoints?.max || characterData.maxHp || 0,
+            ac: characterData.armorClass || characterData.ac || 10,
+            initiative: characterData.initiative || 0,
+            passivePerception: characterData.passivePerception || 10,
+            proficiency: characterData.proficiencyBonus || characterData.proficiency || 0,
+            speed: characterData.speed || '30 ft'
           },
           timestamp: new Date().toISOString()
         };

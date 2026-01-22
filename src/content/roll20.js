@@ -812,6 +812,7 @@
           if (node.nodeType === Node.ELEMENT_NODE) {
             // Check for character broadcast messages
             const messageContent = node.textContent || node.innerText || '';
+            debug.log('🔍 Chat message detected:', messageContent.substring(0, 100));
             if (messageContent.includes('👑[ROLLCLOUD:CHARACTER:') && messageContent.includes(']👑')) {
               debug.log('👑 Detected character broadcast in chat');
               parseCharacterBroadcast(messageContent);
@@ -861,6 +862,8 @@
       const character = decodedData.character;
       const fullSheet = decodedData.fullSheet || character; // Use full sheet if available
       debug.log('👑 Received character broadcast:', character.name);
+      debug.log('🔍 Full sheet data keys:', fullSheet ? Object.keys(fullSheet) : 'null');
+      debug.log('🔍 Full sheet sample:', fullSheet ? JSON.stringify(fullSheet, null, 2).substring(0, 500) + '...' : 'null');
 
       // Import COMPLETE character data to GM panel
       updatePlayerData(character.name, fullSheet);
@@ -1524,7 +1527,6 @@
     const hpPercent = player.maxHp > 0 ? (player.hp / player.maxHp) * 100 : 0;
     const hpColor = hpPercent > 50 ? '#27ae60' : hpPercent > 25 ? '#f39c12' : '#e74c3c';
 
-    // Build comprehensive character sheet display
     let abilitiesHTML = '';
     if (player.attributes) {
       abilitiesHTML = `
@@ -1576,48 +1578,83 @@
       `).join('');
     }
 
-    // Write character sheet HTML to popup
+    // Write EXACT popup sheet HTML to popup
     popup.document.write(`
       <!DOCTYPE html>
       <html>
       <head>
         <title>Character Sheet - ${playerName}</title>
+        <meta charset="UTF-8">
         <style>
-          /* Popup Sheet Styles */
+          /* CSS Variables for Theming */
+          :root {
+            /* Light theme (default) */
+            --bg-primary: #f5f5f5;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f0f0f0;
+            --bg-card: #f0fff4;
+            --bg-card-hover: #e8f5e8;
+            --bg-spell: #fff3cd;
+            --bg-action: #e3f2fd;
+            --bg-resource: #f3e5f5;
+            --bg-feature: #fef5e7;
+
+            --text-primary: #2C3E50;
+            --text-secondary: #666666;
+            --text-muted: #999999;
+            --text-inverse: #ffffff;
+
+            --border-color: #ddd;
+            --border-card: #2D8B83;
+            --border-spell: #f39c12;
+            --border-action: #2196f3;
+
+            --accent-primary: #2D8B83;
+            --accent-success: #27ae60;
+            --accent-danger: #E74C3C;
+            --accent-warning: #f39c12;
+            --accent-info: #2196f3;
+            --accent-purple: #9b59b6;
+            --accent-purple-dark: #8e44ad;
+
+            --shadow: rgba(0,0,0,0.1);
+            --shadow-hover: rgba(0,0,0,0.15);
+          }
+
           body {
-            margin: 0;
-            padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f5f5f5;
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
           }
           .container {
-            background: #f5f5f5;
+            max-width: 800px;
+            margin: 0 auto;
+            background: var(--bg-secondary);
+            padding: 0;
             border-radius: 8px;
-            overflow: hidden;
-            min-height: 100vh;
+            box-shadow: 0 2px 10px var(--shadow);
           }
           .systems-bar {
-            background: #2D8B83;
-            color: white;
-            padding: 8px 15px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
+            padding: 8px 15px;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border-color);
+            border-radius: 8px 8px 0 0;
+            gap: 10px;
           }
           .close-btn {
             background: #E74C3C;
             color: white;
             border: none;
-            border-radius: 4px;
             padding: 4px 8px;
+            border-radius: 4px;
             cursor: pointer;
             font-size: 0.85em;
           }
           .content-area {
-            background: white;
             padding: 20px;
           }
           .header {
@@ -1626,7 +1663,7 @@
           .char-name-section {
             font-size: 1.5em;
             font-weight: bold;
-            color: #2C3E50;
+            color: var(--text-primary);
             margin-bottom: 15px;
           }
           .char-info-layer {
@@ -1636,7 +1673,7 @@
             flex-wrap: wrap;
           }
           .char-info-layer.layer-1 {
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid var(--border-color);
             padding-bottom: 15px;
           }
           .char-info-layer.layer-2 {
@@ -1648,8 +1685,8 @@
             margin-bottom: 20px;
           }
           .stat-box {
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
             border-radius: 6px;
             padding: 10px;
             text-align: center;
@@ -1657,104 +1694,125 @@
           }
           .stat-label {
             font-size: 0.8em;
-            color: #666;
+            color: var(--text-secondary);
             margin-bottom: 5px;
           }
           .stat-value {
             font-size: 1.3em;
             font-weight: bold;
-            color: #2C3E50;
+            color: var(--text-primary);
           }
           .hp-box, .initiative-box {
-            background: #e8f5e8;
-            border: 2px solid #2D8B83;
+            background: var(--bg-card);
+            border: 2px solid var(--accent-primary);
             border-radius: 8px;
             padding: 15px;
             text-align: center;
             flex: 1;
           }
           .hp-box {
-            border-color: #27ae60;
+            border-color: var(--accent-success);
           }
           .initiative-box {
-            border-color: #3498db;
+            border-color: var(--accent-info);
           }
           .section {
             margin-bottom: 25px;
           }
           .section h3 {
-            color: #2C3E50;
+            color: var(--text-primary);
             margin-bottom: 15px;
             font-size: 1.2em;
-            border-bottom: 2px solid #2D8B83;
+            border-bottom: 2px solid var(--accent-primary);
             padding-bottom: 5px;
           }
-          .abilities-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-          }
-          .ability-card {
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
+          .section-content {
+            background: var(--bg-secondary);
+            border-radius: 6px;
             padding: 15px;
+          }
+          .abilities-grid, .saves-grid, .skills-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+          }
+          .ability-card, .save-card, .skill-card {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 10px;
             text-align: center;
           }
-          .ability-name {
+          .ability-name, .save-name, .skill-name {
             font-size: 0.9em;
-            color: #666;
+            color: var(--text-secondary);
             margin-bottom: 5px;
             text-transform: capitalize;
           }
-          .ability-score {
-            font-size: 1.8em;
+          .ability-score, .save-value, .skill-value {
+            font-size: 1.3em;
             font-weight: bold;
-            color: #2C3E50;
+            color: var(--text-primary);
             margin-bottom: 5px;
           }
-          .ability-mod {
-            font-size: 1.2em;
+          .ability-mod, .save-mod, .skill-mod {
+            font-size: 1.1em;
             font-weight: bold;
-            color: #2D8B83;
+            color: var(--accent-primary);
           }
-          .skills-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-          }
-          .skill-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 12px;
-            background: #f8f9fa;
-            border-radius: 6px;
-            border-left: 3px solid #2D8B83;
-          }
-          .skill-name {
-            color: #2C3E50;
-          }
-          .skill-bonus {
-            font-weight: bold;
-            color: #2D8B83;
-          }
-          .action-card {
-            background: #e3f2fd;
-            border: 1px solid #2196f3;
+          .action-card, .spell-card, .feature-card {
+            background: var(--bg-action);
+            border: 1px solid var(--border-action);
             border-radius: 8px;
             padding: 15px;
             margin-bottom: 15px;
           }
-          .action-name {
+          .spell-card {
+            background: var(--bg-spell);
+            border-color: var(--border-spell);
+          }
+          .feature-card {
+            background: var(--bg-feature);
+            border-color: var(--accent-warning);
+          }
+          .action-name, .spell-name, .feature-name {
             font-weight: bold;
             font-size: 1.1em;
-            color: #2C3E50;
+            color: var(--text-primary);
             margin-bottom: 8px;
           }
-          .action-description {
-            color: #666;
+          .action-description, .spell-description, .feature-description {
+            color: var(--text-secondary);
             font-size: 0.9em;
             line-height: 1.4;
+          }
+          .spell-level {
+            font-size: 0.85em;
+            color: var(--accent-warning);
+            font-weight: bold;
+            margin-bottom: 5px;
+          }
+          .resources-container, .spell-slots-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+          }
+          .resource-card, .spell-slot-card {
+            background: var(--bg-resource);
+            border: 1px solid var(--accent-purple);
+            border-radius: 6px;
+            padding: 10px;
+            text-align: center;
+          }
+          .resource-name, .spell-slot-level {
+            font-size: 0.9em;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+          }
+          .resource-value, .spell-slot-value {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: var(--accent-purple);
           }
         </style>
       </head>
@@ -1812,31 +1870,135 @@
                   <div style="font-size: 0.8em; margin-bottom: 5px;">Hit Points</div>
                   <div style="font-size: 1.5em;">${player.hp || '0'} / ${player.maxHp || '0'}</div>
                 </div>
+                <div class="initiative-box">
+                  <div style="font-size: 0.8em; margin-bottom: 5px;">Initiative</div>
+                  <div style="font-size: 1.5em;">+${player.initiative || '0'}</div>
+                </div>
               </div>
             </div>
 
+            <!-- Resources & Spell Slots -->
+            ${player.resources && Object.keys(player.resources).length > 0 ? `
+              <div class="section">
+                <h3>💎 Resources</h3>
+                <div class="section-content">
+                  <div class="resources-container">
+                    ${Object.entries(player.resources).map(([key, value]) => `
+                      <div class="resource-card">
+                        <div class="resource-name">${key}</div>
+                        <div class="resource-value">${value.current || value.value || 0}/${value.max || value.total || '-'}</div>
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+              </div>
+            ` : ''}
+
+            ${player.spellSlots && Object.keys(player.spellSlots).length > 0 ? `
+              <div class="section">
+                <h3>✨ Spell Slots</h3>
+                <div class="section-content">
+                  <div class="spell-slots-container">
+                    ${Object.entries(player.spellSlots).map(([level, slots]) => `
+                      <div class="spell-slot-card">
+                        <div class="spell-slot-level">Level ${level}</div>
+                        <div class="spell-slot-value">${slots.used || 0}/${slots.total || slots.max || 0}</div>
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+              </div>
+            ` : ''}
+
+            <!-- Abilities -->
             ${abilitiesHTML ? `
               <div class="section">
-                <h3>Abilities</h3>
-                <div class="abilities-grid">
-                  ${abilitiesHTML}
+                <h3>⚡ Abilities</h3>
+                <div class="section-content">
+                  <div class="abilities-grid">
+                    ${abilitiesHTML}
+                  </div>
                 </div>
               </div>
             ` : ''}
 
+            <!-- Saving Throws -->
+            ${player.savingThrows ? `
+              <div class="section">
+                <h3>🛡️ Saving Throws</h3>
+                <div class="section-content">
+                  <div class="saves-grid">
+                    ${['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma'].map(saveName => {
+                      const save = player.savingThrows[saveName] || {};
+                      const mod = player.attributes?.[saveName] ? Math.floor((player.attributes[saveName] - 10) / 2) : 0;
+                      const profBonus = player.proficiency || 0;
+                      const total = mod + (save.proficient ? profBonus : 0);
+                      const sign = total >= 0 ? '+' : '';
+                      return `
+                        <div class="save-card">
+                          <div class="save-name">${saveName}</div>
+                          <div class="save-value">${sign}${total}</div>
+                          <div class="save-mod">${save.proficient ? '✓' : ''}</div>
+                        </div>
+                      `;
+                    }).join('')}
+                  </div>
+                </div>
+              </div>
+            ` : ''}
+
+            <!-- Skills -->
             ${skillsHTML ? `
               <div class="section">
-                <h3>Skills</h3>
-                <div class="skills-grid">
-                  ${skillsHTML}
+                <h3>🎯 Skills</h3>
+                <div class="section-content">
+                  <div class="skills-grid">
+                    ${skillsHTML}
+                  </div>
                 </div>
               </div>
             ` : ''}
 
+            <!-- Features -->
+            ${player.features && player.features.length > 0 ? `
+              <div class="section">
+                <h3>🌟 Features</h3>
+                <div class="section-content">
+                  ${player.features.slice(0, 10).map(feature => `
+                    <div class="feature-card">
+                      <div class="feature-name">${feature.name}</div>
+                      ${feature.description ? `<div class="feature-description">${(feature.description.text || feature.description).substring(0, 200)}${(feature.description.text || feature.description).length > 200 ? '...' : ''}</div>` : ''}
+                    </div>
+                  `).join('')}
+                  ${player.features.length > 10 ? `<div style="color: var(--text-muted); text-align: center; padding: 12px;">... and ${player.features.length - 10} more features</div>` : ''}
+                </div>
+              </div>
+            ` : ''}
+
+            <!-- Actions -->
             ${actionsHTML ? `
               <div class="section">
-                <h3>Actions</h3>
-                ${actionsHTML}
+                <h3>⚔️ Actions & Attacks</h3>
+                <div class="section-content">
+                  ${actionsHTML}
+                </div>
+              </div>
+            ` : ''}
+
+            <!-- Spells -->
+            ${player.spells && player.spells.length > 0 ? `
+              <div class="section">
+                <h3>🔮 Spells</h3>
+                <div class="section-content">
+                  ${player.spells.slice(0, 15).map(spell => `
+                    <div class="spell-card">
+                      <div class="spell-name">${spell.name}</div>
+                      ${spell.level ? `<div class="spell-level">Level ${spell.level}</div>` : ''}
+                      ${spell.description ? `<div class="spell-description">${spell.description.substring(0, 150)}${spell.description.length > 150 ? '...' : ''}</div>` : ''}
+                    </div>
+                  `).join('')}
+                  ${player.spells.length > 15 ? `<div style="color: var(--text-muted); text-align: center; padding: 12px;">... and ${player.spells.length - 15} more spells</div>` : ''}
+                </div>
               </div>
             ` : ''}
           </div>
