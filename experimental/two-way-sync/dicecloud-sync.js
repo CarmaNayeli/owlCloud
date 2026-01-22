@@ -168,10 +168,65 @@ class DiceCloudSync {
                   }
                   continue;
                 }
-                
+
+                // Cache spell slots (1st Level, 2nd Level, etc.)
+                const spellSlotMatch = propertyName.match(/^(\d+(?:st|nd|rd|th)) Level$/);
+                if (spellSlotMatch) {
+                  // Find the attribute for this spell slot level
+                  const spellSlotAttr = properties.find(p =>
+                    p.name === propertyName &&
+                    p.type === 'attribute' &&
+                    !p.removed &&
+                    !p.inactive
+                  );
+
+                  if (spellSlotAttr) {
+                    // Cache with both the full name and a short key
+                    this.propertyCache.set(propertyName, spellSlotAttr._id);
+                    this.propertyCache.set(`spellSlot${spellSlotMatch[1].replace(/\D/g, '')}`, spellSlotAttr._id);
+                    console.log(`[DiceCloud Sync] Cached spell slot: ${propertyName} -> ${spellSlotAttr._id}`);
+                  }
+                  continue;
+                }
+
+                // Cache Channel Divinity and similar limited-use class features
+                if (propertyName === 'Channel Divinity') {
+                  const channelDivinity = properties.find(p =>
+                    p.name === propertyName &&
+                    p.type === 'attribute' &&
+                    !p.removed &&
+                    !p.inactive
+                  );
+
+                  if (channelDivinity) {
+                    this.propertyCache.set('Channel Divinity', channelDivinity._id);
+                    console.log(`[DiceCloud Sync] Cached Channel Divinity: ${channelDivinity._id}`);
+                  }
+                  continue;
+                }
+
                 // Cache all other properties normally
                 this.propertyCache.set(propertyName, selectedProperty._id);
                 console.log(`[DiceCloud Sync] Cached property: ${propertyName} -> ${selectedProperty._id}`);
+              }
+            }
+
+            // Cache actions with limited uses from the raw API data
+            const actionsWithUses = apiData.creatureProperties.filter(p =>
+              p.type === 'action' &&
+              p.name &&
+              p.uses !== undefined &&
+              p.uses > 0 &&
+              !p.removed &&
+              !p.inactive
+            );
+
+            console.log(`[DiceCloud Sync] Found ${actionsWithUses.length} actions with limited uses`);
+            for (const action of actionsWithUses) {
+              // Only cache if not already cached by name
+              if (!this.propertyCache.has(action.name)) {
+                this.propertyCache.set(action.name, action._id);
+                console.log(`[DiceCloud Sync] Cached action with uses: ${action.name} -> ${action._id} (${action.usesUsed || 0}/${action.uses} used)`);
               }
             }
           } else {
@@ -471,6 +526,93 @@ class DiceCloudSync {
       console.error('[DiceCloud Sync] Failed to update attribute:', error);
       throw error;
     }
+  }
+
+  /**
+   * Update spell slot current value
+   * @param {number} level - Spell level (1-9)
+   * @param {number} slotsRemaining - Number of slots remaining
+   */
+  async updateSpellSlot(level, slotsRemaining) {
+    if (!this.enabled) {
+      console.warn('[DiceCloud Sync] Sync not enabled');
+      return;
+    }
+
+    try {
+      // Try both naming conventions
+      const slotKey = `spellSlot${level}`;
+      const slotName = `${level}${this.getOrdinalSuffix(level)} Level`;
+
+      let propertyId = this.findPropertyId(slotKey);
+      if (!propertyId) {
+        propertyId = this.findPropertyId(slotName);
+      }
+
+      if (!propertyId) {
+        console.warn(`[DiceCloud Sync] Spell slot level ${level} not found`);
+        return;
+      }
+
+      console.log(`[DiceCloud Sync] Updating spell slot level ${level} to ${slotsRemaining} remaining`);
+
+      const result = await this.ddp.call('creatureProperties.update', {
+        _id: propertyId,
+        path: ['value'],
+        value: slotsRemaining
+      });
+
+      console.log('[DiceCloud Sync] Spell slot updated successfully:', result);
+      return result;
+    } catch (error) {
+      console.error('[DiceCloud Sync] Failed to update spell slot:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update Channel Divinity uses
+   * @param {number} usesRemaining - Number of uses remaining
+   */
+  async updateChannelDivinity(usesRemaining) {
+    if (!this.enabled) {
+      console.warn('[DiceCloud Sync] Sync not enabled');
+      return;
+    }
+
+    try {
+      const propertyId = this.findPropertyId('Channel Divinity');
+      if (!propertyId) {
+        console.warn('[DiceCloud Sync] Channel Divinity not found');
+        return;
+      }
+
+      console.log(`[DiceCloud Sync] Updating Channel Divinity to ${usesRemaining} uses remaining`);
+
+      const result = await this.ddp.call('creatureProperties.update', {
+        _id: propertyId,
+        path: ['value'],
+        value: usesRemaining
+      });
+
+      console.log('[DiceCloud Sync] Channel Divinity updated successfully:', result);
+      return result;
+    } catch (error) {
+      console.error('[DiceCloud Sync] Failed to update Channel Divinity:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Helper to get ordinal suffix (1st, 2nd, 3rd, etc.)
+   */
+  getOrdinalSuffix(num) {
+    const j = num % 10;
+    const k = num % 100;
+    if (j === 1 && k !== 11) return 'st';
+    if (j === 2 && k !== 12) return 'nd';
+    if (j === 3 && k !== 13) return 'rd';
+    return 'th';
   }
 
   findPropertyId(attributeName) {
