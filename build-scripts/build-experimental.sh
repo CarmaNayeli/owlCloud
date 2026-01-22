@@ -42,7 +42,7 @@ build_chrome_experimental() {
       const manifest = JSON.parse(fs.readFileSync('$CHROME_DIR/manifest.json', 'utf8'));
 
       // Update version to indicate experimental
-      manifest.version = manifest.version + '.1';
+      manifest.version = '1.1.3';
       manifest.name = manifest.name + ' (Experimental Sync)';
 
       // Add experimental sync files to Roll20 content script
@@ -111,7 +111,7 @@ build_firefox_experimental() {
       const manifest = JSON.parse(fs.readFileSync('$FIREFOX_DIR/manifest_firefox.json', 'utf8'));
 
       // Update version to indicate experimental
-      manifest.version = manifest.version + '.1';
+      manifest.version = '1.1.3';
       manifest.name = manifest.name + ' (Experimental Sync)';
 
       // Add experimental sync files to Roll20 content script
