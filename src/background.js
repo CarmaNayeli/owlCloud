@@ -365,14 +365,23 @@ async function storeCharacterData(characterData, slotId) {
     // Store this character's data
     characterProfiles[storageId] = characterData;
 
-    // Set active character to this one (always update to most recent sync)
-    const activeCharacterId = storageId;
-
-    await browserAPI.storage.local.set({
+    // Only update activeCharacterId if slotId was explicitly provided
+    // This prevents the "default" storage from overriding a specific slot selection
+    const updates = {
       characterProfiles: characterProfiles,
-      activeCharacterId: activeCharacterId,
       timestamp: Date.now()
-    });
+    };
+
+    // If slotId was explicitly provided, set it as active
+    // If no slotId was provided but there's no active character, set this as active
+    if (slotId || !result.activeCharacterId) {
+      updates.activeCharacterId = storageId;
+      debug.log(`Setting active character to: ${storageId}`);
+    } else {
+      debug.log(`Keeping existing active character: ${result.activeCharacterId}`);
+    }
+
+    await browserAPI.storage.local.set(updates);
 
     debug.log(`Character data stored successfully for ID: ${storageId}`, characterData);
   } catch (error) {
