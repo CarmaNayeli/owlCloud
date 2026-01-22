@@ -2663,6 +2663,9 @@ ${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗
     // Check if this is an experimental build
     try {
       const manifest = browserAPI.runtime.getManifest();
+      debug.log('🔍 Manifest check:', manifest);
+      debug.log('🔍 Manifest name:', manifest.name);
+      
       if (manifest && manifest.name && manifest.name.includes('EXPERIMENTAL')) {
         debug.log('🧪 Experimental build detected, loading two-way sync...');
         
@@ -2670,10 +2673,14 @@ ${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗
         loadExperimentalSync().catch(error => {
           debug.error('❌ Failed to load experimental sync:', error);
         });
+      } else {
+        debug.log('📦 Standard build detected, skipping experimental sync');
       }
     } catch (e) {
-      debug.log('📦 Standard build detected, skipping experimental sync');
+      debug.log('📦 Standard build detected (error), skipping experimental sync:', e);
     }
+  } else {
+    debug.log('❌ browserAPI.runtime not available');
   }
 
   /**
