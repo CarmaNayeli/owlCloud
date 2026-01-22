@@ -4548,7 +4548,7 @@
               console.log(`   Total: ${prop.total}`);
               console.log(`   Damage: ${prop.damage}`);
               console.log(`   Reset: ${prop.reset}`);
-              console.log(`   Description: ${prop.description ? (prop.description.substring(0, 100) + (prop.description.length > 100 ? '...' : '')) : 'None'}`);
+              console.log(`   Description: ${prop.description ? (typeof prop.description === 'string' ? (prop.description.substring(0, 100) + (prop.description.length > 100 ? '...' : '')) : JSON.stringify(prop.description).substring(0, 100)) : 'None'}`);
               console.log(`   Parent: ${prop.parent ? JSON.stringify(prop.parent) : 'None'}`);
               console.log(`   Tags: ${prop.tags ? prop.tags.join(', ') : 'None'}`);
               console.log(`   Inactive: ${prop.inactive}`);
