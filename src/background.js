@@ -162,7 +162,10 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
               response = { success: true, data };
               debug.log('✅ DiceCloud API fetched successfully');
             } else {
-              response = { success: false, error: `HTTP ${apiResponse.status}` };
+              // Get the error text to see what's wrong
+              const errorText = await apiResponse.text();
+              console.error('❌ DiceCloud API error response:', errorText);
+              response = { success: false, error: `HTTP ${apiResponse.status}: ${errorText}` };
               debug.warn('❌ DiceCloud API fetch failed:', apiResponse.status);
             }
           } catch (error) {

@@ -4439,10 +4439,97 @@
       observeRollLog();
     });
   } else {
-    debug.log('📄 Page already loaded, adding buttons...');
+    debug.log('📄 DOM already loaded, adding buttons...');
     addSyncButton();
     observeRollLog();
   }
 
-  debug.log('✅ DiceCloud script initialization complete');
+  // Add debug button for testing sync
+  if (window.location.hostname === 'dicecloud.com') {
+    const debugButton = document.createElement('button');
+    debugButton.textContent = '🔍 Check Sync Status';
+    debugButton.style.cssText = `
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      z-index: 10000;
+      background: #ff6b6b;
+      color: white;
+      border: none;
+      padding: 10px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 12px;
+    `;
+    
+    debugButton.addEventListener('click', async () => {
+      console.log('🔍 [DiceCloud Debug] Checking sync status...');
+      
+      // Get current character ID from URL - handle different URL formats
+      const pathParts = window.location.pathname.split('/');
+      let characterId = null;
+      
+      // Try different URL patterns
+      if (pathParts.includes('character')) {
+        // Format: /character/obDHmmtRdhNMkF9a7/New-Character
+        const characterIndex = pathParts.indexOf('character');
+        if (characterIndex + 1 < pathParts.length) {
+          characterId = pathParts[characterIndex + 1];
+        }
+      } else {
+        // Fallback: assume last part is the ID
+        characterId = pathParts[pathParts.length - 1];
+      }
+      
+      console.log('🔍 [DiceCloud Debug] Extracted character ID:', characterId);
+      
+      if (characterId && characterId !== 'New-Character') {
+        try {
+          // Fetch current character data
+          const response = await fetch(`https://dicecloud.com/api/creature/${characterId}`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('Meteor.loginToken')}`
+            }
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            
+            // Find HP properties
+            const hpProps = data.creatureProperties.filter(p => 
+              p.name && (
+                p.name.includes('Hit Points') || 
+                p.name.includes('HP')
+              )
+            );
+            
+            console.log('🔍 [DiceCloud Debug] HP Properties found:', hpProps.map(p => ({
+              name: p.name,
+              id: p._id,
+              value: p.value,
+              dirty: p.dirty,
+              lastUpdated: p.lastUpdated
+            })));
+            
+            // Show alert with current values
+            const hpInfo = hpProps.map(p => 
+              `${p.name}: ${p.value} (dirty: ${p.dirty})`
+            ).join('\n');
+            
+            alert(`Current HP Values:\n\n${hpInfo}\n\nCheck console for more details.`);
+          } else {
+            console.error('🔍 [DiceCloud Debug] Failed to fetch character data:', response.status);
+          }
+        } catch (error) {
+          console.error('🔍 [DiceCloud Debug] Error checking sync:', error);
+        }
+      } else {
+        console.error('🔍 [DiceCloud Debug] Could not extract valid character ID from URL');
+        alert('Could not extract character ID from URL. Make sure you\'re on a character page.');
+      }
+    });
+    
+    document.body.appendChild(debugButton);
+  }
+
 })();

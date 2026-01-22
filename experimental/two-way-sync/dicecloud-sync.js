@@ -85,11 +85,70 @@ class DiceCloudSync {
             // Build cache from raw creatureProperties
             if (apiData.creatureProperties && Array.isArray(apiData.creatureProperties)) {
               console.log(`[DiceCloud Sync] Processing ${apiData.creatureProperties.length} raw properties`);
+              
+              // First pass: collect all properties
+              const allProperties = {};
               for (const property of apiData.creatureProperties) {
                 if (property._id && property.name) {
-                  this.propertyCache.set(property.name, property._id);
-                  console.log(`[DiceCloud Sync] Cached property: ${property.name} -> ${property._id}`);
+                  if (!allProperties[property.name]) {
+                    allProperties[property.name] = [];
+                  }
+                  allProperties[property.name].push(property);
                 }
+              }
+              
+              // Second pass: cache the best property for each name
+              for (const [propertyName, properties] of Object.entries(allProperties)) {
+                let selectedProperty = properties[0]; // default to first
+                
+                // Handle Hit Points - find the editable one with the highest value (main HP)
+                if (propertyName === 'Hit Points') {
+                  // Find the Hit Points property that has a value field and isn't read-only
+                  // Prefer the one with the highest value (likely the main HP over temporary HP)
+                  const editableHPs = properties.filter(p => 
+                    p.type !== 'skill' && 
+                    (p.value !== undefined || p.skillValue !== undefined)
+                  );
+                  
+                  if (editableHPs.length > 0) {
+                    // Sort by value (highest first) to get the main HP
+                    const mainHP = editableHPs.sort((a, b) => {
+                      const valA = a.value !== undefined ? a.value : a.skillValue || 0;
+                      const valB = b.value !== undefined ? b.value : b.skillValue || 0;
+                      return valB - valA; // descending
+                    })[0];
+                    
+                    this.propertyCache.set('Hit Points', mainHP._id);
+                    console.log(`[DiceCloud Sync] Found editable Hit Points: ${mainHP.name} -> ${mainHP._id} (type: ${mainHP.type}, value: ${mainHP.value || mainHP.skillValue})`);
+                    
+                    // Debug: Show all Hit Points properties for comparison
+                    console.log(`[DiceCloud Sync] All Hit Points properties:`);
+                    properties.forEach(p => {
+                      console.log(`  - ${p.name} (${p.type}): value=${p.value}, skillValue=${p.skillValue}, calculation=${p.calculation || 'none'}`);
+                    });
+                  } else {
+                    console.log(`[DiceCloud Sync] No editable Hit Points found, skipping calculated ones`);
+                  }
+                  continue;
+                }
+                
+                // Cache class-specific HP as the main "Hit Points" if no main HP was found
+                if (propertyName.includes('Hit Points') && propertyName !== 'Hit Points') {
+                  const classHP = properties.find(p => 
+                    p.type !== 'skill' && 
+                    (p.value !== undefined || p.skillValue !== undefined)
+                  );
+                  
+                  if (classHP) {
+                    this.propertyCache.set('Hit Points', classHP._id);
+                    console.log(`[DiceCloud Sync] Cached class-specific HP as main Hit Points: ${propertyName} -> ${classHP._id} (type: ${classHP.type})`);
+                  }
+                  continue;
+                }
+                
+                // Cache all other properties normally
+                this.propertyCache.set(propertyName, selectedProperty._id);
+                console.log(`[DiceCloud Sync] Cached property: ${propertyName} -> ${selectedProperty._id}`);
               }
             }
           } else {
@@ -217,13 +276,130 @@ class DiceCloudSync {
 
       console.log(`[DiceCloud Sync] Updating attribute ${attributeName} (${propertyId}) to ${value}`);
 
-      const result = await this.ddp.call('creatureProperties.update', {
+      const updatePayload = {
         _id: propertyId,
-        path: ['value'],
+        path: ['value'],  // Default, will be updated based on property type
         value: value
-      });
+      };
+      
+      // Check current value before update and determine correct field name
+      try {
+        const tokenResult = await browserAPI.storage.local.get(['diceCloudToken']);
+        const { diceCloudToken } = tokenResult;
+        
+        if (diceCloudToken) {
+          // Use the character endpoint like the debug button does
+          const characterId = this.characterId;
+          const currentResponse = await browserAPI.runtime.sendMessage({
+            action: 'fetchDiceCloudAPI',
+            url: `https://dicecloud.com/api/creature/${characterId}`,
+            token: diceCloudToken
+          });
+          
+          if (currentResponse.success && currentResponse.data) {
+            // Find the property in the full character data
+            const property = currentResponse.data.creatureProperties.find(p => p._id === propertyId);
+            if (property) {
+              console.log('[DiceCloud Sync] Property before update:', {
+                id: property._id,
+                name: property.name,
+                type: property.type,
+                value: property.value,
+                skillValue: property.skillValue,
+                dirty: property.dirty
+              });
+              
+              // Determine the correct field name based on property type
+              let fieldName = 'value'; // default
+              if (property.type === 'skill') {
+                fieldName = 'skillValue';
+              } else if (property.type === 'effect') {
+                // For effects, check if there's a calculation or if it uses value
+                fieldName = property.calculation ? 'calculation' : 'value';
+              }
+              console.log(`[DiceCloud Sync] Using field name: ${fieldName} for property type: ${property.type}`);
+              
+              // Update the payload with the correct field name
+              updatePayload.path = [fieldName];
+            }
+          }
+        } else {
+          console.warn('[DiceCloud Sync] No DiceCloud token available for verification');
+        }
+      } catch (error) {
+        console.error('[DiceCloud Sync] Failed to get current property value:', error);
+      }
+      
+      console.log('[DiceCloud Sync] DDP update payload:', JSON.stringify(updatePayload, null, 2));
+
+      const result = await this.ddp.call('creatureProperties.update', updatePayload);
 
       console.log('[DiceCloud Sync] Attribute updated successfully:', result);
+      console.log('[DiceCloud Sync] Checking if update was applied...');
+      
+      // Verify the update by checking the property again
+      setTimeout(async () => {
+        try {
+          const tokenResult = await browserAPI.storage.local.get(['diceCloudToken']);
+          const { diceCloudToken } = tokenResult;
+          
+          if (diceCloudToken) {
+            console.log('[DiceCloud Sync] Verifying update for property:', propertyId);
+            console.log('[DiceCloud Sync] Character ID available:', this.characterId);
+            
+            // Use the character endpoint like the debug button does
+            const characterId = this.characterId;
+            if (!characterId) {
+              console.error('[DiceCloud Sync] No character ID available for verification');
+              return;
+            }
+            
+            const verifyResponse = await browserAPI.runtime.sendMessage({
+              action: 'fetchDiceCloudAPI',
+              url: `https://dicecloud.com/api/creature/${characterId}`,
+              token: diceCloudToken
+            });
+            
+            console.log('[DiceCloud Sync] Verification API response:', verifyResponse);
+            
+            if (verifyResponse.success && verifyResponse.data) {
+              console.log('[DiceCloud Sync] Verification API data received, looking for property:', propertyId);
+              console.log('[DiceCloud Sync] Total properties in response:', verifyResponse.data.creatureProperties?.length);
+              
+              // Find the property in the full character data
+              const property = verifyResponse.data.creatureProperties.find(p => p._id === propertyId);
+              if (property) {
+                console.log('[DiceCloud Sync] Property after update:', {
+                  id: property._id,
+                  name: property.name,
+                  value: property.value,
+                  dirty: property.dirty,
+                  lastUpdated: property.lastUpdated
+                });
+                
+                // Check if the value actually changed
+                if (property.value === value) {
+                  console.log('[DiceCloud Sync] ✅ SUCCESS: Value updated correctly!');
+                } else {
+                  console.warn('[DiceCloud Sync] ❌ ISSUE: Value did not change. Expected:', value, 'Actual:', property.value);
+                }
+              } else {
+                console.warn('[DiceCloud Sync] Property not found in character data');
+                console.log('[DiceCloud Sync] Available HP properties:', verifyResponse.data.creatureProperties
+                  .filter(p => p.name && p.name.toLowerCase().includes('hit points'))
+                  .map(p => ({ id: p._id, name: p.name, value: p.value }))
+                );
+              }
+            } else {
+              console.error('[DiceCloud Sync] Failed to verify update:', verifyResponse.error);
+            }
+          } else {
+            console.warn('[DiceCloud Sync] No DiceCloud token available for verification');
+          }
+        } catch (error) {
+          console.error('[DiceCloud Sync] Failed to verify update:', error);
+        }
+      }, 1000);
       return result;
     } catch (error) {
       console.error('[DiceCloud Sync] Failed to update attribute:', error);
@@ -231,26 +407,37 @@ class DiceCloudSync {
     }
   }
 
-  /**
-   * Find property ID by name
-   * @param {string} name - Property name
-   * @returns {string|null} Property ID or null if not found
-   */
-  findPropertyId(name) {
-    const propertyId = this.propertyCache.get(name);
+  findPropertyId(attributeName) {
+    const propertyId = this.propertyCache.get(attributeName);
     if (propertyId) {
-      console.log(`[DiceCloud Sync] Found property ID for ${name}: ${propertyId}`);
+      console.log(`[DiceCloud Sync] Found property ID for ${attributeName}: ${propertyId}`);
       return propertyId;
     }
-    
-    console.warn(`[DiceCloud Sync] Property ID not found for: ${name}`);
-    console.log('[DiceCloud Sync] Available properties:', Array.from(this.propertyCache.keys()));
+
+    // Handle special cases for Hit Points (use class-specific HP instead of calculated base HP)
+    if (attributeName === 'Hit Points') {
+      console.log('[DiceCloud Sync] Looking for Hit Points alternatives...');
+      const hpRelatedProps = Array.from(this.propertyCache.keys()).filter(name => 
+        name.toLowerCase().includes('hit points') || 
+        name.toLowerCase().includes('hp') ||
+        name.toLowerCase().includes('health')
+      );
+      console.log('[DiceCloud Sync] HP-related properties found:', hpRelatedProps);
+      
+      // Try class-specific HP first (like "Hit Points: Monk")
+      const classSpecificHP = hpRelatedProps.find(name => name !== 'Hit Points' && name.includes('Hit Points'));
+      if (classSpecificHP) {
+        const classSpecificId = this.propertyCache.get(classSpecificHP);
+        console.log(`[DiceCloud Sync] Using class-specific HP: ${classSpecificHP} -> ${classSpecificId}`);
+        return classSpecificId;
+      }
+    }
+
+    console.warn(`[DiceCloud Sync] Property ID not found for: ${attributeName}`);
+    console.log(`[DiceCloud Sync] Available properties:`, Array.from(this.propertyCache.keys()).slice(0, 20));
     return null;
   }
 
-  /**
-   * Set up event listeners to sync Roll20 changes to DiceCloud
-   */
   setupRoll20EventListeners() {
     console.log('[DiceCloud Sync] Setting up Roll20 event listeners...');
     
@@ -395,11 +582,23 @@ window.initializeDiceCloudSync = async function() {
       };
       
       // Connect to DDP
-      await ddpClient.connect();
+      console.log('[DiceCloud Sync] About to connect to DDP...');
+      try {
+        await ddpClient.connect();
+        console.log('[DiceCloud Sync] DDP connect() completed');
+      } catch (error) {
+        console.error('[DiceCloud Sync] DDP connect() failed:', error);
+      }
     } else {
       console.warn('[DiceCloud Sync] No DiceCloud token found for DDP authentication');
       // Still connect without authentication
-      await ddpClient.connect();
+      console.log('[DiceCloud Sync] About to connect to DDP without token...');
+      try {
+        await ddpClient.connect();
+        console.log('[DiceCloud Sync] DDP connect() completed without token');
+      } catch (error) {
+        console.error('[DiceCloud Sync] DDP connect() failed without token:', error);
+      }
     }
     
     // Create sync instance
@@ -470,6 +669,7 @@ window.initializeDiceCloudSync = async function() {
     
   } catch (error) {
     console.error('[DiceCloud Sync] Failed to create sync instance:', error);
+    console.error('[DiceCloud Sync] Error details:', error.stack);
   }
 };
 
