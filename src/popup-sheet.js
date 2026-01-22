@@ -1904,36 +1904,31 @@ function calculateTotalCurrency(inventory) {
     return { pp: 0, gp: 0, sp: 0, cp: 0 };
   }
 
-  let totalCopper = 0;
+  let pp = 0;
+  let gp = 0;
+  let sp = 0;
+  let cp = 0;
 
   inventory.forEach(item => {
-    if (!item.value || item.value <= 0) return;
-
     const itemName = (item.name || '').toLowerCase();
-    const totalValue = item.value * item.quantity;
 
-    // Detect currency type from item name
+    // Only count actual currency items (coins/pieces), not items with monetary value
+    const isCurrency = itemName.includes('piece') || itemName.includes('coin');
+    if (!isCurrency) return;
+
+    const quantity = item.quantity || 0;
+
+    // Detect currency type from item name and add to totals
     if (itemName.includes('platinum')) {
-      totalCopper += totalValue * 1000; // 1 pp = 10 gp = 100 sp = 1000 cp
+      pp += quantity;
     } else if (itemName.includes('gold')) {
-      totalCopper += totalValue * 100; // 1 gp = 10 sp = 100 cp
+      gp += quantity;
     } else if (itemName.includes('silver')) {
-      totalCopper += totalValue * 10; // 1 sp = 10 cp
+      sp += quantity;
     } else if (itemName.includes('copper')) {
-      totalCopper += totalValue; // 1 cp = 1 cp
-    } else {
-      // Default: assume value is in gold pieces
-      totalCopper += totalValue * 100;
+      cp += quantity;
     }
   });
-
-  // Convert total copper to proper denominations
-  const pp = Math.floor(totalCopper / 1000);
-  totalCopper %= 1000;
-  const gp = Math.floor(totalCopper / 100);
-  totalCopper %= 100;
-  const sp = Math.floor(totalCopper / 10);
-  const cp = totalCopper % 10;
 
   return { pp, gp, sp, cp };
 }
