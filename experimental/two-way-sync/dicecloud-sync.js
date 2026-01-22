@@ -335,11 +335,12 @@ class DiceCloudSync {
             }
 
             // Cache actions with limited uses from the raw API data
+            // Note: 'uses' is an object with a 'value' property, not a number
             const actionsWithUses = apiData.creatureProperties.filter(p =>
               p.type === 'action' &&
               p.name &&
               p.uses !== undefined &&
-              p.uses > 0 &&
+              p.uses !== null &&
               !p.removed &&
               !p.inactive
             );
@@ -349,7 +350,9 @@ class DiceCloudSync {
               // Only cache if not already cached by name
               if (!this.propertyCache.has(action.name)) {
                 this.propertyCache.set(action.name, action._id);
-                console.log(`[DiceCloud Sync] Cached action with uses: ${action.name} -> ${action._id} (${action.usesUsed || 0}/${action.uses} used)`);
+                const maxUses = action.uses?.value ?? action.uses;
+                const usedUses = action.usesUsed ?? 0;
+                console.log(`[DiceCloud Sync] Cached action with uses: ${action.name} -> ${action._id} (${usedUses}/${maxUses} used)`);
               }
             }
 
