@@ -1923,6 +1923,9 @@ function buildResourcesDisplay() {
     return;
   }
 
+  debug.log(`📊 Building resources display with ${characterData.resources.length} resources:`, 
+    characterData.resources.map(r => `${r.name} (${r.current}/${r.max})`));
+
   const resourcesGrid = document.createElement('div');
   resourcesGrid.className = 'spell-slots-grid'; // Reuse spell slot styling
 
@@ -1933,6 +1936,8 @@ function buildResourcesDisplay() {
       debug.log(`⏭️ Skipping Lucky resource from display: ${resource.name}`);
       return;
     }
+    
+    debug.log(`📊 Displaying resource: ${resource.name} (${resource.current}/${resource.max})`);
     
     const resourceCard = document.createElement('div');
     resourceCard.className = resource.current > 0 ? 'spell-slot-card' : 'spell-slot-card empty';
@@ -6672,6 +6677,88 @@ function initGMMode() {
   }
 }
 
+/**
+ * Show to GM Button - Broadcasts character data to GM
+ */
+function initShowToGM() {
+  const showToGMBtn = document.getElementById('show-to-gm-btn');
+
+  if (showToGMBtn) {
+    showToGMBtn.addEventListener('click', () => {
+      if (!characterData) {
+        showNotification('⚠️ No character data to share', 'warning');
+        return;
+      }
+
+      try {
+        // Create character broadcast message with ENTIRE sheet data
+        const broadcastData = {
+          type: 'ROLLCLOUD_CHARACTER_BROADCAST',
+          character: characterData,
+          // Include ALL character data for complete sheet
+          fullSheet: {
+            ...characterData,
+            // Ensure all sections are included
+            attributes: characterData.attributes || {},
+            skills: characterData.skills || [],
+            savingThrows: characterData.savingThrows || {},
+            actions: characterData.actions || [],
+            spells: characterData.spells || [],
+            features: characterData.features || [],
+            equipment: characterData.equipment || [],
+            inventory: characterData.inventory || [],
+            resources: characterData.resources || {},
+            spellSlots: characterData.spellSlots || {},
+            companions: characterData.companions || [],
+            conditions: characterData.conditions || [],
+            notes: characterData.notes || '',
+            background: characterData.background || '',
+            personality: characterData.personality || {},
+            proficiencies: characterData.proficiencies || [],
+            languages: characterData.languages || []
+          },
+          timestamp: new Date().toISOString()
+        };
+
+        // Encode the data for safe transmission (handle UTF-8 properly)
+        const jsonString = JSON.stringify(broadcastData);
+        const encodedData = btoa(unescape(encodeURIComponent(jsonString)));
+        const broadcastMessage = `👑[ROLLCLOUD:CHARACTER:${encodedData}]👑`;
+
+        // Send to Roll20 chat via parent window
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage({
+            action: 'postChatMessageFromPopup',
+            message: broadcastMessage
+          }, '*');
+          
+          showNotification(`👑 ${characterData.name} shared with GM!`, 'success');
+          debug.log('👑 Character broadcast sent to GM:', characterData.name);
+        } else {
+          // Try via background script
+          browserAPI.runtime.sendMessage({
+            action: 'postChatMessageFromPopup',
+            message: broadcastMessage
+          }).then(() => {
+            showNotification(`👑 ${characterData.name} shared with GM!`, 'success');
+            debug.log('👑 Character broadcast sent via background script:', characterData.name);
+          }).catch(err => {
+            debug.error('❌ Failed to send character broadcast:', err);
+            showNotification('❌ Failed to share with GM', 'error');
+          });
+        }
+      } catch (error) {
+        debug.error('❌ Error creating character broadcast:', error);
+        showNotification('❌ Failed to prepare character data', 'error');
+      }
+    });
+
+    debug.log('✅ Show to GM button initialized in settings');
+  } else {
+    debug.warn('⚠️ Show to GM button not found in settings');
+  }
+}
+
 // Listen for messages from GM panel (when it's your turn)
 window.addEventListener('message', (event) => {
   if (event.data && event.data.action === 'activateTurn') {
@@ -9056,6 +9143,16 @@ function showSettingsModal() {
           color: var(--text-secondary);
           transition: all 0.2s;
         ">🎲 Custom Macros</button>
+        <button class="settings-tab" data-tab="gm" style="
+          flex: 1;
+          padding: 12px;
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          font-weight: bold;
+          color: var(--text-secondary);
+          transition: all 0.2s;
+        ">👑 GM Integration</button>
       </div>
       
       <!-- Content -->
@@ -9138,6 +9235,51 @@ function showSettingsModal() {
           </div>
           <div id="custom-macros-container-settings"></div>
         </div>
+        
+        <!-- GM Integration Tab -->
+        <div id="gm-tab-content" class="settings-tab-content" style="display: none;">
+          <h4 style="margin: 0 0 15px 0; color: var(--text-primary);">👑 GM Integration</h4>
+          
+          <div style="background: var(--bg-tertiary); padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+            <h5 style="margin: 0 0 10px 0; color: var(--text-primary);">Share Character with GM</h5>
+            <p style="margin: 0 0 15px 0; color: var(--text-secondary); font-size: 0.9em;">
+              Share your complete character sheet with the Game Master. This sends all your character data including abilities, skills, actions, spells, and equipment.
+            </p>
+            <button id="show-to-gm-btn" class="show-to-gm-btn" style="
+              background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+              color: white;
+              border: none;
+              border-radius: 8px;
+              padding: 12px 24px;
+              font-size: 1em;
+              font-weight: bold;
+              cursor: pointer;
+              transition: all 0.3s ease;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+              width: 100%;
+            ">
+              👑 Share Character with GM
+            </button>
+          </div>
+          
+          <div style="background: var(--bg-tertiary); padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+            <h5 style="margin: 0 0 10px 0; color: var(--text-primary);">How It Works</h5>
+            <ul style="margin: 0; padding-left: 20px; color: var(--text-secondary); font-size: 0.9em;">
+              <li>Click the button above to share your character</li>
+              <li>Your character data appears in the Roll20 chat</li>
+              <li>The GM receives your complete character sheet</li>
+              <li>GM can view your stats, actions, and spells</li>
+              <li>Helps GM track party composition and abilities</li>
+            </ul>
+          </div>
+          
+          <div style="background: var(--bg-tertiary); padding: 16px; border-radius: 8px;">
+            <h5 style="margin: 0 0 10px 0; color: var(--text-primary);">Privacy Note</h5>
+            <p style="margin: 0; color: var(--text-secondary); font-size: 0.9em;">
+              Only share character data when requested by your GM. The shared data includes your complete character sheet for game management purposes.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   `;
@@ -9191,6 +9333,9 @@ function showSettingsModal() {
   
   // Load macros into settings
   updateMacrosDisplayInSettings();
+  
+  // Initialize Show to GM button in settings
+  initShowToGM();
   
   // Set up add macro button
   modal.querySelector('#add-macro-btn-settings').addEventListener('click', () => {

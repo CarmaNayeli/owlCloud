@@ -811,7 +811,7 @@
       }
 
       const encodedData = match[1];
-      const decodedData = JSON.parse(atob(encodedData));
+      const decodedData = JSON.parse(decodeURIComponent(escape(atob(encodedData))));
       
       if (decodedData.type !== 'ROLLCLOUD_CHARACTER_BROADCAST') {
         debug.warn('⚠️ Not a character broadcast message');
@@ -819,10 +819,11 @@
       }
 
       const character = decodedData.character;
+      const fullSheet = decodedData.fullSheet || character; // Use full sheet if available
       debug.log('👑 Received character broadcast:', character.name);
 
-      // Import character data to GM panel
-      updatePlayerData(character.name, character);
+      // Import COMPLETE character data to GM panel
+      updatePlayerData(character.name, fullSheet);
       
       // Show notification to GM
       debug.log(`✅ ${character.name} shared their character sheet! 👑`);
@@ -1065,15 +1066,33 @@
           ${roll.formula}
         </div>
         <div style="display: flex; gap: 8px;">
-          <button onclick="revealHiddenRoll(${roll.id})" style="flex: 1; padding: 8px; background: #27ae60; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.85em;">
+          <button class="reveal-roll-btn" data-roll-id="${roll.id}" style="flex: 1; padding: 8px; background: #27ae60; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.85em;">
             📢 Publish Roll
           </button>
-          <button onclick="deleteHiddenRoll(${roll.id})" style="padding: 8px 12px; background: #e74c3c; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85em;">
+          <button class="delete-roll-btn" data-roll-id="${roll.id}" style="padding: 8px 12px; background: #e74c3c; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85em;">
             🗑️
           </button>
         </div>
       </div>
     `).join('');
+
+    // Add event listeners to reveal and delete roll buttons
+    const revealRollBtns = hiddenRollsList.querySelectorAll('.reveal-roll-btn');
+    const deleteRollBtns = hiddenRollsList.querySelectorAll('.delete-roll-btn');
+
+    revealRollBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const rollId = btn.dataset.rollId;
+        revealHiddenRoll(rollId);
+      });
+    });
+
+    deleteRollBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const rollId = btn.dataset.rollId;
+        deleteHiddenRoll(rollId);
+      });
+    });
 
     debug.log(`📋 Updated hidden rolls display: ${hiddenRolls.length} rolls`);
   }
@@ -1125,7 +1144,7 @@
     return `
       <div style="background: #34495e; border-radius: 8px; border-left: 4px solid ${hpColor}; overflow: hidden;">
         <!-- Player Header (always visible) -->
-        <div onclick="showFullCharacterModal('${name}')" style="padding: 12px; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s;" onmouseover="this.style.background='#3d5a6e'" onmouseout="this.style.background='transparent'">
+        <div class="player-header-btn" data-player-name="${name}" style="padding: 12px; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s;" onmouseover="this.style.background='#3d5a6e'" onmouseout="this.style.background='transparent'">
           <div style="flex: 1;">
             <div style="font-weight: bold; font-size: 1.1em; color: #4ECDC4; margin-bottom: 4px;">${name}</div>
             <div style="display: flex; gap: 12px; font-size: 0.95em; color: #ccc;">
@@ -1281,6 +1300,14 @@
 
     debug.log(`👥 Updated player overview: ${players.length} players`);
 
+    // Add event listeners for player header buttons
+    document.querySelectorAll('.player-header-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const playerName = btn.dataset.playerName;
+        showFullCharacterModal(playerName);
+      });
+    });
+
     // Add event listeners for delete buttons
     document.querySelectorAll('.player-delete-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -1318,10 +1345,20 @@
    */
   function savePlayerDataToStorage() {
     try {
-      browserAPI.storage.local.set({
-        rollcloudPlayerData: playerData
+      // Store player data in characterProfiles like character sheets
+      const characterProfiles = {};
+      Object.keys(playerData).forEach(playerName => {
+        characterProfiles[playerName] = {
+          ...playerData[playerName],
+          type: 'rollcloudPlayer',
+          lastUpdated: new Date().toISOString()
+        };
       });
-      debug.log('💾 Saved player data to storage');
+      
+      browserAPI.storage.local.set({
+        characterProfiles: characterProfiles
+      });
+      debug.log('💾 Saved player data to characterProfiles storage');
     } catch (error) {
       debug.error('❌ Error saving player data to storage:', error);
     }
@@ -1332,10 +1369,18 @@
    */
   function loadPlayerDataFromStorage() {
     try {
-      browserAPI.storage.local.get(['rollcloudPlayerData'], (result) => {
-        if (result.rollcloudPlayerData) {
-          playerData = result.rollcloudPlayerData;
-          debug.log('📂 Loaded player data from storage');
+      browserAPI.storage.local.get(['characterProfiles'], (result) => {
+        if (result.characterProfiles) {
+          // Load only rollcloudPlayer entries from characterProfiles
+          playerData = {};
+          Object.keys(result.characterProfiles).forEach(key => {
+            const profile = result.characterProfiles[key];
+            if (profile.type === 'rollcloudPlayer') {
+              playerData[key] = profile;
+            }
+          });
+          
+          debug.log('📂 Loaded player data from characterProfiles storage');
           
           // Update display if GM panel is open
           if (gmModeEnabled) {
@@ -1425,77 +1470,147 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      z-index: 10000;
+      z-index: 999999;
     `;
 
     // Create modal content
     const modalContent = document.createElement('div');
     modalContent.style.cssText = `
       background: #2c3e50;
-      border-radius: 12px;
-      padding: 24px;
-      max-width: 600px;
-      max-height: 80vh;
+      border-radius: 16px;
+      padding: 32px;
+      width: 1000px;
+      max-width: 95vw;
+      max-height: 90vh;
       overflow-y: auto;
       position: relative;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
+      font-size: 14px;
     `;
 
     // Generate character HTML
     const hpPercent = player.maxHp > 0 ? (player.hp / player.maxHp) * 100 : 0;
     const hpColor = hpPercent > 50 ? '#27ae60' : hpPercent > 25 ? '#f39c12' : '#e74c3c';
 
+    // Build comprehensive character sheet display
+    let abilitiesHTML = '';
+    if (player.attributes) {
+      abilitiesHTML = `
+        <div style="background: #34495e; padding: 24px; border-radius: 12px; margin-bottom: 30px;">
+          <h3 style="color: #4ECDC4; margin-top: 0; margin-bottom: 20px; font-size: 1.3em; font-weight: bold;">Abilities</h3>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+            ${['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma'].map(ability => {
+              const score = player.attributes[ability] || 10;
+              const mod = Math.floor((score - 10) / 2);
+              const sign = mod >= 0 ? '+' : '';
+              return `
+                <div style="text-align: center; padding: 12px; background: #2c3e50; border-radius: 8px;">
+                  <div style="color: #ccc; font-size: 1em; text-transform: capitalize; margin-bottom: 4px;">${ability}</div>
+                  <div style="color: #fff; font-size: 1.6em; font-weight: bold; margin-bottom: 4px;">${score}</div>
+                  <div style="color: #4ECDC4; font-size: 1.2em; font-weight: bold;">${sign}${mod}</div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    let skillsHTML = '';
+    if (player.skills && player.skills.length > 0) {
+      skillsHTML = `
+        <div style="background: #34495e; padding: 24px; border-radius: 12px; margin-bottom: 30px;">
+          <h3 style="color: #4ECDC4; margin-top: 0; margin-bottom: 20px; font-size: 1.3em; font-weight: bold;">Skills</h3>
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; max-height: 250px; overflow-y: auto;">
+            ${player.skills.slice(0, 12).map(skill => `
+              <div style="display: flex; justify-content: space-between; padding: 8px 12px; background: #2c3e50; border-radius: 6px;">
+                <span style="color: #ddd; font-size: 1em;">${skill.name || skill}</span>
+                <span style="color: #4ECDC4; font-weight: bold; font-size: 1.1em;">${skill.bonus ? `+${skill.bonus}` : '—'}</span>
+              </div>
+            `).join('')}
+            ${player.skills.length > 12 ? `<div style="color: #aaa; font-size: 0.9em; text-align: center; padding: 12px;">... and ${player.skills.length - 12} more skills</div>` : ''}
+          </div>
+        </div>
+      `;
+    }
+
+    let actionsHTML = '';
+    if (player.actions && player.actions.length > 0) {
+      actionsHTML = `
+        <div style="background: #34495e; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+          <h3 style="color: #4ECDC4; margin-top: 0; margin-bottom: 12px;">Actions (${player.actions.length})</h3>
+          <div style="max-height: 150px; overflow-y: auto;">
+            ${player.actions.slice(0, 5).map(action => `
+              <div style="padding: 8px; margin-bottom: 8px; background: #2c3e50; border-radius: 4px; border-left: 3px solid #3498db;">
+                <div style="color: #4ECDC4; font-weight: bold; margin-bottom: 4px;">${action.name}</div>
+                ${action.description ? `<div style="color: #ccc; font-size: 0.85em;">${action.description.substring(0, 100)}${action.description.length > 100 ? '...' : ''}</div>` : ''}
+              </div>
+            `).join('')}
+            ${player.actions.length > 5 ? `<div style="color: #888; font-size: 0.8em; text-align: center; padding: 8px;">... and ${player.actions.length - 5} more actions</div>` : ''}
+          </div>
+        </div>
+      `;
+    }
+
     modalContent.innerHTML = `
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h2 style="color: #4ECDC4; margin: 0; font-size: 1.5em;">${playerName}</h2>
-        <button id="close-modal" style="background: #e74c3c; color: white; border: none; border-radius: 6px; padding: 8px 16px; cursor: pointer; font-size: 1.2em;">×</button>
-      </div>
-      
-      <div style="margin-bottom: 20px;">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-          <span style="color: #ccc;">Hit Points</span>
-          <span style="color: #fff; font-weight: bold;">${player.hp}/${player.maxHp}</span>
+        <div>
+          <h2 style="color: #4ECDC4; margin: 0; font-size: 1.5em; font-weight: bold;">${playerName}</h2>
         </div>
-        <div style="width: 100%; height: 20px; background: #34495e; border-radius: 10px; overflow: hidden;">
-          <div style="width: ${hpPercent}%; height: 100%; background: ${hpColor}; transition: width 0.3s;"></div>
-        </div>
+        <button id="close-modal" style="background: #e74c3c; color: white; border: none; border-radius: 4px; padding: 4px 10px; cursor: pointer; font-size: 0.85em; transition: all 0.2s;">✖</button>
       </div>
 
-      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
-        <div style="background: #34495e; padding: 16px; border-radius: 8px; text-align: center;">
-          <div style="color: #888; font-size: 0.9em; margin-bottom: 4px;">Armor Class</div>
-          <div style="color: #fff; font-size: 1.8em; font-weight: bold;">${player.ac || '—'}</div>
-        </div>
-        <div style="background: #34495e; padding: 16px; border-radius: 8px; text-align: center;">
-          <div style="color: #888; font-size: 0.9em; margin-bottom: 4px;">Initiative</div>
-          <div style="color: #fff; font-size: 1.8em; font-weight: bold;">${player.initiative || '—'}</div>
-        </div>
-        <div style="background: #34495e; padding: 16px; border-radius: 8px; text-align: center;">
-          <div style="color: #888; font-size: 0.9em; margin-bottom: 4px;">Passive Perception</div>
-          <div style="color: #fff; font-size: 1.8em; font-weight: bold;">${player.passivePerception || '—'}</div>
-        </div>
-        <div style="background: #34495e; padding: 16px; border-radius: 8px; text-align: center;">
-          <div style="color: #888; font-size: 0.9em; margin-bottom: 4px;">Speed</div>
-          <div style="color: #fff; font-size: 1.8em; font-weight: bold;">${player.speed || '—'}</div>
-        </div>
-      </div>
+      <div class="content-area">
+        <div class="header">
+          <!-- Character Name -->
+          <div class="char-name-section" id="char-name">
+            🎲 ${playerName}
+          </div>
 
-      <div style="background: #34495e; padding: 16px; border-radius: 8px;">
-        <h3 style="color: #4ECDC4; margin-top: 0; margin-bottom: 12px;">Character Information</h3>
-        <div style="color: #ccc; line-height: 1.6;">
-          <p><strong>Full character data available in Dice Cloud</strong></p>
-          <p>This character sheet is managed through the Dice Cloud integration.</p>
-          <p>Click on any action in the character sheet to make rolls directly to Roll20 chat.</p>
+          <!-- Layer 1: Class, Level, Race, Hit Dice -->
+          <div class="char-info-layer layer-1" id="char-info-layer-1">
+            <div><strong>Class:</strong> <span>${player.class || 'Unknown'}</span></div>
+            <div><strong>Level:</strong> <span>${player.level || '1'}</span></div>
+            <div><strong>Race:</strong> <span>${player.race || 'Unknown'}</span></div>
+            <div><strong>Hit Dice:</strong> <span>1d${player.hitDice || '10'}</span></div>
+          </div>
+
+          <!-- Layer 2: AC, Speed, Proficiency, Death Saves, Inspiration -->
+          <div class="char-info-layer layer-2" id="char-info-layer-2">
+            <div class="stat-box">
+              <div class="stat-label">Armor Class</div>
+              <div class="stat-value">${player.ac || '10'}</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">Speed</div>
+              <div class="stat-value">${player.speed || '30 ft'}</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">Proficiency</div>
+              <div class="stat-value">+${player.proficiency || '0'}</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">Passive Perception</div>
+              <div class="stat-value">${player.passivePerception || '10'}</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">Initiative</div>
+              <div class="stat-value">+${player.initiative || '0'}</div>
+            </div>
+          </div>
         </div>
       </div>
+      ${abilitiesHTML}
+      ${skillsHTML}
+      ${actionsHTML}
     `;
 
     modalOverlay.appendChild(modalContent);
-    document.body.appendChild(modalOverlay);
+    gmPanel.appendChild(modalOverlay);
 
     // Add close functionality
     const closeModal = () => {
-      document.body.removeChild(modalOverlay);
+      gmPanel.removeChild(modalOverlay);
     };
 
     document.getElementById('close-modal').addEventListener('click', closeModal);

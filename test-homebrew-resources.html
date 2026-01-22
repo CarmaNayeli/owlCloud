@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Homebrew Resource Detection</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .result { padding: 10px; margin: 5px 0; }
+        .success { background: #d4edda; }
+        .error { background: #f8d7da; }
+    </style>
+</head>
+<body>
+    <h1>Homebrew Resource Detection Test</h1>
+    
+    <div class="test-section">
+        <h2>Test Data</h2>
+        <p>Testing if the current resource detection logic picks up homebrew resources like Sanity, Stress, and Piety.</p>
+        <button onclick="runTest()">Run Test</button>
+    </div>
+    
+    <div id="results"></div>
+
+    <script>
+        // Simulate the resource detection logic from dicecloud.js
+        function extractNumericValue(val, depth = 0) {
+            if (depth > 5) return 0;
+            
+            if (typeof val === 'number') return val;
+            if (typeof val === 'string') {
+                const parsed = parseFloat(val);
+                return isNaN(parsed) ? 0 : parsed;
+            }
+            if (typeof val === 'object' && val !== null) {
+                if (val.value !== undefined) {
+                    const extracted = extractNumericValue(val.value, depth + 1);
+                    if (extracted !== 0) return extracted;
+                }
+                if (val.total !== undefined) {
+                    const extracted = extractNumericValue(val.total, depth + 1);
+                    if (extracted !== 0) return extracted;
+                }
+                if (val.calculation !== undefined) {
+                    const parsed = parseFloat(val.calculation);
+                    if (!isNaN(parsed) && parsed !== 0) return parsed;
+                }
+                if (val.text !== undefined) {
+                    const parsed = parseFloat(val.text);
+                    if (!isNaN(parsed) && parsed !== 0) return parsed;
+                }
+                return 0;
+            }
+            return 0;
+        }
+
+        function testResourceDetection() {
+            const results = document.getElementById('results');
+            results.innerHTML = '';
+            
+            // Test homebrew resources with different structures
+            const testResources = [
+                {
+                    name: "Sanity",
+                    attributeType: "resource",
+                    value: 15,
+                    baseValue: 20,
+                    variableName: "sanity",
+                    description: "Mental stability"
+                },
+                {
+                    name: "Stress",
+                    attributeType: "resource", 
+                    value: { value: 8 },
+                    total: { total: 10 },
+                    variableName: "stress",
+                    description: "Stress level"
+                },
+                {
+                    name: "Piety",
+                    attributeType: "healthBar",
+                    value: "5",
+                    baseValue: "10",
+                    variableName: "pietyPoints",
+                    description: "Religious devotion"
+                },
+                {
+                    name: "Custom Resource",
+                    attributeType: "resource",
+                    value: { calculation: "3" },
+                    total: { calculation: "5" },
+                    variableName: "customResource"
+                }
+            ];
+
+            const uniqueResources = new Set();
+            const detectedResources = [];
+
+            testResources.forEach((prop, index) => {
+                const resultDiv = document.createElement('div');
+                resultDiv.className = 'result';
+                
+                try {
+                    // Apply the same logic as in dicecloud.js
+                    if (prop.name && (prop.attributeType === 'resource' || prop.attributeType === 'healthBar') &&
+                        !prop.inactive && !prop.disabled) {
+                        
+                        const lowerName = prop.name.toLowerCase();
+                        if (lowerName.includes('hit point') || lowerName === 'hp' ||
+                            lowerName.includes('slot level to create')) {
+                            resultDiv.className += ' error';
+                            resultDiv.innerHTML = `❌ ${prop.name}: Filtered out (HP/Font of Magic)`;
+                            return;
+                        }
+
+                        let currentValue = extractNumericValue(prop.value);
+                        if (currentValue === 0 && prop.damage !== undefined) {
+                            currentValue = extractNumericValue(prop.damage);
+                        }
+
+                        let maxValue = extractNumericValue(prop.baseValue);
+                        if (maxValue === 0 && prop.total !== undefined) {
+                            maxValue = extractNumericValue(prop.total);
+                        }
+
+                        const resource = {
+                            name: prop.name,
+                            variableName: prop.variableName || '',
+                            current: currentValue,
+                            max: maxValue,
+                            description: prop.description || ''
+                        };
+
+                        const resourceKey = (prop.variableName || prop.name).toLowerCase();
+                        
+                        if (!uniqueResources.has(resourceKey)) {
+                            uniqueResources.add(resourceKey);
+                            detectedResources.push(resource);
+                            resultDiv.className += ' success';
+                            resultDiv.innerHTML = `✅ ${prop.name}: Detected (${resource.current}/${resource.max})`;
+                        } else {
+                            resultDiv.className += ' error';
+                            resultDiv.innerHTML = `⚠️ ${prop.name}: Duplicate skipped`;
+                        }
+                    } else {
+                        resultDiv.className += ' error';
+                        resultDiv.innerHTML = `❌ ${prop.name}: Not detected (attributeType: ${prop.attributeType})`;
+                    }
+                } catch (error) {
+                    resultDiv.className += ' error';
+                    resultDiv.innerHTML = `❌ ${prop.name}: Error - ${error.message}`;
+                }
+                
+                results.appendChild(resultDiv);
+            });
+
+            // Summary
+            const summaryDiv = document.createElement('div');
+            summaryDiv.className = 'result success';
+            summaryDiv.innerHTML = `<strong>Summary: ${detectedResources.length}/${testResources.length} resources detected</strong>`;
+            results.appendChild(summaryDiv);
+        }
+
+        function runTest() {
+            testResourceDetection();
+        }
+    </script>
+</body>
+</html>
