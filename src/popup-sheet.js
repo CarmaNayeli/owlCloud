@@ -1912,20 +1912,17 @@ function calculateTotalCurrency(inventory) {
   inventory.forEach(item => {
     const itemName = (item.name || '').toLowerCase();
 
-    // Only count actual currency items (coins/pieces), not items with monetary value
-    const isCurrency = itemName.includes('piece') || itemName.includes('coin');
-    if (!isCurrency) return;
-
+    // Only count actual currency items - must match specific patterns
+    // Match: "platinum piece", "gold coin", "copper pieces", etc.
     const quantity = item.quantity || 0;
 
-    // Detect currency type from item name and add to totals
-    if (itemName.includes('platinum')) {
+    if ((itemName.includes('platinum') && (itemName.includes('piece') || itemName.includes('coin')))) {
       pp += quantity;
-    } else if (itemName.includes('gold')) {
+    } else if ((itemName.includes('gold') && (itemName.includes('piece') || itemName.includes('coin')))) {
       gp += quantity;
-    } else if (itemName.includes('silver')) {
+    } else if ((itemName.includes('silver') && (itemName.includes('piece') || itemName.includes('coin')))) {
       sp += quantity;
-    } else if (itemName.includes('copper')) {
+    } else if ((itemName.includes('copper') && (itemName.includes('piece') || itemName.includes('coin')))) {
       cp += quantity;
     }
   });
