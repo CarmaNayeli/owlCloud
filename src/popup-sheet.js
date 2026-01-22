@@ -1916,7 +1916,7 @@ function calculateTotalCurrency(inventory) {
     const itemName = (item.name || '').toLowerCase();
     const quantity = item.quantity;
 
-    console.log(`💰 Item: "${item.name}" | qty: ${quantity} (type: ${typeof quantity}) | lowercase: "${itemName}"`);
+    console.log(`💰 Item: "${item.name}" | qty: ${quantity} | _id: ${item._id} | equipped: ${item.equipped}`);
 
     // Skip items with no quantity or quantity of 0
     if (!quantity || quantity <= 0) {
@@ -1927,16 +1927,16 @@ function calculateTotalCurrency(inventory) {
     // Only count actual currency items - must match specific patterns
     // Match: "platinum piece", "gold coin", "copper pieces", etc.
     if ((itemName.includes('platinum') && (itemName.includes('piece') || itemName.includes('coin')))) {
-      console.log(`💰💰 ✅ MATCHED PLATINUM - adding ${quantity}`);
+      console.log(`💰💰 ✅ MATCHED PLATINUM - adding ${quantity}`, item);
       pp += quantity;
     } else if ((itemName.includes('gold') && (itemName.includes('piece') || itemName.includes('coin')))) {
-      console.log(`💰💰 ✅ MATCHED GOLD - adding ${quantity}`);
+      console.log(`💰💰 ✅ MATCHED GOLD - adding ${quantity}`, item);
       gp += quantity;
     } else if ((itemName.includes('silver') && (itemName.includes('piece') || itemName.includes('coin')))) {
-      console.log(`💰💰 ✅ MATCHED SILVER - adding ${quantity}`);
+      console.log(`💰💰 ✅ MATCHED SILVER - adding ${quantity}`, item);
       sp += quantity;
     } else if ((itemName.includes('copper') && (itemName.includes('piece') || itemName.includes('coin')))) {
-      console.log(`💰💰 ✅ MATCHED COPPER - adding ${quantity}`);
+      console.log(`💰💰 ✅ MATCHED COPPER - adding ${quantity}`, item);
       cp += quantity;
     }
   });
