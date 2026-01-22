@@ -6939,6 +6939,120 @@ function initShowToGM() {
   }
 }
 
+/**
+ * Initialize manual DiceCloud sync button in settings
+ */
+function initManualSyncButton() {
+  const syncSection = document.getElementById('dicecloud-sync-section');
+  const syncButton = document.getElementById('manual-sync-btn');
+  const syncStatus = document.getElementById('sync-status');
+
+  // Only show in experimental builds
+  browserAPI.runtime.sendMessage({ action: 'getManifest' }).then(response => {
+    if (response && response.success && response.manifest &&
+        response.manifest.name && response.manifest.name.includes('EXPERIMENTAL')) {
+      if (syncSection) {
+        syncSection.style.display = 'block';
+        debug.log('🧪 DiceCloud sync section shown (experimental build)');
+      }
+    }
+  }).catch(err => {
+    debug.log('📦 Not experimental build, hiding sync section');
+  });
+
+  if (syncButton) {
+    syncButton.addEventListener('click', async () => {
+      try {
+        debug.log('🔄 Manual sync button clicked');
+
+        // Disable button during sync
+        syncButton.disabled = true;
+        syncButton.textContent = '🔄 Syncing...';
+
+        // Show status
+        if (syncStatus) {
+          syncStatus.style.display = 'block';
+          syncStatus.style.background = 'var(--accent-info)';
+          syncStatus.style.color = 'white';
+          syncStatus.textContent = '⏳ Syncing to DiceCloud...';
+        }
+
+        // Collect all character data
+        if (!characterData) {
+          throw new Error('No character data available');
+        }
+
+        // Build comprehensive sync message
+        const syncMessage = {
+          type: 'characterDataUpdate',
+          characterData: {
+            name: characterData.name,
+            hp: characterData.hitPoints.current,
+            tempHp: characterData.temporaryHP || 0,
+            maxHp: characterData.hitPoints.max,
+            spellSlots: characterData.spellSlots || {},
+            channelDivinity: characterData.channelDivinity,
+            resources: characterData.resources || [],
+            deathSaves: characterData.deathSaves,
+            inspiration: characterData.inspiration
+          }
+        };
+
+        debug.log('🔄 Sending manual sync message:', syncMessage);
+
+        // Send to Roll20 content script (which will forward to DiceCloud sync)
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage(syncMessage, '*');
+          debug.log('✅ Sync message sent via opener');
+        } else {
+          // Also try posting to self (in case we're in a popup)
+          window.postMessage(syncMessage, '*');
+          debug.log('✅ Sync message sent to self');
+        }
+
+        // Wait a bit for sync to complete
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Show success
+        if (syncStatus) {
+          syncStatus.style.background = 'var(--accent-success)';
+          syncStatus.textContent = '✅ Synced successfully!';
+        }
+        showNotification('✅ Character data synced to DiceCloud!', 'success');
+        debug.log('✅ Manual sync completed');
+
+        // Reset button
+        setTimeout(() => {
+          syncButton.disabled = false;
+          syncButton.textContent = '🔄 Sync to DiceCloud Now';
+          if (syncStatus) {
+            syncStatus.style.display = 'none';
+          }
+        }, 2000);
+
+      } catch (error) {
+        debug.error('❌ Manual sync failed:', error);
+
+        if (syncStatus) {
+          syncStatus.style.display = 'block';
+          syncStatus.style.background = 'var(--accent-danger)';
+          syncStatus.style.color = 'white';
+          syncStatus.textContent = '❌ Sync failed: ' + error.message;
+        }
+        showNotification('❌ Sync failed: ' + error.message, 'error');
+
+        // Reset button
+        syncButton.disabled = false;
+        syncButton.textContent = '🔄 Sync to DiceCloud Now';
+      }
+    });
+
+    debug.log('✅ Manual sync button initialized');
+  } else {
+    debug.warn('⚠️ Manual sync button not found in settings');
+  }
+}
+
 // Listen for messages from GM panel (when it's your turn)
 window.addEventListener('message', (event) => {
   if (event.data && event.data.action === 'activateTurn') {
@@ -9419,7 +9533,31 @@ function showSettingsModal() {
         <!-- GM Integration Tab -->
         <div id="gm-tab-content" class="settings-tab-content" style="display: none;">
           <h4 style="margin: 0 0 15px 0; color: var(--text-primary);">👑 GM Integration</h4>
-          
+
+          <!-- DiceCloud Sync Section -->
+          <div id="dicecloud-sync-section" style="background: var(--bg-tertiary); padding: 16px; border-radius: 8px; margin-bottom: 20px; display: none;">
+            <h5 style="margin: 0 0 10px 0; color: var(--text-primary);">🔄 DiceCloud Sync</h5>
+            <p style="margin: 0 0 15px 0; color: var(--text-secondary); font-size: 0.9em;">
+              Manually sync all character data to DiceCloud. This updates HP, spell slots, Channel Divinity, class resources, and all other tracked values.
+            </p>
+            <button id="manual-sync-btn" style="
+              background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+              color: white;
+              border: none;
+              border-radius: 8px;
+              padding: 12px 24px;
+              font-size: 1em;
+              font-weight: bold;
+              cursor: pointer;
+              transition: all 0.3s ease;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+              width: 100%;
+            ">
+              🔄 Sync to DiceCloud Now
+            </button>
+            <div id="sync-status" style="margin-top: 10px; padding: 8px; border-radius: 6px; font-size: 0.9em; display: none;"></div>
+          </div>
+
           <div style="background: var(--bg-tertiary); padding: 16px; border-radius: 8px; margin-bottom: 20px;">
             <h5 style="margin: 0 0 10px 0; color: var(--text-primary);">Share Character with GM</h5>
             <p style="margin: 0 0 15px 0; color: var(--text-secondary); font-size: 0.9em;">
@@ -9516,7 +9654,10 @@ function showSettingsModal() {
   
   // Initialize Show to GM button in settings
   initShowToGM();
-  
+
+  // Initialize manual DiceCloud sync button (experimental builds only)
+  initManualSyncButton();
+
   // Set up add macro button
   modal.querySelector('#add-macro-btn-settings').addEventListener('click', () => {
     showAddMacroModal();
