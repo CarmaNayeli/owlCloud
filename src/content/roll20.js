@@ -2667,12 +2667,27 @@ ${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗
         debug.log('🔍 Manifest name:', response.manifest.name);
         
         if (response.manifest.name && response.manifest.name.includes('EXPERIMENTAL')) {
-          debug.log('🧪 Experimental build detected, loading two-way sync...');
+          debug.log('🧪 Experimental build detected, initializing two-way sync...');
           
-          // Load experimental sync modules
-          loadExperimentalSync().catch(error => {
-            debug.error('❌ Failed to load experimental sync:', error);
-          });
+          // Scripts are loaded as content scripts, just initialize
+          setTimeout(() => {
+            // Debug: Check what's available on window
+            debug.log('🔍 Window objects check:', {
+              DDPClient: typeof window.DDPClient,
+              initializeDiceCloudSync: typeof window.initializeDiceCloudSync,
+              DiceCloudSync: typeof window.DiceCloudSync
+            });
+            
+            // Initialize the sync
+            if (typeof window.initializeDiceCloudSync === 'function') {
+              debug.log('✅ Calling initializeDiceCloudSync function...');
+              window.initializeDiceCloudSync();
+              debug.log('✅ Experimental two-way sync initialized');
+            } else {
+              debug.warn('⚠️ DiceCloud sync initialization function not found');
+              debug.warn('⚠️ Available window properties:', Object.keys(window).filter(key => key.toLowerCase().includes('dicecloud') || key.toLowerCase().includes('sync')));
+            }
+          }, 500); // Wait for content scripts to fully load
         } else {
           debug.log('📦 Standard build detected, skipping experimental sync');
         }
@@ -2684,57 +2699,6 @@ ${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗
     });
   } else {
     debug.log('❌ browserAPI.runtime not available');
-  }
-
-  /**
-   * Loads and initializes experimental two-way sync
-   */
-  async function loadExperimentalSync() {
-    try {
-      // Load the meteor-ddp-client script
-      await loadScript(browserAPI.runtime.getURL('src/lib/meteor-ddp-client.js'));
-      debug.log('🌐 Meteor DDP client loaded');
-      
-      // Load the dicecloud-sync script  
-      await loadScript(browserAPI.runtime.getURL('src/lib/dicecloud-sync.js'));
-      debug.log('🔄 DiceCloud sync module loaded');
-      
-      // Wait a bit for scripts to fully initialize
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Debug: Check what's available on window
-      debug.log('🔍 Window objects check:', {
-        DDPClient: typeof window.DDPClient,
-        initializeDiceCloudSync: typeof window.initializeDiceCloudSync,
-        DiceCloudSync: typeof window.DiceCloudSync
-      });
-      
-      // Initialize the sync (this will be called from the dicecloud-sync.js)
-      if (typeof window.initializeDiceCloudSync === 'function') {
-        debug.log('✅ Calling initializeDiceCloudSync function...');
-        window.initializeDiceCloudSync();
-        debug.log('✅ Experimental two-way sync initialized');
-      } else {
-        debug.warn('⚠️ DiceCloud sync initialization function not found');
-        debug.warn('⚠️ Available window properties:', Object.keys(window).filter(key => key.toLowerCase().includes('dicecloud') || key.toLowerCase().includes('sync')));
-      }
-    } catch (error) {
-      debug.error('❌ Error loading experimental sync:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Dynamically loads a script
-   */
-  function loadScript(src) {
-    return new Promise((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = src;
-      script.onload = resolve;
-      script.onerror = reject;
-      document.head.appendChild(script);
-    });
   }
 
   debug.log(' Roll20 script ready - listening for roll announcements and GM mode');

@@ -153,6 +153,15 @@ function buildChrome() {
       matches: ['<all_urls>']
     });
 
+    // Add experimental sync scripts to Roll20 content script
+    const roll20ContentScript = manifest.content_scripts.find(script => 
+      script.matches && script.matches.includes('https://app.roll20.net/*')
+    );
+    if (roll20ContentScript) {
+      roll20ContentScript.js.push('src/lib/meteor-ddp-client.js');
+      roll20ContentScript.js.push('src/lib/dicecloud-sync.js');
+    }
+
     fs.writeFileSync(manifestDest, JSON.stringify(manifest, null, 2));
   }
 
