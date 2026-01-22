@@ -1912,24 +1912,26 @@ function calculateTotalCurrency(inventory) {
   inventory.forEach(item => {
     const itemName = (item.name || '').toLowerCase();
 
-    // Only count actual currency items (coins/pieces), not items with monetary value
-    const isCurrency = itemName.includes('piece') || itemName.includes('coin');
-    if (!isCurrency) return;
-
+    // Only count actual currency items - must match specific patterns
+    // Match: "platinum piece", "gold coin", "copper pieces", etc.
     const quantity = item.quantity || 0;
 
-    // Detect currency type from item name and add to totals
-    if (itemName.includes('platinum')) {
+    if ((itemName.includes('platinum') && (itemName.includes('piece') || itemName.includes('coin')))) {
+      debug.log(`💰 Counting platinum: ${item.name} (qty: ${quantity})`);
       pp += quantity;
-    } else if (itemName.includes('gold')) {
+    } else if ((itemName.includes('gold') && (itemName.includes('piece') || itemName.includes('coin')))) {
+      debug.log(`💰 Counting gold: ${item.name} (qty: ${quantity})`);
       gp += quantity;
-    } else if (itemName.includes('silver')) {
+    } else if ((itemName.includes('silver') && (itemName.includes('piece') || itemName.includes('coin')))) {
+      debug.log(`💰 Counting silver: ${item.name} (qty: ${quantity})`);
       sp += quantity;
-    } else if (itemName.includes('copper')) {
+    } else if ((itemName.includes('copper') && (itemName.includes('piece') || itemName.includes('coin')))) {
+      debug.log(`💰 Counting copper: ${item.name} (qty: ${quantity})`);
       cp += quantity;
     }
   });
 
+  debug.log(`💰 Final currency totals: pp=${pp}, gp=${gp}, sp=${sp}, cp=${cp}`);
   return { pp, gp, sp, cp };
 }
 
