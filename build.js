@@ -137,7 +137,7 @@ function buildChrome() {
 
     // Modify manifest for experimental build
     const manifest = JSON.parse(fs.readFileSync(manifestDest, 'utf8'));
-    manifest.name = manifest.name + ' (Experimental Sync)';
+    manifest.name = 'RollCloud: EXPERIMENTAL';
     manifest.version = manifest.version.split('.').slice(0, 3).join('.') + '.1';
     manifest.description = manifest.description + ' - EXPERIMENTAL: Includes two-way sync features for testing';
 
@@ -215,7 +215,7 @@ function buildFirefox() {
 
     // Modify manifest for experimental build
     const manifest = JSON.parse(fs.readFileSync(manifestDest, 'utf8'));
-    manifest.name = manifest.name + ' (Experimental Sync)';
+    manifest.name = 'RollCloud: EXPERIMENTAL';
     manifest.version = manifest.version.split('.').slice(0, 3).join('.') + '.1';
     manifest.description = manifest.description + ' - EXPERIMENTAL: Includes two-way sync features for testing';
 

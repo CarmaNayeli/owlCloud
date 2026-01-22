@@ -137,7 +137,7 @@ npm run build:exp
 
 #### Installation
 Same installation process as standard build, but the extension will show:
-- **Name**: "RollCloud (Experimental Sync)"
+- **Name**: "RollCloud: EXPERIMENTAL"
 - **Version**: Ends with ".1" (e.g., 1.1.2.1)
 - **Warning banner**: Red notice in popup about experimental features
 
