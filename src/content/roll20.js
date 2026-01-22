@@ -1424,22 +1424,37 @@
   function savePlayerDataToStorage() {
     try {
       debug.log('💾 Attempting to save player data:', Object.keys(playerData));
-      
-      // Store player data in characterProfiles like character sheets
-      const characterProfiles = {};
-      Object.keys(playerData).forEach(playerName => {
-        characterProfiles[playerName] = {
-          ...playerData[playerName],
-          type: 'rollcloudPlayer',
-          lastUpdated: new Date().toISOString()
-        };
-        debug.log(`💾 Preparing to save player: ${playerName}, type: rollcloudPlayer`);
-      });
-      
-      browserAPI.storage.local.set({
-        characterProfiles: characterProfiles
-      }, () => {
-        debug.log('✅ Successfully saved player data to characterProfiles storage');
+
+      // First, load existing characterProfiles to avoid overwriting synced character data
+      browserAPI.storage.local.get(['characterProfiles']).then(result => {
+        const existingProfiles = result.characterProfiles || {};
+
+        // Remove old rollcloudPlayer entries first
+        Object.keys(existingProfiles).forEach(key => {
+          if (existingProfiles[key].type === 'rollcloudPlayer') {
+            delete existingProfiles[key];
+          }
+        });
+
+        // Add current player data to existing profiles
+        Object.keys(playerData).forEach(playerName => {
+          existingProfiles[playerName] = {
+            ...playerData[playerName],
+            type: 'rollcloudPlayer',
+            lastUpdated: new Date().toISOString()
+          };
+          debug.log(`💾 Preparing to save player: ${playerName}, type: rollcloudPlayer`);
+        });
+
+        // Save merged data back to storage
+        browserAPI.storage.local.set({
+          characterProfiles: existingProfiles
+        }, () => {
+          debug.log('✅ Successfully saved player data to characterProfiles storage');
+          debug.log('💾 Total profiles in storage:', Object.keys(existingProfiles).length);
+        });
+      }).catch(error => {
+        debug.error('❌ Error reading existing profiles before save:', error);
       });
     } catch (error) {
       debug.error('❌ Error saving player data to storage:', error);
@@ -2652,6 +2667,10 @@ ${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗
     }
     toggleGMMode(true);
   });
+
+  // Load player data from storage on initialization to ensure it's available
+  // for checks before GM panel is created
+  loadPlayerDataFromStorage();
 
   debug.log('✅ Roll20 script ready - listening for roll announcements and GM mode');
 })();
