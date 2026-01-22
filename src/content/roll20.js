@@ -513,24 +513,28 @@
 
     // Create panel
     gmPanel = document.createElement('div');
-    gmPanel.id = 'rollcloud-gm-panel';
+    gmPanel.id = 'gm-panel';
     gmPanel.style.cssText = `
       position: fixed;
-      top: 80px;
+      top: 20px;
       right: 20px;
-      width: 700px;
-      height: 750px;
+      width: 500px;
+      height: 600px;
       min-width: 400px;
       min-height: 400px;
-      max-width: 900px;
-      max-height: 85vh;
-      background: #2a2a2a;
+      max-width: 90vw;
+      max-height: 90vh;
+      background: #1e1e1e;
+      border: 2px solid #4ECDC4;
       border-radius: 12px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-      overflow: hidden;
-      z-index: 10000;
+      z-index: 999998;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+      color: #fff;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
       display: flex;
       flex-direction: column;
+      overflow: hidden;
       resize: both;
     `;
 
@@ -753,6 +757,42 @@
 
     // Load player data from storage
     loadPlayerDataFromStorage();
+    
+    // Test storage functionality immediately
+    debug.log('🧪 Testing storage functionality...');
+    
+    // Test 1: Promise-based API
+    if (browserAPI.storage.local.get instanceof Function) {
+      browserAPI.storage.local.get(['characterProfiles']).then(result => {
+        debug.log('🧪 Promise storage test result:', result);
+        if (result.characterProfiles) {
+          debug.log('🧪 Found characterProfiles:', Object.keys(result.characterProfiles));
+          Object.keys(result.characterProfiles).forEach(key => {
+            debug.log(`🧪 Profile ${key}:`, result.characterProfiles[key].type);
+          });
+        } else {
+          debug.log('🧪 No characterProfiles found in storage (Promise)');
+        }
+      }).catch(error => {
+        debug.error('🧪 Promise storage error:', error);
+      });
+    }
+    
+    // Test 2: Callback-based API (fallback)
+    try {
+      browserAPI.storage.local.get(['characterProfiles'], (result) => {
+        debug.log('🧪 Callback storage test result:', result);
+        if (browserAPI.runtime.lastError) {
+          debug.error('🧪 Callback storage error:', browserAPI.runtime.lastError);
+        } else if (result.characterProfiles) {
+          debug.log('🧪 Found characterProfiles (callback):', Object.keys(result.characterProfiles));
+        } else {
+          debug.log('🧪 No characterProfiles found in storage (callback)');
+        }
+      });
+    } catch (error) {
+      debug.error('🧪 Callback storage test failed:', error);
+    }
 
     // Attach event listeners
     attachGMPanelListeners();
@@ -1345,6 +1385,8 @@
    */
   function savePlayerDataToStorage() {
     try {
+      debug.log('💾 Attempting to save player data:', Object.keys(playerData));
+      
       // Store player data in characterProfiles like character sheets
       const characterProfiles = {};
       Object.keys(playerData).forEach(playerName => {
@@ -1353,12 +1395,14 @@
           type: 'rollcloudPlayer',
           lastUpdated: new Date().toISOString()
         };
+        debug.log(`💾 Preparing to save player: ${playerName}, type: rollcloudPlayer`);
       });
       
       browserAPI.storage.local.set({
         characterProfiles: characterProfiles
+      }, () => {
+        debug.log('✅ Successfully saved player data to characterProfiles storage');
       });
-      debug.log('💾 Saved player data to characterProfiles storage');
     } catch (error) {
       debug.error('❌ Error saving player data to storage:', error);
     }
@@ -1369,27 +1413,37 @@
    */
   function loadPlayerDataFromStorage() {
     try {
-      browserAPI.storage.local.get(['characterProfiles'], (result) => {
+      // Use Promise-based API like the working test
+      browserAPI.storage.local.get(['characterProfiles']).then(result => {
+        debug.log('🔍 Storage check - characterProfiles:', result.characterProfiles ? Object.keys(result.characterProfiles) : 'none');
+        
         if (result.characterProfiles) {
           // Load only rollcloudPlayer entries from characterProfiles
           playerData = {};
           Object.keys(result.characterProfiles).forEach(key => {
             const profile = result.characterProfiles[key];
+            debug.log(`🔍 Checking profile: ${key}, type: ${profile.type}`);
             if (profile.type === 'rollcloudPlayer') {
               playerData[key] = profile;
+              debug.log(`✅ Loaded rollcloudPlayer: ${key}`);
             }
           });
           
-          debug.log('📂 Loaded player data from characterProfiles storage');
+          debug.log(`📂 Loaded ${Object.keys(playerData).length} players from characterProfiles storage`);
+          debug.log('👥 Player data loaded:', Object.keys(playerData));
           
           // Update display if GM panel is open
           if (gmModeEnabled) {
             updatePlayerOverviewDisplay();
           }
+        } else {
+          debug.log('⚠️ No characterProfiles found in storage');
         }
+      }).catch(error => {
+        debug.error('❌ Error loading player data from storage:', error);
       });
     } catch (error) {
-      debug.error('❌ Error loading player data from storage:', error);
+      debug.error('❌ Error in loadPlayerDataFromStorage:', error);
     }
   }
 
@@ -1449,7 +1503,7 @@
   };
 
   /**
-   * Show full character modal
+   * Show full character sheet as popout window
    */
   window.showFullCharacterModal = function(playerName) {
     const player = playerData[playerName];
@@ -1458,35 +1512,13 @@
       return;
     }
 
-    // Create modal overlay
-    const modalOverlay = document.createElement('div');
-    modalOverlay.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.8);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 999999;
-    `;
-
-    // Create modal content
-    const modalContent = document.createElement('div');
-    modalContent.style.cssText = `
-      background: #2c3e50;
-      border-radius: 16px;
-      padding: 32px;
-      width: 1000px;
-      max-width: 95vw;
-      max-height: 90vh;
-      overflow-y: auto;
-      position: relative;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
-      font-size: 14px;
-    `;
+    // Create popout window
+    const popup = window.open('', `character-${playerName}`, 'width=900,height=700,scrollbars=yes,resizable=yes,toolbar=no,menubar=no,location=no,status=no');
+    
+    if (!popup) {
+      debug.error('❌ Failed to open popup window - please allow popups for this site');
+      return;
+    }
 
     // Generate character HTML
     const hpPercent = player.maxHp > 0 ? (player.hp / player.maxHp) * 100 : 0;
@@ -1496,18 +1528,18 @@
     let abilitiesHTML = '';
     if (player.attributes) {
       abilitiesHTML = `
-        <div style="background: #34495e; padding: 24px; border-radius: 12px; margin-bottom: 30px;">
-          <h3 style="color: #4ECDC4; margin-top: 0; margin-bottom: 20px; font-size: 1.3em; font-weight: bold;">Abilities</h3>
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+        <div class="section">
+          <h3>Abilities</h3>
+          <div class="abilities-grid">
             ${['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma'].map(ability => {
               const score = player.attributes[ability] || 10;
               const mod = Math.floor((score - 10) / 2);
               const sign = mod >= 0 ? '+' : '';
               return `
-                <div style="text-align: center; padding: 12px; background: #2c3e50; border-radius: 8px;">
-                  <div style="color: #ccc; font-size: 1em; text-transform: capitalize; margin-bottom: 4px;">${ability}</div>
-                  <div style="color: #fff; font-size: 1.6em; font-weight: bold; margin-bottom: 4px;">${score}</div>
-                  <div style="color: #4ECDC4; font-size: 1.2em; font-weight: bold;">${sign}${mod}</div>
+                <div class="ability-card">
+                  <div class="ability-name">${ability}</div>
+                  <div class="ability-score">${score}</div>
+                  <div class="ability-mod">${sign}${mod}</div>
                 </div>
               `;
             }).join('')}
@@ -1519,13 +1551,13 @@
     let skillsHTML = '';
     if (player.skills && player.skills.length > 0) {
       skillsHTML = `
-        <div style="background: #34495e; padding: 24px; border-radius: 12px; margin-bottom: 30px;">
-          <h3 style="color: #4ECDC4; margin-top: 0; margin-bottom: 20px; font-size: 1.3em; font-weight: bold;">Skills</h3>
-          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; max-height: 250px; overflow-y: auto;">
+        <div class="section">
+          <h3>Skills</h3>
+          <div class="skills-grid">
             ${player.skills.slice(0, 12).map(skill => `
-              <div style="display: flex; justify-content: space-between; padding: 8px 12px; background: #2c3e50; border-radius: 6px;">
-                <span style="color: #ddd; font-size: 1em;">${skill.name || skill}</span>
-                <span style="color: #4ECDC4; font-weight: bold; font-size: 1.1em;">${skill.bonus ? `+${skill.bonus}` : '—'}</span>
+              <div class="skill-item">
+                <span class="skill-name">${skill.name || skill}</span>
+                <span class="skill-bonus">${skill.bonus ? `+${skill.bonus}` : '—'}</span>
               </div>
             `).join('')}
             ${player.skills.length > 12 ? `<div style="color: #aaa; font-size: 0.9em; text-align: center; padding: 12px;">... and ${player.skills.length - 12} more skills</div>` : ''}
@@ -1536,91 +1568,285 @@
 
     let actionsHTML = '';
     if (player.actions && player.actions.length > 0) {
-      actionsHTML = `
-        <div style="background: #34495e; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
-          <h3 style="color: #4ECDC4; margin-top: 0; margin-bottom: 12px;">Actions (${player.actions.length})</h3>
-          <div style="max-height: 150px; overflow-y: auto;">
-            ${player.actions.slice(0, 5).map(action => `
-              <div style="padding: 8px; margin-bottom: 8px; background: #2c3e50; border-radius: 4px; border-left: 3px solid #3498db;">
-                <div style="color: #4ECDC4; font-weight: bold; margin-bottom: 4px;">${action.name}</div>
-                ${action.description ? `<div style="color: #ccc; font-size: 0.85em;">${action.description.substring(0, 100)}${action.description.length > 100 ? '...' : ''}</div>` : ''}
-              </div>
-            `).join('')}
-            ${player.actions.length > 5 ? `<div style="color: #888; font-size: 0.8em; text-align: center; padding: 8px;">... and ${player.actions.length - 5} more actions</div>` : ''}
-          </div>
+      actionsHTML = player.actions.slice(0, 5).map(action => `
+        <div class="action-card">
+          <div class="action-name">${action.name}</div>
+          ${action.description ? `<div class="action-description">${action.description.substring(0, 200)}${action.description.length > 200 ? '...' : ''}</div>` : ''}
         </div>
-      `;
+      `).join('');
     }
 
-    modalContent.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <div>
-          <h2 style="color: #4ECDC4; margin: 0; font-size: 1.5em; font-weight: bold;">${playerName}</h2>
+    // Write character sheet HTML to popup
+    popup.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Character Sheet - ${playerName}</title>
+        <style>
+          /* Popup Sheet Styles */
+          body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+          }
+          .container {
+            background: #f5f5f5;
+            border-radius: 8px;
+            overflow: hidden;
+            min-height: 100vh;
+          }
+          .systems-bar {
+            background: #2D8B83;
+            color: white;
+            padding: 8px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+          }
+          .close-btn {
+            background: #E74C3C;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-size: 0.85em;
+          }
+          .content-area {
+            background: white;
+            padding: 20px;
+          }
+          .header {
+            margin-bottom: 20px;
+          }
+          .char-name-section {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #2C3E50;
+            margin-bottom: 15px;
+          }
+          .char-info-layer {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+          }
+          .char-info-layer.layer-1 {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
+          }
+          .char-info-layer.layer-2 {
+            margin-bottom: 15px;
+          }
+          .layer-3 {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+          }
+          .stat-box {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 10px;
+            text-align: center;
+            min-width: 80px;
+          }
+          .stat-label {
+            font-size: 0.8em;
+            color: #666;
+            margin-bottom: 5px;
+          }
+          .stat-value {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #2C3E50;
+          }
+          .hp-box, .initiative-box {
+            background: #e8f5e8;
+            border: 2px solid #2D8B83;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            flex: 1;
+          }
+          .hp-box {
+            border-color: #27ae60;
+          }
+          .initiative-box {
+            border-color: #3498db;
+          }
+          .section {
+            margin-bottom: 25px;
+          }
+          .section h3 {
+            color: #2C3E50;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+            border-bottom: 2px solid #2D8B83;
+            padding-bottom: 5px;
+          }
+          .abilities-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+          }
+          .ability-card {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+          }
+          .ability-name {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 5px;
+            text-transform: capitalize;
+          }
+          .ability-score {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #2C3E50;
+            margin-bottom: 5px;
+          }
+          .ability-mod {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #2D8B83;
+          }
+          .skills-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+          }
+          .skill-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 3px solid #2D8B83;
+          }
+          .skill-name {
+            color: #2C3E50;
+          }
+          .skill-bonus {
+            font-weight: bold;
+            color: #2D8B83;
+          }
+          .action-card {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+          }
+          .action-name {
+            font-weight: bold;
+            font-size: 1.1em;
+            color: #2C3E50;
+            margin-bottom: 8px;
+          }
+          .action-description {
+            color: #666;
+            font-size: 0.9em;
+            line-height: 1.4;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <!-- Systems Bar -->
+          <div class="systems-bar">
+            <div style="font-weight: bold;">🎲 ${playerName} - Read Only Character Sheet</div>
+            <button class="close-btn" onclick="window.close()">✕</button>
+          </div>
+
+          <!-- Content Area -->
+          <div class="content-area">
+            <div class="header">
+              <!-- Character Name -->
+              <div class="char-name-section">
+                🎲 ${playerName}
+              </div>
+
+              <!-- Layer 1: Class, Level, Race, Hit Dice -->
+              <div class="char-info-layer layer-1">
+                <div><strong>Class:</strong> <span>${player.class || 'Unknown'}</span></div>
+                <div><strong>Level:</strong> <span>${player.level || '1'}</span></div>
+                <div><strong>Race:</strong> <span>${player.race || 'Unknown'}</span></div>
+                <div><strong>Hit Dice:</strong> <span>1d${player.hitDice || '10'}</span></div>
+              </div>
+
+              <!-- Layer 2: AC, Speed, Proficiency, Passive Perception, Initiative -->
+              <div class="char-info-layer layer-2">
+                <div class="stat-box">
+                  <div class="stat-label">Armor Class</div>
+                  <div class="stat-value">${player.ac || '10'}</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Speed</div>
+                  <div class="stat-value">${player.speed || '30 ft'}</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Proficiency</div>
+                  <div class="stat-value">+${player.proficiency || '0'}</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Passive Perception</div>
+                  <div class="stat-value">${player.passivePerception || '10'}</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Initiative</div>
+                  <div class="stat-value">+${player.initiative || '0'}</div>
+                </div>
+              </div>
+
+              <!-- Layer 3: Hit Points -->
+              <div class="layer-3">
+                <div class="hp-box">
+                  <div style="font-size: 0.8em; margin-bottom: 5px;">Hit Points</div>
+                  <div style="font-size: 1.5em;">${player.hp || '0'} / ${player.maxHp || '0'}</div>
+                </div>
+              </div>
+            </div>
+
+            ${abilitiesHTML ? `
+              <div class="section">
+                <h3>Abilities</h3>
+                <div class="abilities-grid">
+                  ${abilitiesHTML}
+                </div>
+              </div>
+            ` : ''}
+
+            ${skillsHTML ? `
+              <div class="section">
+                <h3>Skills</h3>
+                <div class="skills-grid">
+                  ${skillsHTML}
+                </div>
+              </div>
+            ` : ''}
+
+            ${actionsHTML ? `
+              <div class="section">
+                <h3>Actions</h3>
+                ${actionsHTML}
+              </div>
+            ` : ''}
+          </div>
         </div>
-        <button id="close-modal" style="background: #e74c3c; color: white; border: none; border-radius: 4px; padding: 4px 10px; cursor: pointer; font-size: 0.85em; transition: all 0.2s;">✖</button>
-      </div>
+      </body>
+      </html>
+    `);
 
-      <div class="content-area">
-        <div class="header">
-          <!-- Character Name -->
-          <div class="char-name-section" id="char-name">
-            🎲 ${playerName}
-          </div>
-
-          <!-- Layer 1: Class, Level, Race, Hit Dice -->
-          <div class="char-info-layer layer-1" id="char-info-layer-1">
-            <div><strong>Class:</strong> <span>${player.class || 'Unknown'}</span></div>
-            <div><strong>Level:</strong> <span>${player.level || '1'}</span></div>
-            <div><strong>Race:</strong> <span>${player.race || 'Unknown'}</span></div>
-            <div><strong>Hit Dice:</strong> <span>1d${player.hitDice || '10'}</span></div>
-          </div>
-
-          <!-- Layer 2: AC, Speed, Proficiency, Death Saves, Inspiration -->
-          <div class="char-info-layer layer-2" id="char-info-layer-2">
-            <div class="stat-box">
-              <div class="stat-label">Armor Class</div>
-              <div class="stat-value">${player.ac || '10'}</div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-label">Speed</div>
-              <div class="stat-value">${player.speed || '30 ft'}</div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-label">Proficiency</div>
-              <div class="stat-value">+${player.proficiency || '0'}</div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-label">Passive Perception</div>
-              <div class="stat-value">${player.passivePerception || '10'}</div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-label">Initiative</div>
-              <div class="stat-value">+${player.initiative || '0'}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      ${abilitiesHTML}
-      ${skillsHTML}
-      ${actionsHTML}
-    `;
-
-    modalOverlay.appendChild(modalContent);
-    gmPanel.appendChild(modalOverlay);
-
-    // Add close functionality
-    const closeModal = () => {
-      gmPanel.removeChild(modalOverlay);
-    };
-
-    document.getElementById('close-modal').addEventListener('click', closeModal);
-    modalOverlay.addEventListener('click', (e) => {
-      if (e.target === modalOverlay) {
-        closeModal();
-      }
-    });
-
-    debug.log(`🎭 Opened character modal for ${playerName}`);
+    popup.document.close();
+    debug.log(`🪟 Opened character popup for ${playerName}`);
   };
 
   /**
@@ -1695,25 +1921,51 @@
           return;
         }
 
-        // Extract player data from character
-        const hp = character.hp?.current ?? character.hitPoints?.current ?? 0;
-        const maxHp = character.hp?.max ?? character.hitPoints?.max ?? 0;
-        const ac = character.armorClass ?? character.ac ?? null;
-        const initiative = character.initiative ?? null;
-        const passivePerception = character.passivePerception ?? null;
-
+        // Import complete character data
         playerData[character.name] = {
-          hp: hp,
-          maxHp: maxHp,
-          ac: ac,
-          passivePerception: passivePerception,
-          initiative: initiative,
-          conditions: [],
-          concentration: null,
-          deathSaves: null
+          // Basic stats
+          hp: character.hp?.current ?? character.hitPoints?.current ?? 0,
+          maxHp: character.hp?.max ?? character.hitPoints?.max ?? 0,
+          ac: character.armorClass ?? character.ac ?? 10,
+          initiative: character.initiative ?? 0,
+          passivePerception: character.passivePerception ?? 10,
+          proficiency: character.proficiency ?? 0,
+          speed: character.speed ?? '30 ft',
+          
+          // Character info
+          name: character.name,
+          class: character.class || 'Unknown',
+          level: character.level || 1,
+          race: character.race || 'Unknown',
+          hitDice: character.hitDice || '10',
+          
+          // Abilities
+          attributes: character.attributes || {
+            strength: 10,
+            dexterity: 10,
+            constitution: 10,
+            intelligence: 10,
+            wisdom: 10,
+            charisma: 10
+          },
+          
+          // Skills
+          skills: character.skills || [],
+          
+          // Actions
+          actions: character.actions || [],
+          
+          // Combat status
+          conditions: character.conditions || [],
+          concentration: character.concentration || null,
+          deathSaves: character.deathSaves || null,
+          
+          // Type marking for storage
+          type: 'rollcloudPlayer',
+          lastUpdated: new Date().toISOString()
         };
 
-        debug.log(`✅ Imported player: ${character.name} (HP: ${hp}/${maxHp}, AC: ${ac})`);
+        debug.log(`✅ Imported player: ${character.name} (HP: ${character.hp?.current ?? character.hitPoints?.current ?? 0}/${character.hp?.max ?? character.hitPoints?.max ?? 0}, AC: ${character.armorClass ?? character.ac ?? 10})`);
       });
 
       // Update display
