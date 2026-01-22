@@ -14,24 +14,24 @@ $EXPERIMENTAL_TAG = "-experimental"
 $manifest = Get-Content "manifest.json" | ConvertFrom-Json
 $VERSION = $manifest.version
 
-Write-Host "🧪 RollCloud Experimental Build Script v$VERSION$EXPERIMENTAL_TAG" -ForegroundColor Cyan
-Write-Host "⚠️  This build includes experimental two-way DiceCloud sync" -ForegroundColor Yellow
+Write-Host "RollCloud Experimental Build Script v$VERSION$EXPERIMENTAL_TAG" -ForegroundColor Cyan
+Write-Host "WARNING: This build includes experimental two-way DiceCloud sync" -ForegroundColor Yellow
 Write-Host ""
 
 # Clean build directory
 if (Test-Path $BUILD_DIR) {
-    Write-Host "🧹 Cleaning experimental build directory..." -ForegroundColor Gray
+    Write-Host "Cleaning experimental build directory..." -ForegroundColor Gray
     Remove-Item -Path $BUILD_DIR -Recurse -Force
 }
 
 function Build-ChromeExperimental {
-    Write-Host "🌐 Building experimental Chrome version..." -ForegroundColor Green
+    Write-Host "Building experimental Chrome version..." -ForegroundColor Green
 
     $CHROME_DIR = "$BUILD_DIR\chrome"
     New-Item -ItemType Directory -Path $CHROME_DIR -Force | Out-Null
 
     # Copy base files
-    Write-Host "  📦 Copying base files..." -ForegroundColor Gray
+    Write-Host "  Copying base files..." -ForegroundColor Gray
     Copy-Item -Path "src" -Destination $CHROME_DIR -Recurse -Force
     Copy-Item -Path "icons" -Destination $CHROME_DIR -Recurse -Force
     Copy-Item -Path "manifest.json" -Destination $CHROME_DIR -Force
@@ -41,7 +41,7 @@ function Build-ChromeExperimental {
     New-Item -ItemType Directory -Path $LIB_DIR -Force | Out-Null
 
     # Copy experimental sync files
-    Write-Host "  📦 Adding experimental sync modules..." -ForegroundColor Gray
+    Write-Host "  Adding experimental sync modules..." -ForegroundColor Gray
     Copy-Item -Path "experimental\two-way-sync\meteor-ddp-client.js" -Destination "$LIB_DIR\meteor-ddp-client.js" -Force
     Copy-Item -Path "experimental\two-way-sync\dicecloud-sync.js" -Destination "$LIB_DIR\dicecloud-sync.js" -Force
 
@@ -50,9 +50,10 @@ function Build-ChromeExperimental {
     Copy-Item -Path "experimental\two-way-sync\IMPLEMENTATION_GUIDE.md" -Destination "$CHROME_DIR\IMPLEMENTATION_GUIDE.md" -Force
 
     # Modify manifest
-    Write-Host "  📝 Updating manifest for experimental build..." -ForegroundColor Gray
+    Write-Host "  Updating manifest for experimental build..." -ForegroundColor Gray
     $chromeManifest = Get-Content "$CHROME_DIR\manifest.json" | ConvertFrom-Json
-    $chromeManifest.name = "{0} (Experimental Sync)" -f $chromeManifest.name
+    $originalName = $chromeManifest.name
+    $chromeManifest.name = "$originalName (Experimental Sync)"
     $chromeManifest.version = "1.1.3"
 
     # Add experimental sync files to Roll20 content script
@@ -85,18 +86,18 @@ function Build-ChromeExperimental {
 
     $chromeManifest | ConvertTo-Json -Depth 10 | Set-Content "$CHROME_DIR\manifest.json" -Encoding UTF8
 
-    Write-Host "✅ Experimental Chrome build complete: $CHROME_DIR" -ForegroundColor Green
+    Write-Host "Experimental Chrome build complete: $CHROME_DIR" -ForegroundColor Green
     Write-Host ""
 }
 
 function Build-FirefoxExperimental {
-    Write-Host "🦊 Building experimental Firefox version..." -ForegroundColor Green
+    Write-Host "Building experimental Firefox version..." -ForegroundColor Green
 
     $FIREFOX_DIR = "$BUILD_DIR\firefox"
     New-Item -ItemType Directory -Path $FIREFOX_DIR -Force | Out-Null
 
     # Copy base files
-    Write-Host "  📦 Copying base files..." -ForegroundColor Gray
+    Write-Host "  Copying base files..." -ForegroundColor Gray
     Copy-Item -Path "src" -Destination $FIREFOX_DIR -Recurse -Force
     Copy-Item -Path "icons" -Destination $FIREFOX_DIR -Recurse -Force
     Copy-Item -Path "manifest_firefox.json" -Destination "$FIREFOX_DIR\manifest.json" -Force
@@ -106,7 +107,7 @@ function Build-FirefoxExperimental {
     New-Item -ItemType Directory -Path $LIB_DIR -Force | Out-Null
 
     # Copy experimental sync files
-    Write-Host "  📦 Adding experimental sync modules..." -ForegroundColor Gray
+    Write-Host "  Adding experimental sync modules..." -ForegroundColor Gray
     Copy-Item -Path "experimental\two-way-sync\meteor-ddp-client.js" -Destination "$LIB_DIR\meteor-ddp-client.js" -Force
     Copy-Item -Path "experimental\two-way-sync\dicecloud-sync.js" -Destination "$LIB_DIR\dicecloud-sync.js" -Force
 
@@ -115,9 +116,10 @@ function Build-FirefoxExperimental {
     Copy-Item -Path "experimental\two-way-sync\IMPLEMENTATION_GUIDE.md" -Destination "$FIREFOX_DIR\IMPLEMENTATION_GUIDE.md" -Force
 
     # Modify manifest
-    Write-Host "  📝 Updating manifest for experimental build..." -ForegroundColor Gray
+    Write-Host "  Updating manifest for experimental build..." -ForegroundColor Gray
     $firefoxManifest = Get-Content "$FIREFOX_DIR\manifest.json" | ConvertFrom-Json
-    $firefoxManifest.name = "{0} (Experimental Sync)" -f $firefoxManifest.name
+    $originalName = $firefoxManifest.name
+    $firefoxManifest.name = "$originalName (Experimental Sync)"
     $firefoxManifest.version = "1.1.3"
 
     # Add experimental sync files to Roll20 content script
@@ -150,7 +152,7 @@ function Build-FirefoxExperimental {
 
     $firefoxManifest | ConvertTo-Json -Depth 10 | Set-Content "$FIREFOX_DIR\manifest.json" -Encoding UTF8
 
-    Write-Host "✅ Experimental Firefox build complete: $FIREFOX_DIR" -ForegroundColor Green
+    Write-Host "Experimental Firefox build complete: $FIREFOX_DIR" -ForegroundColor Green
     Write-Host ""
 }
 
@@ -168,9 +170,9 @@ if ($All) {
     Build-FirefoxExperimental
 }
 
-Write-Host "✨ Experimental build complete!" -ForegroundColor Cyan
+Write-Host "Experimental build complete!" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "⚠️  REMINDER: This is an experimental build with two-way sync" -ForegroundColor Yellow
+Write-Host "REMINDER: This is an experimental build with two-way sync" -ForegroundColor Yellow
 Write-Host "   - Test thoroughly before using with real characters" -ForegroundColor Yellow
 Write-Host "   - Check browser console for sync messages" -ForegroundColor Yellow
 Write-Host "   - See IMPLEMENTATION_GUIDE.md for integration details" -ForegroundColor Yellow
