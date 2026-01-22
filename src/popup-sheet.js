@@ -1912,12 +1912,21 @@ function calculateTotalCurrency(inventory) {
   let sp = 0;
   let cp = 0;
 
+  // Build a map of item IDs to names for parent lookup
+  const itemMap = new Map();
+  inventory.forEach(item => {
+    if (item._id) {
+      itemMap.set(item._id, item.name);
+    }
+  });
+
   inventory.forEach(item => {
     const itemName = (item.name || '').toLowerCase();
     const quantity = item.quantity;
     const parentId = item.parent && item.parent.id ? item.parent.id : null;
+    const parentName = parentId ? itemMap.get(parentId) || 'Unknown' : 'None';
 
-    console.log(`💰 Item: "${item.name}" | qty: ${quantity} | parent: ${parentId}`);
+    console.log(`💰 Item: "${item.name}" | qty: ${quantity} | parent: ${parentName} (${parentId})`);
 
     // Skip items with no quantity or quantity of 0
     if (!quantity || quantity <= 0) {
@@ -1941,16 +1950,16 @@ function calculateTotalCurrency(inventory) {
 
     // Count currency by type (inside containers only)
     if (itemName.includes('platinum')) {
-      console.log(`💰💰 ✅ MATCHED PLATINUM in container - adding ${quantity}`, item);
+      console.log(`💰💰 ✅ MATCHED PLATINUM in "${parentName}" - adding ${quantity}`, item);
       pp += quantity;
     } else if (itemName.includes('gold')) {
-      console.log(`💰💰 ✅ MATCHED GOLD in container - adding ${quantity}`, item);
+      console.log(`💰💰 ✅ MATCHED GOLD in "${parentName}" - adding ${quantity}`, item);
       gp += quantity;
     } else if (itemName.includes('silver')) {
-      console.log(`💰💰 ✅ MATCHED SILVER in container - adding ${quantity}`, item);
+      console.log(`💰💰 ✅ MATCHED SILVER in "${parentName}" - adding ${quantity}`, item);
       sp += quantity;
     } else if (itemName.includes('copper')) {
-      console.log(`💰💰 ✅ MATCHED COPPER in container - adding ${quantity}`, item);
+      console.log(`💰💰 ✅ MATCHED COPPER in "${parentName}" - adding ${quantity}`, item);
       cp += quantity;
     }
   });
