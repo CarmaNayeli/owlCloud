@@ -4073,8 +4073,8 @@ function createColorPalette(selectedColor) {
     { name: 'Green', value: '#27ae60', emoji: '🟢' },
     { name: 'Purple', value: '#9b59b6', emoji: '🟣' },
     { name: 'Orange', value: '#e67e22', emoji: '🟠' },
-    { name: 'Teal', value: '#1abc9c', emoji: '🔷' },
-    { name: 'Pink', value: '#e91e63', emoji: '🩷' },
+    { name: 'Teal', value: '#1abc9c', emoji: '💠' },
+    { name: 'Pink', value: '#e91e63', emoji: '💖' },
     { name: 'Yellow', value: '#f1c40f', emoji: '🟡' },
     { name: 'Grey', value: '#95a5a6', emoji: '⚪' },
     { name: 'Black', value: '#34495e', emoji: '⚫' },
@@ -4945,6 +4945,46 @@ function resolveVariablesInFormula(formula) {
 
   // Strip remaining markdown formatting
   resolvedFormula = resolvedFormula.replace(/\*\*/g, ''); // Remove bold markers
+
+  // Parse inline calculations in curly braces {expression}
+  // DiceCloud uses {varName} or {varName + 2} syntax in text
+  const inlineCalcPattern = /\{([^}]+)\}/g;
+  resolvedFormula = resolvedFormula.replace(inlineCalcPattern, (fullMatch, expression) => {
+    try {
+      // First try to resolve variables in the expression
+      let resolvedExpr = expression;
+
+      // Replace variable names with their values
+      const varPattern = /[a-zA-Z_][a-zA-Z0-9_.]*/g;
+      resolvedExpr = resolvedExpr.replace(varPattern, (varName) => {
+        const value = getVariableValue(varName);
+        return value !== null ? value : varName;
+      });
+
+      // Try to evaluate as math expression
+      // Only if it contains operators or is a number
+      if (/[\d+\-*\/()]/.test(resolvedExpr)) {
+        try {
+          // Use Function constructor for safe evaluation (no external scope access)
+          const result = Function('"use strict"; return (' + resolvedExpr + ')')();
+          debug.log(`✅ Evaluated inline calculation: {${expression}} = ${result}`);
+          return result;
+        } catch (e) {
+          debug.log(`⚠️ Failed to evaluate inline calculation: {${expression}}`, e);
+        }
+      }
+
+      // If it's just a variable lookup that was resolved, return it
+      if (resolvedExpr !== expression && !/[a-zA-Z_]/.test(resolvedExpr)) {
+        return resolvedExpr;
+      }
+    } catch (e) {
+      debug.log(`⚠️ Error processing inline calculation: {${expression}}`, e);
+    }
+
+    // Return original if we couldn't resolve
+    return fullMatch;
+  });
 
   return resolvedFormula;
 }
