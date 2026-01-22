@@ -1,6 +1,8 @@
 # RollCloud: Dice Cloud Integration for Roll20
 
-A powerful browser extension that seamlessly integrates Dice Cloud with Roll20. Import your D&D character data using the official DiceCloud REST API, forward dice rolls in real-time, track roll statistics, and enhance your tabletop gaming experience with advanced features like advantage/disadvantage controls and animated roll notifications.
+A powerful browser extension that seamlessly integrates Dice Cloud with Roll20. Import your D&D character data using the official DiceCloud REST API, enjoy interactive character sheets with click-to-roll functionality, manage combat with GM tools, and enhance your tabletop gaming experience with advanced features.
+
+**🎲 Version 1.1.0 - Complete Sheet Update**
 
 **Quick Download:** [Firefox](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-firefox.zip) | [Chrome](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-chrome.zip) | [Safari](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-safari.zip)
 
@@ -23,13 +25,30 @@ A powerful browser extension that seamlessly integrates Dice Cloud with Roll20. 
 - **Guidance**: Pre-roll popup asks to add 1d4 to ability checks (consumes buff, follows 5e RAW timing)
 - **Bless**: Automatically adds +1d4 to attack rolls and saves (no popup needed, auto-apply)
 
-### GM Combat Management (NEW!)
+### GM Combat Management
 - **GM Initiative Tracker**: Full combat management system with automatic turn detection
 - **Action Economy Tracking**: Automatic action/bonus action/reaction usage tracking per turn
 - **Turn-Based Visual Indicators**: Action economy lights up for current character, greys out for others
 - **Chat History Integration**: Checks recent chat messages when switching tabs or opening sheets
 - **D&D 5e Rules Compliance**: Enforces one reaction per round, proper action tracking
 - **Real-Time Turn Notifications**: Automatic turn detection and action economy activation
+- **Hidden Rolls**: GM Mode hides rolls until revealed for dramatic effect
+- **Player Overview**: Track party member HP, AC, and conditions in real-time
+- **Turn History**: Log combat actions with export functionality
+- **Delayed Actions**: Support for delayed combatant turns
+
+### Lucky Feat System (NEW!)
+- **Lucky Feat Integration**: Manual action button with modal interface for offensive/defensive usage
+- **Character State Preservation**: Cache system prevents resource refreshing when switching characters
+- **Resource Management**: Lucky points tracking without duplication (filtered from resources display)
+- **Roll20 Integration**: Lucky rolls sent to chat with proper formatting
+- **Dynamic UI Updates**: Real-time Lucky point count updates
+
+### Effects & Buffs System
+- **Buffs & Debuffs**: Complete system for managing active effects
+- **Auto-Apply**: Automatic modifiers for rolls based on active effects
+- **Visual Indicators**: Clear display of active conditions and buffs
+- **Effect Persistence**: Effects maintained across character switching
 
 ### User Experience
 - **User-Friendly Interface**: Clean popup UI and floating action buttons on both platforms
@@ -61,49 +80,49 @@ The extension uses DiceCloud's standardized variable names and property types to
 
 ## Installation
 
-### Download Pre-Built Extension (Easiest)
+### 🚀 Quick Install (Recommended)
 
-Download the pre-built extension for your browser:
+Download the pre-built extension for your browser - all features included and ready to use!
 
 #### 🦊 Firefox
-[Download RollCloud for Firefox](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-firefox.zip)
+[**Download RollCloud for Firefox**](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-firefox.zip)
 
-1. Download the Firefox version
-2. Extract the ZIP file
-3. Navigate to `about:debugging#/runtime/this-firefox`
-4. Click "Load Temporary Add-on"
-5. Select any file from the extracted folder
+1. **Download** the Firefox ZIP file
+2. **Extract** the ZIP file to a folder
+3. **Open** Firefox and navigate to `about:debugging#/runtime/this-firefox`
+4. **Click** "Load Temporary Add-on"
+5. **Select** any file from the extracted folder
+6. **Done!** The RollCloud icon appears in your toolbar
 
 #### 🌐 Chrome / Edge / Brave
-[Download RollCloud for Chrome](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-chrome.zip)
+[**Download RollCloud for Chrome**](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-chrome.zip)
 
-1. Download the Chrome version
-2. Extract the ZIP file
-3. Navigate to `chrome://extensions/` (or `edge://extensions/` for Edge)
-4. Enable "Developer mode" toggle in the top-right
-5. Click "Load unpacked" and select the extracted folder
+1. **Download** the Chrome ZIP file
+2. **Extract** the ZIP file to a folder
+3. **Open** Chrome/Edge and navigate to `chrome://extensions/` (or `edge://extensions/`)
+4. **Enable** "Developer mode" toggle in the top-right
+5. **Click** "Load unpacked" and select the extracted folder
+6. **Done!** The RollCloud icon appears in your toolbar
 
 #### 🧭 Safari
-[Download RollCloud for Safari](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-safari.zip)
+[**Download RollCloud for Safari**](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-safari.zip)
 
-**Prerequisites:**
+**Requirements:**
 - macOS with Safari 14.0 or later
-- Xcode (download from Mac App Store)
+- Xcode (free from Mac App Store)
 
-**Installation Steps:**
-
-1. Download and extract the Safari version
-2. Open Terminal and navigate to the extracted folder
-3. Convert to Safari App Extension:
+**Installation:**
+1. **Download** and extract the Safari ZIP file
+2. **Open** Terminal and navigate to the extracted folder
+3. **Convert** to Safari App Extension:
    ```bash
    xcrun safari-web-extension-converter . --app-name RollCloud
    ```
-4. Follow the prompts to create an Xcode project
-5. Open the generated Xcode project
-6. Build and run the project (⌘R)
-7. Enable the extension in Safari preferences
+4. **Follow** the Xcode setup prompts
+5. **Build** and run the project (⌘R)
+6. **Enable** the extension in Safari preferences
 
-For detailed instructions, troubleshooting, and distribution info, see [SAFARI.md](SAFARI.md)
+📖 **For detailed Safari instructions and troubleshooting, see [SAFARI.md](SAFARI.md)**
 
 ---
 
@@ -203,13 +222,47 @@ Once you've imported your character data:
    - Use the Roll Settings panel to configure roll behavior
    - Rolls are posted directly to Roll20's chat
 
-3. **Advanced Features**:
+3. **Lucky Feat Usage**:
+   - Click the "🍀 Lucky" button when you have Lucky points available
+   - Choose offensive (attack roll) or defensive (ability check/save) usage
+   - Roll an additional d20 and pick the better result
+   - Lucky points are tracked automatically and deducted after use
+
+4. **Effects & Buffs Management**:
+   - View active effects and conditions in the Effects panel
+   - Apply temporary buffs and debuffs that modify rolls automatically
+   - Effects persist across character switching for seamless gameplay
+
+5. **Advanced Features**:
    - Track HP, spell slots, and resources in real-time
    - Manage concentration, death saves, and temporary HP
    - Apply conditions and buffs to your character
-   - Switch between multiple character profiles
+   - Switch between multiple character profiles with preserved state
 
 **Note**: The character sheet overlay appears on Roll20, not on DiceCloud. You roll using your imported character data.
+
+### GM Panel Features
+
+For Game Masters, the extension provides powerful combat management:
+
+1. **Open GM Panel**:
+   - Click the "🎮 GM Panel" button on Roll20
+   - Requires GM permissions in the Roll20 game
+
+2. **Combat Tracking**:
+   - Automatic turn detection from Roll20's turn tracker
+   - Action economy tracking for each combatant
+   - Visual indicators for current turn's available actions
+
+3. **Party Management**:
+   - View all party members' HP, AC, and conditions
+   - Track hidden rolls and reveal them dramatically
+   - Export turn history for session records
+
+4. **Advanced GM Tools**:
+   - Support for delayed actions and readied actions
+   - Combat log with searchable history
+   - Player status overview for quick reference
 
 ## How It Works
 
@@ -409,6 +462,40 @@ If the character sheet overlay isn't working properly:
    - Check for popup blocker notifications in the address bar
    - Try using the inline overlay instead of popup mode
 
+### Lucky Feat Issues
+
+1. **Lucky Button Not Visible**:
+   - Ensure your character has the Lucky feat in DiceCloud
+   - Check that Lucky points are available (not exhausted)
+   - Re-import character data to update feat information
+
+2. **Lucky Points Not Tracking**:
+   - Refresh the character sheet overlay
+   - Check the Resources section for Lucky point count
+   - Verify Lucky resources are properly configured in DiceCloud
+
+3. **Lucky Roll Not Working**:
+   - Ensure you're connected to Roll20 chat
+   - Check that character name is properly set
+   - Try a regular roll first to test connectivity
+
+### GM Panel Issues
+
+1. **GM Panel Not Accessible**:
+   - Verify you have GM permissions in the Roll20 game
+   - Check that you're the game's creator or have been promoted
+   - Refresh the Roll20 page and try again
+
+2. **Turn Detection Not Working**:
+   - Ensure Roll20's turn tracker is enabled
+   - Check that combatants are properly added to the tracker
+   - Try manually advancing the turn to trigger detection
+
+3. **Action Economy Not Updating**:
+   - Verify the current turn is detected correctly
+   - Check that character names match between Roll20 and imported data
+   - Refresh the GM panel to sync current state
+
 ### Character Import Issues
 
 - **"Not logged in to DiceCloud"**: Click extension icon and login again
@@ -442,15 +529,19 @@ If the character sheet overlay isn't working properly:
 
 #### Class Features
 - [ ] **Divine Smite** - Quick-add smite damage to melee attacks
+- [ ] **Bardic Inspiration** - Quick-use inspiration dice with tracking
+- [ ] **Warlock Pact Magic** - Automatic slot recovery and usage tracking
 
 #### Combat Mechanics
 - [ ] **Reaction Prompts** - Notify when Shield, Counterspell, or opportunity attacks apply
 - [ ] **Concentration Save Prompts** - Auto-prompt for concentration saves when taking damage
+- [ ] **Opportunity Attack Tracker** - Automatic OA detection and usage logging
 
 #### Resource Management
 - [ ] **Ammunition Tracker** - Track arrows, bolts with auto-decrement on attacks
 - [ ] **Consumable Manager** - Quick-use buttons for potions, scrolls, etc.
 - [ ] **Attunement Tracker** - Track attuned magic items (3-item limit)
+- [ ] **Hit Dice Management** - Short rest HD tracking and usage
 
 ### Spell Mechanics
 - [ ] **Spell Preparation Manager** - Track prepared vs. known spells
@@ -514,6 +605,66 @@ If you encounter any issues:
 2. Verify you're on the correct Dice Cloud/Roll20 pages
 3. Try clearing the extension data and re-extracting
 4. Open an issue on GitHub with details about your problem
+
+---
+
+## 📋 Version History
+
+### v1.1.0 - Complete Sheet Update
+- ✨ **Complete Character Sheet Overhaul** - Fully redesigned character sheet interface
+- 🍀 **Lucky Feat Integration** - Complete Lucky feat implementation with modal interface
+- 🎮 **Enhanced GM Panel** - Hidden rolls, player overview, turn history
+- 🔮 **Effects System** - Buffs, debuffs, and condition management
+- 💾 **Character State Preservation** - Cache system for seamless character switching
+- 🎯 **Improved Combat Tracking** - Enhanced action economy and turn detection
+- 🎨 **UI/UX Improvements** - Better layout, responsive design, enhanced interactions
+- 🐛 **Bug Fixes** - Various stability and performance improvements
+
+### v0.9.x - Character Sheet Era
+- ✨ **Interactive Character Sheet Overlay** - Click-to-roll functionality
+- 🎲 **Advanced Dice Rolling** - Advantage/disadvantage, custom modifiers
+- 📊 **Real-time Resource Tracking** - HP, spell slots, conditions
+- 🔧 **Enhanced UI/UX** - Improved popup and overlay interfaces
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit issues or pull requests.
+
+**Areas for contribution:**
+- Bug reports and feature requests
+- Code improvements and optimizations
+- Documentation enhancements
+- Translation support for international users
+
+---
+
+## 📄 License
+
+MIT License - Feel free to use and modify as needed.
+
+---
+
+## 🙏 Acknowledgments
+
+- [Dice Cloud](https://github.com/ThaumRystra/DiceCloud) by ThaumRystra
+- [DiceCloud REST API Documentation](https://dicecloud.com/api)
+- [Roll20](https://roll20.net) virtual tabletop platform
+- [Beyond20](https://github.com/kakaroto/Beyond20) by kakaroto - inspiration for roll forwarding architecture
+- Thanks to the DiceCloud developer for recommending API integration with standardized variable names
+- The amazing D&D community for feedback and feature suggestions
+
+---
+
+## 🆘 Support
+
+If you encounter any issues:
+1. Check the browser console for error messages (`F12`)
+2. Verify you're on the correct Dice Cloud/Roll20 pages
+3. Try clearing the extension data and re-extracting
+4. Check this README's troubleshooting section
+5. Open an issue on GitHub with details about your problem
 
 ---
 

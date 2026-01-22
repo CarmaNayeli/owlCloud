@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "RollCloud: Dice Cloud Integration for Roll20",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Seamlessly integrate Dice Cloud with Roll20 - import characters, forward dice rolls in real-time, and enhance your tabletop experience",
   "permissions": [
     "storage",
