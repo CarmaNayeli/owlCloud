@@ -3,14 +3,22 @@
 /**
  * Build Script for RollCloud Extension
  * Generates browser-specific packages for Chrome and Firefox
+ *
+ * Usage:
+ *   node build.js              - Standard build
+ *   node build.js --experimental - Build with experimental two-way sync
  */
 
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
+// Check for experimental flag
+const args = process.argv.slice(2);
+const isExperimental = args.includes('--experimental') || args.includes('--exp');
+
 const ROOT = __dirname;
-const DIST = path.join(ROOT, 'dist');
+const DIST = path.join(ROOT, isExperimental ? 'dist-experimental' : 'dist');
 const BUILD_CHROME = path.join(DIST, 'chrome');
 const BUILD_FIREFOX = path.join(DIST, 'firefox');
 const BUILD_SAFARI = path.join(DIST, 'safari');
@@ -35,7 +43,12 @@ const EXCLUDE = [
   '.DS_Store'
 ];
 
-console.log('🏗️  Building RollCloud extension packages...\n');
+if (isExperimental) {
+  console.log('🧪 Building RollCloud extension packages (EXPERIMENTAL with two-way sync)...\n');
+  console.log('⚠️  This build includes experimental DiceCloud sync via Meteor DDP\n');
+} else {
+  console.log('🏗️  Building RollCloud extension packages...\n');
+}
 
 // Clean dist directory
 if (fs.existsSync(DIST)) {
@@ -90,12 +103,59 @@ function buildChrome() {
   });
 
   // Copy Chrome manifest
-  fs.copyFileSync(
-    path.join(ROOT, 'manifest.json'),
-    path.join(BUILD_CHROME, 'manifest.json')
-  );
+  const manifestSrc = path.join(ROOT, 'manifest.json');
+  const manifestDest = path.join(BUILD_CHROME, 'manifest.json');
+  fs.copyFileSync(manifestSrc, manifestDest);
 
-  console.log('   ✅ Chrome package built to dist/chrome/');
+  // Add experimental files if building experimental version
+  if (isExperimental) {
+    console.log('   📦 Adding experimental sync modules...');
+
+    // Create lib directory
+    const libDir = path.join(BUILD_CHROME, 'src', 'lib');
+    fs.mkdirSync(libDir, { recursive: true });
+
+    // Copy experimental files
+    fs.copyFileSync(
+      path.join(ROOT, 'experimental/two-way-sync/meteor-ddp-client.js'),
+      path.join(libDir, 'meteor-ddp-client.js')
+    );
+    fs.copyFileSync(
+      path.join(ROOT, 'experimental/two-way-sync/dicecloud-sync.js'),
+      path.join(libDir, 'dicecloud-sync.js')
+    );
+
+    // Copy documentation
+    fs.copyFileSync(
+      path.join(ROOT, 'experimental/two-way-sync/README.md'),
+      path.join(BUILD_CHROME, 'EXPERIMENTAL-README.md')
+    );
+    fs.copyFileSync(
+      path.join(ROOT, 'experimental/two-way-sync/IMPLEMENTATION_GUIDE.md'),
+      path.join(BUILD_CHROME, 'IMPLEMENTATION_GUIDE.md')
+    );
+
+    // Modify manifest for experimental build
+    const manifest = JSON.parse(fs.readFileSync(manifestDest, 'utf8'));
+    manifest.name = manifest.name + ' (Experimental Sync)';
+    manifest.version = manifest.version.split('.').slice(0, 3).join('.') + '.1';
+
+    // Add web_accessible_resources for experimental files
+    if (!manifest.web_accessible_resources) {
+      manifest.web_accessible_resources = [];
+    }
+    manifest.web_accessible_resources.push({
+      resources: [
+        'src/lib/meteor-ddp-client.js',
+        'src/lib/dicecloud-sync.js'
+      ],
+      matches: ['<all_urls>']
+    });
+
+    fs.writeFileSync(manifestDest, JSON.stringify(manifest, null, 2));
+  }
+
+  console.log('   ✅ Chrome package built to ' + (isExperimental ? 'dist-experimental' : 'dist') + '/chrome/');
 }
 
 /**
@@ -120,12 +180,59 @@ function buildFirefox() {
   });
 
   // Copy Firefox-specific manifest (Manifest V2)
-  fs.copyFileSync(
-    path.join(ROOT, 'manifest_firefox.json'),
-    path.join(BUILD_FIREFOX, 'manifest.json')
-  );
+  const manifestSrc = path.join(ROOT, 'manifest_firefox.json');
+  const manifestDest = path.join(BUILD_FIREFOX, 'manifest.json');
+  fs.copyFileSync(manifestSrc, manifestDest);
 
-  console.log('   ✅ Firefox package built to dist/firefox/');
+  // Add experimental files if building experimental version
+  if (isExperimental) {
+    console.log('   📦 Adding experimental sync modules...');
+
+    // Create lib directory
+    const libDir = path.join(BUILD_FIREFOX, 'src', 'lib');
+    fs.mkdirSync(libDir, { recursive: true });
+
+    // Copy experimental files
+    fs.copyFileSync(
+      path.join(ROOT, 'experimental/two-way-sync/meteor-ddp-client.js'),
+      path.join(libDir, 'meteor-ddp-client.js')
+    );
+    fs.copyFileSync(
+      path.join(ROOT, 'experimental/two-way-sync/dicecloud-sync.js'),
+      path.join(libDir, 'dicecloud-sync.js')
+    );
+
+    // Copy documentation
+    fs.copyFileSync(
+      path.join(ROOT, 'experimental/two-way-sync/README.md'),
+      path.join(BUILD_FIREFOX, 'EXPERIMENTAL-README.md')
+    );
+    fs.copyFileSync(
+      path.join(ROOT, 'experimental/two-way-sync/IMPLEMENTATION_GUIDE.md'),
+      path.join(BUILD_FIREFOX, 'IMPLEMENTATION_GUIDE.md')
+    );
+
+    // Modify manifest for experimental build
+    const manifest = JSON.parse(fs.readFileSync(manifestDest, 'utf8'));
+    manifest.name = manifest.name + ' (Experimental Sync)';
+    manifest.version = manifest.version.split('.').slice(0, 3).join('.') + '.1';
+
+    // Add web_accessible_resources for experimental files
+    if (!manifest.web_accessible_resources) {
+      manifest.web_accessible_resources = [];
+    }
+    manifest.web_accessible_resources.push({
+      resources: [
+        'src/lib/meteor-ddp-client.js',
+        'src/lib/dicecloud-sync.js'
+      ],
+      matches: ['<all_urls>']
+    });
+
+    fs.writeFileSync(manifestDest, JSON.stringify(manifest, null, 2));
+  }
+
+  console.log('   ✅ Firefox package built to ' + (isExperimental ? 'dist-experimental' : 'dist') + '/firefox/');
 }
 
 /**
@@ -168,20 +275,23 @@ function createZips() {
     // Check if zip command is available
     execSync('which zip', { stdio: 'ignore' });
 
+    const suffix = isExperimental ? '-experimental' : '';
+    const distPath = isExperimental ? 'dist-experimental' : 'dist';
+
     // Create Chrome zip
     process.chdir(BUILD_CHROME);
-    execSync(`zip -r ../rollcloud-chrome.zip . -x "*.DS_Store"`, { stdio: 'inherit' });
-    console.log('   ✅ Chrome zip: dist/rollcloud-chrome.zip');
+    execSync(`zip -r ../rollcloud-chrome${suffix}.zip . -x "*.DS_Store"`, { stdio: 'inherit' });
+    console.log(`   ✅ Chrome zip: ${distPath}/rollcloud-chrome${suffix}.zip`);
 
     // Create Firefox zip
     process.chdir(BUILD_FIREFOX);
-    execSync(`zip -r ../rollcloud-firefox.zip . -x "*.DS_Store"`, { stdio: 'inherit' });
-    console.log('   ✅ Firefox zip: dist/rollcloud-firefox.zip');
+    execSync(`zip -r ../rollcloud-firefox${suffix}.zip . -x "*.DS_Store"`, { stdio: 'inherit' });
+    console.log(`   ✅ Firefox zip: ${distPath}/rollcloud-firefox${suffix}.zip`);
 
     // Create Safari zip
     process.chdir(BUILD_SAFARI);
-    execSync(`zip -r ../rollcloud-safari.zip . -x "*.DS_Store"`, { stdio: 'inherit' });
-    console.log('   ✅ Safari zip: dist/rollcloud-safari.zip');
+    execSync(`zip -r ../rollcloud-safari${suffix}.zip . -x "*.DS_Store"`, { stdio: 'inherit' });
+    console.log(`   ✅ Safari zip: ${distPath}/rollcloud-safari${suffix}.zip`);
 
     process.chdir(ROOT);
   } catch (error) {
@@ -197,23 +307,38 @@ function createZips() {
  * Display build summary
  */
 function showSummary() {
-  console.log('\n✨ Build complete!\n');
-  console.log('📂 Output:');
-  console.log('   Chrome (MV3):  dist/chrome/');
-  console.log('   Firefox (MV2): dist/firefox/');
-  console.log('   Safari (MV2):  dist/safari/');
+  const distPath = isExperimental ? 'dist-experimental' : 'dist';
+  const suffix = isExperimental ? '-experimental' : '';
 
-  if (fs.existsSync(path.join(DIST, 'rollcloud-chrome.zip'))) {
+  console.log('\n✨ Build complete!\n');
+
+  if (isExperimental) {
+    console.log('⚠️  EXPERIMENTAL BUILD - Includes two-way DiceCloud sync via Meteor DDP\n');
+  }
+
+  console.log('📂 Output:');
+  console.log(`   Chrome (MV3):  ${distPath}/chrome/`);
+  console.log(`   Firefox (MV2): ${distPath}/firefox/`);
+  console.log(`   Safari (MV2):  ${distPath}/safari/`);
+
+  if (fs.existsSync(path.join(DIST, `rollcloud-chrome${suffix}.zip`))) {
     console.log('\n📦 Zip files:');
-    console.log('   dist/rollcloud-chrome.zip');
-    console.log('   dist/rollcloud-firefox.zip');
-    console.log('   dist/rollcloud-safari.zip');
+    console.log(`   ${distPath}/rollcloud-chrome${suffix}.zip`);
+    console.log(`   ${distPath}/rollcloud-firefox${suffix}.zip`);
+    console.log(`   ${distPath}/rollcloud-safari${suffix}.zip`);
   }
 
   console.log('\n🚀 Next steps:');
-  console.log('   Chrome:  chrome://extensions/ → Load unpacked → dist/chrome/');
-  console.log('   Firefox: about:debugging → Load Temporary Add-on → dist/firefox/manifest.json');
-  console.log('   Safari:  See SAFARI.md for conversion and testing instructions');
+  console.log(`   Chrome:  chrome://extensions/ → Load unpacked → ${distPath}/chrome/`);
+  console.log(`   Firefox: about:debugging → Load Temporary Add-on → ${distPath}/firefox/manifest.json`);
+  console.log(`   Safari:  See SAFARI.md for conversion and testing instructions`);
+
+  if (isExperimental) {
+    console.log('\n📚 Experimental Sync Documentation:');
+    console.log(`   ${distPath}/chrome/EXPERIMENTAL-README.md`);
+    console.log(`   ${distPath}/chrome/IMPLEMENTATION_GUIDE.md`);
+    console.log('\n⚠️  Remember: This is experimental - test thoroughly before using with real characters!');
+  }
 }
 
 // Run build
