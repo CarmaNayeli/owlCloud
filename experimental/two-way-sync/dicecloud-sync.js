@@ -71,16 +71,15 @@ class DiceCloudSync {
       if (diceCloudToken && characterData.id) {
         console.log('[DiceCloud Sync] Fetching raw DiceCloud API data for property cache...');
         try {
-          // Fetch the raw API data to get creatureProperties
-          const response = await fetch(`https://dicecloud.com/api/creature/${characterData.id}`, {
-            headers: {
-              'Authorization': `Bearer ${diceCloudToken}`,
-              'Content-Type': 'application/json'
-            }
+          // Route API request through background script to avoid CORS
+          const response = await browserAPI.runtime.sendMessage({
+            action: 'fetchDiceCloudAPI',
+            url: `https://dicecloud.com/api/creature/${characterData.id}`,
+            token: diceCloudToken
           });
           
-          if (response.ok) {
-            const apiData = await response.json();
+          if (response.success && response.data) {
+            const apiData = response.data;
             console.log('[DiceCloud Sync] Received API data for property cache');
             
             // Build cache from raw creatureProperties
@@ -94,7 +93,7 @@ class DiceCloudSync {
               }
             }
           } else {
-            console.warn('[DiceCloud Sync] Failed to fetch API data for property cache');
+            console.warn('[DiceCloud Sync] Failed to fetch API data for property cache:', response.error);
           }
         } catch (error) {
           console.error('[DiceCloud Sync] Error fetching API data for property cache:', error);

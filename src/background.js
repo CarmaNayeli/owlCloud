@@ -147,6 +147,30 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
           response = { success: true };
           break;
 
+        case 'fetchDiceCloudAPI':
+          debug.log('📡 Fetching DiceCloud API:', request.url);
+          try {
+            const apiResponse = await fetch(request.url, {
+              headers: {
+                'Authorization': `Bearer ${request.token}`,
+                'Content-Type': 'application/json'
+              }
+            });
+            
+            if (apiResponse.ok) {
+              const data = await apiResponse.json();
+              response = { success: true, data };
+              debug.log('✅ DiceCloud API fetched successfully');
+            } else {
+              response = { success: false, error: `HTTP ${apiResponse.status}` };
+              debug.warn('❌ DiceCloud API fetch failed:', apiResponse.status);
+            }
+          } catch (error) {
+            response = { success: false, error: error.message };
+            debug.error('❌ Error fetching DiceCloud API:', error);
+          }
+          break;
+
         default:
           debug.warn('Unknown action:', request.action);
           response = { success: false, error: 'Unknown action' };
