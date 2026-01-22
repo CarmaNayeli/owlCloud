@@ -13,6 +13,7 @@ class DiceCloudSync {
     this.ddp = ddpClient;
     this.characterId = null;
     this.propertyCache = new Map(); // propertyName -> property _id
+    this.previousValues = new Map(); // propertyName -> last synced value
     this.enabled = false;
   }
 
@@ -326,6 +327,23 @@ class DiceCloudSync {
             for (const attr of restorableAttributes) {
               this.propertyCache.set(attr.name, attr._id);
               console.log(`[DiceCloud Sync] Cached restorable attribute: ${attr.name} (resets on ${attr.reset}) -> ${attr._id}`);
+            }
+
+            // IMPROVEMENT: Cache ALL remaining attributes (even without reset fields)
+            // This ensures custom resources and homebrew attributes sync properly
+            const allRemainingAttributes = apiData.creatureProperties.filter(p =>
+              p.type === 'attribute' &&
+              p.name &&
+              !p.removed &&
+              !p.inactive &&
+              !this.propertyCache.has(p.name) && // Don't duplicate
+              // Only cache if it has a value or baseValue (actual trackable resource)
+              (p.value !== undefined || p.baseValue !== undefined)
+            );
+            console.log(`[DiceCloud Sync] Found ${allRemainingAttributes.length} additional custom attributes to cache`);
+            for (const attr of allRemainingAttributes) {
+              this.propertyCache.set(attr.name, attr._id);
+              console.log(`[DiceCloud Sync] Cached custom attribute: ${attr.name} -> ${attr._id} (value: ${attr.value}, baseValue: ${attr.baseValue})`);
             }
 
             // Cache important toggles (conditions, active features, etc.)
@@ -663,7 +681,14 @@ class DiceCloudSync {
       }
 
       if (!propertyId) {
-        console.warn(`[DiceCloud Sync] Spell slot level ${level} not found`);
+        console.warn(`[DiceCloud Sync] ❌ Spell slot level ${level} not found in property cache`);
+        console.warn(`[DiceCloud Sync] Tried keys: "${slotKey}", "${slotName}"`);
+
+        // Show spell slots that ARE cached
+        const spellSlotProps = Array.from(this.propertyCache.keys())
+          .filter(name => name.toLowerCase().includes('level') || name.toLowerCase().includes('spell'));
+        console.warn(`[DiceCloud Sync] Cached spell-related properties:`, spellSlotProps);
+
         return;
       }
 
@@ -675,10 +700,10 @@ class DiceCloudSync {
         value: slotsRemaining
       });
 
-      console.log('[DiceCloud Sync] Spell slot updated successfully:', result);
+      console.log(`[DiceCloud Sync] ✅ Spell slot level ${level} updated successfully:`, result);
       return result;
     } catch (error) {
-      console.error('[DiceCloud Sync] Failed to update spell slot:', error);
+      console.error(`[DiceCloud Sync] ❌ Failed to update spell slot level ${level}:`, error);
       throw error;
     }
   }
@@ -730,7 +755,19 @@ class DiceCloudSync {
     try {
       const propertyId = this.findPropertyId(resourceName);
       if (!propertyId) {
-        console.warn(`[DiceCloud Sync] Resource "${resourceName}" not found`);
+        console.warn(`[DiceCloud Sync] ❌ Resource "${resourceName}" not found in property cache`);
+        console.warn(`[DiceCloud Sync] Available cached properties:`, Array.from(this.propertyCache.keys()).sort());
+
+        // Suggest similar property names (fuzzy matching)
+        const similarNames = Array.from(this.propertyCache.keys())
+          .filter(name => name.toLowerCase().includes(resourceName.toLowerCase()) ||
+                          resourceName.toLowerCase().includes(name.toLowerCase()))
+          .slice(0, 5);
+
+        if (similarNames.length > 0) {
+          console.warn(`[DiceCloud Sync] 💡 Did you mean one of these? ${similarNames.join(', ')}`);
+        }
+
         return;
       }
 
@@ -742,10 +779,10 @@ class DiceCloudSync {
         value: value
       });
 
-      console.log(`[DiceCloud Sync] ${resourceName} updated successfully:`, result);
+      console.log(`[DiceCloud Sync] ✅ ${resourceName} updated successfully:`, result);
       return result;
     } catch (error) {
-      console.error(`[DiceCloud Sync] Failed to update ${resourceName}:`, error);
+      console.error(`[DiceCloud Sync] ❌ Failed to update ${resourceName}:`, error);
       throw error;
     }
   }
@@ -912,18 +949,31 @@ class DiceCloudSync {
 
     console.log('[DiceCloud Sync] Handling character data update:', characterData.name);
 
+    // Helper function to check if value has changed
+    const hasChanged = (key, newValue) => {
+      const oldValue = this.previousValues.get(key);
+      const changed = oldValue !== newValue;
+      if (changed) {
+        console.log(`[DiceCloud Sync] Value changed for ${key}: ${oldValue} -> ${newValue}`);
+        this.previousValues.set(key, newValue);
+      } else {
+        console.log(`[DiceCloud Sync] Value unchanged for ${key}: ${newValue}`);
+      }
+      return changed;
+    };
+
     // Update HP if changed
-    if (characterData.hp !== undefined) {
+    if (characterData.hp !== undefined && hasChanged('Hit Points', characterData.hp)) {
       await this.updateAttributeValue('Hit Points', characterData.hp);
     }
 
     // Update temporary HP if changed
-    if (characterData.tempHp !== undefined) {
+    if (characterData.tempHp !== undefined && hasChanged('Temporary Hit Points', characterData.tempHp)) {
       await this.updateAttributeValue('Temporary Hit Points', characterData.tempHp);
     }
 
     // Update max HP if changed
-    if (characterData.maxHp !== undefined) {
+    if (characterData.maxHp !== undefined && hasChanged('Max Hit Points', characterData.maxHp)) {
       await this.updateAttributeValue('Max Hit Points', characterData.maxHp);
     }
 
@@ -936,8 +986,13 @@ class DiceCloudSync {
         if (characterData.spellSlots[currentKey] !== undefined && characterData.spellSlots[maxKey] !== undefined) {
           // Only sync if max > 0 (character has slots of this level)
           if (characterData.spellSlots[maxKey] > 0) {
-            console.log(`[DiceCloud Sync] Syncing spell slot level ${level}: ${characterData.spellSlots[currentKey]}/${characterData.spellSlots[maxKey]}`);
-            await this.updateSpellSlot(level, characterData.spellSlots[currentKey]);
+            const cacheKey = `spellSlot${level}`;
+            const currentValue = characterData.spellSlots[currentKey];
+
+            if (hasChanged(cacheKey, currentValue)) {
+              console.log(`[DiceCloud Sync] Syncing spell slot level ${level}: ${currentValue}/${characterData.spellSlots[maxKey]}`);
+              await this.updateSpellSlot(level, currentValue);
+            }
           }
         }
       }
@@ -945,29 +1000,41 @@ class DiceCloudSync {
 
     // Update Channel Divinity if it exists
     if (characterData.channelDivinity !== undefined) {
-      console.log(`[DiceCloud Sync] Syncing Channel Divinity: ${characterData.channelDivinity.current}/${characterData.channelDivinity.max}`);
-      await this.updateChannelDivinity(characterData.channelDivinity.current);
+      const currentValue = characterData.channelDivinity.current;
+      if (hasChanged('Channel Divinity', currentValue)) {
+        console.log(`[DiceCloud Sync] Syncing Channel Divinity: ${currentValue}/${characterData.channelDivinity.max}`);
+        await this.updateChannelDivinity(currentValue);
+      }
     }
 
     // Update other tracked resources
     if (characterData.resources && Array.isArray(characterData.resources)) {
       for (const resource of characterData.resources) {
         if (resource.name && resource.current !== undefined) {
-          console.log(`[DiceCloud Sync] Syncing resource ${resource.name}: ${resource.current}/${resource.max}`);
-          await this.updateResource(resource.name, resource.current);
+          if (hasChanged(resource.name, resource.current)) {
+            console.log(`[DiceCloud Sync] Syncing resource ${resource.name}: ${resource.current}/${resource.max}`);
+            await this.updateResource(resource.name, resource.current);
+          }
         }
       }
     }
 
     // Update death saves if changed
     if (characterData.deathSaves) {
-      if (characterData.deathSaves.successes !== undefined || characterData.deathSaves.failures !== undefined) {
-        await this.updateDeathSaves(characterData.deathSaves.successes, characterData.deathSaves.failures);
+      if (characterData.deathSaves.successes !== undefined) {
+        if (hasChanged('Succeeded Saves', characterData.deathSaves.successes)) {
+          await this.updateDeathSaves(characterData.deathSaves.successes, undefined);
+        }
+      }
+      if (characterData.deathSaves.failures !== undefined) {
+        if (hasChanged('Failed Saves', characterData.deathSaves.failures)) {
+          await this.updateDeathSaves(undefined, characterData.deathSaves.failures);
+        }
       }
     }
 
     // Update inspiration if changed
-    if (characterData.inspiration !== undefined) {
+    if (characterData.inspiration !== undefined && hasChanged('Inspiration', characterData.inspiration)) {
       await this.updateInspiration(characterData.inspiration);
     }
   }
