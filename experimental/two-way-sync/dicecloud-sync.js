@@ -62,12 +62,15 @@ class DiceCloudSync {
         const activeCharacterId = result.activeCharacterId;
         const characterProfiles = result.characterProfiles;
 
+        console.log('[DiceCloud Sync] Storage result:', { activeCharacterId, characterProfilesKeys: characterProfiles ? Object.keys(characterProfiles) : null });
+
         if (activeCharacterId && characterProfiles && characterProfiles[activeCharacterId]) {
           const characterData = characterProfiles[activeCharacterId];
           console.log('[DiceCloud Sync] Building cache from character data:', characterData.name);
 
           // Build cache from character properties
-          if (characterData.properties) {
+          if (characterData.properties && Array.isArray(characterData.properties)) {
+            console.log(`[DiceCloud Sync] Processing ${characterData.properties.length} properties`);
             for (const property of characterData.properties) {
               if (property._id && property.name) {
                 this.propertyCache.set(property.name, property._id);
@@ -77,7 +80,8 @@ class DiceCloudSync {
           }
 
           // Also cache actions by name
-          if (characterData.actions) {
+          if (characterData.actions && Array.isArray(characterData.actions)) {
+            console.log(`[DiceCloud Sync] Processing ${characterData.actions.length} actions`);
             for (const action of characterData.actions) {
               if (action._id && action.name) {
                 this.propertyCache.set(action.name, action._id);
@@ -86,9 +90,37 @@ class DiceCloudSync {
             }
           }
 
+          // Cache common attributes
+          const commonAttributes = [
+            { name: 'Hit Points', key: 'hitPoints' },
+            { name: 'Temporary Hit Points', key: 'tempHP' },
+            { name: 'Focus Points', key: 'focusPoint' },
+            { name: 'Heroic Inspiration', key: 'heroicInspiration' }
+          ];
+
+          for (const attr of commonAttributes) {
+            if (characterData[attr.key]) {
+              // Look for matching property in characterProperties
+              if (characterData.properties) {
+                const matchingProperty = characterData.properties.find(prop => 
+                  prop.variableName === attr.key || 
+                  prop.name === attr.name ||
+                  prop.type === 'attribute'
+                );
+                if (matchingProperty && matchingProperty._id) {
+                  this.propertyCache.set(attr.name, matchingProperty._id);
+                  console.log(`[DiceCloud Sync] Cached attribute: ${attr.name} -> ${matchingProperty._id}`);
+                }
+              }
+            }
+          }
+
           console.log(`[DiceCloud Sync] Property cache built with ${this.propertyCache.size} entries`);
+          console.log('[DiceCloud Sync] Available properties:', Array.from(this.propertyCache.keys()));
         } else {
           console.warn('[DiceCloud Sync] No character data available for cache building');
+          console.warn('[DiceCloud Sync] activeCharacterId:', activeCharacterId);
+          console.warn('[DiceCloud Sync] characterProfiles:', characterProfiles);
         }
       }
     } catch (error) {
