@@ -5,17 +5,20 @@
  * Generates browser-specific packages for Chrome and Firefox
  *
  * Usage:
- *   node build.js              - Standard build
- *   node build.js --experimental - Build with experimental two-way sync
+ *   node build.js                    - Production build (DEBUG = false)
+ *   node build.js --dev              - Development build (DEBUG = true)
+ *   node build.js --experimental     - Experimental build with two-way sync
+ *   node build.js --experimental --dev - Experimental with DEBUG enabled
  */
 
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
-// Check for experimental flag
+// Check for build flags
 const args = process.argv.slice(2);
 const isExperimental = args.includes('--experimental') || args.includes('--exp');
+const isDev = args.includes('--dev'); // Enable debug mode in production build
 
 const ROOT = path.join(__dirname, '..'); // Parent directory (project root)
 const DIST = path.join(ROOT, isExperimental ? 'dist-experimental' : 'dist');
@@ -45,10 +48,12 @@ const EXCLUDE = [
 
 if (isExperimental) {
   console.log('🧪 Building RollCloud extension packages (EXPERIMENTAL with two-way sync)...\n');
-  console.log('⚠️  This build includes experimental DiceCloud sync via Meteor DDP\n');
+  console.log('⚠️  This build includes experimental DiceCloud sync via Meteor DDP');
 } else {
   console.log('🏗️  Building RollCloud extension packages...\n');
 }
+
+console.log(`🔧 Build mode: ${isDev ? 'DEVELOPMENT (DEBUG = true)' : 'PRODUCTION (DEBUG = false)'}\n`);
 
 // Clean dist directory
 if (fs.existsSync(DIST)) {
@@ -79,6 +84,34 @@ function copyDir(src, dest) {
       fs.copyFileSync(srcPath, destPath);
     }
   }
+}
+
+/**
+ * Process debug.js to set DEBUG flag based on build type
+ * @param {string} buildDir - Build directory (chrome, firefox, or safari)
+ */
+function processDebugFlag(buildDir) {
+  const debugFilePath = path.join(buildDir, 'src', 'common', 'debug.js');
+
+  if (!fs.existsSync(debugFilePath)) {
+    console.warn(`   ⚠️  Warning: debug.js not found at ${debugFilePath}`);
+    return;
+  }
+
+  let content = fs.readFileSync(debugFilePath, 'utf8');
+
+  // Replace DEBUG = true with DEBUG = false for production builds
+  // Keep DEBUG = true for development builds (--dev flag)
+  const debugValue = isDev ? 'true' : 'false';
+
+  content = content.replace(
+    /const DEBUG = true; \/\/ BUILD_PLACEHOLDER: Set by build script/,
+    `const DEBUG = ${debugValue}; // Set by build script (${isDev ? 'DEVELOPMENT' : 'PRODUCTION'} mode)`
+  );
+
+  fs.writeFileSync(debugFilePath, content, 'utf8');
+
+  console.log(`   🔧 DEBUG mode set to: ${debugValue} (${isDev ? 'development' : 'production'} build)`);
 }
 
 /**
@@ -165,6 +198,9 @@ function buildChrome() {
     fs.writeFileSync(manifestDest, JSON.stringify(manifest, null, 2));
   }
 
+  // Process debug.js to set DEBUG flag
+  processDebugFlag(BUILD_CHROME);
+
   console.log('   ✅ Chrome package built to ' + (isExperimental ? 'dist-experimental' : 'dist') + '/chrome/');
 }
 
@@ -243,6 +279,9 @@ function buildFirefox() {
     fs.writeFileSync(manifestDest, JSON.stringify(manifest, null, 2));
   }
 
+  // Process debug.js to set DEBUG flag
+  processDebugFlag(BUILD_FIREFOX);
+
   console.log('   ✅ Firefox package built to ' + (isExperimental ? 'dist-experimental' : 'dist') + '/firefox/');
 }
 
@@ -272,6 +311,9 @@ function buildSafari() {
     path.join(ROOT, 'manifest_safari.json'),
     path.join(BUILD_SAFARI, 'manifest.json')
   );
+
+  // Process debug.js to set DEBUG flag
+  processDebugFlag(BUILD_SAFARI);
 
   console.log('   ✅ Safari package built to dist/safari/');
 }

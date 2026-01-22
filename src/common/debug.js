@@ -10,7 +10,11 @@
 // 1. Build process (set DEBUG = false for production)
 // 2. Extension storage (allow users to enable debug mode)
 // 3. URL parameter (for testing)
-const DEBUG = true; // TODO: Set to false for production builds
+// NOTE: This value is replaced by the build script.
+// - Development builds: DEBUG = true
+// - Production builds: DEBUG = false
+// - Use --dev flag to force DEBUG = true in production build
+const DEBUG = true; // BUILD_PLACEHOLDER: Set by build script
 
 /**
  * Debug logger instance
