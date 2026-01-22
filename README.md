@@ -97,62 +97,74 @@ The extension uses DiceCloud's standardized variable names and property types to
 ## 🧪 Experimental Build - Two-Way Sync
 
 ### Overview
-The experimental build includes cutting-edge two-way synchronization between Roll20 and DiceCloud, allowing changes made in Roll20 to automatically update your DiceCloud character sheet in real-time.
+The experimental build contains two-way synchronization code that allows changes made in Roll20 to update DiceCloud character sheets using Meteor's DDP protocol.
 
-### How Two-Way Sync Works
+### Current Implementation Status
 
-#### 🔄 Real-Time Data Flow
-1. **DiceCloud → Roll20**: Character data flows from DiceCloud to Roll20 (standard feature)
-2. **Roll20 → DiceCloud**: Changes in Roll20 flow back to DiceCloud (experimental feature)
-
-#### 📊 What Gets Synced Back
-- **Hit Points**: HP changes in Roll20 update DiceCloud health
-- **Resource Consumption**: Spell slots, ki points, and other resources tracked
-- **Condition Tracking**: Status effects and conditions synchronized
-- **Action Usage**: Limited abilities and features usage tracked
-- **Temporary HP**: Temp HP changes reflected in DiceCloud
-
-#### 🛠️ Technical Implementation
-- **Meteor DDP**: Uses DiceCloud's real-time communication protocol
-- **Conflict Resolution**: Intelligently handles simultaneous changes
-- **Offline Support**: Queues changes when connection is lost
-- **Error Recovery**: Automatic retry mechanisms for failed syncs
+#### ✅ What's Implemented
+- **Meteor DDP Client**: Complete WebSocket client for DiceCloud communication
+- **Build System**: Experimental builds compile with `npm run build:exp`
+- **HP Sync Logic**: Property cache system to identify correct Hit Points fields
+- **Documentation**: Implementation guides and technical documentation
 
 #### ⚠️ Current Limitations
-- **Experimental Status**: Features are in testing and may have bugs
-- **DiceCloud API**: Dependent on DiceCloud's real-time API stability
-- **Performance**: May impact browser performance with large parties
-- **Data Safety**: Backup your DiceCloud data before using
+- **Integration Gap**: Experimental files are copied during build but not integrated into main extension code
+- **Manual Testing**: Requires manual file copying and extension reloading
+- **Limited Scope**: Only Hit Points sync is partially implemented
+- **No UI Controls**: No settings toggle to enable/disable sync
 
-### Getting the Experimental Build
+#### 🛠️ Technical Details
+- **Protocol**: Uses Meteor DDP over WebSocket (`wss://dicecloud.com/websocket`)
+- **Authentication**: Leverages existing DiceCloud API tokens
+- **API Method**: Calls `creatureProperties.update` for property changes
+- **Build Output**: `dist-experimental/` directory with modified manifest
 
-#### Download Experimental Version
+### Known Issues
+- **Property Selection**: System may update temporary HP instead of main HP (fixed in latest commit)
+- **Extension Reload**: Changes require manual extension reload in browser
+- **Error Handling**: Limited error recovery and user feedback
+
+### Building and Testing
+
+#### Build Commands
 ```bash
-# Build experimental version locally
-npm run build:exp
+# Standard build (stable)
+npm run build
 
-# Or download from releases (when available)
-# Look for files ending in "-experimental.zip"
+# Experimental build with two-way sync
+npm run build:exp
+# or
+npm run build:experimental
 ```
 
 #### Installation
-Same installation process as standard build, but the extension will show:
-- **Name**: "RollCloud: EXPERIMENTAL"
-- **Version**: Ends with ".1" (e.g., 1.1.2.1)
-- **Warning banner**: Red notice in popup about experimental features
+1. Build experimental version: `npm run build:exp`
+2. Load in browser:
+   - Chrome: `chrome://extensions/` → Load unpacked → `dist-experimental/chrome/`
+   - Firefox: `about:debugging` → Load Temporary Add-on → `dist-experimental/firefox/manifest.json`
 
-### Testing Guidelines
-1. **Test Characters**: Use test characters, not main campaign characters
-2. **Backup Data**: Export your DiceCloud character before testing
-3. **Monitor Performance**: Watch for browser performance issues
-4. **Report Issues**: Provide detailed bug reports for any problems
-5. **Rollback Plan**: Be ready to switch back to standard build
+#### Testing Process
+1. Use test characters, not main campaign characters
+2. Backup DiceCloud data before testing
+3. Monitor browser console for `[DDP]` and `[Sync]` messages
+4. Verify property updates in DiceCloud after Roll20 changes
 
-### Future Development
-- **Stable Release**: Experimental features will graduate to main build when ready
-- **Enhanced Conflict Resolution**: Better handling of simultaneous edits
-- **Performance Optimization**: Reduced impact on browser performance
-- **Expanded Sync**: More data types synchronized between platforms
+### Development Status
+The experimental build is approximately 75% complete. Core DDP functionality exists but requires full integration with the main extension codebase.
+
+### Required Integration Work
+To complete implementation:
+1. Import DDP client in background script
+2. Add WebSocket connection management
+3. Implement message handlers for sync requests
+4. Add settings UI for sync toggle
+5. Complete property ID caching system
+6. Add comprehensive error handling
+
+### Documentation
+- `BUILD-EXPERIMENTAL.md` - Build instructions
+- `dist-experimental/chrome/IMPLEMENTATION_GUIDE.md` - Complete integration guide
+- `experimental/two-way-sync/README.md` - Technical overview
 
 ## Installation
 
@@ -708,14 +720,12 @@ If you encounter any issues:
 - 🐛 **Bug Fixes** - Various stability and performance improvements
 
 ### v1.1.2.1 - Experimental Two-Way Sync
-- 🧪 **Two-Way Synchronization** - Changes in Roll20 automatically update DiceCloud
-- 🔄 **Real-Time Sync** - Hit points, resources, conditions, and action usage tracked
-- 🛠️ **Meteor DDP Integration** - Uses DiceCloud's real-time communication protocol
-- ⚠️ **Experimental Features** - Cutting-edge features for testing and feedback
-- 📊 **Enhanced Data Flow** - Bidirectional sync between platforms
-- 🔧 **Conflict Resolution** - Intelligent handling of simultaneous changes
-- 📱 **Offline Support** - Queues changes when connection is lost
-- 🚨 **Warning System** - Clear indicators for experimental build status
+- 🧪 **Two-Way Synchronization**: Changes in Roll20 can update DiceCloud via Meteor DDP
+- 🛠️ **DDP Client**: Complete WebSocket client for DiceCloud communication
+- 📊 **Property Cache**: System to identify and target correct DiceCloud properties
+- ⚠️ **Partial Implementation**: Core functionality exists but requires integration work
+- 🔧 **Build System**: Experimental builds available via `npm run build:exp`
+- 📋 **Documentation**: Implementation guides and technical documentation included
 
 ### v0.9.x - Character Sheet Era
 - ✨ **Interactive Character Sheet Overlay** - Click-to-roll functionality
