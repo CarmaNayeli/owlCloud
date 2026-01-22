@@ -430,6 +430,21 @@ async function switchToCharacter(characterId) {
         data: dataToSave,
         slotId: currentSlotId  // CRITICAL: Pass current slotId for proper persistence
       });
+
+      // Send sync message to DiceCloud if experimental sync is available
+      if (window.diceCloudSync && window.diceCloudSync.isEnabled()) {
+        debug.log('🔄 Sending character data update to DiceCloud sync...');
+        window.postMessage({
+          type: 'characterDataUpdate',
+          characterData: {
+            name: characterData.name,
+            hp: characterData.hitPoints.current,
+            tempHp: characterData.temporaryHP || 0,
+            maxHp: characterData.hitPoints.max
+          }
+        }, '*');
+      }
+
       debug.log(`💾 Saved current character to browser storage: ${characterData.name} (slotId: ${currentSlotId})`);
     }
 
