@@ -357,10 +357,19 @@ window.initializeDiceCloudSync = function() {
         if (result.activeCharacterId) {
           console.log('[DiceCloud Sync] Found active character ID:', result.activeCharacterId);
           
+          // Debug: List all keys in storage
+          try {
+            const allKeys = await browserAPI.storage.local.get(null);
+            console.log('[DiceCloud Sync] All storage keys:', Object.keys(allKeys));
+            console.log('[DiceCloud Sync] All storage data:', allKeys);
+          } catch (allKeysError) {
+            console.error('[DiceCloud Sync] Error getting all storage keys:', allKeysError);
+          }
+          
           // Also get the character data to get the DiceCloud ID
           try {
             const charResult = await browserAPI.storage.local.get([result.activeCharacterId]);
-            console.log('[DiceCloud Sync] Character data:', charResult);
+            console.log('[DiceCloud Sync] Character data for key:', result.activeCharacterId, charResult);
             
             const characterData = charResult[result.activeCharacterId];
             if (characterData && characterData.id) {
@@ -370,6 +379,22 @@ window.initializeDiceCloudSync = function() {
               });
             } else {
               console.warn('[DiceCloud Sync] No character data found for slot:', result.activeCharacterId);
+              
+              // Try to find character data in other common keys
+              const commonKeys = ['slot-1', 'slot-2', 'slot-3', 'default', 'characterProfiles'];
+              for (const key of commonKeys) {
+                if (key !== result.activeCharacterId) {
+                  const testResult = await browserAPI.storage.local.get([key]);
+                  if (testResult[key] && testResult[key].id) {
+                    console.log(`[DiceCloud Sync] Found character data in key: ${key}`, testResult[key]);
+                    // Use this character data instead
+                    window.diceCloudSync.initialize(testResult[key].id).catch(error => {
+                      console.error('[DiceCloud Sync] Failed to initialize with fallback key:', error);
+                    });
+                    return;
+                  }
+                }
+              }
             }
           } catch (charError) {
             console.error('[DiceCloud Sync] Error getting character data:', charError);
