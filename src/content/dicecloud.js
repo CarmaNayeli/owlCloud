@@ -4521,59 +4521,25 @@
               return prop.name || 'Unnamed';
             };
 
-            // Focus on attributes (the main trackable properties)
-            const attributes = properties.filter(p => p.type === 'attribute');
-            console.log(`🔍 [DiceCloud Structure] Found ${attributes.length} attributes`);
-
-            // Group by attributeType
+            // Group properties by type
             const byType = {};
-            attributes.forEach(attr => {
-              const attrType = attr.attributeType || 'unknown';
-              if (!byType[attrType]) byType[attrType] = [];
-              byType[attrType].push(attr);
+            properties.forEach(prop => {
+              const propType = prop.type || 'unknown';
+              if (!byType[propType]) byType[propType] = [];
+              byType[propType].push(prop);
             });
 
-            console.log('🔍 [DiceCloud Structure] Attributes by type:', Object.keys(byType));
-
-            // Log all attributes with full details
-            attributes.forEach(attr => {
-              const path = buildPath(attr._id);
-              console.log(`🔍 [DiceCloud Structure] Attribute:`, {
-                path: path,
-                name: attr.name,
-                id: attr._id,
-                type: attr.type,
-                attributeType: attr.attributeType,
-                value: attr.value,
-                baseValue: attr.baseValue,
-                total: attr.total,
-                damage: attr.damage,
-                reset: attr.reset,
-                description: attr.description,
-                parent: attr.parent,
-                tags: attr.tags,
-                inactive: attr.inactive,
-                removed: attr.removed
-              });
-            });
-
-            // Find all HP-related properties (any type)
-            const hpRelated = properties.filter(p =>
-              p.name && (
-                p.name.toLowerCase().includes('hit point') ||
-                p.name.toLowerCase().includes('hp') ||
-                p.name === 'Hit Points'
-              )
-            );
+            console.log('🔍 [DiceCloud Structure] Properties by type:', Object.keys(byType).map(type => `${type}: ${byType[type].length}`));
 
             console.log('═══════════════════════════════════════════════════════');
-            console.log('🔍 [DiceCloud Structure] HP-RELATED PROPERTIES:');
+            console.log('🔍 [DiceCloud Structure] ALL PROPERTIES (this will take a while...):');
             console.log('═══════════════════════════════════════════════════════');
 
-            hpRelated.forEach(prop => {
+            // Log all properties with full details
+            properties.forEach((prop, index) => {
               const path = buildPath(prop._id);
-              console.log(`📍 PATH: ${path}`);
-              console.log(`   Name: ${prop.name}`);
+              console.log(`\n📍 [${index + 1}/${properties.length}] PATH: ${path}`);
+              console.log(`   Name: ${prop.name || 'Unnamed'}`);
               console.log(`   ID: ${prop._id}`);
               console.log(`   Type: ${prop.type}`);
               console.log(`   AttributeType: ${prop.attributeType || 'N/A'}`);
@@ -4582,16 +4548,32 @@
               console.log(`   Total: ${prop.total}`);
               console.log(`   Damage: ${prop.damage}`);
               console.log(`   Reset: ${prop.reset}`);
+              console.log(`   Description: ${prop.description ? (prop.description.substring(0, 100) + (prop.description.length > 100 ? '...' : '')) : 'None'}`);
               console.log(`   Parent: ${prop.parent ? JSON.stringify(prop.parent) : 'None'}`);
               console.log(`   Tags: ${prop.tags ? prop.tags.join(', ') : 'None'}`);
               console.log(`   Inactive: ${prop.inactive}`);
               console.log(`   Removed: ${prop.removed}`);
+              console.log(`   Order: ${prop.order}`);
+
+              // Log type-specific fields
+              if (prop.type === 'action') {
+                console.log(`   Uses: ${prop.uses} (used: ${prop.usesUsed})`);
+                console.log(`   Resources: ${JSON.stringify(prop.resources)}`);
+              } else if (prop.type === 'skill') {
+                console.log(`   SkillValue: ${prop.skillValue}`);
+                console.log(`   Ability: ${prop.ability}`);
+              } else if (prop.type === 'spell') {
+                console.log(`   Level: ${prop.level}`);
+                console.log(`   Prepared: ${prop.prepared}`);
+                console.log(`   AlwaysPrepared: ${prop.alwaysPrepared}`);
+              }
+
               console.log('---------------------------------------------------');
             });
 
             console.log('═══════════════════════════════════════════════════════');
 
-            alert(`Structure analyzed!\n\nFound ${properties.length} total properties\n${attributes.length} attributes\n${hpRelated.length} HP-related properties\n\nCheck console for complete hierarchical structure with paths.`);
+            alert(`Structure analyzed!\n\nFound ${properties.length} total properties\n\nThis is A LOT of data. Check console for complete hierarchical structure with paths.\n\nProperty types found: ${Object.keys(byType).join(', ')}`);
           } else {
             console.error('🔍 [DiceCloud Structure] Failed to fetch character data:', response.status);
             alert('Failed to fetch character data. Make sure you\'re logged in.');
