@@ -673,3 +673,7 @@ If you encounter any issues:
 - 🎲 **Dice Rolling** - Advantage/disadvantage, custom modifiers
 - 📊 **Resource Tracking** - HP, spell slots, conditions
 - 🔧 **UI/UX Improvements** - Improved popup and overlay interfaces
+
+---
+
+Made with ❤️ for the D&D community
