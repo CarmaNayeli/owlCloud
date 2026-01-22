@@ -2661,18 +2661,19 @@ ${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗
   // Initialize experimental two-way sync if available
   if (typeof browserAPI !== 'undefined' && browserAPI.runtime) {
     // Check if this is an experimental build
-    browserAPI.runtime.getManifest().then(manifest => {
-      if (manifest.name && manifest.name.includes('EXPERIMENTAL')) {
-        debug.log(' Experimental build detected, loading two-way sync...');
+    try {
+      const manifest = browserAPI.runtime.getManifest();
+      if (manifest && manifest.name && manifest.name.includes('EXPERIMENTAL')) {
+        debug.log('🧪 Experimental build detected, loading two-way sync...');
         
         // Load experimental sync modules
         loadExperimentalSync().catch(error => {
-          debug.error(' Failed to load experimental sync:', error);
+          debug.error('❌ Failed to load experimental sync:', error);
         });
       }
-    }).catch(() => {
-      debug.log(' Standard build detected, skipping experimental sync');
-    });
+    } catch (e) {
+      debug.log('📦 Standard build detected, skipping experimental sync');
+    }
   }
 
   /**
