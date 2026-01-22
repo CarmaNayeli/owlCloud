@@ -1915,16 +1915,22 @@ function calculateTotalCurrency(inventory) {
   // First, find the Belt Pouch container specifically
   let beltPouchId = null;
   inventory.forEach(item => {
-    const itemName = (item.name || '').toLowerCase();
-    // Look specifically for "Belt Pouch"
-    if (itemName === 'belt pouch') {
+    const itemName = (item.name || '').toLowerCase().trim();
+
+    // Log all containers for debugging
+    if (item.type === 'container' || itemName.includes('pouch') || itemName.includes('bag')) {
+      console.log(`💰 Container found: "${item.name}" (lowercase: "${itemName}", ID: ${item._id})`);
+    }
+
+    // Look specifically for "Belt Pouch" (flexible match)
+    if (itemName.includes('belt') && itemName.includes('pouch')) {
       beltPouchId = item._id;
-      console.log(`💰 Found Belt Pouch: "${item.name}" (ID: ${item._id})`);
+      console.log(`💰 ✅ Found Belt Pouch: "${item.name}" (ID: ${item._id})`);
     }
   });
 
   if (!beltPouchId) {
-    console.log(`💰 ⚠️ Belt Pouch not found, returning zeros`);
+    console.log(`💰 ⚠️ Belt Pouch not found in inventory, returning zeros`);
     return { pp: 0, gp: 0, sp: 0, cp: 0 };
   }
 
