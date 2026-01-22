@@ -128,6 +128,13 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
           response = { success: true };
           break;
 
+        case 'postChatMessageFromPopup':
+          debug.log('📡 Relaying chat message from popup to Roll20:', request.message);
+          await sendChatMessageToAllRoll20Tabs(request.message);
+          debug.log('✅ Chat message relayed successfully');
+          response = { success: true };
+          break;
+
         default:
           debug.warn('Unknown action:', request.action);
           response = { success: false, error: 'Unknown action' };
@@ -506,6 +513,37 @@ async function sendGMModeToggleToRoll20Tabs(enabled) {
     debug.log(`GM Mode toggle sent to ${tabs.length} Roll20 tab(s)`);
   } catch (error) {
     debug.error('Failed to send GM Mode toggle to Roll20 tabs:', error);
+    throw error;
+  }
+}
+
+/**
+ * Sends chat message to all open Roll20 tabs
+ */
+async function sendChatMessageToAllRoll20Tabs(message) {
+  try {
+    // Query all tabs for Roll20
+    const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
+
+    if (tabs.length === 0) {
+      debug.warn('No Roll20 tabs found');
+      return;
+    }
+
+    // Send chat message to each Roll20 tab
+    const promises = tabs.map(tab => {
+      return browserAPI.tabs.sendMessage(tab.id, {
+        action: 'postChatMessageFromPopup',
+        message: message
+      }).catch(err => {
+        debug.warn(`Failed to send chat message to tab ${tab.id}:`, err);
+      });
+    });
+
+    await Promise.all(promises);
+    debug.log(`Chat message sent to ${tabs.length} Roll20 tab(s)`);
+  } catch (error) {
+    debug.error('Failed to send chat message to Roll20 tabs:', error);
     throw error;
   }
 }

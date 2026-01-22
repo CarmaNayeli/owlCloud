@@ -1391,10 +1391,15 @@
           // Skip inactive or disabled resources
           if (prop.name && (prop.attributeType === 'resource' || prop.attributeType === 'healthBar') &&
               !prop.inactive && !prop.disabled) {
+            
+            // Debug: Log all potential resources for troubleshooting
+            debug.log(`🔍 Potential resource found: ${prop.name} (type: ${prop.attributeType}, variable: ${prop.variableName || 'none'})`);
+            
             // Skip hit points (already extracted) and Font of Magic trackers (not actual resources)
             const lowerName = prop.name.toLowerCase();
             if (lowerName.includes('hit point') || lowerName === 'hp' ||
                 lowerName.includes('slot level to create')) {
+              debug.log(`⏭️ Skipping filtered resource: ${prop.name}`);
               break;
             }
 
