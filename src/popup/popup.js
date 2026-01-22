@@ -141,51 +141,24 @@ function initializePopup() {
   }
 
   /**
-   * Handles auto-connect - opens DiceCloud and captures token
+   * Handles auto-connect - checks for DiceCloud tab or opens one
    */
   async function handleAutoConnect() {
     try {
       autoConnectBtn.disabled = true;
-      autoConnectBtn.textContent = '⏳ Opening DiceCloud...';
+      autoConnectBtn.textContent = '⏳ Checking...';
       hideLoginError();
 
-      // Open DiceCloud in a new tab
-      await browserAPI.tabs.create({
-        url: 'https://dicecloud.com',
-        active: true
-      });
+      // Check if DiceCloud tab is already open
+      const tabs = await browserAPI.tabs.query({ url: 'https://dicecloud.com/*' });
 
-      // Wait a bit for the tab to load
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (tabs.length > 0) {
+        // DiceCloud is open - try to capture token
+        autoConnectBtn.textContent = '⏳ Capturing token...';
 
-      // Change button to capture mode
-      autoConnectBtn.textContent = '✓ Capture Token (Click after logging in)';
-      autoConnectBtn.disabled = false;
+        const dicecloudTab = tabs[0];
 
-      // Show instructions
-      showLoginError('Log in to DiceCloud in the new tab, then click "Capture Token" above');
-
-      // Change button behavior to capture
-      const originalHandler = handleAutoConnect;
-      autoConnectBtn.removeEventListener('click', originalHandler);
-
-      autoConnectBtn.addEventListener('click', async function captureHandler() {
         try {
-          autoConnectBtn.disabled = true;
-          autoConnectBtn.textContent = '⏳ Capturing token...';
-
-          // Find the DiceCloud tab
-          const tabs = await browserAPI.tabs.query({ url: 'https://dicecloud.com/*' });
-
-          if (tabs.length === 0) {
-            showLoginError('DiceCloud tab not found. Please make sure DiceCloud is open.');
-            autoConnectBtn.disabled = false;
-            autoConnectBtn.textContent = '✓ Capture Token (Click after logging in)';
-            return;
-          }
-
-          const dicecloudTab = tabs[0];
-
           // Send message to DiceCloud tab to extract token
           const response = await browserAPI.tabs.sendMessage(dicecloudTab.id, {
             action: 'extractAuthToken'
@@ -204,31 +177,35 @@ function initializePopup() {
             // Close DiceCloud tab
             await browserAPI.tabs.remove(dicecloudTab.id);
 
-            // Restore original button
-            autoConnectBtn.removeEventListener('click', captureHandler);
-            autoConnectBtn.addEventListener('click', originalHandler);
-            autoConnectBtn.textContent = '🔐 Connect with DiceCloud';
-
             // Show success and load data
             hideLoginError();
             showMainSection(response.username || 'DiceCloud User');
             loadCharacterData();
           } else {
-            showLoginError('Not logged in to DiceCloud. Please log in first, then try again.');
-            autoConnectBtn.disabled = false;
-            autoConnectBtn.textContent = '✓ Capture Token (Click after logging in)';
+            // Not logged in - show error and keep DiceCloud tab open
+            showLoginError('Please log in to DiceCloud, then click the button again.');
+            // Focus the DiceCloud tab
+            await browserAPI.tabs.update(dicecloudTab.id, { active: true });
           }
         } catch (error) {
           debug.error('Error capturing token:', error);
-          showLoginError('Error: ' + error.message + ' - Make sure you are on a DiceCloud page');
-          autoConnectBtn.disabled = false;
-          autoConnectBtn.textContent = '✓ Capture Token (Click after logging in)';
+          showLoginError('Error: ' + error.message);
         }
-      }, { once: false });
+      } else {
+        // No DiceCloud tab - open one
+        autoConnectBtn.textContent = '⏳ Opening DiceCloud...';
 
+        await browserAPI.tabs.create({
+          url: 'https://dicecloud.com',
+          active: true
+        });
+
+        showLoginError('DiceCloud opened in new tab. Log in, then click this button again.');
+      }
     } catch (error) {
       debug.error('Auto-connect error:', error);
       showLoginError('Error: ' + error.message);
+    } finally {
       autoConnectBtn.disabled = false;
       autoConnectBtn.textContent = '🔐 Connect with DiceCloud';
     }
