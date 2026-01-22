@@ -46,8 +46,7 @@ function initializePopup() {
 
   // DOM Elements - Login
   const loginForm = document.getElementById('loginForm');
-  const usernameInput = document.getElementById('username');
-  const passwordInput = document.getElementById('password');
+  const apiTokenInput = document.getElementById('apiToken');
   const loginBtn = document.getElementById('loginBtn');
   const loginError = document.getElementById('loginError');
 
@@ -144,38 +143,36 @@ function initializePopup() {
   async function handleLogin(event) {
     event.preventDefault();
 
-    const username = usernameInput.value.trim();
-    const password = passwordInput.value;
+    const apiToken = apiTokenInput.value.trim();
 
-    if (!username || !password) {
-      showLoginError('Please enter both username and password');
+    if (!apiToken) {
+      showLoginError('Please enter your API token');
       return;
     }
 
     try {
       loginBtn.disabled = true;
-      loginBtn.textContent = '⏳ Logging in...';
+      loginBtn.textContent = '⏳ Connecting...';
       hideLoginError();
 
       const response = await browserAPI.runtime.sendMessage({
-        action: 'loginToDiceCloud',
-        username: username,
-        password: password
+        action: 'setApiToken',
+        token: apiToken
       });
 
       if (response.success) {
         loginForm.reset();
-        showMainSection(username);
+        showMainSection('DiceCloud User');
         loadCharacterData();
       } else {
-        showLoginError(response.error || 'Login failed');
+        showLoginError(response.error || 'Connection failed');
       }
     } catch (error) {
       debug.error('Login error:', error);
-      showLoginError('Login failed: ' + error.message);
+      showLoginError('Connection failed: ' + error.message);
     } finally {
       loginBtn.disabled = false;
-      loginBtn.textContent = '🔐 Login to DiceCloud';
+      loginBtn.textContent = '🔐 Connect to DiceCloud';
     }
   }
 

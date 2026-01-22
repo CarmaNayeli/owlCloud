@@ -59,9 +59,9 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
           response = { success: true };
           break;
 
-        case 'loginToDiceCloud': {
-          const authData = await loginToDiceCloud(request.username, request.password);
-          response = { success: true, authData };
+        case 'setApiToken': {
+          await setApiToken(request.token);
+          response = { success: true };
           break;
         }
 
@@ -152,40 +152,25 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 /**
- * Logs in to DiceCloud API
+ * Stores the API token
  */
-async function loginToDiceCloud(username, password) {
+async function setApiToken(token) {
   try {
-    const response = await fetch(`${API_BASE}/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        username: username,
-        password: password
-      })
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Login failed: ${response.status} - ${errorText}`);
+    // Validate token format (basic check)
+    if (!token || token.length < 10) {
+      throw new Error('Invalid API token format');
     }
 
-    const data = await response.json();
-
-    // Store authentication data
+    // Store the API token
     await browserAPI.storage.local.set({
-      diceCloudToken: data.token,
-      diceCloudUserId: data.id,
-      tokenExpires: data.tokenExpires,
-      username: username
+      diceCloudToken: token,
+      username: 'DiceCloud User'
     });
 
-    debug.log('Successfully logged in to DiceCloud');
-    return data;
+    debug.log('Successfully stored API token');
+    return { success: true };
   } catch (error) {
-    debug.error('Failed to login to DiceCloud:', error);
+    debug.error('Failed to store API token:', error);
     throw error;
   }
 }
@@ -195,21 +180,10 @@ async function loginToDiceCloud(username, password) {
  */
 async function getApiToken() {
   try {
-    const result = await browserAPI.storage.local.get(['diceCloudToken', 'tokenExpires']);
+    const result = await browserAPI.storage.local.get(['diceCloudToken']);
 
     if (!result.diceCloudToken) {
       return null;
-    }
-
-    // Check if token is expired
-    if (result.tokenExpires) {
-      const expiryDate = new Date(result.tokenExpires);
-      const now = new Date();
-      if (now >= expiryDate) {
-        debug.warn('API token has expired');
-        await logout();
-        return null;
-      }
     }
 
     return result.diceCloudToken;
@@ -224,26 +198,15 @@ async function getApiToken() {
  */
 async function checkLoginStatus() {
   try {
-    const result = await browserAPI.storage.local.get(['diceCloudToken', 'username', 'tokenExpires']);
+    const result = await browserAPI.storage.local.get(['diceCloudToken', 'username']);
 
     if (!result.diceCloudToken) {
       return { loggedIn: false };
     }
 
-    // Check if token is expired
-    if (result.tokenExpires) {
-      const expiryDate = new Date(result.tokenExpires);
-      const now = new Date();
-      if (now >= expiryDate) {
-        await logout();
-        return { loggedIn: false };
-      }
-    }
-
     return {
       loggedIn: true,
-      username: result.username,
-      tokenExpires: result.tokenExpires
+      username: result.username || 'DiceCloud User'
     };
   } catch (error) {
     debug.error('Failed to check login status:', error);
