@@ -1148,6 +1148,14 @@ class DiceCloudSync {
     // Helper function to check if value has changed
     const hasChanged = (key, newValue) => {
       const oldValue = this.previousValues.get(key);
+
+      // If this is the first time we're seeing this value, initialize it without syncing
+      if (oldValue === undefined) {
+        console.log(`[DiceCloud Sync] 📥 Initializing ${key}: ${newValue} (no sync)`);
+        this.previousValues.set(key, newValue);
+        return false; // Don't sync on first initialization
+      }
+
       const changed = oldValue !== newValue;
       if (changed) {
         console.log(`[DiceCloud Sync] ✏️ Value changed for ${key}: ${oldValue} -> ${newValue} (will sync)`);
