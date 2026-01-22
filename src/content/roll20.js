@@ -2649,7 +2649,7 @@ ${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗
     try {
       postChatMessage('👑 Opening GM mode...');
     } catch (error) {
-      debug.error('❌ Error posting chat message:', error);
+      debug.error(' Error posting chat message:', error);
     }
     toggleGMMode(true);
   });
@@ -2658,5 +2658,61 @@ ${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗
   // for checks before GM panel is created
   loadPlayerDataFromStorage();
 
-  debug.log('✅ Roll20 script ready - listening for roll announcements and GM mode');
+  // Initialize experimental two-way sync if available
+  if (typeof browserAPI !== 'undefined' && browserAPI.runtime) {
+    // Check if this is an experimental build
+    browserAPI.runtime.getManifest().then(manifest => {
+      if (manifest.name && manifest.name.includes('EXPERIMENTAL')) {
+        debug.log(' Experimental build detected, loading two-way sync...');
+        
+        // Load experimental sync modules
+        loadExperimentalSync().catch(error => {
+          debug.error(' Failed to load experimental sync:', error);
+        });
+      }
+    }).catch(() => {
+      debug.log(' Standard build detected, skipping experimental sync');
+    });
+  }
+
+  /**
+   * Loads and initializes experimental two-way sync
+   */
+  async function loadExperimentalSync() {
+    try {
+      // Load the meteor-ddp-client script
+      await loadScript(browserAPI.runtime.getURL('src/lib/meteor-ddp-client.js'));
+      debug.log(' Meteor DDP client loaded');
+      
+      // Load the dicecloud-sync script  
+      await loadScript(browserAPI.runtime.getURL('src/lib/dicecloud-sync.js'));
+      debug.log(' DiceCloud sync module loaded');
+      
+      // Initialize the sync (this will be called from the dicecloud-sync.js)
+      if (typeof window.initializeDiceCloudSync === 'function') {
+        window.initializeDiceCloudSync();
+        debug.log(' Experimental two-way sync initialized');
+      } else {
+        debug.warn(' DiceCloud sync initialization function not found');
+      }
+    } catch (error) {
+      debug.error(' Error loading experimental sync:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Dynamically loads a script
+   */
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = src;
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
+
+  debug.log(' Roll20 script ready - listening for roll announcements and GM mode');
 })();
