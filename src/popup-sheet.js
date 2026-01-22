@@ -1914,9 +1914,15 @@ function calculateTotalCurrency(inventory) {
 
   inventory.forEach(item => {
     const itemName = (item.name || '').toLowerCase();
-    const quantity = item.quantity || 0;
+    const quantity = item.quantity;
 
-    console.log(`💰 Item: "${item.name}" | qty: ${quantity} | lowercase: "${itemName}"`);
+    console.log(`💰 Item: "${item.name}" | qty: ${quantity} (type: ${typeof quantity}) | lowercase: "${itemName}"`);
+
+    // Skip items with no quantity or quantity of 0
+    if (!quantity || quantity <= 0) {
+      console.log(`💰 ❌ SKIPPED - quantity is ${quantity}`);
+      return;
+    }
 
     // Only count actual currency items - must match specific patterns
     // Match: "platinum piece", "gold coin", "copper pieces", etc.
