@@ -94,6 +94,66 @@ The extension uses DiceCloud's standardized variable names and property types to
 - **Error Handling**: Clear error messages for authentication issues
 - **Session Persistence**: Maintains login state across browser sessions
 
+## 🧪 Experimental Build - Two-Way Sync
+
+### Overview
+The experimental build includes cutting-edge two-way synchronization between Roll20 and DiceCloud, allowing changes made in Roll20 to automatically update your DiceCloud character sheet in real-time.
+
+### How Two-Way Sync Works
+
+#### 🔄 Real-Time Data Flow
+1. **DiceCloud → Roll20**: Character data flows from DiceCloud to Roll20 (standard feature)
+2. **Roll20 → DiceCloud**: Changes in Roll20 flow back to DiceCloud (experimental feature)
+
+#### 📊 What Gets Synced Back
+- **Hit Points**: HP changes in Roll20 update DiceCloud health
+- **Resource Consumption**: Spell slots, ki points, and other resources tracked
+- **Condition Tracking**: Status effects and conditions synchronized
+- **Action Usage**: Limited abilities and features usage tracked
+- **Temporary HP**: Temp HP changes reflected in DiceCloud
+
+#### 🛠️ Technical Implementation
+- **Meteor DDP**: Uses DiceCloud's real-time communication protocol
+- **Conflict Resolution**: Intelligently handles simultaneous changes
+- **Offline Support**: Queues changes when connection is lost
+- **Error Recovery**: Automatic retry mechanisms for failed syncs
+
+#### ⚠️ Current Limitations
+- **Experimental Status**: Features are in testing and may have bugs
+- **DiceCloud API**: Dependent on DiceCloud's real-time API stability
+- **Performance**: May impact browser performance with large parties
+- **Data Safety**: Backup your DiceCloud data before using
+
+### Getting the Experimental Build
+
+#### Download Experimental Version
+```bash
+# Build experimental version locally
+npm run build:exp
+
+# Or download from releases (when available)
+# Look for files ending in "-experimental.zip"
+```
+
+#### Installation
+Same installation process as standard build, but the extension will show:
+- **Name**: "RollCloud (Experimental Sync)"
+- **Version**: Ends with ".1" (e.g., 1.1.2.1)
+- **Warning banner**: Red notice in popup about experimental features
+
+### Testing Guidelines
+1. **Test Characters**: Use test characters, not main campaign characters
+2. **Backup Data**: Export your DiceCloud character before testing
+3. **Monitor Performance**: Watch for browser performance issues
+4. **Report Issues**: Provide detailed bug reports for any problems
+5. **Rollback Plan**: Be ready to switch back to standard build
+
+### Future Development
+- **Stable Release**: Experimental features will graduate to main build when ready
+- **Enhanced Conflict Resolution**: Better handling of simultaneous edits
+- **Performance Optimization**: Reduced impact on browser performance
+- **Expanded Sync**: More data types synchronized between platforms
+
 ## Installation
 
 ### 🚀 Quick Install (Recommended)
@@ -154,19 +214,27 @@ If you prefer to build the extension yourself:
 
 2. Build browser-specific packages:
    ```bash
+   # Standard build (stable)
    npm run build
+
+   # Experimental build with two-way sync
+   npm run build:exp
    ```
 
 3. Install in your browser:
    - **Chrome/Edge**:
      - Navigate to `chrome://extensions/` or `edge://extensions/`
      - Enable "Developer mode"
-     - Click "Load unpacked" and select `dist/chrome/`
+     - Click "Load unpacked" and select:
+       - `dist/chrome/` for standard build
+       - `dist-experimental/chrome/` for experimental build
 
    - **Firefox**:
      - Navigate to `about:debugging#/runtime/this-firefox`
      - Click "Load Temporary Add-on"
-     - Select any file in `dist/firefox/`
+     - Select any file in:
+       - `dist/firefox/` for standard build
+       - `dist-experimental/firefox/` for experimental build
 
 4. The extension icon should appear in your browser toolbar
 
@@ -638,6 +706,16 @@ If you encounter any issues:
 - 🎯 **Improved Combat Tracking** - Enhanced action economy and turn detection
 - 🎨 **UI/UX Improvements** - Better layout, responsive design, enhanced interactions
 - 🐛 **Bug Fixes** - Various stability and performance improvements
+
+### v1.1.2.1 - Experimental Two-Way Sync
+- 🧪 **Two-Way Synchronization** - Changes in Roll20 automatically update DiceCloud
+- 🔄 **Real-Time Sync** - Hit points, resources, conditions, and action usage tracked
+- 🛠️ **Meteor DDP Integration** - Uses DiceCloud's real-time communication protocol
+- ⚠️ **Experimental Features** - Cutting-edge features for testing and feedback
+- 📊 **Enhanced Data Flow** - Bidirectional sync between platforms
+- 🔧 **Conflict Resolution** - Intelligent handling of simultaneous changes
+- 📱 **Offline Support** - Queues changes when connection is lost
+- 🚨 **Warning System** - Clear indicators for experimental build status
 
 ### v0.9.x - Character Sheet Era
 - ✨ **Interactive Character Sheet Overlay** - Click-to-roll functionality
