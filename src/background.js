@@ -338,8 +338,8 @@ async function storeCharacterData(characterData, slotId) {
     // Store this character's data
     characterProfiles[storageId] = characterData;
 
-    // Set active character to this one if none is set
-    const activeCharacterId = result.activeCharacterId || storageId;
+    // Set active character to this one (always update to most recent sync)
+    const activeCharacterId = storageId;
 
     await browserAPI.storage.local.set({
       characterProfiles: characterProfiles,
