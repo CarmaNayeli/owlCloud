@@ -642,6 +642,7 @@ If you encounter any issues:
 2. Verify you're on the correct Dice Cloud/Roll20 pages
 3. Try clearing the extension data and re-extracting
 4. Open an issue on GitHub with details about your problem
+5. **If all else fails, message me on Discord @Carmabella**
 
 ---
 
