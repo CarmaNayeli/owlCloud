@@ -1223,12 +1223,31 @@
 
         case 'item':
         case 'equipment':
+          // Extract description text from object structure
+          let itemDescription = '';
+          if (prop.description) {
+            if (typeof prop.description === 'string') {
+              itemDescription = prop.description;
+            } else if (typeof prop.description === 'object') {
+              itemDescription = prop.description.text || prop.description.value || '';
+            }
+          }
+
           characterData.inventory.push({
+            _id: prop._id || null,
             name: prop.name || 'Unnamed Item',
+            plural: prop.plural || null,
             quantity: prop.quantity || 1,
             weight: prop.weight || 0,
-            description: prop.description || '',
-            equipped: prop.equipped || false
+            value: prop.value || 0, // Gold piece value
+            description: itemDescription,
+            equipped: prop.equipped || false,
+            requiresAttunement: prop.requiresAttunement || false,
+            attuned: prop.attuned || false,
+            icon: prop.icon || null, // { name, shape, color }
+            tags: prop.tags || [],
+            parent: prop.parent || null,
+            showIncrement: prop.showIncrement !== false // Default true
           });
           break;
 
