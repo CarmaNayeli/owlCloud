@@ -109,26 +109,37 @@ class DiceCloudSync {
                     console.log(`  - ${p.name} (${p.type}): id=${p._id}, value=${p.value}, baseValue=${p.baseValue}, total=${p.total}, damage=${p.damage}, attributeType=${p.attributeType || 'none'}`);
                   });
 
-                  // Priority 1: Find the healthBar attribute type
-                  // This is what tracks current HP with the damage field
-                  let hpProperty = properties.find(p =>
+                  // Find all healthBar attributes
+                  const healthBars = properties.filter(p =>
                     p.type === 'attribute' &&
                     p.attributeType === 'healthBar'
                   );
 
-                  // Priority 2: Find any attribute with a damage field (fallback)
+                  let hpProperty = null;
+
+                  if (healthBars.length > 0) {
+                    // Priority 1: Find the healthBar with the highest total (main HP)
+                    // AND that has a damage field defined (editable)
+                    const editableHealthBars = healthBars.filter(p => p.damage !== undefined);
+                    if (editableHealthBars.length > 0) {
+                      hpProperty = editableHealthBars.sort((a, b) =>
+                        (b.total || 0) - (a.total || 0)
+                      )[0];
+                    }
+
+                    // Priority 2: If no editable ones, just take the one with highest total
+                    if (!hpProperty) {
+                      hpProperty = healthBars.sort((a, b) =>
+                        (b.total || 0) - (a.total || 0)
+                      )[0];
+                    }
+                  }
+
+                  // Priority 3: Find any attribute with a damage field (fallback)
                   if (!hpProperty) {
                     hpProperty = properties.find(p =>
                       p.type === 'attribute' &&
                       p.damage !== undefined
-                    );
-                  }
-
-                  // Priority 3: Find any attribute with a value field
-                  if (!hpProperty) {
-                    hpProperty = properties.find(p =>
-                      p.type === 'attribute' &&
-                      (p.value !== undefined || p.baseValue !== undefined || p.total !== undefined)
                     );
                   }
 
