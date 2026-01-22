@@ -368,10 +368,18 @@ window.initializeDiceCloudSync = function() {
           
           // Also get the character data to get the DiceCloud ID
           try {
-            const charResult = await browserAPI.storage.local.get([result.activeCharacterId]);
+            const charResult = await browserAPI.storage.local.get([result.activeCharacterId, 'characterProfiles']);
             console.log('[DiceCloud Sync] Character data for key:', result.activeCharacterId, charResult);
             
-            const characterData = charResult[result.activeCharacterId];
+            let characterData = charResult[result.activeCharacterId];
+            
+            // If not found in slot key, check characterProfiles
+            if (!characterData && charResult.characterProfiles) {
+              console.log('[DiceCloud Sync] Checking characterProfiles object:', charResult.characterProfiles);
+              characterData = charResult.characterProfiles[result.activeCharacterId];
+              console.log('[DiceCloud Sync] Found character data in characterProfiles:', characterData);
+            }
+            
             if (characterData && characterData.id) {
               console.log('[DiceCloud Sync] Found DiceCloud character ID:', characterData.id);
               window.diceCloudSync.initialize(characterData.id).catch(error => {
@@ -381,7 +389,7 @@ window.initializeDiceCloudSync = function() {
               console.warn('[DiceCloud Sync] No character data found for slot:', result.activeCharacterId);
               
               // Try to find character data in other common keys
-              const commonKeys = ['slot-1', 'slot-2', 'slot-3', 'default', 'characterProfiles'];
+              const commonKeys = ['slot-1', 'slot-2', 'slot-3', 'default'];
               for (const key of commonKeys) {
                 if (key !== result.activeCharacterId) {
                   const testResult = await browserAPI.storage.local.get([key]);
@@ -390,6 +398,20 @@ window.initializeDiceCloudSync = function() {
                     // Use this character data instead
                     window.diceCloudSync.initialize(testResult[key].id).catch(error => {
                       console.error('[DiceCloud Sync] Failed to initialize with fallback key:', error);
+                    });
+                    return;
+                  }
+                }
+              }
+              
+              // Also check characterProfiles for any character data
+              if (charResult.characterProfiles) {
+                console.log('[DiceCloud Sync] Checking all characterProfiles for character data...');
+                for (const [profileKey, profileData] of Object.entries(charResult.characterProfiles)) {
+                  if (profileData && profileData.id) {
+                    console.log(`[DiceCloud Sync] Found character data in characterProfiles.${profileKey}:`, profileData);
+                    window.diceCloudSync.initialize(profileData.id).catch(error => {
+                      console.error('[DiceCloud Sync] Failed to initialize with characterProfiles fallback:', error);
                     });
                     return;
                   }
