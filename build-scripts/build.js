@@ -17,7 +17,7 @@ const { execSync } = require('child_process');
 const args = process.argv.slice(2);
 const isExperimental = args.includes('--experimental') || args.includes('--exp');
 
-const ROOT = __dirname;
+const ROOT = path.join(__dirname, '..'); // Parent directory (project root)
 const DIST = path.join(ROOT, isExperimental ? 'dist-experimental' : 'dist');
 const BUILD_CHROME = path.join(DIST, 'chrome');
 const BUILD_FIREFOX = path.join(DIST, 'firefox');
