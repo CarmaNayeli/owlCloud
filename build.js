@@ -139,6 +139,7 @@ function buildChrome() {
     const manifest = JSON.parse(fs.readFileSync(manifestDest, 'utf8'));
     manifest.name = manifest.name + ' (Experimental Sync)';
     manifest.version = manifest.version.split('.').slice(0, 3).join('.') + '.1';
+    manifest.description = manifest.description + ' - EXPERIMENTAL: Includes two-way sync features for testing';
 
     // Add web_accessible_resources for experimental files
     if (!manifest.web_accessible_resources) {
@@ -216,6 +217,7 @@ function buildFirefox() {
     const manifest = JSON.parse(fs.readFileSync(manifestDest, 'utf8'));
     manifest.name = manifest.name + ' (Experimental Sync)';
     manifest.version = manifest.version.split('.').slice(0, 3).join('.') + '.1';
+    manifest.description = manifest.description + ' - EXPERIMENTAL: Includes two-way sync features for testing';
 
     // Add web_accessible_resources for experimental files
     if (!manifest.web_accessible_resources) {
