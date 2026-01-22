@@ -120,21 +120,37 @@
           <ol>
             <li><strong>Open Dice Cloud</strong> → Navigate to your character sheet</li>
             <li><strong>Click "🔄 Sync from Dice Cloud"</strong> → Capture character data</li>
-            <li><strong>Keep Dice Cloud open</strong> → This is where rolls will happen!</li>
-            <li><strong>Open Roll20</strong> → Character sheet will auto-load with synced data</li>
-            <li><strong>Click "📋 Show Character Sheet"</strong> → Display the overlay</li>
-            <li><strong>Click any ability card</strong> → Roll happens in Dice Cloud, announced in Roll20!</li>
+            <li><strong>Open Roll20</strong> → Navigate to your campaign</li>
+            <li><strong>Click "📋 Show Character Sheet"</strong> → Display the overlay on Roll20</li>
+            <li><strong>Click any ability/skill card</strong> → Roll happens directly in Roll20 chat!</li>
+            <li><strong>Manage combat</strong> → Use GM panel for initiative tracking and action economy</li>
           </ol>
           <div class="workflow-note">
-            <p><strong>⚠️ Important:</strong> Keep both Dice Cloud and Roll20 open for rolls to work!</p>
-            <p><strong>🔄 Workflow:</strong> Roll in Dice Cloud → Forward to Roll20 chat</p>
+            <p><strong>⚠️ Important:</strong> Character data syncs from DiceCloud, but rolls happen in Roll20!</p>
+            <p><strong>🔄 Workflow:</strong> Extract from DiceCloud → Roll in Roll20</p>
+          </div>
+          
+          <!-- Experimental Build Instructions (hidden by default) -->
+          <div id="experimentalInstructions" class="experimental-instructions hidden" style="margin-top: 15px; padding: 12px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px;">
+            <h4 style="margin-top: 0; color: #856404;">🧪 Experimental Features</h4>
+            <ul style="margin-bottom: 0; color: #856404;">
+              <li><strong>Two-Way Sync:</strong> Changes in Roll20 automatically update DiceCloud</li>
+              <li><strong>Real-time Updates:</strong> HP, resources, and conditions sync instantly</li>
+              <li><strong>Action Tracking:</strong> Spell slots and ability uses tracked across platforms</li>
+            </ul>
+            <p style="margin-bottom: 0; font-size: 0.85em; color: #856404;">
+              <strong>⚠️ Experimental:</strong> These features are in testing - report any issues!
+            </p>
           </div>
         </div>
       </div>
     </main>
 
     <footer>
-      <p class="version">v2.0.0 - Sync & Roll System</p>
+      <p class="version" id="versionDisplay">v1.1.2 - Enhanced Authentication</p>
+      <div id="experimentalNotice" class="experimental-notice hidden" style="margin-top: 5px; padding: 8px; background: #ff6b6b; color: white; border-radius: 4px; font-size: 0.85em; text-align: center;">
+        ⚠️ <strong>EXPERIMENTAL BUILD</strong> - Contains two-way sync features
+      </div>
     </footer>
   </div>
 

@@ -40,6 +40,9 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializePopup() {
+  // Check if this is an experimental build
+  checkExperimentalBuild();
+  
   // DOM Elements - Sections
   const loginSection = document.getElementById('loginSection');
   const mainSection = document.getElementById('mainSection');
@@ -634,5 +637,52 @@ function initializePopup() {
     setTimeout(() => {
       loadCharacterData();
     }, 3000);
+  }
+
+  /**
+   * Checks if this is an experimental build and updates UI accordingly
+   */
+  function checkExperimentalBuild() {
+    // Check for experimental build indicators
+    const experimentalIndicators = [
+      () => browserAPI.runtime.getManifest().name.includes('Experimental'),
+      () => browserAPI.runtime.getManifest().version.endsWith('.1'),
+      async () => {
+        try {
+          const files = await browserAPI.runtime.getURL('src/lib/meteor-ddp-client.js');
+          return files && !files.includes('chrome-extension://');
+        } catch (e) {
+          return false;
+        }
+      }
+    ];
+
+    // Check if any indicator returns true
+    Promise.any(experimentalIndicators.map(check => 
+      Promise.resolve(check()).catch(() => false)
+    )).then(isExperimental => {
+      if (isExperimental) {
+        const experimentalNotice = document.getElementById('experimentalNotice');
+        const versionDisplay = document.getElementById('versionDisplay');
+        const experimentalInstructions = document.getElementById('experimentalInstructions');
+        
+        if (experimentalNotice) {
+          experimentalNotice.classList.remove('hidden');
+        }
+        
+        if (versionDisplay) {
+          versionDisplay.textContent = 'v1.1.2.1 - Experimental Sync';
+        }
+        
+        if (experimentalInstructions) {
+          experimentalInstructions.classList.remove('hidden');
+        }
+        
+        debug.log('🧪 Experimental build detected');
+      }
+    }).catch(() => {
+      // Not experimental, keep default display
+      debug.log('📦 Standard build detected');
+    });
   }
 } // End initializePopup
