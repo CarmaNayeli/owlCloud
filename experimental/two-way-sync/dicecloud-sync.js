@@ -313,3 +313,36 @@ class DiceCloudSync {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = DiceCloudSync;
 }
+
+// Global initialization function for browser extension
+window.initializeDiceCloudSync = function() {
+  console.log('[DiceCloud Sync] Global initialization called');
+  
+  // Check if we have a DDP client available
+  if (typeof window.DDPClient === 'undefined') {
+    console.error('[DiceCloud Sync] DDP client not available');
+    return;
+  }
+  
+  // Create sync instance
+  const ddpClient = new window.DDPClient('wss://dicecloud.com/websocket');
+  window.diceCloudSync = new DiceCloudSync(ddpClient);
+  
+  // Try to get current character ID from extension storage
+  if (typeof browserAPI !== 'undefined' && browserAPI.storage) {
+    browserAPI.storage.local.get(['activeCharacterId'], (result) => {
+      if (result.activeCharacterId) {
+        console.log('[DiceCloud Sync] Found active character ID:', result.activeCharacterId);
+        window.diceCloudSync.initialize(result.activeCharacterId).catch(error => {
+          console.error('[DiceCloud Sync] Failed to initialize:', error);
+        });
+      } else {
+        console.log('[DiceCloud Sync] No active character ID found, waiting for manual initialization');
+      }
+    });
+  } else {
+    console.log('[DiceCloud Sync] Browser storage not available, waiting for manual initialization');
+  }
+  
+  console.log('[DiceCloud Sync] Global initialization complete');
+};
