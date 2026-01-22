@@ -4447,7 +4447,7 @@
   // Add debug button for testing sync
   if (window.location.hostname === 'dicecloud.com') {
     const debugButton = document.createElement('button');
-    debugButton.textContent = '🔍 Check Sync Status';
+    debugButton.textContent = '🔍 Check Structure';
     debugButton.style.cssText = `
       position: fixed;
       top: 10px;
@@ -4461,14 +4461,14 @@
       cursor: pointer;
       font-size: 12px;
     `;
-    
+
     debugButton.addEventListener('click', async () => {
-      console.log('🔍 [DiceCloud Debug] Checking sync status...');
-      
+      console.log('🔍 [DiceCloud Structure] Fetching complete property structure...');
+
       // Get current character ID from URL - handle different URL formats
       const pathParts = window.location.pathname.split('/');
       let characterId = null;
-      
+
       // Try different URL patterns
       if (pathParts.includes('character')) {
         // Format: /character/obDHmmtRdhNMkF9a7/New-Character
@@ -4480,9 +4480,9 @@
         // Fallback: assume last part is the ID
         characterId = pathParts[pathParts.length - 1];
       }
-      
-      console.log('🔍 [DiceCloud Debug] Extracted character ID:', characterId);
-      
+
+      console.log('🔍 [DiceCloud Structure] Extracted character ID:', characterId);
+
       if (characterId && characterId !== 'New-Character') {
         try {
           // Fetch current character data
@@ -4491,44 +4491,121 @@
               'Authorization': `Bearer ${localStorage.getItem('Meteor.loginToken')}`
             }
           });
-          
+
           if (response.ok) {
             const data = await response.json();
-            
-            // Find HP properties
-            const hpProps = data.creatureProperties.filter(p => 
+            const properties = data.creatureProperties || [];
+
+            console.log(`🔍 [DiceCloud Structure] Total properties: ${properties.length}`);
+
+            // Build property map for quick lookup
+            const propertyMap = new Map();
+            properties.forEach(p => {
+              if (p._id) {
+                propertyMap.set(p._id, p);
+              }
+            });
+
+            // Build hierarchical structure with path tracking
+            const buildPath = (propId, visited = new Set()) => {
+              if (visited.has(propId)) return '[Circular]';
+              visited.add(propId);
+
+              const prop = propertyMap.get(propId);
+              if (!prop) return '';
+
+              if (prop.parent && prop.parent.id && propertyMap.has(prop.parent.id)) {
+                const parentPath = buildPath(prop.parent.id, visited);
+                return parentPath ? `${parentPath} → ${prop.name || 'Unnamed'}` : (prop.name || 'Unnamed');
+              }
+              return prop.name || 'Unnamed';
+            };
+
+            // Focus on attributes (the main trackable properties)
+            const attributes = properties.filter(p => p.type === 'attribute');
+            console.log(`🔍 [DiceCloud Structure] Found ${attributes.length} attributes`);
+
+            // Group by attributeType
+            const byType = {};
+            attributes.forEach(attr => {
+              const attrType = attr.attributeType || 'unknown';
+              if (!byType[attrType]) byType[attrType] = [];
+              byType[attrType].push(attr);
+            });
+
+            console.log('🔍 [DiceCloud Structure] Attributes by type:', Object.keys(byType));
+
+            // Log all attributes with full details
+            attributes.forEach(attr => {
+              const path = buildPath(attr._id);
+              console.log(`🔍 [DiceCloud Structure] Attribute:`, {
+                path: path,
+                name: attr.name,
+                id: attr._id,
+                type: attr.type,
+                attributeType: attr.attributeType,
+                value: attr.value,
+                baseValue: attr.baseValue,
+                total: attr.total,
+                damage: attr.damage,
+                reset: attr.reset,
+                description: attr.description,
+                parent: attr.parent,
+                tags: attr.tags,
+                inactive: attr.inactive,
+                removed: attr.removed
+              });
+            });
+
+            // Find all HP-related properties (any type)
+            const hpRelated = properties.filter(p =>
               p.name && (
-                p.name.includes('Hit Points') || 
-                p.name.includes('HP')
+                p.name.toLowerCase().includes('hit point') ||
+                p.name.toLowerCase().includes('hp') ||
+                p.name === 'Hit Points'
               )
             );
-            
-            console.log('🔍 [DiceCloud Debug] HP Properties found:', hpProps.map(p => ({
-              name: p.name,
-              id: p._id,
-              value: p.value,
-              dirty: p.dirty,
-              lastUpdated: p.lastUpdated
-            })));
-            
-            // Show alert with current values
-            const hpInfo = hpProps.map(p => 
-              `${p.name}: ${p.value} (dirty: ${p.dirty})`
-            ).join('\n');
-            
-            alert(`Current HP Values:\n\n${hpInfo}\n\nCheck console for more details.`);
+
+            console.log('═══════════════════════════════════════════════════════');
+            console.log('🔍 [DiceCloud Structure] HP-RELATED PROPERTIES:');
+            console.log('═══════════════════════════════════════════════════════');
+
+            hpRelated.forEach(prop => {
+              const path = buildPath(prop._id);
+              console.log(`📍 PATH: ${path}`);
+              console.log(`   Name: ${prop.name}`);
+              console.log(`   ID: ${prop._id}`);
+              console.log(`   Type: ${prop.type}`);
+              console.log(`   AttributeType: ${prop.attributeType || 'N/A'}`);
+              console.log(`   Value: ${prop.value}`);
+              console.log(`   BaseValue: ${JSON.stringify(prop.baseValue)}`);
+              console.log(`   Total: ${prop.total}`);
+              console.log(`   Damage: ${prop.damage}`);
+              console.log(`   Reset: ${prop.reset}`);
+              console.log(`   Parent: ${prop.parent ? JSON.stringify(prop.parent) : 'None'}`);
+              console.log(`   Tags: ${prop.tags ? prop.tags.join(', ') : 'None'}`);
+              console.log(`   Inactive: ${prop.inactive}`);
+              console.log(`   Removed: ${prop.removed}`);
+              console.log('---------------------------------------------------');
+            });
+
+            console.log('═══════════════════════════════════════════════════════');
+
+            alert(`Structure analyzed!\n\nFound ${properties.length} total properties\n${attributes.length} attributes\n${hpRelated.length} HP-related properties\n\nCheck console for complete hierarchical structure with paths.`);
           } else {
-            console.error('🔍 [DiceCloud Debug] Failed to fetch character data:', response.status);
+            console.error('🔍 [DiceCloud Structure] Failed to fetch character data:', response.status);
+            alert('Failed to fetch character data. Make sure you\'re logged in.');
           }
         } catch (error) {
-          console.error('🔍 [DiceCloud Debug] Error checking sync:', error);
+          console.error('🔍 [DiceCloud Structure] Error checking structure:', error);
+          alert('Error fetching structure. Check console for details.');
         }
       } else {
-        console.error('🔍 [DiceCloud Debug] Could not extract valid character ID from URL');
+        console.error('🔍 [DiceCloud Structure] Could not extract valid character ID from URL');
         alert('Could not extract character ID from URL. Make sure you\'re on a character page.');
       }
     });
-    
+
     document.body.appendChild(debugButton);
   }
 
