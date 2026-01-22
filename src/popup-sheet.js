@@ -432,9 +432,9 @@ async function switchToCharacter(characterId) {
       });
 
       // Send sync message to DiceCloud if experimental sync is available
-      if (window.diceCloudSync && window.diceCloudSync.isEnabled()) {
+      if (typeof window.diceCloudSync !== 'undefined' || (window.opener && window.opener.diceCloudSync)) {
         debug.log('🔄 Sending character data update to DiceCloud sync...');
-        window.postMessage({
+        const syncMessage = {
           type: 'characterDataUpdate',
           characterData: {
             name: characterData.name,
@@ -442,7 +442,15 @@ async function switchToCharacter(characterId) {
             tempHp: characterData.temporaryHP || 0,
             maxHp: characterData.hitPoints.max
           }
-        }, '*');
+        };
+        
+        // Try to send to Roll20 content script
+        window.postMessage(syncMessage, '*');
+        
+        // Also try to send via opener if available
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage(syncMessage, '*');
+        }
       }
 
       debug.log(`💾 Saved current character to browser storage: ${characterData.name} (slotId: ${currentSlotId})`);
@@ -4193,9 +4201,9 @@ function saveCharacterData() {
   });
 
   // Send sync message to DiceCloud if experimental sync is available
-  if (window.diceCloudSync && window.diceCloudSync.isEnabled()) {
+  if (typeof window.diceCloudSync !== 'undefined' || (window.opener && window.opener.diceCloudSync)) {
     debug.log('🔄 Sending character data update to DiceCloud sync...');
-    window.postMessage({
+    const syncMessage = {
       type: 'characterDataUpdate',
       characterData: {
         name: characterData.name,
@@ -4203,7 +4211,15 @@ function saveCharacterData() {
         tempHp: characterData.temporaryHP || 0,
         maxHp: characterData.hitPoints.max
       }
-    }, '*');
+    };
+    
+    // Try to send to Roll20 content script
+    window.postMessage(syncMessage, '*');
+    
+    // Also try to send via opener if available
+    if (window.opener && !window.opener.closed) {
+      window.opener.postMessage(syncMessage, '*');
+    }
   }
 
   // Also send to window opener if available (for backwards compatibility)
