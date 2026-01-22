@@ -341,35 +341,71 @@ window.initializeDiceCloudSync = function() {
   
   console.log('[DiceCloud Sync] Sync instance created, checking for active character...');
   
-  // Try to get current character ID from extension storage
-  if (typeof browserAPI !== 'undefined' && browserAPI.storage) {
-    browserAPI.storage.local.get(['activeCharacterId'], (result) => {
-      console.log('[DiceCloud Sync] Storage result:', result);
-      
-      if (result.activeCharacterId) {
-        console.log('[DiceCloud Sync] Found active character ID:', result.activeCharacterId);
+  // Function to try initialization
+  const tryInitialize = () => {
+    // Try to get current character ID from extension storage
+    if (typeof browserAPI !== 'undefined' && browserAPI.storage) {
+      browserAPI.storage.local.get(['activeCharacterId'], (result) => {
+        console.log('[DiceCloud Sync] Storage result:', result);
         
-        // Also get the character data to get the DiceCloud ID
-        browserAPI.storage.local.get([result.activeCharacterId], (charResult) => {
-          console.log('[DiceCloud Sync] Character data:', charResult);
+        if (result.activeCharacterId) {
+          console.log('[DiceCloud Sync] Found active character ID:', result.activeCharacterId);
           
-          const characterData = charResult[result.activeCharacterId];
-          if (characterData && characterData.id) {
-            console.log('[DiceCloud Sync] Found DiceCloud character ID:', characterData.id);
-            window.diceCloudSync.initialize(characterData.id).catch(error => {
-              console.error('[DiceCloud Sync] Failed to initialize:', error);
-            });
-          } else {
-            console.warn('[DiceCloud Sync] No character data found for slot:', result.activeCharacterId);
-          }
-        });
-      } else {
-        console.log('[DiceCloud Sync] No active character ID found, waiting for manual initialization');
-      }
-    });
-  } else {
-    console.log('[DiceCloud Sync] Browser storage not available, waiting for manual initialization');
-  }
+          // Also get the character data to get the DiceCloud ID
+          browserAPI.storage.local.get([result.activeCharacterId], (charResult) => {
+            console.log('[DiceCloud Sync] Character data:', charResult);
+            
+            const characterData = charResult[result.activeCharacterId];
+            if (characterData && characterData.id) {
+              console.log('[DiceCloud Sync] Found DiceCloud character ID:', characterData.id);
+              window.diceCloudSync.initialize(characterData.id).catch(error => {
+                console.error('[DiceCloud Sync] Failed to initialize:', error);
+              });
+            } else {
+              console.warn('[DiceCloud Sync] No character data found for slot:', result.activeCharacterId);
+            }
+          });
+        } else {
+          console.log('[DiceCloud Sync] No active character ID found, will retry...');
+        }
+      });
+    } else {
+      console.log('[DiceCloud Sync] Browser storage not available, waiting for manual initialization');
+    }
+  };
+  
+  // Try immediately
+  tryInitialize();
+  
+  // Also set up a retry mechanism in case character data loads later
+  let retryCount = 0;
+  const retryInterval = setInterval(() => {
+    retryCount++;
+    console.log(`[DiceCloud Sync] Retry attempt ${retryCount} to find character data...`);
+    
+    if (typeof browserAPI !== 'undefined' && browserAPI.storage) {
+      browserAPI.storage.local.get(['activeCharacterId'], (result) => {
+        if (result.activeCharacterId) {
+          console.log('[DiceCloud Sync] Found active character ID on retry:', result.activeCharacterId);
+          clearInterval(retryInterval);
+          
+          // Get character data and initialize
+          browserAPI.storage.local.get([result.activeCharacterId], (charResult) => {
+            const characterData = charResult[result.activeCharacterId];
+            if (characterData && characterData.id) {
+              console.log('[DiceCloud Sync] Found DiceCloud character ID on retry:', characterData.id);
+              window.diceCloudSync.initialize(characterData.id).catch(error => {
+                console.error('[DiceCloud Sync] Failed to initialize on retry:', error);
+              });
+            }
+          });
+        } else if (retryCount >= 10) {
+          console.log('[DiceCloud Sync] Max retries reached, stopping retry attempts');
+          clearInterval(retryInterval);
+        }
+      });
+    }
+  }, 2000); // Check every 2 seconds
   
   console.log('[DiceCloud Sync] Global initialization complete');
 };
