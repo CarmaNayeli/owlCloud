@@ -680,6 +680,12 @@
           break;
 
         case 'feature':
+          // Skip inactive or disabled features (handles expired temporary features)
+          if (prop.inactive || prop.disabled) {
+            debug.log(`⏭️ Skipping inactive/disabled feature: ${prop.name}`);
+            break;
+          }
+
           // Extract features, especially those with rolls (like Sneak Attack)
           const feature = {
             name: prop.name || 'Unnamed Feature',
@@ -719,6 +725,12 @@
         case 'toggle':
           // Extract features from ALL toggles (enabled or disabled on DiceCloud)
           // Our sheet will have its own independent toggle to control when to use them
+          // BUT skip inactive toggles (these are expired/removed temporary features)
+          if (prop.inactive || prop.disabled) {
+            debug.log(`⏭️ Skipping inactive/disabled toggle: ${prop.name}`);
+            break;
+          }
+
           debug.log(`🔘 Found toggle: ${prop.name} (enabled on DiceCloud: ${prop.enabled})`);
           debug.log(`🔘 Toggle full object:`, prop);
 
@@ -766,7 +778,13 @@
             });
 
             // Process each child (features, damage, effects, etc.)
+            // Skip if parent toggle or child is inactive/disabled
             toggleChildren.forEach(child => {
+              // Skip inactive or disabled children (handles temporary/expired features)
+              if (child.inactive || child.disabled) {
+                debug.log(`⏭️ Skipping inactive/disabled toggle child: ${child.name}`);
+                return;
+              }
               if (child.type === 'feature' || child.type === 'damage' || child.type === 'effect') {
                 // Extract description from summary or description field
                 let childDescription = '';
