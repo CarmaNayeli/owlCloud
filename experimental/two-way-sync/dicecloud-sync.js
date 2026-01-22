@@ -878,6 +878,25 @@ class DiceCloudSync {
 
       console.log(`[DiceCloud Sync] Updating spell slot level ${level} to ${slotsRemaining} remaining`);
 
+      // First, let's debug what the spell slot property looks like
+      const debugTokenResult = await browserAPI.storage.local.get(['diceCloudToken']);
+      if (debugTokenResult.diceCloudToken && this.characterId) {
+        const debugResponse = await browserAPI.runtime.sendMessage({
+          action: 'fetchDiceCloudAPI',
+          url: `https://dicecloud.com/api/creature/${this.characterId}`,
+          token: debugTokenResult.diceCloudToken
+        });
+
+        if (debugResponse.success && debugResponse.data) {
+          const spellSlotProp = debugResponse.data.creatureProperties.find(p => p._id === propertyId);
+          if (spellSlotProp) {
+            // Log as JSON for easy reading (all fields auto-expanded)
+            console.log(`[DiceCloud Sync] 🔍 Spell slot property structure:\n` +
+              JSON.stringify(spellSlotProp, null, 2));
+          }
+        }
+      }
+
       const result = await this.queueRequest(
         () => this.ddp.call('creatureProperties.update', {
           _id: propertyId,
