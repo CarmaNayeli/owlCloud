@@ -9,168 +9,46 @@ A browser extension that integrates Dice Cloud with Roll20. Import D&D character
 ## Features
 
 ### Character Import
-- **API-Powered**: Uses DiceCloud's official REST API for reliable, standardized data extraction
-- **Smart Parsing**: Leverages DiceCloud's standardized variable names (strength, dexterity, etc.)
-- **Secure Authentication**: Login with your DiceCloud credentials (stored locally in browser)
-- **Auto-Connect (NEW!)**: Automatically extracts authentication token from logged-in DiceCloud session
-- **Token Expiry Handling**: Proper token management per DiceCloud API documentation
-- **One-Click Export**: Extract character data from Dice Cloud with a single click
-- **Easy Import**: Import character data directly into Roll20 character sheets
-- **Data Persistence**: Character data is stored locally between Dice Cloud and Roll20 sessions
+- **API-Powered**: Uses DiceCloud's official REST API for data extraction
+- **Smart Parsing**: Leverages DiceCloud's standardized variable names
+- **Secure Authentication**: Login with DiceCloud credentials (stored locally)
+- **Auto-Connect**: Automatically extracts authentication token from logged-in session
+- **One-Click Export**: Extract character data with a single click
+- **Data Persistence**: Character data stored locally between sessions
 
-### Interactive Character Sheet & Dice Rolling (NEW!)
-- **Character Sheet Overlay**: Interactive overlay displays your DiceCloud character data on Roll20
-- **Click-to-Roll**: Click any ability, skill, or save in the overlay to roll dice
-- **Direct Roll20 Integration**: Rolls are posted directly to Roll20's chat using native roll commands
-- **Roll Options**: Support for advantage/disadvantage, custom modifiers, and roll settings
-- **Character Attribution**: Rolls automatically appear under your character's name in Roll20
-- **Guidance**: Pre-roll popup asks to add 1d4 to ability checks (consumes buff, follows 5e RAW timing)
-- **Bless**: Automatically adds +1d4 to attack rolls and saves (no popup needed, auto-apply)
+### Interactive Character Sheet & Dice Rolling
+- **Character Sheet Overlay**: Interactive overlay displays character data on Roll20
+- **Click-to-Roll**: Click any ability, skill, or save to roll dice
+- **Direct Roll20 Integration**: Rolls posted directly to Roll20 chat
+- **Roll Options**: Support for advantage/disadvantage and custom modifiers
+- **Character Attribution**: Rolls appear under character's name in Roll20
+- **Guidance & Bless**: Automatic +1d4 for ability checks and attacks/saves
 
 ### GM Combat Management
-- **GM Initiative Tracker**: Combat management system with automatic turn detection
-- **Action Economy Tracking**: Automatic action/bonus action/reaction usage tracking per turn
-- **Turn-Based Visual Indicators**: Action economy lights up for current character, greys out for others
-- **Chat History Integration**: Checks recent chat messages when switching tabs or opening sheets
-- **D&D 5e Rules Compliance**: Enforces one reaction per round, proper action tracking
-- **Turn Notifications**: Automatic turn detection and action economy activation
+- **GM Initiative Tracker**: Combat management with automatic turn detection
+- **Action Economy Tracking**: Automatic action/bonus action/reaction tracking
+- **Turn-Based Visual Indicators**: Action economy lights up for current character
+- **Chat History Integration**: Checks recent chat messages for turn detection
+- **D&D 5e Rules Compliance**: Enforces one reaction per round, proper tracking
 - **Hidden Rolls**: GM Mode hides rolls until revealed
 - **Player Overview**: Track party member HP, AC, and conditions
-- **Turn History**: Log combat actions with export functionality
-- **Delayed Actions**: Support for delayed combatant turns
 
-### Lucky Feat System (NEW!)
-- **Lucky Feat Integration**: Manual action button with modal interface for offensive/defensive usage
-- **Character State Preservation**: Cache system prevents resource refreshing when switching characters
-- **Resource Management**: Lucky points tracking without duplication (filtered from resources display)
+### Lucky Feat System
+- **Lucky Feat Integration**: Manual action button with modal interface
+- **Character State Preservation**: Cache system prevents resource refreshing
+- **Resource Management**: Lucky points tracking without duplication
 - **Roll20 Integration**: Lucky rolls sent to chat with proper formatting
-- **UI Updates**: Lucky point count updates
 
 ### Effects & Buffs System
 - **Buffs & Debuffs**: System for managing active effects
 - **Auto-Apply**: Automatic modifiers for rolls based on active effects
-- **Visual Indicators**: Display of active conditions and buffs
 - **Effect Persistence**: Effects maintained across character switching
-
-### User Experience
-- **Interface**: Clean popup UI and floating action buttons on both platforms
-- **Debug Tools**: Built-in debugging for troubleshooting roll detection
-- **Cross-Platform**: Works on Chrome, Edge, and other Chromium-based browsers
-
-## What Gets Imported
-
-The extension uses DiceCloud's standardized variable names and property types to extract:
-
-**Core Stats (from creatureVariables)**:
-- Character Name, Race, Class, Level, Background, Alignment
-- Ability Scores (strength, dexterity, constitution, intelligence, wisdom, charisma)
-- Ability Modifiers (strengthMod, dexterityMod, etc.)
-- Saving Throws (strengthSave, dexteritySave, etc.)
-- All 18 D&D 5e Skills (acrobatics, athletics, etc.)
-- Hit Points (current & max from hitPoints variable)
-- Armor Class (armorClass variable)
-- Speed, Initiative, Proficiency Bonus
-
-**Character Properties (from creatureProperties)**:
-- Classes & Class Levels
-- Race & Racial Traits
-- Background Features
-- Feats & Features
-- Spells (with level, school, components, descriptions)
-- Equipment & Inventory Items
-- Proficiencies (weapons, armor, tools, languages)
-
-## 🔐 Authentication Improvements (Latest)
-
-### Enhanced Login Experience
-- **Auto-Connect Button**: One-click authentication using your existing DiceCloud session
-- **Session Token Extraction**: Automatically detects and uses your logged-in DiceCloud credentials
-- **Simplified Flow**: No more manual token entry - just click and connect
-- **Token Expiry Management**: Handles token refresh and expiration gracefully per API standards
-
-### Security & Reliability
-- **Local Storage**: Authentication tokens stored securely in your browser only
-- **API Compliance**: Follows DiceCloud's official authentication guidelines
-- **Error Handling**: Clear error messages for authentication issues
-- **Session Persistence**: Maintains login state across browser sessions
-
-## 🧪 Experimental Build - Two-Way Sync
-
-### Overview
-The experimental build contains two-way synchronization code that allows changes made in Roll20 to update DiceCloud character sheets using Meteor's DDP protocol.
-
-### Current Implementation Status
-
-#### ✅ What's Implemented
-- **Meteor DDP Client**: Complete WebSocket client for DiceCloud communication
-- **Build System**: Experimental builds compile with `npm run build:exp`
-- **HP Sync Logic**: Property cache system to identify correct Hit Points fields
-- **Documentation**: Implementation guides and technical documentation
-
-#### ⚠️ Current Limitations
-- **Integration Gap**: Experimental files are copied during build but not integrated into main extension code
-- **Manual Testing**: Requires manual file copying and extension reloading
-- **Limited Scope**: Only Hit Points sync is partially implemented
-- **No UI Controls**: No settings toggle to enable/disable sync
-
-#### 🛠️ Technical Details
-- **Protocol**: Uses Meteor DDP over WebSocket (`wss://dicecloud.com/websocket`)
-- **Authentication**: Leverages existing DiceCloud API tokens
-- **API Method**: Calls `creatureProperties.update` for property changes
-- **Build Output**: `dist-experimental/` directory with modified manifest
-
-### Known Issues
-- **Property Selection**: System may update temporary HP instead of main HP (fixed in latest commit)
-- **Extension Reload**: Changes require manual extension reload in browser
-- **Error Handling**: Limited error recovery and user feedback
-
-### Building and Testing
-
-#### Build Commands
-```bash
-# Standard build (stable)
-npm run build
-
-# Experimental build with two-way sync
-npm run build:exp
-# or
-npm run build:experimental
-```
-
-#### Installation
-1. Build experimental version: `npm run build:exp`
-2. Load in browser:
-   - Chrome: `chrome://extensions/` → Load unpacked → `dist-experimental/chrome/`
-   - Firefox: `about:debugging` → Load Temporary Add-on → `dist-experimental/firefox/manifest.json`
-
-#### Testing Process
-1. Use test characters, not main campaign characters
-2. Backup DiceCloud data before testing
-3. Monitor browser console for `[DDP]` and `[Sync]` messages
-4. Verify property updates in DiceCloud after Roll20 changes
-
-### Development Status
-The experimental build is approximately 75% complete. Core DDP functionality exists but requires full integration with the main extension codebase.
-
-### Required Integration Work
-To complete implementation:
-1. Import DDP client in background script
-2. Add WebSocket connection management
-3. Implement message handlers for sync requests
-4. Add settings UI for sync toggle
-5. Complete property ID caching system
-6. Add comprehensive error handling
-
-### Documentation
-- `BUILD-EXPERIMENTAL.md` - Build instructions
-- `dist-experimental/chrome/IMPLEMENTATION_GUIDE.md` - Complete integration guide
-- `experimental/two-way-sync/README.md` - Technical overview
 
 ## Installation
 
 ### 🚀 Quick Install (Recommended)
 
-Download the pre-built extension for your browser - all features included and ready to use!
+Download the pre-built extension for your browser:
 
 #### 🦊 Firefox
 [**Download RollCloud for Firefox**](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-firefox.zip)
@@ -209,60 +87,6 @@ Download the pre-built extension for your browser - all features included and re
 4. **Follow** the Xcode setup prompts
 5. **Build** and run the project (⌘R)
 6. **Enable** the extension in Safari preferences
-
-📖 **For detailed Safari instructions and troubleshooting, see [SAFARI.md](SAFARI.md)**
-
----
-
-### Build From Source (Advanced)
-
-If you prefer to build the extension yourself:
-
-1. Clone this repository:
-   ```bash
-   git clone https://github.com/YourUsername/rollCloud.git
-   cd rollCloud
-   ```
-
-2. Build browser-specific packages:
-   ```bash
-   # Standard build (stable)
-   npm run build
-
-   # Experimental build with two-way sync
-   npm run build:exp
-   ```
-
-3. Install in your browser:
-   - **Chrome/Edge**:
-     - Navigate to `chrome://extensions/` or `edge://extensions/`
-     - Enable "Developer mode"
-     - Click "Load unpacked" and select:
-       - `dist/chrome/` for standard build
-       - `dist-experimental/chrome/` for experimental build
-
-   - **Firefox**:
-     - Navigate to `about:debugging#/runtime/this-firefox`
-     - Click "Load Temporary Add-on"
-     - Select any file in:
-       - `dist/firefox/` for standard build
-       - `dist-experimental/firefox/` for experimental build
-
-4. The extension icon should appear in your browser toolbar
-
-### From Source (Development)
-
-For development without building, see [BUILD.md](BUILD.md) for manual installation instructions
-
-### Adding Icons (Optional)
-
-The extension requires icon files in the `icons/` directory. You can add your own PNG icons:
-- `icon16.png` (16x16)
-- `icon32.png` (32x32)
-- `icon48.png` (48x48)
-- `icon128.png` (128x128)
-
-Or create simple placeholder icons using an image editor.
 
 ## Usage
 
@@ -324,217 +148,64 @@ Once you've imported your character data:
    - Roll an additional d20 and pick the better result
    - Lucky points are tracked automatically and deducted after use
 
-4. **Effects & Buffs Management**:
-   - View active effects and conditions in the Effects panel
-   - Apply temporary buffs and debuffs that modify rolls automatically
-   - Effects persist across character switching for seamless gameplay
+## 🧪 Experimental Build - Two-Way Sync
 
-5. **Advanced Features**:
-   - Track HP, spell slots, and resources in real-time
-   - Manage concentration, death saves, and temporary HP
-   - Apply conditions and buffs to your character
-   - Switch between multiple character profiles with preserved state
+### Overview
+The experimental build contains two-way synchronization code that allows changes made in Roll20 to update DiceCloud character sheets using Meteor's DDP protocol.
 
-**Note**: The character sheet overlay appears on Roll20, not on DiceCloud. You roll using your imported character data.
+### Current Implementation Status
 
-### GM Panel Features
+#### ✅ What's Implemented
+- **Meteor DDP Client**: Complete WebSocket client for DiceCloud communication
+- **Build System**: Experimental builds compile with `npm run build:exp`
+- **HP Sync Logic**: Property cache system to identify correct Hit Points fields
+- **Documentation**: Implementation guides and technical documentation
 
-For Game Masters, the extension provides powerful combat management:
+#### ⚠️ Current Limitations
+- **Integration Gap**: Experimental files are copied during build but not integrated into main extension code
+- **Manual Testing**: Requires manual file copying and extension reloading
+- **Limited Scope**: Only Hit Points sync is partially implemented
+- **No UI Controls**: No settings toggle to enable/disable sync
 
-1. **Open GM Panel**:
-   - Click the "🎮 GM Panel" button on Roll20
-   - Requires GM permissions in the Roll20 game
+### Building and Testing
 
-2. **Combat Tracking**:
-   - Automatic turn detection from Roll20's turn tracker
-   - Action economy tracking for each combatant
-   - Visual indicators for current turn's available actions
-
-3. **Party Management**:
-   - View all party members' HP, AC, and conditions
-   - Track hidden rolls and reveal them dramatically
-   - Export turn history for session records
-
-4. **Advanced GM Tools**:
-   - Support for delayed actions and readied actions
-   - Combat log with searchable history
-   - Player status overview for quick reference
-
-## How It Works
-
-### Character Data Import
-
-1. **Authentication** (`background.js`):
-   - Handles login to DiceCloud API (`POST /api/login`)
-   - Stores API bearer token securely in Chrome storage
-   - Manages token expiration and refresh
-
-2. **Data Extraction** (`dicecloud.js`):
-   - Extracts character ID from URL
-   - Makes API call to `GET /api/creature/:id` with bearer token
-   - Parses response using DiceCloud's standardized variable names
-   - Extracts data from `creatureVariables` (calculated stats) and `creatureProperties` (features, spells, etc.)
-   - No DOM scraping - all data comes from official API
-
-3. **Data Import** (`roll20.js`):
-   - Receives structured character data
-   - Populates Roll20 character sheet fields
-   - Maps DiceCloud properties to Roll20 equivalents
-
-### Interactive Character Sheet & Dice Rolling
-
-1. **Character Sheet Overlay** (`character-sheet-overlay.js`):
-   - Creates interactive popup window displaying all character data
-   - Renders abilities, skills, saves, spells, and resources as clickable cards
-   - Handles user clicks and generates dice roll commands
-   - Manages roll settings (advantage/disadvantage, modifiers)
-
-2. **Message Passing** (`background.js`):
-   - Coordinates communication between overlay and Roll20
-   - Manages character data storage and synchronization
-   - Handles multi-character profile switching
-
-3. **Roll Posting** (`roll20.js`):
-   - Receives roll commands from the character sheet overlay
-   - Formats rolls using Roll20's native dice notation (`/roll 1d20+5`)
-   - Posts rolls to Roll20 chat using the chat input interface
-   - Monitors roll results for natural 1s/20s (for racial trait features)
-
-### Communication Architecture
-
-```
-DiceCloud API                Background Script              Roll20 Tab
-     │                              │                             │
-     ├─► Character Data             │                             │
-     ├─────────────────────────────►│                             │
-     │   (API Request)              │                             │
-     │                              ├─► Store Character Data      │
-     │                              │   (Chrome Storage)          │
-     │                              │                             │
-     │                              ├────────────────────────────►│
-     │                              │  Send Character Data       │
-     │                              │                             ├─► Show Overlay
-     │                              │                             ├─► User Clicks Ability
-     │                              │                             ├─► Generate Roll Command
-     │                              │                             ├─► Post to Chat
-     │                              │                             └─► Monitor Result
-```
-
-### Popup Interface
-- Login form for DiceCloud authentication
-- User-friendly control panel
-- Shows current character data status
-- Manual extract/import controls
-
-## Project Structure
-
-```
-rollCloud/
-├── manifest.json              # Chrome manifest (Manifest V3) - default
-├── manifest-firefox.json      # Firefox manifest (Manifest V2)
-├── build.js                   # Automated build script
-├── package.json               # npm scripts and metadata
-├── src/
-│   ├── background.js          # Service worker for data handling & message passing
-│   ├── common/
-│   │   └── browser-polyfill.js # Cross-browser API compatibility layer
-│   ├── content/
-│   │   ├── dicecloud.js       # DiceCloud data extraction & roll detection
-│   │   ├── roll20.js          # Roll20 data import & roll posting
-│   │   ├── character-sheet-overlay.js # Character sheet overlay UI
-│   │   └── dice-fix.js        # DiceCloud dice rendering fixes
-│   └── popup/
-│       ├── popup.html         # Popup UI
-│       ├── popup.css          # Popup styles
-│       └── popup.js           # Popup logic
-├── icons/                     # Extension icons
-├── dist/                      # Build output (generated by build.js)
-│   ├── chrome/                # Chrome build
-│   ├── firefox/               # Firefox build
-│   ├── rollcloud-chrome.zip   # Chrome package
-│   └── rollcloud-firefox.zip  # Firefox package
-├── README.md                  # This file
-├── BUILD.md                   # Build instructions
-└── DEBUGGING_ROLLS.md         # Roll detection debugging guide
-```
-
-## Development
-
-### Prerequisites
-
-- Node.js (for build script)
-- Chrome/Edge and/or Firefox
-- Basic understanding of JavaScript and browser extensions
-
-### Building for Development
-
+#### Build Commands
 ```bash
-# Build packages for both browsers
+# Standard build (stable)
 npm run build
 
-# Output will be in dist/chrome/ and dist/firefox/
+# Experimental build with two-way sync
+npm run build:exp
+# or
+npm run build:experimental
 ```
 
-### Modifying the Extension
+#### Installation
+1. Build experimental version: `npm run build:exp`
+2. Load in browser:
+   - Chrome: `chrome://extensions/` → Load unpacked → `dist-experimental/chrome/`
+   - Firefox: `about:debugging` → Load Temporary Add-on → `dist-experimental/firefox/manifest.json`
 
-1. Make your changes to the source files
-2. Rebuild: `npm run build`
-3. In your browser:
-   - **Chrome**: Go to `chrome://extensions/`, click refresh icon
-   - **Firefox**: Go to `about:debugging`, reload the extension
-4. Test your changes on Dice Cloud and Roll20
-
-### Quick Development (Without Build)
-
-For rapid development without rebuilding:
-- **Chrome**: Load the root directory directly (uses `manifest.json`)
-- **Firefox**: See [BUILD.md](BUILD.md) for manual manifest swap instructions
-
-### Debugging
-
-- **Content Scripts**: Use the browser's DevTools console on Dice Cloud/Roll20 pages
-- **Background Script**: Click "Service Worker" link in the extension details
-- **Popup**: Right-click the extension popup → "Inspect"
-
-## Compatibility
-
-- **Browsers**:
-  - Chrome, Edge, Brave, and other Chromium-based browsers (Manifest V3)
-  - Firefox 109+ (Manifest V2)
-  - Cross-browser support via unified API polyfill
-- **Dice Cloud**: Works with the current Dice Cloud interface
-- **Roll20**: Compatible with standard Roll20 character sheets
-
-## DiceCloud API Integration
-
-This extension follows best practices recommended by DiceCloud developers:
-
-### Standardized Variable Names
-Instead of DOM scraping, the extension uses DiceCloud's standardized variable names:
-- **Abilities**: `strength`, `dexterity`, `constitution`, `intelligence`, `wisdom`, `charisma`
-- **Ability Mods**: `strengthMod`, `dexterityMod`, etc.
-- **Saves**: `strengthSave`, `dexteritySave`, etc.
-- **Skills**: All 18 standard D&D skills (`acrobatics`, `athletics`, `perception`, etc.)
-- **Combat**: `armorClass`, `hitPoints`, `speed`, `initiative`, `proficiencyBonus`
-
-### Property Types
-The extension parses DiceCloud's property types:
-- `class` / `classLevel` - Character classes and levels
-- `race` - Character race
-- `background` - Character background
-- `feature` - Class features, racial traits, feats
-- `spell` - Spell list with all details
-- `item` / `equipment` - Inventory items
-- `proficiency` - Weapon, armor, tool, and language proficiencies
-
-This approach ensures compatibility with DiceCloud's data model and future updates.
+#### Testing Process
+1. Use test characters, not main campaign characters
+2. Backup DiceCloud data before testing
+3. Monitor browser console for `[DDP]` and `[Sync]` messages
+4. Verify property updates in DiceCloud after Roll20 changes
 
 ## Troubleshooting
 
+### Character Import Issues
+- **"Not logged in to DiceCloud"**: Click extension icon and login again
+- **"API token expired"**: Your session expired; login again via the popup
+- **"Not on a character page"**: Navigate to a DiceCloud character sheet
+- **Fields not populating in Roll20**: Try Shift+Click for field debug mode
+
+### Roll20 Chat Issues
+- **Rolls not appearing**: Ensure Roll20 tab is open and chat is visible
+- **Wrong character speaking**: Re-import character data to update name
+- **Template errors**: Using a custom Roll20 sheet? May need template customization
+
 ### Character Sheet Overlay Issues
-
-If the character sheet overlay isn't working properly:
-
 1. **Sheet Won't Open**:
    - Check that you've imported character data first
    - Look for the "📋 Character Sheet" button in bottom-right of Roll20
@@ -547,94 +218,6 @@ If the character sheet overlay isn't working properly:
    - Verify character name is set in the imported data
    - Try refreshing the Roll20 page
 
-3. **Character Data Not Loading**:
-   - Click "🔄 Sync Data" button in the overlay header
-   - Re-import character data from DiceCloud
-   - Check extension popup to verify data is stored
-   - Clear browser cache and re-import if needed
-
-4. **Popup Blocked**:
-   - Allow popups for Roll20 in your browser settings
-   - Check for popup blocker notifications in the address bar
-   - Try using the inline overlay instead of popup mode
-
-### Lucky Feat Issues
-
-1. **Lucky Button Not Visible**:
-   - Ensure your character has the Lucky feat in DiceCloud
-   - Check that Lucky points are available (not exhausted)
-   - Re-import character data to update feat information
-
-2. **Lucky Points Not Tracking**:
-   - Refresh the character sheet overlay
-   - Check the Resources section for Lucky point count
-   - Verify Lucky resources are properly configured in DiceCloud
-
-3. **Lucky Roll Not Working**:
-   - Ensure you're connected to Roll20 chat
-   - Check that character name is properly set
-   - Try a regular roll first to test connectivity
-
-### GM Panel Issues
-
-1. **GM Panel Not Accessible**:
-   - Verify you have GM permissions in the Roll20 game
-   - Check that you're the game's creator or have been promoted
-   - Refresh the Roll20 page and try again
-
-2. **Turn Detection Not Working**:
-   - Ensure Roll20's turn tracker is enabled
-   - Check that combatants are properly added to the tracker
-   - Try manually advancing the turn to trigger detection
-
-3. **Action Economy Not Updating**:
-   - Verify the current turn is detected correctly
-   - Check that character names match between Roll20 and imported data
-   - Refresh the GM panel to sync current state
-
-### Character Import Issues
-
-- **"Not logged in to DiceCloud"**: Click extension icon and login again
-- **"API token expired"**: Your session expired; login again via the popup
-- **"Not on a character page"**: Navigate to a DiceCloud character sheet
-- **Fields not populating in Roll20**: Try Shift+Click for field debug mode
-
-### Roll20 Chat Issues
-
-- **Rolls not appearing**: Ensure Roll20 tab is open and chat is visible
-- **Wrong character speaking**: Re-import character data to update name
-- **Template errors**: Using a custom Roll20 sheet? May need template customization
-
-## Known Limitations
-
-### Character Import
-- Roll20's character sheet structure varies by game system; the extension targets the default D&D 5E sheet
-- Complex character features may not map perfectly between systems
-- Some custom Dice Cloud fields may not have Roll20 equivalents
-- API token may expire; simply login again if you receive authentication errors
-
-### Character Sheet Overlay & Dice Rolling
-- Overlay displays on Roll20; character data must be imported first
-- Requires Roll20 tab to be open and active for rolls to post
-- Some advanced features (racial traits, class features) may need manual configuration
-- Roll results are generated by Roll20's dice engine, not pre-calculated
-
-## Contributing
-
-Contributions are welcome. Submit issues or pull requests as needed.
-
-## License
-
-MIT License - Feel free to use and modify as needed.
-
-## Acknowledgments
-
-- [Dice Cloud](https://github.com/ThaumRystra/DiceCloud) by ThaumRystra
-- [DiceCloud REST API Documentation](https://dicecloud.com/api)
-- [Roll20](https://roll20.net) virtual tabletop platform
-- [Beyond20](https://github.com/kakaroto/Beyond20) by kakaroto - inspiration for roll forwarding architecture
-- DiceCloud developer for API integration guidance
-
 ## Support
 
 If you encounter any issues:
@@ -643,37 +226,6 @@ If you encounter any issues:
 3. Try clearing the extension data and re-extracting
 4. Open an issue on GitHub with details about your problem
 5. **If all else fails, message me on Discord @Carmabella**
-
----
-
-## 📋 Version History
-
-### v1.1.2 - Enhanced Authentication & Auto-Connect
-- 🔐 **Auto-Connect Feature** - One-click authentication using existing DiceCloud session
-- 🎟️ **Token Management** - Proper token expiry handling per DiceCloud API documentation
-- 🔄 **Simplified Login Flow** - Automatic session detection, no manual token entry required
-- ✨ **Character Sheet Overhaul** - Redesigned character sheet interface
-- 🍀 **Lucky Feat Integration** - Lucky feat implementation with modal interface
-- 🎮 **Enhanced GM Panel** - Hidden rolls, player overview, turn history
-- 🔮 **Effects System** - Buffs, debuffs, and condition management
-- 💾 **Character State Preservation** - Cache system for character switching
-- 🎯 **Improved Combat Tracking** - Enhanced action economy and turn detection
-- 🎨 **UI/UX Improvements** - Better layout, responsive design, enhanced interactions
-- 🐛 **Bug Fixes** - Various stability and performance improvements
-
-### v1.1.2.1 - Experimental Two-Way Sync
-- 🧪 **Two-Way Synchronization**: Changes in Roll20 can update DiceCloud via Meteor DDP
-- 🛠️ **DDP Client**: Complete WebSocket client for DiceCloud communication
-- 📊 **Property Cache**: System to identify and target correct DiceCloud properties
-- ⚠️ **Partial Implementation**: Core functionality exists but requires integration work
-- 🔧 **Build System**: Experimental builds available via `npm run build:exp`
-- 📋 **Documentation**: Implementation guides and technical documentation included
-
-### v0.9.x - Character Sheet Era
-- ✨ **Interactive Character Sheet Overlay** - Click-to-roll functionality
-- 🎲 **Dice Rolling** - Advantage/disadvantage, custom modifiers
-- 📊 **Resource Tracking** - HP, spell slots, conditions
-- 🔧 **UI/UX Improvements** - Improved popup and overlay interfaces
 
 ---
 
