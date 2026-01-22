@@ -1223,6 +1223,7 @@
 
         case 'item':
         case 'equipment':
+        case 'container':
           // Extract description text from object structure
           let itemDescription = '';
           if (prop.description) {
@@ -1247,6 +1248,7 @@
             icon: prop.icon || null, // { name, shape, color }
             tags: prop.tags || [],
             parent: prop.parent || null,
+            type: prop.type || 'item', // Track if it's a container
             showIncrement: prop.showIncrement !== false // Default true
           });
           break;
