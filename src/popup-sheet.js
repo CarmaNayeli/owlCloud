@@ -1912,11 +1912,28 @@ function calculateTotalCurrency(inventory) {
   let sp = 0;
   let cp = 0;
 
+  // First, find the Belt Pouch container specifically
+  let beltPouchId = null;
+  inventory.forEach(item => {
+    const itemName = (item.name || '').toLowerCase();
+    // Look specifically for "Belt Pouch"
+    if (itemName === 'belt pouch') {
+      beltPouchId = item._id;
+      console.log(`💰 Found Belt Pouch: "${item.name}" (ID: ${item._id})`);
+    }
+  });
+
+  if (!beltPouchId) {
+    console.log(`💰 ⚠️ Belt Pouch not found, returning zeros`);
+    return { pp: 0, gp: 0, sp: 0, cp: 0 };
+  }
+
   inventory.forEach(item => {
     const itemName = (item.name || '').toLowerCase();
     const quantity = item.quantity;
+    const parentId = item.parent && item.parent.id ? item.parent.id : null;
 
-    console.log(`💰 Item: "${item.name}" | qty: ${quantity} | _id: ${item._id} | equipped: ${item.equipped}`);
+    console.log(`💰 Item: "${item.name}" | qty: ${quantity} | parent: ${parentId}`);
 
     // Skip items with no quantity or quantity of 0
     if (!quantity || quantity <= 0) {
@@ -1924,18 +1941,30 @@ function calculateTotalCurrency(inventory) {
       return;
     }
 
-    // Only count actual currency items - must match specific patterns
-    // Match: "platinum piece", "gold coin", "copper pieces", etc.
-    if ((itemName.includes('platinum') && (itemName.includes('piece') || itemName.includes('coin')))) {
+    // Check if this is currency
+    const isCurrency = (itemName.includes('platinum') || itemName.includes('gold') ||
+                       itemName.includes('silver') || itemName.includes('copper')) &&
+                       (itemName.includes('piece') || itemName.includes('coin'));
+
+    if (!isCurrency) return;
+
+    // ONLY count currency that's inside the Belt Pouch specifically
+    if (parentId !== beltPouchId) {
+      console.log(`💰 ❌ SKIPPED CURRENCY - not in Belt Pouch (parent: ${parentId}, beltPouch: ${beltPouchId})`);
+      return;
+    }
+
+    // Count currency by type
+    if (itemName.includes('platinum')) {
       console.log(`💰💰 ✅ MATCHED PLATINUM - adding ${quantity}`, item);
       pp += quantity;
-    } else if ((itemName.includes('gold') && (itemName.includes('piece') || itemName.includes('coin')))) {
+    } else if (itemName.includes('gold')) {
       console.log(`💰💰 ✅ MATCHED GOLD - adding ${quantity}`, item);
       gp += quantity;
-    } else if ((itemName.includes('silver') && (itemName.includes('piece') || itemName.includes('coin')))) {
+    } else if (itemName.includes('silver')) {
       console.log(`💰💰 ✅ MATCHED SILVER - adding ${quantity}`, item);
       sp += quantity;
-    } else if ((itemName.includes('copper') && (itemName.includes('piece') || itemName.includes('coin')))) {
+    } else if (itemName.includes('copper')) {
       console.log(`💰💰 ✅ MATCHED COPPER - adding ${quantity}`, item);
       cp += quantity;
     }
