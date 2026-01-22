@@ -1356,10 +1356,11 @@
 
             // Add action if it has attack roll OR if it's a non-attack action (bonus action, reaction, etc.)
             // BUT skip metamagic features (they're handled in spell casting UI)
+            // Filter out modifiers, effects, recharge buttons by requiring attackRoll or explicit actionType
             const validActionTypes = ['action', 'bonus', 'reaction', 'free', 'legendary', 'lair', 'other'];
             const hasValidActionType = prop.actionType && validActionTypes.includes(prop.actionType.toLowerCase());
 
-            if (!isMetamagic && (attackRoll || hasValidActionType || description)) {
+            if (!isMetamagic && (attackRoll || hasValidActionType)) {
               const action = {
                 name: prop.name,
                 actionType: prop.actionType || 'other',
