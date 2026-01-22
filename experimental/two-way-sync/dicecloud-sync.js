@@ -101,33 +101,42 @@ class DiceCloudSync {
               for (const [propertyName, properties] of Object.entries(allProperties)) {
                 let selectedProperty = properties[0]; // default to first
                 
-                // Handle Hit Points - find the editable one with the highest value (main HP)
+                // Handle Hit Points - find the healthBar that tracks current HP
                 if (propertyName === 'Hit Points') {
-                  // Find the Hit Points property that has a value field and isn't read-only
-                  // Prefer the one with the highest value (likely the main HP over temporary HP)
-                  const editableHPs = properties.filter(p => 
-                    p.type !== 'skill' && 
-                    (p.value !== undefined || p.skillValue !== undefined)
+                  // Debug: Show all Hit Points properties for comparison
+                  console.log(`[DiceCloud Sync] All Hit Points properties found:`);
+                  properties.forEach(p => {
+                    console.log(`  - ${p.name} (${p.type}): id=${p._id}, value=${p.value}, baseValue=${p.baseValue}, total=${p.total}, damage=${p.damage}, attributeType=${p.attributeType || 'none'}`);
+                  });
+
+                  // Priority 1: Find the healthBar attribute type
+                  // This is what tracks current HP with the damage field
+                  let hpProperty = properties.find(p =>
+                    p.type === 'attribute' &&
+                    p.attributeType === 'healthBar'
                   );
-                  
-                  if (editableHPs.length > 0) {
-                    // Sort by value (highest first) to get the main HP
-                    const mainHP = editableHPs.sort((a, b) => {
-                      const valA = a.value !== undefined ? a.value : a.skillValue || 0;
-                      const valB = b.value !== undefined ? b.value : b.skillValue || 0;
-                      return valB - valA; // descending
-                    })[0];
-                    
-                    this.propertyCache.set('Hit Points', mainHP._id);
-                    console.log(`[DiceCloud Sync] Found editable Hit Points: ${mainHP.name} -> ${mainHP._id} (type: ${mainHP.type}, value: ${mainHP.value || mainHP.skillValue})`);
-                    
-                    // Debug: Show all Hit Points properties for comparison
-                    console.log(`[DiceCloud Sync] All Hit Points properties:`);
-                    properties.forEach(p => {
-                      console.log(`  - ${p.name} (${p.type}): value=${p.value}, skillValue=${p.skillValue}, calculation=${p.calculation || 'none'}`);
-                    });
+
+                  // Priority 2: Find any attribute with a damage field (fallback)
+                  if (!hpProperty) {
+                    hpProperty = properties.find(p =>
+                      p.type === 'attribute' &&
+                      p.damage !== undefined
+                    );
+                  }
+
+                  // Priority 3: Find any attribute with a value field
+                  if (!hpProperty) {
+                    hpProperty = properties.find(p =>
+                      p.type === 'attribute' &&
+                      (p.value !== undefined || p.baseValue !== undefined || p.total !== undefined)
+                    );
+                  }
+
+                  if (hpProperty) {
+                    this.propertyCache.set('Hit Points', hpProperty._id);
+                    console.log(`[DiceCloud Sync] Selected Hit Points property: ${hpProperty.name} -> ${hpProperty._id} (type: ${hpProperty.type}, attributeType: ${hpProperty.attributeType || 'none'}, value: ${hpProperty.value}, total: ${hpProperty.total}, baseValue: ${hpProperty.baseValue}, damage: ${hpProperty.damage})`);
                   } else {
-                    console.log(`[DiceCloud Sync] No editable Hit Points found, skipping calculated ones`);
+                    console.log(`[DiceCloud Sync] No suitable Hit Points property found`);
                   }
                   continue;
                 }
@@ -307,23 +316,42 @@ class DiceCloudSync {
                 id: property._id,
                 name: property.name,
                 type: property.type,
+                attributeType: property.attributeType,
                 value: property.value,
+                baseValue: property.baseValue,
+                total: property.total,
+                damage: property.damage,
                 skillValue: property.skillValue,
                 dirty: property.dirty
               });
-              
-              // Determine the correct field name based on property type
+
+              // Determine the correct field name and value based on property type
               let fieldName = 'value'; // default
+              let updateValue = value; // default to the passed value
+
               if (property.type === 'skill') {
                 fieldName = 'skillValue';
               } else if (property.type === 'effect') {
                 // For effects, check if there's a calculation or if it uses value
                 fieldName = property.calculation ? 'calculation' : 'value';
+              } else if (property.type === 'attribute' && property.attributeType === 'healthBar') {
+                // For healthBar attributes (like HP), the 'value' field is computed as total - damage
+                // So we need to update the 'damage' field instead
+                // damage = maxHP - newCurrentHP
+                const maxHP = property.total || property.baseValue || 0;
+                const newDamage = Math.max(0, maxHP - value);
+                console.log(`[DiceCloud Sync] HealthBar update: maxHP=${maxHP}, newCurrentHP=${value}, calculatedDamage=${newDamage}, currentDamage=${property.damage}`);
+                fieldName = 'damage';
+                updateValue = newDamage;
+              } else if (property.type === 'attribute') {
+                // For other attributes, update the value directly
+                fieldName = 'value';
               }
-              console.log(`[DiceCloud Sync] Using field name: ${fieldName} for property type: ${property.type}`);
-              
-              // Update the payload with the correct field name
+              console.log(`[DiceCloud Sync] Using field name: ${fieldName} for property type: ${property.type}, attributeType: ${property.attributeType || 'none'}`);
+
+              // Update the payload with the correct field name and value
               updatePayload.path = [fieldName];
+              updatePayload.value = updateValue;
             }
           }
         } else {
@@ -375,16 +403,25 @@ class DiceCloudSync {
                 console.log('[DiceCloud Sync] Property after update:', {
                   id: property._id,
                   name: property.name,
+                  type: property.type,
+                  attributeType: property.attributeType,
                   value: property.value,
+                  total: property.total,
+                  baseValue: property.baseValue,
+                  damage: property.damage,
                   dirty: property.dirty,
                   lastUpdated: property.lastUpdated
                 });
-                
+
                 // Check if the value actually changed
                 if (property.value === value) {
                   console.log('[DiceCloud Sync] ✅ SUCCESS: Value updated correctly!');
                 } else {
                   console.warn('[DiceCloud Sync] ❌ ISSUE: Value did not change. Expected:', value, 'Actual:', property.value);
+                  if (property.total && property.damage !== undefined) {
+                    const calculatedValue = property.total - property.damage;
+                    console.log(`[DiceCloud Sync] Calculated value: ${property.total} - ${property.damage} = ${calculatedValue}`);
+                  }
                 }
               } else {
                 console.warn('[DiceCloud Sync] Property not found in character data');
