@@ -361,3 +361,6 @@ class MeteorDDPClient {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = MeteorDDPClient;
 }
+
+// Export for browser extension
+window.DDPClient = MeteorDDPClient;

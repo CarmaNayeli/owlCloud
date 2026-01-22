@@ -2649,7 +2649,7 @@ ${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗
     try {
       postChatMessage('👑 Opening GM mode...');
     } catch (error) {
-      debug.error('❌ Error posting chat message:', error);
+      debug.error(' Error posting chat message:', error);
     }
     toggleGMMode(true);
   });
@@ -2658,5 +2658,48 @@ ${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗
   // for checks before GM panel is created
   loadPlayerDataFromStorage();
 
-  debug.log('✅ Roll20 script ready - listening for roll announcements and GM mode');
+  // Initialize experimental two-way sync if available
+  if (typeof browserAPI !== 'undefined' && browserAPI.runtime) {
+    // Check if this is an experimental build by asking background script
+    browserAPI.runtime.sendMessage({ action: 'getManifest' }).then(response => {
+      if (response && response.success && response.manifest) {
+        debug.log('🔍 Manifest check:', response.manifest);
+        debug.log('🔍 Manifest name:', response.manifest.name);
+        
+        if (response.manifest.name && response.manifest.name.includes('EXPERIMENTAL')) {
+          debug.log('🧪 Experimental build detected, initializing two-way sync...');
+          
+          // Scripts are loaded as content scripts, just initialize
+          setTimeout(() => {
+            // Debug: Check what's available on window
+            debug.log('🔍 Window objects check:', {
+              DDPClient: typeof window.DDPClient,
+              initializeDiceCloudSync: typeof window.initializeDiceCloudSync,
+              DiceCloudSync: typeof window.DiceCloudSync
+            });
+            
+            // Initialize the sync
+            if (typeof window.initializeDiceCloudSync === 'function') {
+              debug.log('✅ Calling initializeDiceCloudSync function...');
+              window.initializeDiceCloudSync();
+              debug.log('✅ Experimental two-way sync initialized');
+            } else {
+              debug.warn('⚠️ DiceCloud sync initialization function not found');
+              debug.warn('⚠️ Available window properties:', Object.keys(window).filter(key => key.toLowerCase().includes('dicecloud') || key.toLowerCase().includes('sync')));
+            }
+          }, 500); // Wait for content scripts to fully load
+        } else {
+          debug.log('📦 Standard build detected, skipping experimental sync');
+        }
+      } else {
+        debug.log('📦 Could not get manifest info, assuming standard build');
+      }
+    }).catch(error => {
+      debug.log('📦 Standard build detected (error), skipping experimental sync:', error);
+    });
+  } else {
+    debug.log('❌ browserAPI.runtime not available');
+  }
+
+  debug.log(' Roll20 script ready - listening for roll announcements and GM mode');
 })();

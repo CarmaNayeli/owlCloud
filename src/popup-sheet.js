@@ -430,6 +430,28 @@ async function switchToCharacter(characterId) {
         data: dataToSave,
         slotId: currentSlotId  // CRITICAL: Pass current slotId for proper persistence
       });
+
+      // Send sync message to DiceCloud if experimental sync is available
+      // Always send sync messages in experimental build - they'll be handled by Roll20 content script
+      debug.log('🔄 Sending character data update to DiceCloud sync...');
+      const syncMessage = {
+        type: 'characterDataUpdate',
+        characterData: {
+          name: characterData.name,
+          hp: characterData.hitPoints.current,
+          tempHp: characterData.temporaryHP || 0,
+          maxHp: characterData.hitPoints.max
+        }
+      };
+      
+      // Try to send to Roll20 content script
+      window.postMessage(syncMessage, '*');
+      
+      // Also try to send via opener if available
+      if (window.opener && !window.opener.closed) {
+        window.opener.postMessage(syncMessage, '*');
+      }
+
       debug.log(`💾 Saved current character to browser storage: ${characterData.name} (slotId: ${currentSlotId})`);
     }
 
@@ -4176,6 +4198,27 @@ function saveCharacterData() {
   }).catch(err => {
     debug.error('❌ Failed to save character data:', err);
   });
+
+  // Send sync message to DiceCloud if experimental sync is available
+  // Always send sync messages in experimental build - they'll be handled by Roll20 content script
+  debug.log('🔄 Sending character data update to DiceCloud sync...');
+  const syncMessage = {
+    type: 'characterDataUpdate',
+    characterData: {
+      name: characterData.name,
+      hp: characterData.hitPoints.current,
+      tempHp: characterData.temporaryHP || 0,
+      maxHp: characterData.hitPoints.max
+    }
+  };
+  
+  // Try to send to Roll20 content script
+  window.postMessage(syncMessage, '*');
+  
+  // Also try to send via opener if available
+  if (window.opener && !window.opener.closed) {
+    window.opener.postMessage(syncMessage, '*');
+  }
 
   // Also send to window opener if available (for backwards compatibility)
   if (window.opener && !window.opener.closed) {

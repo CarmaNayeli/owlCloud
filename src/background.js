@@ -77,6 +77,12 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
           break;
         }
 
+        case 'getManifest': {
+          const manifest = browserAPI.runtime.getManifest();
+          response = { success: true, manifest };
+          break;
+        }
+
         case 'logout':
           await logout();
           response = { success: true };
@@ -139,6 +145,33 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
           await sendChatMessageToAllRoll20Tabs(request.message);
           debug.log('✅ Chat message relayed successfully');
           response = { success: true };
+          break;
+
+        case 'fetchDiceCloudAPI':
+          debug.log('📡 Fetching DiceCloud API:', request.url);
+          try {
+            const apiResponse = await fetch(request.url, {
+              headers: {
+                'Authorization': `Bearer ${request.token}`,
+                'Content-Type': 'application/json'
+              }
+            });
+            
+            if (apiResponse.ok) {
+              const data = await apiResponse.json();
+              response = { success: true, data };
+              debug.log('✅ DiceCloud API fetched successfully');
+            } else {
+              // Get the error text to see what's wrong
+              const errorText = await apiResponse.text();
+              console.error('❌ DiceCloud API error response:', errorText);
+              response = { success: false, error: `HTTP ${apiResponse.status}: ${errorText}` };
+              debug.warn('❌ DiceCloud API fetch failed:', apiResponse.status);
+            }
+          } catch (error) {
+            response = { success: false, error: error.message };
+            debug.error('❌ Error fetching DiceCloud API:', error);
+          }
           break;
 
         default:
@@ -332,8 +365,8 @@ async function storeCharacterData(characterData, slotId) {
     // Store this character's data
     characterProfiles[storageId] = characterData;
 
-    // Set active character to this one if none is set
-    const activeCharacterId = result.activeCharacterId || storageId;
+    // Set active character to this one (always update to most recent sync)
+    const activeCharacterId = storageId;
 
     await browserAPI.storage.local.set({
       characterProfiles: characterProfiles,
