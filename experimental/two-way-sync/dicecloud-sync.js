@@ -351,14 +351,18 @@ window.initializeDiceCloudSync = function() {
       console.log('[DiceCloud Sync] Browser API available, checking storage...');
       
       browserAPI.storage.local.get(['activeCharacterId'], (result) => {
+        console.log('[DiceCloud Sync] Storage callback triggered');
         console.log('[DiceCloud Sync] Storage result:', result);
+        console.log('[DiceCloud Sync] Storage error:', browserAPI.runtime.lastError);
         
         if (result.activeCharacterId) {
           console.log('[DiceCloud Sync] Found active character ID:', result.activeCharacterId);
           
           // Also get the character data to get the DiceCloud ID
           browserAPI.storage.local.get([result.activeCharacterId], (charResult) => {
+            console.log('[DiceCloud Sync] Character data callback triggered');
             console.log('[DiceCloud Sync] Character data:', charResult);
+            console.log('[DiceCloud Sync] Character data error:', browserAPI.runtime.lastError);
             
             const characterData = charResult[result.activeCharacterId];
             if (characterData && characterData.id) {
@@ -392,12 +396,20 @@ window.initializeDiceCloudSync = function() {
     
     if (typeof browserAPI !== 'undefined' && browserAPI.storage) {
       browserAPI.storage.local.get(['activeCharacterId'], (result) => {
+        console.log(`[DiceCloud Sync] Retry ${retryCount} storage callback triggered`);
+        console.log(`[DiceCloud Sync] Retry ${retryCount} storage result:`, result);
+        console.log(`[DiceCloud Sync] Retry ${retryCount} storage error:`, browserAPI.runtime.lastError);
+        
         if (result.activeCharacterId) {
           console.log('[DiceCloud Sync] Found active character ID on retry:', result.activeCharacterId);
           clearInterval(retryInterval);
           
           // Get character data and initialize
           browserAPI.storage.local.get([result.activeCharacterId], (charResult) => {
+            console.log('[DiceCloud Sync] Retry character data callback triggered');
+            console.log('[DiceCloud Sync] Retry character data:', charResult);
+            console.log('[DiceCloud Sync] Retry character data error:', browserAPI.runtime.lastError);
+            
             const characterData = charResult[result.activeCharacterId];
             if (characterData && characterData.id) {
               console.log('[DiceCloud Sync] Found DiceCloud character ID on retry:', characterData.id);
