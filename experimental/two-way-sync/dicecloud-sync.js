@@ -82,10 +82,23 @@ class DiceCloudSync {
           // Also cache actions by name
           if (characterData.actions && Array.isArray(characterData.actions)) {
             console.log(`[DiceCloud Sync] Processing ${characterData.actions.length} actions`);
+            console.log('[DiceCloud Sync] Sample action structure:', characterData.actions[0]);
             for (const action of characterData.actions) {
-              if (action._id && action.name) {
-                this.propertyCache.set(action.name, action._id);
-                console.log(`[DiceCloud Sync] Cached action: ${action.name} -> ${action._id}`);
+              // Actions might not have _id, so use name as key
+              if (action.name) {
+                // Try to find matching property in characterProperties by name
+                const matchingProperty = characterData.properties && characterData.properties.find(prop => 
+                  prop.name === action.name || 
+                  prop.variableName === action.name
+                );
+                const propertyId = matchingProperty ? matchingProperty._id : action._id;
+                
+                if (propertyId) {
+                  this.propertyCache.set(action.name, propertyId);
+                  console.log(`[DiceCloud Sync] Cached action: ${action.name} -> ${propertyId}`);
+                } else {
+                  console.warn(`[DiceCloud Sync] No property ID found for action: ${action.name}`);
+                }
               }
             }
           }
