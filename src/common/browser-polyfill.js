@@ -60,6 +60,14 @@ if (typeof browser !== 'undefined' && browser.runtime) {
           return null;
         }
       },
+      getManifest: () => {
+        try {
+          return chrome.runtime.getManifest();
+        } catch (error) {
+          console.error('❌ Extension context error:', error.message);
+          return null;
+        }
+      },
       get id() {
         try {
           return chrome.runtime.id;
