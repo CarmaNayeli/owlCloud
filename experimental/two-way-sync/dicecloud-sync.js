@@ -321,6 +321,21 @@ class DiceCloudSync {
               this.propertyCache.set(attr.name, attr._id);
               console.log(`[DiceCloud Sync] Cached restorable attribute: ${attr.name} (resets on ${attr.reset}) -> ${attr._id}`);
             }
+
+            // Cache important toggles (conditions, active features, etc.)
+            const importantToggles = apiData.creatureProperties.filter(p =>
+              p.type === 'toggle' &&
+              p.name &&
+              !p.removed &&
+              !p.inactive
+            );
+            console.log(`[DiceCloud Sync] Found ${importantToggles.length} toggles`);
+            for (const toggle of importantToggles) {
+              if (!this.propertyCache.has(toggle.name)) {
+                this.propertyCache.set(toggle.name, toggle._id);
+                console.log(`[DiceCloud Sync] Cached toggle: ${toggle.name} -> ${toggle._id}`);
+              }
+            }
           } else {
             console.warn('[DiceCloud Sync] Failed to fetch API data for property cache:', response.error);
           }
@@ -772,6 +787,41 @@ class DiceCloudSync {
    */
   async updateInspiration(value) {
     return this.updateResource('Heroic Inspiration', value);
+  }
+
+  /**
+   * Update toggle state (conditions, active features, etc.)
+   * @param {string} toggleName - Name of the toggle
+   * @param {boolean} enabled - Whether the toggle is enabled
+   */
+  async updateToggle(toggleName, enabled) {
+    if (!this.enabled) {
+      console.warn('[DiceCloud Sync] Sync not enabled');
+      return;
+    }
+
+    try {
+      const propertyId = this.findPropertyId(toggleName);
+      if (!propertyId) {
+        console.warn(`[DiceCloud Sync] Toggle "${toggleName}" not found`);
+        return;
+      }
+
+      console.log(`[DiceCloud Sync] Setting toggle ${toggleName} to ${enabled ? 'enabled' : 'disabled'}`);
+
+      // Toggles use the 'enabled' field instead of 'value'
+      const result = await this.ddp.call('creatureProperties.update', {
+        _id: propertyId,
+        path: ['enabled'],
+        value: enabled
+      });
+
+      console.log(`[DiceCloud Sync] Toggle ${toggleName} updated successfully:`, result);
+      return result;
+    } catch (error) {
+      console.error(`[DiceCloud Sync] Failed to update toggle ${toggleName}:`, error);
+      throw error;
+    }
   }
 
   /**
