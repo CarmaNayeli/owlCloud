@@ -52,8 +52,8 @@ function Build-ChromeExperimental {
     # Modify manifest
     Write-Host "  📝 Updating manifest for experimental build..." -ForegroundColor Gray
     $chromeManifest = Get-Content "$CHROME_DIR\manifest.json" | ConvertFrom-Json
-    $chromeManifest.name = $chromeManifest.name + " (Experimental Sync)"
-    $chromeManifest.version = $chromeManifest.version + ".1"
+    $chromeManifest.name = "$($chromeManifest.name) (Experimental Sync)"
+    $chromeManifest.version = "$($chromeManifest.version).1"
 
     # Add experimental sync files to Roll20 content script
     foreach ($script in $chromeManifest.content_scripts) {
@@ -117,8 +117,8 @@ function Build-FirefoxExperimental {
     # Modify manifest
     Write-Host "  📝 Updating manifest for experimental build..." -ForegroundColor Gray
     $firefoxManifest = Get-Content "$FIREFOX_DIR\manifest.json" | ConvertFrom-Json
-    $firefoxManifest.name = $firefoxManifest.name + " (Experimental Sync)"
-    $firefoxManifest.version = $firefoxManifest.version + ".1"
+    $firefoxManifest.name = "$($firefoxManifest.name) (Experimental Sync)"
+    $firefoxManifest.version = "$($firefoxManifest.version).1"
 
     # Add experimental sync files to Roll20 content script
     foreach ($script in $firefoxManifest.content_scripts) {
