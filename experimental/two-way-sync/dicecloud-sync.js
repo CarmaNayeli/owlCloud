@@ -27,13 +27,22 @@ class DiceCloudSync {
     // Subscribe to character data to get property IDs
     // This allows us to cache property _id values for faster updates
     console.log('[DiceCloud Sync] Initializing for character:', characterId);
+    console.log('[DiceCloud Sync] DDP client status:', this.ddp.isConnected());
 
     try {
+      // Connect to DDP if not already connected
+      if (!this.ddp.isConnected()) {
+        console.log('[DiceCloud Sync] Connecting to DDP...');
+        await this.ddp.connect();
+        console.log('[DiceCloud Sync] DDP connected successfully');
+      }
+
       // Note: We'll need to fetch the full character data to build our cache
       // The DiceCloud API GET /creature/:id returns all properties
       await this.buildPropertyCache();
       this.enabled = true;
       console.log('[DiceCloud Sync] Initialized successfully');
+      console.log('[DiceCloud Sync] Sync enabled:', this.enabled);
     } catch (error) {
       console.error('[DiceCloud Sync] Initialization failed:', error);
       throw error;
@@ -324,17 +333,35 @@ window.initializeDiceCloudSync = function() {
     return;
   }
   
+  console.log('[DiceCloud Sync] Creating DDP client...');
+  
   // Create sync instance
   const ddpClient = new window.DDPClient('wss://dicecloud.com/websocket');
   window.diceCloudSync = new DiceCloudSync(ddpClient);
   
+  console.log('[DiceCloud Sync] Sync instance created, checking for active character...');
+  
   // Try to get current character ID from extension storage
   if (typeof browserAPI !== 'undefined' && browserAPI.storage) {
     browserAPI.storage.local.get(['activeCharacterId'], (result) => {
+      console.log('[DiceCloud Sync] Storage result:', result);
+      
       if (result.activeCharacterId) {
         console.log('[DiceCloud Sync] Found active character ID:', result.activeCharacterId);
-        window.diceCloudSync.initialize(result.activeCharacterId).catch(error => {
-          console.error('[DiceCloud Sync] Failed to initialize:', error);
+        
+        // Also get the character data to get the DiceCloud ID
+        browserAPI.storage.local.get([result.activeCharacterId], (charResult) => {
+          console.log('[DiceCloud Sync] Character data:', charResult);
+          
+          const characterData = charResult[result.activeCharacterId];
+          if (characterData && characterData.id) {
+            console.log('[DiceCloud Sync] Found DiceCloud character ID:', characterData.id);
+            window.diceCloudSync.initialize(characterData.id).catch(error => {
+              console.error('[DiceCloud Sync] Failed to initialize:', error);
+            });
+          } else {
+            console.warn('[DiceCloud Sync] No character data found for slot:', result.activeCharacterId);
+          }
         });
       } else {
         console.log('[DiceCloud Sync] No active character ID found, waiting for manual initialization');
