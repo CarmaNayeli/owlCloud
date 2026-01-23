@@ -1434,14 +1434,44 @@ class DiceCloudSync {
 
       console.log(`[DiceCloud Sync] Updating ${resourceName} to ${value}`);
 
-      const result = await this.queueRequest(
-        () => this.ddp.call('creatureProperties.update', {
-          _id: propertyId,
-          path: ['value'],
-          value: value
-        }),
-        `Update ${resourceName} to ${value}`
-      );
+      // Fetch the property to determine its type
+      const apiData = await this.fetchDiceCloudData(this.characterId);
+      const property = apiData?.creatureProperties?.find(p => p._id === propertyId);
+
+      if (!property) {
+        console.error(`[DiceCloud Sync] Could not find ${resourceName} property in API data`);
+        return;
+      }
+
+      // Check if this is a resource-type attribute (uses damage system like HP and Channel Divinity)
+      const isResourceAttribute = property.type === 'attribute' && property.attributeType === 'resource';
+
+      let result;
+      if (isResourceAttribute) {
+        // Resource-type attributes work like healthBar attributes:
+        // They use the damage system where value = total - damage
+        // Use creatureProperties.damage method (same as HP and Channel Divinity)
+        console.log(`[DiceCloud Sync] ${resourceName} is a resource-type attribute, using damage method`);
+        result = await this.queueRequest(
+          () => this.ddp.call('creatureProperties.damage', {
+            _id: propertyId,
+            value: value,
+            operation: 'set'
+          }),
+          `Update ${resourceName} to ${value}`
+        );
+      } else {
+        // For other property types, use standard update
+        console.log(`[DiceCloud Sync] ${resourceName} is type ${property.type}, using update method`);
+        result = await this.queueRequest(
+          () => this.ddp.call('creatureProperties.update', {
+            _id: propertyId,
+            path: ['value'],
+            value: value
+          }),
+          `Update ${resourceName} to ${value}`
+        );
+      }
 
       console.log(`[DiceCloud Sync] ⏳ ${resourceName} update request sent:`, result);
       return result;
