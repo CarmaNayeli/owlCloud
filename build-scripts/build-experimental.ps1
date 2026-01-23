@@ -45,21 +45,28 @@ function Build-ChromeExperimental {
     Copy-Item -Path "experimental\two-way-sync\meteor-ddp-client.js" -Destination "$LIB_DIR\meteor-ddp-client.js" -Force
     Copy-Item -Path "experimental\two-way-sync\dicecloud-sync.js" -Destination "$LIB_DIR\dicecloud-sync.js" -Force
 
-    # Add back check structure button for experimental builds
+    # Add back check structure button for experimental builds using Node.js
     Write-Host "  Adding check structure button for experimental builds..." -ForegroundColor Gray
-    $dicecloudJsPath = "$CHROME_DIR\src\content\dicecloud.js"
-    $dicecloudContent = Get-Content $dicecloudJsPath -Raw
+    $chromePath = "$CHROME_DIR".Replace('\', '\\')
+    $nodeScript = @"
+const fs = require('fs');
+const path = require('path');
+
+const dicecloudJsPath = path.join('$chromePath', 'src', 'content', 'dicecloud.js');
+let content = fs.readFileSync(dicecloudJsPath, 'utf8');
+
+content = content.replace(
+  /addSyncButton\(\);\s*observeRollLog\(\);/g, 
+  'addSyncButton();\n      addCheckStructureButton();\n      observeRollLog();'
+);
+
+fs.writeFileSync(dicecloudJsPath, content, 'utf8');
+console.log('Added check structure button to Chrome experimental build');
+"@
     
-    # Replace both occurrences using proper string concatenation
-    $replacement1 = "addSyncButton();`n      addCheckStructureButton();`n      observeRollLog();"
-    $dicecloudContent = $dicecloudContent -replace 'addSyncButton\(\);\s*observeRollLog\(\);', $replacement1
-
-    $replacement2 = "addSyncButton();`n    addCheckStructureButton();`n    observeRollLog();"
-    $dicecloudContent = $dicecloudContent -replace 'addSyncButton\(\);\s*observeRollLog\(\);', $replacement2
-
-    # Write UTF-8 without BOM (compatible with both Windows PowerShell and PowerShell Core)
-    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
-    [System.IO.File]::WriteAllText($dicecloudJsPath, $dicecloudContent, $utf8NoBom)
+    $nodeScript | Out-File -FilePath "$CHROME_DIR\temp-fix.js" -Encoding UTF8
+    node "$CHROME_DIR\temp-fix.js"
+    Remove-Item "$CHROME_DIR\temp-fix.js" -Force
 
     # Copy documentation
     Copy-Item -Path "experimental\two-way-sync\README.md" -Destination "$CHROME_DIR\EXPERIMENTAL-README.md" -Force
@@ -127,21 +134,28 @@ function Build-FirefoxExperimental {
     Copy-Item -Path "experimental\two-way-sync\meteor-ddp-client.js" -Destination "$LIB_DIR\meteor-ddp-client.js" -Force
     Copy-Item -Path "experimental\two-way-sync\dicecloud-sync.js" -Destination "$LIB_DIR\dicecloud-sync.js" -Force
 
-    # Add back check structure button for experimental builds
+    # Add back check structure button for experimental builds using Node.js
     Write-Host "  Adding check structure button for experimental builds..." -ForegroundColor Gray
-    $dicecloudJsPath = "$FIREFOX_DIR\src\content\dicecloud.js"
-    $dicecloudContent = Get-Content $dicecloudJsPath -Raw
+    $firefoxPath = "$FIREFOX_DIR".Replace('\', '\\')
+    $nodeScript = @"
+const fs = require('fs');
+const path = require('path');
+
+const dicecloudJsPath = path.join('$firefoxPath', 'src', 'content', 'dicecloud.js');
+let content = fs.readFileSync(dicecloudJsPath, 'utf8');
+
+content = content.replace(
+  /addSyncButton\(\);\s*observeRollLog\(\);/g, 
+  'addSyncButton();\n      addCheckStructureButton();\n      observeRollLog();'
+);
+
+fs.writeFileSync(dicecloudJsPath, content, 'utf8');
+console.log('Added check structure button to Firefox experimental build');
+"@
     
-    # Replace both occurrences using proper string concatenation
-    $replacement1 = "addSyncButton();`n      addCheckStructureButton();`n      observeRollLog();"
-    $dicecloudContent = $dicecloudContent -replace 'addSyncButton\(\);\s*observeRollLog\(\);', $replacement1
-
-    $replacement2 = "addSyncButton();`n    addCheckStructureButton();`n    observeRollLog();"
-    $dicecloudContent = $dicecloudContent -replace 'addSyncButton\(\);\s*observeRollLog\(\);', $replacement2
-
-    # Write UTF-8 without BOM (compatible with both Windows PowerShell and PowerShell Core)
-    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
-    [System.IO.File]::WriteAllText($dicecloudJsPath, $dicecloudContent, $utf8NoBom)
+    $nodeScript | Out-File -FilePath "$FIREFOX_DIR\temp-fix.js" -Encoding UTF8
+    node "$FIREFOX_DIR\temp-fix.js"
+    Remove-Item "$FIREFOX_DIR\temp-fix.js" -Force
 
     # Copy documentation
     Copy-Item -Path "experimental\two-way-sync\README.md" -Destination "$FIREFOX_DIR\EXPERIMENTAL-README.md" -Force
