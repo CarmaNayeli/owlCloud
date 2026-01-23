@@ -2497,8 +2497,40 @@
     document.body.appendChild(button);
     makeDraggable(button);
 
-    // Debug button removed - only sync button needed
-    debug.log('🔍 Debug button disabled');
+    // Add "See Structure" button for experimental build
+    if (document.getElementById('experimental-sync-module')) {
+      const structureButton = document.createElement('button');
+      structureButton.id = 'dc-see-structure-btn';
+      structureButton.textContent = 'See Structure';
+      structureButton.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 180px;
+        background: #3498db;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: bold;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        z-index: 10000;
+        transition: background 0.3s;
+      `;
+      structureButton.addEventListener('mouseenter', () => {
+        structureButton.style.background = '#2980b9';
+      });
+      structureButton.addEventListener('mouseleave', () => {
+        structureButton.style.background = '#3498db';
+      });
+      structureButton.addEventListener('click', () => {
+        debugPageStructure();
+        showNotification('📋 Character structure logged to console (F12)', 'info');
+      });
+      document.body.appendChild(structureButton);
+      debug.log('🔍 See Structure button added for experimental build');
+    }
   }
 
   /**
