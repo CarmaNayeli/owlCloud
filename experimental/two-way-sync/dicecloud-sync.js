@@ -1181,6 +1181,30 @@ class DiceCloudSync {
   }
 
   /**
+   * Fetch character data from DiceCloud API
+   * @param {string} characterId - The character ID
+   * @returns {Promise<object>} The API response data
+   */
+  async fetchDiceCloudData(characterId) {
+    const tokenResult = await browserAPI.storage.local.get(['diceCloudToken']);
+    if (!tokenResult.diceCloudToken) {
+      throw new Error('No DiceCloud token found');
+    }
+
+    const response = await browserAPI.runtime.sendMessage({
+      action: 'fetchDiceCloudAPI',
+      url: `https://dicecloud.com/api/creature/${characterId}`,
+      token: tokenResult.diceCloudToken
+    });
+
+    if (!response.success) {
+      throw new Error('API request failed');
+    }
+
+    return response.data;
+  }
+
+  /**
    * Update Channel Divinity uses
    * @param {number} usesRemaining - Number of uses remaining
    */
