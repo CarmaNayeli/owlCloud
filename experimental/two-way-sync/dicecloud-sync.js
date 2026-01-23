@@ -1351,9 +1351,11 @@ class DiceCloudSync {
       });
 
       // Update using creatureProperties.update for attribute type properties
+      // Use the same format as spell slots with path: ['value']
       const result = await this.queueRequest(
         () => this.ddp.call('creatureProperties.update', {
           _id: propertyId,
+          path: ['value'],
           value: usesRemaining
         }),
         `Update Channel Divinity to ${usesRemaining}`
