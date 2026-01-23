@@ -1528,6 +1528,12 @@ function buildActionsDisplay(container, actions) {
 
     // Show uses if available
     let nameText = action.name;
+
+    // Rename "Recover Spell Slot" to "Harness Divine Power" (Cleric feature)
+    if (nameText === 'Recover Spell Slot') {
+      nameText = 'Harness Divine Power';
+    }
+
     if (action.uses) {
       const usesUsed = action.usesUsed || 0;
       const usesTotal = action.uses.total || action.uses.value || action.uses;
