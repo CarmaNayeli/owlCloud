@@ -1548,9 +1548,9 @@ function buildActionsDisplay(container, actions) {
     }
 
     if (action.uses) {
-      const usesUsed = action.usesUsed || 0;
       const usesTotal = action.uses.total || action.uses.value || action.uses;
-      const usesRemaining = usesTotal - usesUsed;
+      // Prefer usesLeft from DiceCloud if available, otherwise calculate from usesUsed
+      const usesRemaining = action.usesLeft !== undefined ? action.usesLeft : (usesTotal - (action.usesUsed || 0));
       nameText += ` <span class="uses-badge">${usesRemaining}/${usesTotal} uses</span>`;
     }
     nameDiv.innerHTML = nameText;
@@ -1713,6 +1713,31 @@ function buildActionsDisplay(container, actions) {
       useBtn.textContent = '✨ Use';
       useBtn.addEventListener('click', (e) => {
         e.stopPropagation();
+
+        // Special handling for Divine Spark
+        if (action.name === 'Divine Spark') {
+          // Find Channel Divinity resource from the resources array
+          const channelDivinityResource = characterData.resources?.find(r =>
+            r.name === 'Channel Divinity' ||
+            r.variableName === 'channelDivinityCleric' ||
+            r.variableName === 'channelDivinityPaladin' ||
+            r.variableName === 'channelDivinity'
+          );
+
+          if (!channelDivinityResource) {
+            showNotification('❌ No Channel Divinity resource found', 'error');
+            return;
+          }
+
+          if (channelDivinityResource.current <= 0) {
+            showNotification('❌ No Channel Divinity uses remaining!', 'error');
+            return;
+          }
+
+          // Show the Divine Spark choice modal
+          showDivineSparkModal(action, channelDivinityResource);
+          return;
+        }
 
         // Special handling for Harness Divine Power
         if (action.name === 'Harness Divine Power' || action.name === 'Recover Spell Slot') {
@@ -2467,18 +2492,21 @@ function decrementActionUses(action) {
     return true; // No uses to track, allow action
   }
 
-  const usesUsed = action.usesUsed || 0;
   const usesTotal = action.uses.total || action.uses.value || action.uses;
-  const usesRemaining = usesTotal - usesUsed;
+  const usesUsed = action.usesUsed || 0;
+  const usesRemaining = action.usesLeft !== undefined ? action.usesLeft : (usesTotal - usesUsed);
 
   if (usesRemaining <= 0) {
     showNotification(`❌ No uses remaining for ${action.name}`, 'error');
     return false;
   }
 
-  // Increment usesUsed
+  // Increment usesUsed and decrement usesLeft
   action.usesUsed = usesUsed + 1;
-  const newRemaining = usesTotal - action.usesUsed;
+  if (action.usesLeft !== undefined) {
+    action.usesLeft = usesRemaining - 1;
+  }
+  const newRemaining = action.usesLeft !== undefined ? action.usesLeft : (usesTotal - action.usesUsed);
 
   // Update character data and save
   saveCharacterData();
@@ -2712,6 +2740,217 @@ function restoreSpellSlot(level, channelDivinityResource) {
 
   showNotification(`🔮 Harness Divine Power! Restored Level ${level} spell slot. Channel Divinity: ${channelDivinityResource.current}/${channelDivinityResource.max}`);
   debug.log(`✨ Harness Divine Power used to restore Level ${level} spell slot`);
+}
+
+/**
+ * Show modal for Divine Spark choice (Heal, Necrotic, or Radiant)
+ * @param {Object} action - The Divine Spark action
+ * @param {Object} channelDivinityResource - The Channel Divinity resource
+ */
+function showDivineSparkModal(action, channelDivinityResource) {
+  // Create modal overlay
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+  `;
+
+  // Get cleric level for damage calculation
+  const clericLevel = characterData.otherVariables?.clericLevel || characterData.otherVariables?.cleric?.level || 1;
+  const wisdomMod = characterData.abilityScores?.wisdom?.modifier || 0;
+
+  // Calculate number of d8 dice based on cleric level
+  const diceArray = [1,1,1,1,1,1,2,2,2,2,2,2,3,3,3,3,3,4,4,4];
+  const numDice = diceArray[Math.min(clericLevel, 20) - 1] || 1;
+
+  // Create modal content
+  const modalContent = document.createElement('div');
+  modalContent.style.cssText = `
+    background: #2a2a2a;
+    border-radius: 8px;
+    padding: 24px;
+    max-width: 400px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+    color: #fff;
+  `;
+
+  modalContent.innerHTML = `
+    <h3 style="margin-top: 0; margin-bottom: 16px; color: #ffd700; text-align: center;">
+      ✨ Divine Spark
+    </h3>
+    <p style="margin-bottom: 8px; text-align: center; color: #ccc;">
+      Roll: ${numDice}d8 + ${wisdomMod}
+    </p>
+    <p style="margin-bottom: 20px; text-align: center; font-size: 14px; color: #aaa;">
+      Channel Divinity: ${channelDivinityResource.current}/${channelDivinityResource.max}
+    </p>
+    <p style="margin-bottom: 20px; text-align: center; color: #fff;">
+      Choose the effect:
+    </p>
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <button id="divine-spark-heal" style="
+        padding: 12px 20px;
+        font-size: 16px;
+        border: 2px solid #4ade80;
+        background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+        color: white;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: bold;
+        transition: all 0.2s;
+      ">💚 Heal Target</button>
+      <button id="divine-spark-necrotic" style="
+        padding: 12px 20px;
+        font-size: 16px;
+        border: 2px solid #a78bfa;
+        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        color: white;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: bold;
+        transition: all 0.2s;
+      ">🖤 Necrotic Damage</button>
+      <button id="divine-spark-radiant" style="
+        padding: 12px 20px;
+        font-size: 16px;
+        border: 2px solid #fbbf24;
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        color: white;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: bold;
+        transition: all 0.2s;
+      ">✨ Radiant Damage</button>
+      <button id="divine-spark-cancel" style="
+        padding: 10px 20px;
+        font-size: 14px;
+        background: #444;
+        color: white;
+        border: 1px solid #666;
+        border-radius: 6px;
+        cursor: pointer;
+        margin-top: 8px;
+      ">Cancel</button>
+    </div>
+  `;
+
+  modal.appendChild(modalContent);
+
+  // Add hover effects
+  const buttons = modalContent.querySelectorAll('button:not(#divine-spark-cancel)');
+  buttons.forEach(btn => {
+    btn.addEventListener('mouseenter', () => {
+      btn.style.transform = 'scale(1.05)';
+      btn.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
+    });
+    btn.addEventListener('mouseleave', () => {
+      btn.style.transform = 'scale(1)';
+      btn.style.boxShadow = 'none';
+    });
+  });
+
+  // Helper function to execute Divine Spark
+  const executeDivineSpark = (type, color, damageType = null) => {
+    // Consume Channel Divinity use
+    channelDivinityResource.current -= 1;
+    saveCharacterData();
+
+    // Set the Divine Spark Choice variable in DiceCloud
+    const choiceValue = type === 'heal' ? 1 : (type === 'necrotic' ? 2 : 3);
+    if (characterData.otherVariables) {
+      characterData.otherVariables.divineSparkChoice = choiceValue;
+    }
+
+    // Build the roll formula
+    const rollFormula = `${numDice}d8 + ${wisdomMod}`;
+
+    // Create roll description
+    const effectText = type === 'heal' ? 'Healing' : `${damageType} Damage`;
+    const colorBanner = `<span style="color: ${color}; font-weight: bold;">`;
+
+    // Send the roll to Roll20
+    const messageData = {
+      action: 'sendRoll20Message',
+      message: `&{template:default} {{name=${colorBanner}${characterData.name} uses Divine Spark}} {{Effect=${effectText}}} {{Roll=[[${rollFormula}]]}} {{Channel Divinity=${channelDivinityResource.current}/${channelDivinityResource.max}}}`,
+      color: color
+    };
+
+    if (window.opener && !window.opener.closed) {
+      try {
+        window.opener.postMessage(messageData, '*');
+      } catch (error) {
+        debug.warn('⚠️ Could not send via window.opener:', error.message);
+        browserAPI.runtime.sendMessage({
+          action: 'relayRollToRoll20',
+          roll: messageData
+        });
+      }
+    } else {
+      browserAPI.runtime.sendMessage({
+        action: 'relayRollToRoll20',
+        roll: messageData
+      });
+    }
+
+    // Show notification
+    showNotification(`✨ Divine Spark (${effectText})! Channel Divinity: ${channelDivinityResource.current}/${channelDivinityResource.max}`, 'success');
+    debug.log(`✨ Divine Spark used: ${effectText}`);
+
+    // Rebuild sheet to show updated Channel Divinity count
+    buildSheet(characterData);
+
+    // Remove modal
+    modal.remove();
+  };
+
+  // Add button click handlers
+  document.getElementById('divine-spark-heal')?.addEventListener('click', () => {
+    executeDivineSpark('heal', '#22c55e');
+  });
+
+  document.getElementById('divine-spark-necrotic')?.addEventListener('click', () => {
+    executeDivineSpark('necrotic', '#8b5cf6', 'Necrotic');
+  });
+
+  document.getElementById('divine-spark-radiant')?.addEventListener('click', () => {
+    executeDivineSpark('radiant', '#f59e0b', 'Radiant');
+  });
+
+  document.getElementById('divine-spark-cancel')?.addEventListener('click', () => {
+    modal.remove();
+  });
+
+  // Close on overlay click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
+
+  // Add to document
+  document.body.appendChild(modal);
+
+  // Wait for modal to be in DOM before adding event listeners
+  requestAnimationFrame(() => {
+    const healBtn = document.getElementById('divine-spark-heal');
+    const necroticBtn = document.getElementById('divine-spark-necrotic');
+    const radiantBtn = document.getElementById('divine-spark-radiant');
+    const cancelBtn = document.getElementById('divine-spark-cancel');
+
+    healBtn?.addEventListener('click', () => executeDivineSpark('heal', '#22c55e'));
+    necroticBtn?.addEventListener('click', () => executeDivineSpark('necrotic', '#8b5cf6', 'Necrotic'));
+    radiantBtn?.addEventListener('click', () => executeDivineSpark('radiant', '#f59e0b', 'Radiant'));
+    cancelBtn?.addEventListener('click', () => modal.remove());
+  });
 }
 
 function buildSpellSlotsDisplay() {
@@ -3681,17 +3920,23 @@ function castSpell(spell, index, afterCast = null) {
     spell.source.toLowerCase().includes('potion')
   );
 
-  // Cantrips (level 0) and magic item spells don't need slots
-  if (!spell.level || spell.level === 0 || spell.level === '0' || isMagicItemSpell) {
-    const reason = isMagicItemSpell ? 'magic item' : 'cantrip';
+  // Check if spell has resources field indicating it doesn't consume spell slots
+  // DiceCloud marks spells as "free/doesn't require spell slot" with empty attributesConsumed
+  const isFreeSpell = spell.resources &&
+                       spell.resources.attributesConsumed &&
+                       spell.resources.attributesConsumed.length === 0;
+
+  // Cantrips (level 0), magic item spells, and free spells don't need slots
+  if (!spell.level || spell.level === 0 || spell.level === '0' || isMagicItemSpell || isFreeSpell) {
+    const reason = isMagicItemSpell ? 'magic item' : (isFreeSpell ? 'free spell' : 'cantrip');
     debug.log(`✨ Casting ${reason} (no spell slot needed)`);
-    announceSpellCast(spell, isMagicItemSpell ? `${spell.source} (no slot)` : null);
+    announceSpellCast(spell, (isMagicItemSpell || isFreeSpell) ? `${spell.source} (no slot)` : null);
     showNotification(`✨ Cast ${spell.name}!`);
-    // Execute afterCast with a fake slot for magic items to allow formulas to work
+    // Execute afterCast with a fake slot for magic items and free spells to allow formulas to work
     if (afterCast && typeof afterCast === 'function') {
       setTimeout(() => {
-        // For magic items, create a slot object with the spell's level
-        const fakeSlot = isMagicItemSpell && spell.level ? { level: parseInt(spell.level) } : null;
+        // For magic items and free spells, create a slot object with the spell's level
+        const fakeSlot = ((isMagicItemSpell || isFreeSpell) && spell.level) ? { level: parseInt(spell.level) } : null;
         afterCast(spell, fakeSlot);
       }, 300);
     }
