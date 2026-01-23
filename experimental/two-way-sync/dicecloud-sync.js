@@ -341,61 +341,111 @@ class DiceCloudSync {
                 }
               }
               
-              // Second pass: cache the best property for each name
-              for (const [propertyName, properties] of Object.entries(allProperties)) {
-                let selectedProperty = properties[0]; // default to first
-                
-                // Handle Hit Points - find the healthBar that tracks current HP
-                if (propertyName === 'Hit Points') {
-                  // Debug: Show all Hit Points properties for comparison
-                  console.log(`[DiceCloud Sync] All Hit Points properties found:`);
+              /**
+               * Helper function to select the best property from duplicates
+               * Uses priority-based matching like we do for Hit Points
+               * @param {string} name - Property name
+               * @param {Array} properties - Array of properties with this name
+               * @param {object} criteria - Selection criteria
+               * @returns {object|null} - Best matching property
+               */
+              const selectBestProperty = (name, properties, criteria = {}) => {
+                if (properties.length === 1) return properties[0];
+
+                const {
+                  requiredType,
+                  requiredAttributeType,
+                  requiredFields = [],
+                  sortBy = null,
+                  debug = false
+                } = criteria;
+
+                if (debug) {
+                  console.log(`[DiceCloud Sync] All ${name} properties found:`);
                   properties.forEach(p => {
                     console.log(`  - ${p.name} (${p.type}): id=${p._id}, value=${p.value}, baseValue=${p.baseValue}, total=${p.total}, damage=${p.damage}, attributeType=${p.attributeType || 'none'}`);
                   });
+                }
 
-                  // Find all healthBar attributes
-                  const healthBars = properties.filter(p =>
-                    p.type === 'attribute' &&
-                    p.attributeType === 'healthBar'
+                // Priority 1: Exact type + attributeType + has all required fields
+                if (requiredType && requiredAttributeType && requiredFields.length > 0) {
+                  const exactMatches = properties.filter(p =>
+                    p.type === requiredType &&
+                    p.attributeType === requiredAttributeType &&
+                    requiredFields.every(field => p[field] !== undefined) &&
+                    !p.removed &&
+                    !p.inactive
                   );
-
-                  let hpProperty = null;
-
-                  if (healthBars.length > 0) {
-                    // Priority 1: Find the healthBar with the highest total (main HP)
-                    // AND that has a damage field defined (editable)
-                    const editableHealthBars = healthBars.filter(p => p.damage !== undefined);
-                    if (editableHealthBars.length > 0) {
-                      hpProperty = editableHealthBars.sort((a, b) =>
-                        (b.total || 0) - (a.total || 0)
-                      )[0];
-                    }
-
-                    // Priority 2: If no editable ones, just take the one with highest total
-                    if (!hpProperty) {
-                      hpProperty = healthBars.sort((a, b) =>
-                        (b.total || 0) - (a.total || 0)
-                      )[0];
-                    }
+                  if (exactMatches.length > 0) {
+                    return sortBy ? exactMatches.sort(sortBy)[0] : exactMatches[0];
                   }
+                }
 
-                  // Priority 3: Find any attribute with a damage field (fallback)
-                  if (!hpProperty) {
-                    hpProperty = properties.find(p =>
-                      p.type === 'attribute' &&
-                      p.damage !== undefined
-                    );
+                // Priority 2: Exact type + attributeType
+                if (requiredType && requiredAttributeType) {
+                  const typeMatches = properties.filter(p =>
+                    p.type === requiredType &&
+                    p.attributeType === requiredAttributeType &&
+                    !p.removed &&
+                    !p.inactive
+                  );
+                  if (typeMatches.length > 0) {
+                    return sortBy ? typeMatches.sort(sortBy)[0] : typeMatches[0];
                   }
+                }
 
-                  if (hpProperty) {
-                    this.propertyCache.set('Hit Points', hpProperty._id);
-                    console.log(`[DiceCloud Sync] Selected Hit Points property: ${hpProperty.name} -> ${hpProperty._id} (type: ${hpProperty.type}, attributeType: ${hpProperty.attributeType || 'none'}, value: ${hpProperty.value}, total: ${hpProperty.total}, baseValue: ${hpProperty.baseValue}, damage: ${hpProperty.damage})`);
+                // Priority 3: Just type match
+                if (requiredType) {
+                  const typeOnly = properties.filter(p =>
+                    p.type === requiredType &&
+                    !p.removed &&
+                    !p.inactive
+                  );
+                  if (typeOnly.length > 0) {
+                    return sortBy ? typeOnly.sort(sortBy)[0] : typeOnly[0];
+                  }
+                }
+
+                // Priority 4: Any property with required fields
+                if (requiredFields.length > 0) {
+                  const withFields = properties.filter(p =>
+                    requiredFields.every(field => p[field] !== undefined) &&
+                    !p.removed &&
+                    !p.inactive
+                  );
+                  if (withFields.length > 0) {
+                    return sortBy ? withFields.sort(sortBy)[0] : withFields[0];
+                  }
+                }
+
+                // Fallback: First non-removed, non-inactive property
+                const active = properties.find(p => !p.removed && !p.inactive);
+                return active || properties[0];
+              };
+
+              // Second pass: cache the best property for each name
+              for (const [propertyName, properties] of Object.entries(allProperties)) {
+                let selectedProperty = properties[0]; // default to first
+
+                // Handle Hit Points - find the healthBar that tracks current HP
+                if (propertyName === 'Hit Points') {
+                  selectedProperty = selectBestProperty('Hit Points', properties, {
+                    requiredType: 'attribute',
+                    requiredAttributeType: 'healthBar',
+                    requiredFields: ['damage'],
+                    sortBy: (a, b) => (b.total || 0) - (a.total || 0),
+                    debug: true
+                  });
+
+                  if (selectedProperty) {
+                    this.propertyCache.set('Hit Points', selectedProperty._id);
+                    console.log(`[DiceCloud Sync] Selected Hit Points property: ${selectedProperty.name} -> ${selectedProperty._id} (type: ${selectedProperty.type}, attributeType: ${selectedProperty.attributeType || 'none'}, value: ${selectedProperty.value}, total: ${selectedProperty.total}, baseValue: ${selectedProperty.baseValue}, damage: ${selectedProperty.damage})`);
 
                     // Extract current HP value for initialization
                     // Current HP = total - damage
-                    const currentHP = (hpProperty.total || 0) - (hpProperty.damage || 0);
+                    const currentHP = (selectedProperty.total || 0) - (selectedProperty.damage || 0);
                     currentValuesFromAPI['Hit Points'] = currentHP;
-                    console.log(`[DiceCloud Sync] 📊 Extracted current HP value: ${currentHP} (total: ${hpProperty.total}, damage: ${hpProperty.damage})`);
+                    console.log(`[DiceCloud Sync] 📊 Extracted current HP value: ${currentHP} (total: ${selectedProperty.total}, damage: ${selectedProperty.damage})`);
                   } else {
                     console.log(`[DiceCloud Sync] No suitable Hit Points property found`);
                   }
@@ -422,48 +472,42 @@ class DiceCloudSync {
                 // Cache spell slots (1st Level, 2nd Level, etc.)
                 const spellSlotMatch = propertyName.match(/^(\d+(?:st|nd|rd|th)) Level$/);
                 if (spellSlotMatch) {
-                  // Find the attribute for this spell slot level
-                  // IMPORTANT: Must be type 'attribute' with attributeType 'spellSlot'
-                  // (not the toggle with the same name)
-                  const spellSlotAttr = properties.find(p =>
-                    p.name === propertyName &&
-                    p.type === 'attribute' &&
-                    p.attributeType === 'spellSlot' &&
-                    !p.removed &&
-                    !p.inactive
-                  );
+                  selectedProperty = selectBestProperty(propertyName, properties, {
+                    requiredType: 'attribute',
+                    requiredAttributeType: 'spellSlot',
+                    requiredFields: ['value'],
+                    debug: properties.length > 1
+                  });
 
-                  if (spellSlotAttr) {
+                  if (selectedProperty) {
                     // Cache with both the full name and a short key
-                    this.propertyCache.set(propertyName, spellSlotAttr._id);
+                    this.propertyCache.set(propertyName, selectedProperty._id);
                     const slotLevel = spellSlotMatch[1].replace(/\D/g, '');
-                    this.propertyCache.set(`spellSlot${slotLevel}`, spellSlotAttr._id);
-                    console.log(`[DiceCloud Sync] Cached spell slot: ${propertyName} -> ${spellSlotAttr._id} (attributeType: ${spellSlotAttr.attributeType})`);
+                    this.propertyCache.set(`spellSlot${slotLevel}`, selectedProperty._id);
+                    console.log(`[DiceCloud Sync] Cached spell slot: ${propertyName} -> ${selectedProperty._id} (attributeType: ${selectedProperty.attributeType})`);
 
                     // Extract current spell slot value for initialization
-                    const currentSlots = spellSlotAttr.value || 0;
+                    const currentSlots = selectedProperty.value || 0;
                     currentValuesFromAPI[`spellSlot${slotLevel}`] = currentSlots;
                     console.log(`[DiceCloud Sync] 📊 Extracted current spell slot value for level ${slotLevel}: ${currentSlots}`);
                   }
                   continue;
                 }
 
-                // Cache Channel Divinity - handled by comprehensive variant search below
-                // This section is kept for backwards compatibility but will be overridden
+                // Cache Channel Divinity
                 if (propertyName === 'Channel Divinity') {
-                  const channelDivinity = properties.find(p =>
-                    p.name === propertyName &&
-                    p.type === 'attribute' &&
-                    p.attributeType === 'resource' &&
-                    !p.removed &&
-                    !p.inactive
-                  );
+                  selectedProperty = selectBestProperty('Channel Divinity', properties, {
+                    requiredType: 'attribute',
+                    requiredAttributeType: 'resource',
+                    requiredFields: ['damage'],
+                    debug: properties.length > 1
+                  });
 
-                  if (channelDivinity) {
-                    this.propertyCache.set('Channel Divinity', channelDivinity._id);
-                    console.log(`[DiceCloud Sync] Cached Channel Divinity: ${channelDivinity._id} (attributeType: ${channelDivinity.attributeType})`);
+                  if (selectedProperty) {
+                    this.propertyCache.set('Channel Divinity', selectedProperty._id);
+                    console.log(`[DiceCloud Sync] Cached Channel Divinity: ${selectedProperty._id} (attributeType: ${selectedProperty.attributeType})`);
 
-                    const currentCD = channelDivinity.value || 0;
+                    const currentCD = selectedProperty.value || 0;
                     currentValuesFromAPI['Channel Divinity'] = currentCD;
                     console.log(`[DiceCloud Sync] 📊 Extracted current Channel Divinity value: ${currentCD}`);
                   }
@@ -498,8 +542,70 @@ class DiceCloudSync {
               }
             }
 
-            // Cache common class resources (Ki Points, Sorcery Points, etc.)
-            // IMPORTANT: Must be type 'attribute' with attributeType 'resource'
+            // Cache Temporary Hit Points using comprehensive matching
+            if (allProperties['Temporary Hit Points']) {
+              const tempHP = selectBestProperty('Temporary Hit Points', allProperties['Temporary Hit Points'], {
+                requiredType: 'attribute',
+                requiredAttributeType: 'healthBar',
+                requiredFields: ['value'],
+                debug: allProperties['Temporary Hit Points'].length > 1
+              });
+              if (tempHP) {
+                this.propertyCache.set('Temporary Hit Points', tempHP._id);
+                console.log(`[DiceCloud Sync] Cached Temporary Hit Points: ${tempHP._id} (attributeType: ${tempHP.attributeType})`);
+
+                const currentTempHP = tempHP.value || 0;
+                currentValuesFromAPI['Temporary Hit Points'] = currentTempHP;
+                console.log(`[DiceCloud Sync] 📊 Extracted current Temp HP value: ${currentTempHP}`);
+              }
+            }
+
+            // Cache Death Saves using comprehensive matching
+            ['Succeeded Saves', 'Failed Saves'].forEach(saveName => {
+              if (allProperties[saveName]) {
+                const deathSave = selectBestProperty(saveName, allProperties[saveName], {
+                  requiredType: 'attribute',
+                  requiredAttributeType: 'spellSlot',
+                  debug: allProperties[saveName].length > 1
+                });
+                if (deathSave) {
+                  this.propertyCache.set(saveName, deathSave._id);
+                  console.log(`[DiceCloud Sync] Cached Death Save: ${saveName} -> ${deathSave._id} (attributeType: ${deathSave.attributeType})`);
+                }
+              }
+            });
+
+            // Cache Hit Dice using comprehensive matching
+            ['d6 Hit Dice', 'd8 Hit Dice', 'd10 Hit Dice', 'd12 Hit Dice'].forEach(diceName => {
+              if (allProperties[diceName]) {
+                const hitDie = selectBestProperty(diceName, allProperties[diceName], {
+                  requiredType: 'attribute',
+                  requiredAttributeType: 'hitDice',
+                  debug: allProperties[diceName].length > 1
+                });
+                if (hitDie) {
+                  this.propertyCache.set(diceName, hitDie._id);
+                  console.log(`[DiceCloud Sync] Cached Hit Die: ${diceName} -> ${hitDie._id} (attributeType: ${hitDie.attributeType})`);
+                }
+              }
+            });
+
+            // Cache Heroic Inspiration using comprehensive matching
+            if (allProperties['Heroic Inspiration'] || allProperties['Inspiration']) {
+              const inspirationProps = allProperties['Heroic Inspiration'] || allProperties['Inspiration'];
+              const inspiration = selectBestProperty('Inspiration', inspirationProps, {
+                requiredType: 'attribute',
+                requiredAttributeType: 'resource',
+                debug: inspirationProps.length > 1
+              });
+              if (inspiration) {
+                this.propertyCache.set('Heroic Inspiration', inspiration._id);
+                this.propertyCache.set('Inspiration', inspiration._id);
+                console.log(`[DiceCloud Sync] Cached Inspiration: ${inspiration._id} (attributeType: ${inspiration.attributeType})`);
+              }
+            }
+
+            // Cache common class resources using comprehensive matching
             const classResourceNames = [
               'Ki Points', 'Sorcery Points', 'Bardic Inspiration', 'Superiority Dice',
               'Lay on Hands', 'Wild Shape', 'Rage', 'Action Surge', 'Indomitable',
@@ -508,91 +614,27 @@ class DiceCloudSync {
               'Warlock Spell Slots', 'Pact Magic', 'Eldritch Invocations'
             ];
 
-            const classResources = apiData.creatureProperties.filter(p =>
-              p.type === 'attribute' &&
-              p.attributeType === 'resource' &&
-              p.name &&
-              classResourceNames.some(name => p.name.includes(name)) &&
-              !p.removed &&
-              !p.inactive
-            );
+            let classResourceCount = 0;
+            for (const resourceName of classResourceNames) {
+              if (allProperties[resourceName] && !this.propertyCache.has(resourceName)) {
+                const resource = selectBestProperty(resourceName, allProperties[resourceName], {
+                  requiredType: 'attribute',
+                  requiredAttributeType: 'resource',
+                  requiredFields: ['damage'],
+                  debug: allProperties[resourceName].length > 1
+                });
+                if (resource) {
+                  this.propertyCache.set(resourceName, resource._id);
+                  console.log(`[DiceCloud Sync] Cached class resource: ${resourceName} -> ${resource._id} (attributeType: ${resource.attributeType})`);
 
-            console.log(`[DiceCloud Sync] Found ${classResources.length} class resources`);
-            for (const resource of classResources) {
-              if (!this.propertyCache.has(resource.name)) {
-                this.propertyCache.set(resource.name, resource._id);
-                console.log(`[DiceCloud Sync] Cached class resource: ${resource.name} -> ${resource._id} (attributeType: ${resource.attributeType})`);
-
-                // Extract current value for initialization
-                const currentValue = resource.value || 0;
-                currentValuesFromAPI[resource.name] = currentValue;
-                console.log(`[DiceCloud Sync] 📊 Extracted current value for ${resource.name}: ${currentValue}`);
+                  const currentValue = resource.value || 0;
+                  currentValuesFromAPI[resourceName] = currentValue;
+                  console.log(`[DiceCloud Sync] 📊 Extracted current value for ${resourceName}: ${currentValue}`);
+                  classResourceCount++;
+                }
               }
             }
-
-            // Cache Temporary Hit Points
-            // Uses attributeType 'healthBar'
-            const tempHP = apiData.creatureProperties.find(p =>
-              p.name === 'Temporary Hit Points' &&
-              p.type === 'attribute' &&
-              p.attributeType === 'healthBar' &&
-              !p.removed &&
-              !p.inactive
-            );
-            if (tempHP) {
-              this.propertyCache.set('Temporary Hit Points', tempHP._id);
-              console.log(`[DiceCloud Sync] Cached Temporary Hit Points: ${tempHP._id} (attributeType: ${tempHP.attributeType})`);
-
-              // Extract current Temp HP value for initialization
-              const currentTempHP = tempHP.value || 0;
-              currentValuesFromAPI['Temporary Hit Points'] = currentTempHP;
-              console.log(`[DiceCloud Sync] 📊 Extracted current Temp HP value: ${currentTempHP}`);
-            }
-
-            // Cache Death Saves
-            // Note: Death saves use attributeType 'spellSlot' for the UI component
-            const deathSaveProps = apiData.creatureProperties.filter(p =>
-              p.type === 'attribute' &&
-              p.attributeType === 'spellSlot' &&
-              (p.name === 'Succeeded Saves' || p.name === 'Failed Saves') &&
-              !p.removed &&
-              !p.inactive
-            );
-            for (const deathSave of deathSaveProps) {
-              this.propertyCache.set(deathSave.name, deathSave._id);
-              console.log(`[DiceCloud Sync] Cached Death Save: ${deathSave.name} -> ${deathSave._id} (attributeType: ${deathSave.attributeType})`);
-            }
-
-            // Cache Hit Dice (d6, d8, d10, d12)
-            // IMPORTANT: Must be type 'attribute' with attributeType 'hitDice'
-            const hitDiceNames = ['d6 Hit Dice', 'd8 Hit Dice', 'd10 Hit Dice', 'd12 Hit Dice'];
-            const hitDice = apiData.creatureProperties.filter(p =>
-              p.type === 'attribute' &&
-              p.attributeType === 'hitDice' &&
-              p.name &&
-              hitDiceNames.some(name => p.name.includes(name)) &&
-              !p.removed &&
-              !p.inactive
-            );
-            for (const hitDie of hitDice) {
-              this.propertyCache.set(hitDie.name, hitDie._id);
-              console.log(`[DiceCloud Sync] Cached Hit Die: ${hitDie.name} -> ${hitDie._id} (attributeType: ${hitDie.attributeType})`);
-            }
-
-            // Cache Heroic Inspiration (2024 rules)
-            // IMPORTANT: Must be type 'attribute' with attributeType 'resource'
-            const inspiration = apiData.creatureProperties.find(p =>
-              (p.name === 'Heroic Inspiration' || p.name === 'Inspiration') &&
-              p.type === 'attribute' &&
-              p.attributeType === 'resource' &&
-              !p.removed &&
-              !p.inactive
-            );
-            if (inspiration) {
-              this.propertyCache.set('Heroic Inspiration', inspiration._id);
-              this.propertyCache.set('Inspiration', inspiration._id); // Cache both names
-              console.log(`[DiceCloud Sync] Cached Inspiration: ${inspiration._id} (attributeType: ${inspiration.attributeType})`);
-            }
+            console.log(`[DiceCloud Sync] Found ${classResourceCount} class resources`);
 
             // Cache any other attributes with reset fields (short/long rest resources)
             const restorableAttributes = apiData.creatureProperties.filter(p =>
