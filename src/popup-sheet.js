@@ -4712,6 +4712,12 @@ function saveCharacterData() {
   // Rebuild resources array from otherVariables for sync
   const resourcesForSync = detectClassResources();
 
+  // Debug logging to see what we're sending
+  console.log('[SYNC DEBUG] channelDivinityForSync:', channelDivinityForSync);
+  console.log('[SYNC DEBUG] resourcesForSync:', resourcesForSync);
+  console.log('[SYNC DEBUG] otherVariables.channelDivinity:', characterData.otherVariables?.channelDivinity);
+  console.log('[SYNC DEBUG] otherVariables.channelDivinityMax:', characterData.otherVariables?.channelDivinityMax);
+
   const syncMessage = {
     type: 'characterDataUpdate',
     characterData: {
