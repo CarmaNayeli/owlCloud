@@ -2443,10 +2443,6 @@
    * Adds an export button to the Dice Cloud UI
    */
   function addExportButton() {
-    // Export button removed - only sync button needed
-    debug.log('📋 Export button disabled - using sync button instead');
-    return;
-    
     // Wait for page to fully load
     if (document.readyState !== 'complete') {
       window.addEventListener('load', addExportButton);
@@ -4619,11 +4615,13 @@
     document.addEventListener('DOMContentLoaded', () => {
       debug.log('📄 DOM loaded, adding buttons...');
       addSyncButton();
+      addExportButton();
       observeRollLog();
     });
   } else {
     debug.log('📄 DOM already loaded, adding buttons...');
     addSyncButton();
+    addExportButton();
     observeRollLog();
   }
 })();
