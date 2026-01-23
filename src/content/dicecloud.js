@@ -1218,11 +1218,41 @@
             }
           }
 
+          // Detect lifesteal mechanics (damage + healing where healing depends on damage dealt)
+          let isLifesteal = false;
+          if (damageRolls.length >= 2) {
+            const hasDamage = damageRolls.some(r => r.damageType && r.damageType.toLowerCase() !== 'healing');
+            const hasHealing = damageRolls.some(r => r.damageType && r.damageType.toLowerCase() === 'healing');
+
+            if (hasDamage && hasHealing) {
+              // Check if description indicates healing depends on damage
+              const lowerDesc = fullDescription.toLowerCase();
+              const lifesteaIndicators = [
+                'regain hit points equal to',
+                'regain a number of hit points equal to',
+                'regain hit points equal to half',
+                'heal for half the damage',
+                'regains hit points equal to',
+                'gain temporary hit points equal to',
+                'gain hit points equal to'
+              ];
+
+              isLifesteal = lifesteaIndicators.some(indicator =>
+                lowerDesc.includes(indicator) && lowerDesc.includes('damage')
+              );
+
+              if (isLifesteal) {
+                debug.log(`💉 Detected lifesteal mechanic in "${prop.name}"`);
+              }
+            }
+          }
+
           // Log final attack/damage values before adding to spells array
           if (attackRoll || damageRolls.length > 0) {
             debug.log(`📊 Spell "${prop.name}" final values:`, {
               attackRoll: attackRoll || '(none)',
               damageRolls: damageRolls.length > 0 ? damageRolls : '(none)',
+              isLifesteal: isLifesteal,
               hasSummary: !!summary,
               hasDescription: !!description,
               fullDescriptionSnippet: fullDescription ? fullDescription.substring(0, 100) : ''
@@ -1246,6 +1276,7 @@
             damage: damage, // First damage for backward compatibility
             damageType: damageType, // First damageType for backward compatibility
             damageRolls: damageRolls, // Array of all damage/healing rolls
+            isLifesteal: isLifesteal, // Flag for lifesteal mechanics
             resources: prop.resources || null // Store resource consumption data
           });
           break;

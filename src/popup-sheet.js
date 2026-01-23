@@ -3724,8 +3724,14 @@ function createSpellCard(spell, index) {
       headerButtons += `<button class="spell-attack-btn" data-spell-index="${index}" style="padding: 6px 12px; background: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">⚔️ Attack</button>`;
     }
 
-    // Check for multiple damage types (e.g., spell with both healing and damage)
-    if (hasDamage && spell.damageRolls && spell.damageRolls.length > 0) {
+    // Check for lifesteal mechanics (damage + healing where healing depends on damage)
+    if (hasDamage && spell.isLifesteal) {
+      // Create a single lifesteal button that rolls damage and healing together
+      const buttonClass = hasAttack ? 'spell-lifesteal-only-btn' : 'spell-lifesteal-btn';
+      headerButtons += `<button class="${buttonClass}" data-spell-index="${index}" style="padding: 6px 12px; background: linear-gradient(135deg, #c0392b 0%, #27ae60 100%); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">💉 Lifesteal</button>`;
+    }
+    // Check for multiple damage types (e.g., spell with both healing and damage, but NOT lifesteal)
+    else if (hasDamage && spell.damageRolls && spell.damageRolls.length > 0) {
       // Create a button for each damage type
       spell.damageRolls.forEach((damageRoll, rollIndex) => {
         const isHealing = damageRoll.damageType && damageRoll.damageType.toLowerCase() === 'healing';
@@ -3911,6 +3917,87 @@ function createSpellCard(spell, index) {
         (damageType ? `${spell.name} - Damage (${damageType})` : `${spell.name} - Damage`);
 
       roll(label, formula);
+    });
+  });
+
+  // Lifesteal buttons (spells that deal damage and heal based on damage dealt)
+  const spellLifestealBtns = header.querySelectorAll('.spell-lifesteal-btn');
+  spellLifestealBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+
+      // Get damage and healing rolls from damageRolls array
+      if (!spell.damageRolls || spell.damageRolls.length < 2) return;
+
+      const damageRoll = spell.damageRolls.find(r => r.damageType && r.damageType.toLowerCase() !== 'healing');
+      const healingRoll = spell.damageRolls.find(r => r.damageType && r.damageType.toLowerCase() === 'healing');
+
+      if (!damageRoll || !healingRoll) return;
+
+      // Cast spell AND roll both damage and healing
+      const afterCast = (spell, slot) => {
+        // Prepare damage formula
+        let damageFormula = damageRoll.damage;
+        if (slot && slot.level) {
+          damageFormula = damageFormula.replace(/slotLevel/g, slot.level);
+        }
+        damageFormula = resolveVariablesInFormula(damageFormula);
+        damageFormula = evaluateMathInFormula(damageFormula);
+
+        // Prepare healing formula
+        let healingFormula = healingRoll.damage;
+        if (slot && slot.level) {
+          healingFormula = healingFormula.replace(/slotLevel/g, slot.level);
+        }
+        healingFormula = resolveVariablesInFormula(healingFormula);
+        healingFormula = evaluateMathInFormula(healingFormula);
+
+        // Roll damage first
+        const damageLabel = `${spell.name} - Damage (${damageRoll.damageType})`;
+        roll(damageLabel, damageFormula);
+
+        // Then roll healing after a short delay
+        setTimeout(() => {
+          const healingLabel = `${spell.name} - Healing`;
+          roll(healingLabel, healingFormula);
+        }, 500);
+      };
+      castSpell(spell, index, afterCast);
+    });
+  });
+
+  // Lifesteal-only buttons (for spells with attack + lifesteal)
+  const spellLifestealOnlyBtns = header.querySelectorAll('.spell-lifesteal-only-btn');
+  spellLifestealOnlyBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+
+      // Get damage and healing rolls from damageRolls array
+      if (!spell.damageRolls || spell.damageRolls.length < 2) return;
+
+      const damageRoll = spell.damageRolls.find(r => r.damageType && r.damageType.toLowerCase() !== 'healing');
+      const healingRoll = spell.damageRolls.find(r => r.damageType && r.damageType.toLowerCase() === 'healing');
+
+      if (!damageRoll || !healingRoll) return;
+
+      // Just roll damage and healing without casting (user already cast with Attack button)
+      let damageFormula = damageRoll.damage;
+      damageFormula = resolveVariablesInFormula(damageFormula);
+      damageFormula = evaluateMathInFormula(damageFormula);
+
+      let healingFormula = healingRoll.damage;
+      healingFormula = resolveVariablesInFormula(healingFormula);
+      healingFormula = evaluateMathInFormula(healingFormula);
+
+      // Roll damage first
+      const damageLabel = `${spell.name} - Damage (${damageRoll.damageType})`;
+      roll(damageLabel, damageFormula);
+
+      // Then roll healing after a short delay
+      setTimeout(() => {
+        const healingLabel = `${spell.name} - Healing`;
+        roll(healingLabel, healingFormula);
+      }, 500);
     });
   });
 
