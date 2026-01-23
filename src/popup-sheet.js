@@ -3986,6 +3986,35 @@ function createSpellCard(spell, index) {
         const damageResult = evaluateDiceFormula(damageFormula);
         const damageTotal = damageResult.total;
 
+        // Check if dice evaluation succeeded - fallback to Roll20 inline rolls if not
+        if (!damageTotal || damageTotal === 0) {
+          const healingNormalized = healingRoll.damage.replace(/\s/g, '').toLowerCase();
+          let healingText = 'You regain hit points equal to the damage dealt';
+          if (healingNormalized.includes('/2') || healingNormalized.includes('*0.5') || healingNormalized.includes('half')) {
+            healingText = 'You regain hit points equal to half the damage dealt';
+          }
+
+          const colorBanner = `<span style="color: #c0392b; font-weight: bold;">`;
+          const fallbackMessage = {
+            action: 'sendRoll20Message',
+            message: `&{template:default} {{name=${colorBanner}${characterData.name} casts ${spell.name}}} {{💉 Damage=[[${damageFormula}]] ${damageRoll.damageType}}} {{💚 Healing=${healingText}}}`,
+            color: characterData.notificationColor
+          };
+
+          if (window.opener && !window.opener.closed) {
+            try {
+              window.opener.postMessage(fallbackMessage, '*');
+            } catch (error) {
+              browserAPI.runtime.sendMessage({ action: 'relayRollToRoll20', roll: fallbackMessage });
+            }
+          } else {
+            browserAPI.runtime.sendMessage({ action: 'relayRollToRoll20', roll: fallbackMessage });
+          }
+
+          showNotification(`💉 Lifesteal! ${healingText}`, 'success');
+          return;
+        }
+
         // Determine healing amount based on damage
         const healingNormalized = healingRoll.damage.replace(/\s/g, '').toLowerCase();
         let healingAmount = damageTotal; // Default: full damage
@@ -4073,6 +4102,36 @@ function createSpellCard(spell, index) {
       // Roll the damage dice
       const damageResult = evaluateDiceFormula(damageFormula);
       const damageTotal = damageResult.total;
+
+      // Check if dice evaluation succeeded - fallback to Roll20 inline rolls if not
+      if (!damageTotal || damageTotal === 0) {
+        const healingNormalized = healingRoll.damage.replace(/\s/g, '').toLowerCase();
+        let healingText = 'You regain hit points equal to the damage dealt';
+        if (healingNormalized.includes('/2') || healingNormalized.includes('*0.5') || healingNormalized.includes('half')) {
+          healingText = 'You regain hit points equal to half the damage dealt';
+        }
+
+        const colorBanner = `<span style="color: #c0392b; font-weight: bold;">`;
+        const fallbackMessage = {
+          action: 'sendRoll20Message',
+          message: `&{template:default} {{name=${colorBanner}${spell.name}}} {{💉 Damage=[[${damageFormula}]] ${damageRoll.damageType}}} {{💚 Healing=${healingText}}}`,
+          color: characterData.notificationColor
+        };
+
+        // Send message and return early
+        if (window.opener && !window.opener.closed) {
+          try {
+            window.opener.postMessage(fallbackMessage, '*');
+          } catch (error) {
+            browserAPI.runtime.sendMessage({ action: 'relayRollToRoll20', roll: fallbackMessage });
+          }
+        } else {
+          browserAPI.runtime.sendMessage({ action: 'relayRollToRoll20', roll: fallbackMessage });
+        }
+
+        showNotification(`💉 Lifesteal! ${healingText}`, 'success');
+        return;
+      }
 
       // Determine healing amount based on damage
       const healingNormalized = healingRoll.damage.replace(/\s/g, '').toLowerCase();
