@@ -553,7 +553,10 @@ async function clearCharacterSlot(slotId, slotNum) {
   }
 }
 
-// Add event listeners for rest buttons
+// Global advantage state
+let advantageState = 'normal'; // 'advantage', 'normal', or 'disadvantage'
+
+// Add event listeners for rest buttons and advantage toggle
 document.addEventListener('DOMContentLoaded', () => {
   const shortRestBtn = document.getElementById('short-rest-btn');
   const longRestBtn = document.getElementById('long-rest-btn');
@@ -565,7 +568,62 @@ document.addEventListener('DOMContentLoaded', () => {
   if (longRestBtn) {
     longRestBtn.addEventListener('click', takeLongRest);
   }
+
+  // Advantage toggle buttons
+  const advantageBtn = document.getElementById('advantage-btn');
+  const normalBtn = document.getElementById('normal-btn');
+  const disadvantageBtn = document.getElementById('disadvantage-btn');
+
+  if (advantageBtn) {
+    advantageBtn.addEventListener('click', () => setAdvantageState('advantage'));
+  }
+
+  if (normalBtn) {
+    normalBtn.addEventListener('click', () => setAdvantageState('normal'));
+  }
+
+  if (disadvantageBtn) {
+    disadvantageBtn.addEventListener('click', () => setAdvantageState('disadvantage'));
+  }
 });
+
+function setAdvantageState(state) {
+  advantageState = state;
+
+  const advantageBtn = document.getElementById('advantage-btn');
+  const normalBtn = document.getElementById('normal-btn');
+  const disadvantageBtn = document.getElementById('disadvantage-btn');
+
+  // Reset all buttons
+  [advantageBtn, normalBtn, disadvantageBtn].forEach(btn => {
+    if (btn) {
+      btn.classList.remove('active');
+      const color = btn.id.includes('advantage') ? 'var(--accent-success)' :
+                   btn.id.includes('normal') ? '#3498db' :
+                   'var(--accent-danger)';
+      btn.style.background = 'transparent';
+      btn.style.color = color;
+      btn.style.borderColor = color;
+    }
+  });
+
+  // Highlight active button
+  const activeBtn = state === 'advantage' ? advantageBtn :
+                   state === 'normal' ? normalBtn :
+                   disadvantageBtn;
+
+  if (activeBtn) {
+    activeBtn.classList.add('active');
+    const color = state === 'advantage' ? 'var(--accent-success)' :
+                 state === 'normal' ? '#3498db' :
+                 'var(--accent-danger)';
+    activeBtn.style.background = color;
+    activeBtn.style.color = 'white';
+  }
+
+  debug.log(`🎲 Advantage state set to: ${state}`);
+  showNotification(`🎲 ${state === 'advantage' ? 'Advantage' : state === 'disadvantage' ? 'Disadvantage' : 'Normal'} rolls selected`);
+}
 
 function buildSheet(data) {
   debug.log('Building character sheet...');
@@ -6238,9 +6296,12 @@ function roll(name, formula, prerolledResult = null) {
         debug.log(`🗑️ Removed debuff: ${chosenEffect.name}`);
       }
       updateEffectsDisplay();
-      
+
+      // Apply advantage/disadvantage state
+      const formulaWithAdvantage = applyAdvantageToFormula(finalFormula, effectNotes);
+
       // Proceed with the roll
-      executeRoll(name, finalFormula, effectNotes, prerolledResult);
+      executeRoll(name, formulaWithAdvantage, effectNotes, prerolledResult);
     });
     // Return early - don't execute the roll yet, wait for popup response
     return;
@@ -6248,7 +6309,46 @@ function roll(name, formula, prerolledResult = null) {
 
   // No optional effects, proceed with normal roll
   const { modifiedFormula, effectNotes } = applyEffectModifiers(name, resolvedFormula);
-  executeRoll(name, modifiedFormula, effectNotes, prerolledResult);
+
+  // Apply advantage/disadvantage state
+  const formulaWithAdvantage = applyAdvantageToFormula(modifiedFormula, effectNotes);
+
+  executeRoll(name, formulaWithAdvantage, effectNotes, prerolledResult);
+}
+
+/**
+ * Apply advantage/disadvantage state to dice formula
+ */
+function applyAdvantageToFormula(formula, effectNotes) {
+  if (advantageState === 'normal') {
+    return formula;
+  }
+
+  // Check if this is a d20 roll
+  if (!formula.includes('1d20') && !formula.includes('d20')) {
+    return formula; // Not a d20 roll, don't modify
+  }
+
+  let modifiedFormula = formula;
+
+  if (advantageState === 'advantage') {
+    // Replace 1d20 with 2d20kh1 (keep highest)
+    modifiedFormula = modifiedFormula.replace(/1d20/g, '2d20kh1');
+    modifiedFormula = modifiedFormula.replace(/(?<!\d)d20/g, '2d20kh1');
+    effectNotes.push('[⚡ Advantage]');
+    debug.log('⚡ Applied advantage to roll');
+  } else if (advantageState === 'disadvantage') {
+    // Replace 1d20 with 2d20kl1 (keep lowest)
+    modifiedFormula = modifiedFormula.replace(/1d20/g, '2d20kl1');
+    modifiedFormula = modifiedFormula.replace(/(?<!\d)d20/g, '2d20kl1');
+    effectNotes.push('[⚠️ Disadvantage]');
+    debug.log('⚠️ Applied disadvantage to roll');
+  }
+
+  // Reset advantage state after use
+  setTimeout(() => setAdvantageState('normal'), 100);
+
+  return modifiedFormula;
 }
 
 /**
