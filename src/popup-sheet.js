@@ -2549,9 +2549,9 @@ function adjustResource(resource) {
 
   resource.current = parsed;
 
-  // Also update otherVariables if this is Channel Divinity
-  if (resource.varName && characterData.otherVariables) {
-    characterData.otherVariables[resource.varName] = parsed;
+  // Also update otherVariables to keep data in sync
+  if (characterData.otherVariables && resource.varName) {
+    characterData.otherVariables[resource.varName] = resource.current;
   }
 
   saveCharacterData();
@@ -4653,6 +4653,12 @@ function decrementActionResources(action) {
 
     if (resource) {
       resource.current -= cost.quantity;
+
+      // Also update otherVariables to keep data in sync
+      if (characterData.otherVariables && resource.varName) {
+        characterData.otherVariables[resource.varName] = resource.current;
+      }
+
       debug.log(`✅ Used ${cost.quantity} ${cost.name || cost.variableName} for ${action.name}. Remaining: ${resource.current}/${resource.max}`);
       showNotification(`✅ Used ${action.name}! (${resource.current}/${resource.max} ${cost.name || cost.variableName} left)`);
     }
@@ -5098,23 +5104,25 @@ function saveCharacterData() {
   // Always send sync messages in experimental build - they'll be handled by Roll20 content script
   debug.log('🔄 Sending character data update to DiceCloud sync...');
 
-  // Rebuild Channel Divinity object from otherVariables for sync
+  // Extract Channel Divinity from characterData.resources array (this has the current values after use)
   let channelDivinityForSync = null;
-  if (characterData.otherVariables && characterData.otherVariables.channelDivinity !== undefined) {
+  const channelDivinityResource = characterData.resources?.find(r =>
+    r.name === 'Channel Divinity' || r.varName === 'channelDivinity'
+  );
+  if (channelDivinityResource) {
     channelDivinityForSync = {
-      current: characterData.otherVariables.channelDivinity || 0,
-      max: characterData.otherVariables.channelDivinityMax || 0
+      current: channelDivinityResource.current || 0,
+      max: channelDivinityResource.max || 0
     };
   }
 
-  // Rebuild resources array from otherVariables for sync
-  const resourcesForSync = detectClassResources();
+  // Use the existing resources array which contains current values
+  const resourcesForSync = characterData.resources || [];
 
   // Debug logging to see what we're sending
   console.log('[SYNC DEBUG] channelDivinityForSync:', channelDivinityForSync);
   console.log('[SYNC DEBUG] resourcesForSync:', resourcesForSync);
-  console.log('[SYNC DEBUG] otherVariables.channelDivinity:', characterData.otherVariables?.channelDivinity);
-  console.log('[SYNC DEBUG] otherVariables.channelDivinityMax:', characterData.otherVariables?.channelDivinityMax);
+  console.log('[SYNC DEBUG] characterData.resources:', characterData.resources);
 
   const syncMessage = {
     type: 'characterDataUpdate',
@@ -6574,6 +6582,12 @@ function takeShortRest() {
 
       // Restore all other resources
       resource.current = resource.max;
+
+      // Also update otherVariables to keep data in sync
+      if (characterData.otherVariables && resource.varName) {
+        characterData.otherVariables[resource.varName] = resource.current;
+      }
+
       debug.log(`✅ Restored ${resource.name} (${resource.current}/${resource.max})`);
     });
   }
@@ -6782,6 +6796,12 @@ function takeLongRest() {
   if (characterData.resources && characterData.resources.length > 0) {
     characterData.resources.forEach(resource => {
       resource.current = resource.max;
+
+      // Also update otherVariables to keep data in sync
+      if (characterData.otherVariables && resource.varName) {
+        characterData.otherVariables[resource.varName] = resource.current;
+      }
+
       debug.log(`✅ Restored ${resource.name} (${resource.current}/${resource.max})`);
     });
   }
