@@ -136,13 +136,11 @@ build_firefox_experimental() {
       }
 
       // Add experimental files to web accessible resources (for popup access)
-      manifest.web_accessible_resources.push({
-        resources: [
-          'src/lib/meteor-ddp-client.js',
-          'src/lib/dicecloud-sync.js'
-        ],
-        matches: ['<all_urls>']
-      });
+      // Manifest V2 uses array of strings, not objects
+      manifest.web_accessible_resources.push(
+        'src/lib/meteor-ddp-client.js',
+        'src/lib/dicecloud-sync.js'
+      );
 
       fs.writeFileSync('$FIREFOX_DIR/manifest.json', JSON.stringify(manifest, null, 2));
       fs.unlinkSync('$FIREFOX_DIR/manifest_firefox.json');
