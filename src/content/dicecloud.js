@@ -1070,8 +1070,7 @@
 
           // Find child properties for attack rolls and damage
           let attackRoll = '';
-          let damage = '';
-          let damageType = '';
+          const damageRolls = []; // Array to store multiple damage/healing rolls
 
           // Look for child rolls/damage that are descendants of this spell
           const spellChildren = properties.filter(p => {
@@ -1113,47 +1112,55 @@
               debug.log(`    📊 Damage child found:`, {
                 name: child.name,
                 amount: child.amount,
-                roll: child.roll
+                roll: child.roll,
+                damageType: child.damageType
               });
 
+              let damageFormula = '';
               if (child.amount) {
                 if (typeof child.amount === 'string') {
-                  damage = child.amount;
-                  debug.log(`      → Using amount string: "${damage}"`);
+                  damageFormula = child.amount;
+                  debug.log(`      → Using amount string: "${damageFormula}"`);
                 } else if (typeof child.amount === 'object') {
                   // Prefer value over calculation for pre-computed formulas with modifiers
                   if (child.amount.value !== undefined) {
-                    damage = String(child.amount.value);
-                    debug.log(`      → Using amount.value: "${damage}"`);
+                    damageFormula = String(child.amount.value);
+                    debug.log(`      → Using amount.value: "${damageFormula}"`);
                   } else if (child.amount.calculation) {
-                    damage = child.amount.calculation;
-                    debug.log(`      → Using amount.calculation: "${damage}"`);
+                    damageFormula = child.amount.calculation;
+                    debug.log(`      → Using amount.calculation: "${damageFormula}"`);
                   }
                 }
               } else if (child.roll) {
                 if (typeof child.roll === 'string') {
-                  damage = child.roll;
-                  debug.log(`      → Using roll string: "${damage}"`);
+                  damageFormula = child.roll;
+                  debug.log(`      → Using roll string: "${damageFormula}"`);
                 } else if (typeof child.roll === 'object') {
                   // Prefer value over calculation for pre-computed formulas with modifiers
                   if (child.roll.value !== undefined) {
-                    damage = String(child.roll.value);
-                    debug.log(`      → Using roll.value: "${damage}"`);
+                    damageFormula = String(child.roll.value);
+                    debug.log(`      → Using roll.value: "${damageFormula}"`);
                   } else if (child.roll.calculation) {
-                    damage = child.roll.calculation;
-                    debug.log(`      → Using roll.calculation: "${damage}"`);
+                    damageFormula = child.roll.calculation;
+                    debug.log(`      → Using roll.calculation: "${damageFormula}"`);
                   }
                 }
               }
 
-              // Extract damage type
-              if (child.damageType) {
-                damageType = child.damageType;
+              // Add to damage rolls array if we got a formula
+              if (damageFormula) {
+                damageRolls.push({
+                  damage: damageFormula,
+                  damageType: child.damageType || 'untyped'
+                });
+                debug.log(`    ✅ Added damage roll: ${damageFormula} (${child.damageType || 'untyped'})`);
               }
-
-              debug.log(`    ✅ Found damage: ${damage} (${damageType})`);
             }
           });
+
+          // For backward compatibility, set single damage/damageType to first entry
+          const damage = damageRolls.length > 0 ? damageRolls[0].damage : '';
+          const damageType = damageRolls.length > 0 ? damageRolls[0].damageType : '';
 
           // Check description for additional patterns
           if (description) {
@@ -1212,11 +1219,10 @@
           }
 
           // Log final attack/damage values before adding to spells array
-          if (attackRoll || damage) {
+          if (attackRoll || damageRolls.length > 0) {
             debug.log(`📊 Spell "${prop.name}" final values:`, {
               attackRoll: attackRoll || '(none)',
-              damage: damage || '(none)',
-              damageType: damageType || '(none)',
+              damageRolls: damageRolls.length > 0 ? damageRolls : '(none)',
               hasSummary: !!summary,
               hasDescription: !!description,
               fullDescriptionSnippet: fullDescription ? fullDescription.substring(0, 100) : ''
@@ -1237,8 +1243,9 @@
             concentration: prop.concentration || false,
             ritual: prop.ritual || false,
             attackRoll: attackRoll,
-            damage: damage,
-            damageType: damageType,
+            damage: damage, // First damage for backward compatibility
+            damageType: damageType, // First damageType for backward compatibility
+            damageRolls: damageRolls, // Array of all damage/healing rolls
             resources: prop.resources || null // Store resource consumption data
           });
           break;

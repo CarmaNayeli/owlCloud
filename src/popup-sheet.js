@@ -3719,18 +3719,30 @@ function createSpellCard(spell, index) {
   });
 
   if (hasAttack || hasDamage) {
-    // Check if damage type is healing
-    const isHealing = spell.damageType && spell.damageType.toLowerCase() === 'healing';
-    const icon = isHealing ? '💚' : '💥';
-    const label = isHealing ? 'Healing' : 'Damage';
-    const bgColor = isHealing ? '#27ae60' : '#e67e22';
-
     if (hasAttack) {
       // Attack button always casts spell + rolls attack
       headerButtons += `<button class="spell-attack-btn" data-spell-index="${index}" style="padding: 6px 12px; background: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">⚔️ Attack</button>`;
     }
 
-    if (hasDamage) {
+    // Check for multiple damage types (e.g., spell with both healing and damage)
+    if (hasDamage && spell.damageRolls && spell.damageRolls.length > 0) {
+      // Create a button for each damage type
+      spell.damageRolls.forEach((damageRoll, rollIndex) => {
+        const isHealing = damageRoll.damageType && damageRoll.damageType.toLowerCase() === 'healing';
+        const icon = isHealing ? '💚' : '💥';
+        const label = isHealing ? 'Healing' : 'Damage';
+        const bgColor = isHealing ? '#27ae60' : '#e67e22';
+
+        const buttonClass = hasAttack ? 'spell-damage-only-btn' : 'spell-damage-btn';
+        headerButtons += `<button class="${buttonClass}" data-spell-index="${index}" data-damage-index="${rollIndex}" style="padding: 6px 12px; background: ${bgColor}; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">${icon} ${label}</button>`;
+      });
+    } else if (hasDamage) {
+      // Fallback for old-style single damage (backward compatibility)
+      const isHealing = spell.damageType && spell.damageType.toLowerCase() === 'healing';
+      const icon = isHealing ? '💚' : '💥';
+      const label = isHealing ? 'Healing' : 'Damage';
+      const bgColor = isHealing ? '#27ae60' : '#e67e22';
+
       if (hasAttack) {
         // If there's both attack and damage, add a damage-only button (doesn't cast, just rolls)
         headerButtons += `<button class="spell-damage-only-btn" data-spell-index="${index}" style="padding: 6px 12px; background: ${bgColor}; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">${icon} ${label}</button>`;
@@ -3822,70 +3834,85 @@ function createSpellCard(spell, index) {
     });
   }
 
-  // Spell damage/healing button
-  const spellDamageBtn = header.querySelector('.spell-damage-btn');
-  if (spellDamageBtn && spell.damage) {
-    spellDamageBtn.addEventListener('click', (e) => {
+  // Spell damage/healing buttons (support multiple damage types)
+  const spellDamageBtns = header.querySelectorAll('.spell-damage-btn');
+  spellDamageBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const isHealing = spell.damageType && spell.damageType.toLowerCase() === 'healing';
+      const damageIndex = parseInt(btn.dataset.damageIndex);
 
-      if (isHealing) {
-        // For healing spells, cast the spell AND roll healing
-        const afterCast = (spell, slot) => {
-          let damageFormula = spell.damage;
-          // Replace slotLevel with actual slot level (for cantrips slot will be null)
-          if (slot && slot.level) {
-            damageFormula = damageFormula.replace(/slotLevel/g, slot.level);
-          }
-          // Resolve other DiceCloud variables
-          damageFormula = resolveVariablesInFormula(damageFormula);
-          // Evaluate simple math expressions (e.g., "5*5" -> "25")
-          damageFormula = evaluateMathInFormula(damageFormula);
-          const healingLabel = `${spell.name} - Healing`;
-          roll(healingLabel, damageFormula);
-        };
-        castSpell(spell, index, afterCast);
+      // Get damage from damageRolls array or fallback to single damage
+      let damageFormula, damageType, isHealing;
+      if (!isNaN(damageIndex) && spell.damageRolls && spell.damageRolls[damageIndex]) {
+        damageFormula = spell.damageRolls[damageIndex].damage;
+        damageType = spell.damageRolls[damageIndex].damageType;
+        isHealing = damageType && damageType.toLowerCase() === 'healing';
       } else {
-        // For damage spells, cast the spell AND roll damage
-        const afterCast = (spell, slot) => {
-          let damageFormula = spell.damage;
-          // Replace slotLevel with actual slot level (for cantrips slot will be null)
-          if (slot && slot.level) {
-            damageFormula = damageFormula.replace(/slotLevel/g, slot.level);
-          }
-          // Resolve other DiceCloud variables
-          damageFormula = resolveVariablesInFormula(damageFormula);
-          // Evaluate simple math expressions (e.g., "5*5" -> "25")
-          damageFormula = evaluateMathInFormula(damageFormula);
-          const damageLabel = spell.damageType ? `${spell.name} - Damage (${spell.damageType})` : `${spell.name} - Damage`;
-          roll(damageLabel, damageFormula);
-        };
-        castSpell(spell, index, afterCast);
+        // Fallback to old-style single damage
+        damageFormula = spell.damage;
+        damageType = spell.damageType;
+        isHealing = damageType && damageType.toLowerCase() === 'healing';
       }
-    });
-  }
 
-  // Spell damage-only button (for spells with both attack and damage - just rolls damage without casting)
-  const spellDamageOnlyBtn = header.querySelector('.spell-damage-only-btn');
-  if (spellDamageOnlyBtn && spell.damage) {
-    spellDamageOnlyBtn.addEventListener('click', (e) => {
+      if (!damageFormula) return;
+
+      // Cast spell AND roll damage/healing
+      const afterCast = (spell, slot) => {
+        let formula = damageFormula;
+        // Replace slotLevel with actual slot level (for cantrips slot will be null)
+        if (slot && slot.level) {
+          formula = formula.replace(/slotLevel/g, slot.level);
+        }
+        // Resolve other DiceCloud variables
+        formula = resolveVariablesInFormula(formula);
+        // Evaluate simple math expressions (e.g., "5*5" -> "25")
+        formula = evaluateMathInFormula(formula);
+
+        const label = isHealing ?
+          `${spell.name} - Healing` :
+          (damageType ? `${spell.name} - Damage (${damageType})` : `${spell.name} - Damage`);
+        roll(label, formula);
+      };
+      castSpell(spell, index, afterCast);
+    });
+  });
+
+  // Spell damage-only buttons (for spells with both attack and damage - just rolls damage without casting)
+  const spellDamageOnlyBtns = header.querySelectorAll('.spell-damage-only-btn');
+  spellDamageOnlyBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const isHealing = spell.damageType && spell.damageType.toLowerCase() === 'healing';
+      const damageIndex = parseInt(btn.dataset.damageIndex);
+
+      // Get damage from damageRolls array or fallback to single damage
+      let damageFormula, damageType, isHealing;
+      if (!isNaN(damageIndex) && spell.damageRolls && spell.damageRolls[damageIndex]) {
+        damageFormula = spell.damageRolls[damageIndex].damage;
+        damageType = spell.damageRolls[damageIndex].damageType;
+        isHealing = damageType && damageType.toLowerCase() === 'healing';
+      } else {
+        // Fallback to old-style single damage
+        damageFormula = spell.damage;
+        damageType = spell.damageType;
+        isHealing = damageType && damageType.toLowerCase() === 'healing';
+      }
+
+      if (!damageFormula) return;
 
       // Just roll the damage/healing without casting the spell
-      let damageFormula = spell.damage;
+      let formula = damageFormula;
       // Note: We can't replace slotLevel here because we don't know what level it was cast at
       // The user should have already cast it with the Attack button
-      damageFormula = resolveVariablesInFormula(damageFormula);
-      damageFormula = evaluateMathInFormula(damageFormula);
+      formula = resolveVariablesInFormula(formula);
+      formula = evaluateMathInFormula(formula);
 
       const label = isHealing ?
         `${spell.name} - Healing` :
-        (spell.damageType ? `${spell.name} - Damage (${spell.damageType})` : `${spell.name} - Damage`);
+        (damageType ? `${spell.name} - Damage (${damageType})` : `${spell.name} - Damage`);
 
-      roll(label, damageFormula);
+      roll(label, formula);
     });
-  }
+  });
 
   card.appendChild(header);
   card.appendChild(desc);
