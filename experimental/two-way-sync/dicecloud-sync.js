@@ -1334,24 +1334,22 @@ class DiceCloudSync {
         return;
       }
 
-      // Resources work like health bars: value = total - damage
-      // To set uses remaining, we use the damage method just like HP
+      // Resources have value and total fields
+      // Unlike healthBar attributes, we can update the value field directly
       const total = property.total || property.baseValue?.value || 3;
 
-      console.log(`[DiceCloud Sync] Resource calculation: total=${total}, usesRemaining=${usesRemaining}, damage=${property.damage || 0}`);
+      console.log(`[DiceCloud Sync] Resource calculation: total=${total}, usesRemaining=${usesRemaining}`);
       console.log(`[DiceCloud Sync] Channel Divinity before update:`, {
         value: property.value,
-        damage: property.damage,
         total: property.total
       });
 
-      // Update using the damage method (same as HP sync)
-      // Resources work like health bars: we set the current value directly
+      // Update the value field directly using creatureProperties.update
       const result = await this.queueRequest(
-        () => this.ddp.call('creatureProperties.damage', {
+        () => this.ddp.call('creatureProperties.update', {
           _id: propertyId,
-          value: usesRemaining,
-          operation: 'set'
+          path: ['value'],
+          value: usesRemaining
         }),
         `Update Channel Divinity to ${usesRemaining}`
       );
@@ -1366,17 +1364,14 @@ class DiceCloudSync {
           if (verifyData && verifyData.creatureProperties) {
             const verifiedProperty = verifyData.creatureProperties.find(p => p._id === propertyId);
             if (verifiedProperty) {
-              const actualUsesRemaining = (verifiedProperty.total || total) - (verifiedProperty.damage || 0);
               console.log(`[DiceCloud Sync] Channel Divinity after update:`, {
                 value: verifiedProperty.value,
-                damage: verifiedProperty.damage,
-                total: verifiedProperty.total,
-                calculatedUsesRemaining: actualUsesRemaining
+                total: verifiedProperty.total
               });
-              if (actualUsesRemaining === usesRemaining || verifiedProperty.value === usesRemaining) {
+              if (verifiedProperty.value === usesRemaining) {
                 console.log('[DiceCloud Sync] ✅ SUCCESS: Channel Divinity updated correctly!');
               } else {
-                console.warn(`[DiceCloud Sync] ⚠️ WARNING: Channel Divinity value mismatch! Expected ${usesRemaining}, got ${actualUsesRemaining}`);
+                console.warn(`[DiceCloud Sync] ⚠️ WARNING: Channel Divinity value mismatch! Expected ${usesRemaining}, got ${verifiedProperty.value}`);
               }
             }
           }
