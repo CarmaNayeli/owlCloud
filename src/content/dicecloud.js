@@ -905,6 +905,18 @@
           break;
 
         case 'spell':
+          // Extract summary from object or string
+          let summary = '';
+          if (prop.summary) {
+            if (typeof prop.summary === 'object' && prop.summary.text) {
+              summary = prop.summary.text;
+            } else if (typeof prop.summary === 'object' && prop.summary.value) {
+              summary = prop.summary.value;
+            } else if (typeof prop.summary === 'string') {
+              summary = prop.summary;
+            }
+          }
+
           // Extract description from object or string
           let description = '';
           if (prop.description) {
@@ -917,15 +929,14 @@
             }
           }
 
-          // Also check for summary field
-          if (!description && prop.summary) {
-            if (typeof prop.summary === 'object' && prop.summary.text) {
-              description = prop.summary.text;
-            } else if (typeof prop.summary === 'object' && prop.summary.value) {
-              description = prop.summary.value;
-            } else if (typeof prop.summary === 'string') {
-              description = prop.summary;
-            }
+          // Combine summary and description when both exist
+          let fullDescription = '';
+          if (summary && description) {
+            fullDescription = summary + '\n\n' + description;
+          } else if (summary) {
+            fullDescription = summary;
+          } else if (description) {
+            fullDescription = description;
           }
 
           // Determine source (from parent, tags, or ancestors)
@@ -1203,8 +1214,9 @@
               attackRoll: attackRoll || '(none)',
               damage: damage || '(none)',
               damageType: damageType || '(none)',
+              hasSummary: !!summary,
               hasDescription: !!description,
-              descriptionSnippet: description ? description.substring(0, 100) : ''
+              fullDescriptionSnippet: fullDescription ? fullDescription.substring(0, 100) : ''
             });
           }
 
@@ -1216,7 +1228,7 @@
             range: cleanRange,
             components: prop.components || '',
             duration: prop.duration || '',
-            description: description,
+            description: fullDescription,
             prepared: prop.prepared || false,
             source: source,
             concentration: prop.concentration || false,
