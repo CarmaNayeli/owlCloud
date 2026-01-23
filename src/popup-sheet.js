@@ -694,15 +694,15 @@ function buildSheet(data) {
     deathSavesDisplay.style.background = 'var(--bg-tertiary)';
   }
 
-  // Heroic Inspiration
+  // Inspiration
   const inspirationDisplay = document.getElementById('inspiration-display');
   const inspirationValue = document.getElementById('inspiration-value');
   if (data.inspiration) {
-    inspirationValue.textContent = '⭐ Click to Reroll';
+    inspirationValue.textContent = '⭐ Active';
     inspirationValue.style.color = '#f57f17';
     inspirationDisplay.style.background = '#fff9c4';
   } else {
-    inspirationValue.textContent = '☆ Click to Gain';
+    inspirationValue.textContent = '☆ None';
     inspirationValue.style.color = 'var(--text-muted)';
     inspirationDisplay.style.background = 'var(--bg-tertiary)';
   }
@@ -2789,23 +2789,63 @@ function showHPModal() {
 function toggleInspiration() {
   if (!characterData) return;
 
-  // Heroic Inspiration behavior:
-  // - If expended (false): gain it
-  // - If active (true): expend it to reroll last roll
-
   if (!characterData.inspiration) {
-    // Gain inspiration
+    // Show modal to gain inspiration
+    showGainInspirationModal();
+  } else {
+    // Show modal to choose how to use inspiration (2014 vs 2024)
+    showUseInspirationModal();
+  }
+}
+
+function showGainInspirationModal() {
+  // Create modal overlay
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+
+  // Create modal content
+  const modalContent = document.createElement('div');
+  modalContent.style.cssText = 'background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); min-width: 350px; max-width: 450px;';
+
+  modalContent.innerHTML = `
+    <h3 style="margin: 0 0 20px 0; color: #2c3e50; text-align: center;">⭐ Gain Inspiration</h3>
+    <p style="text-align: center; margin-bottom: 25px; color: #555;">
+      You're about to gain Inspiration! This can be used for:
+    </p>
+    <div style="margin-bottom: 25px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+      <div style="margin-bottom: 12px;">
+        <strong style="color: #3498db;">📖 D&D 2014:</strong> Gain advantage on an attack roll, saving throw, or ability check
+      </div>
+      <div>
+        <strong style="color: #e74c3c;">📖 D&D 2024:</strong> Reroll any die immediately after rolling it
+      </div>
+    </div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+      <button id="gain-inspiration" style="padding: 15px; background: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
+        ⭐ Gain It
+      </button>
+      <button id="cancel-modal" style="padding: 15px; background: #95a5a6; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
+        Cancel
+      </button>
+    </div>
+  `;
+
+  modal.appendChild(modalContent);
+  document.body.appendChild(modal);
+
+  // Gain inspiration button
+  document.getElementById('gain-inspiration').addEventListener('click', () => {
     characterData.inspiration = true;
     const emoji = '⭐';
 
-    debug.log(`${emoji} Heroic Inspiration gained`);
-    showNotification(`${emoji} Heroic Inspiration gained!`);
+    debug.log(`${emoji} Inspiration gained`);
+    showNotification(`${emoji} Inspiration gained!`);
 
     // Announce to Roll20
     const colorBanner = getColoredBanner();
     const messageData = {
       action: 'announceSpell',
-      message: `&{template:default} {{name=${colorBanner}${characterData.name} gains Heroic Inspiration}} {{${emoji}=You now have Heroic Inspiration! Click it again to reroll your last roll.}}`,
+      message: `&{template:default} {{name=${colorBanner}${characterData.name} gains Inspiration}} {{${emoji}=You now have Inspiration!}}`,
       color: characterData.notificationColor
     };
 
@@ -2826,53 +2866,161 @@ function toggleInspiration() {
         roll: messageData
       });
     }
-  } else {
-    // Expend inspiration to reroll last roll
-    if (!characterData.lastRoll) {
-      showNotification('❌ No previous roll to reroll!', 'error');
-      return;
-    }
 
-    // Expend the inspiration
+    saveCharacterData();
+    buildSheet(characterData);
+    modal.remove();
+  });
+
+  // Cancel button
+  document.getElementById('cancel-modal').addEventListener('click', () => {
+    modal.remove();
+  });
+
+  // Click outside to close
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
+}
+
+function showUseInspirationModal() {
+  // Create modal overlay
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+
+  // Create modal content
+  const modalContent = document.createElement('div');
+  modalContent.style.cssText = 'background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); min-width: 400px; max-width: 500px;';
+
+  const lastRollInfo = characterData.lastRoll
+    ? `<div style="margin-bottom: 20px; padding: 12px; background: #e8f5e9; border-left: 4px solid #27ae60; border-radius: 4px;">
+         <strong>Last Roll:</strong> ${characterData.lastRoll.name}
+       </div>`
+    : `<div style="margin-bottom: 20px; padding: 12px; background: #ffebee; border-left: 4px solid #e74c3c; border-radius: 4px;">
+         <strong>⚠️ No previous roll to reroll</strong>
+       </div>`;
+
+  modalContent.innerHTML = `
+    <h3 style="margin: 0 0 20px 0; color: #2c3e50; text-align: center;">✨ Use Inspiration</h3>
+    <p style="text-align: center; margin-bottom: 20px; color: #555;">
+      How do you want to use your Inspiration?
+    </p>
+    ${lastRollInfo}
+    <div style="display: grid; gap: 12px; margin-bottom: 20px;">
+      <button id="use-2014" style="padding: 18px; background: #3498db; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; text-align: left;">
+        <div style="font-size: 1.1em; margin-bottom: 5px;">📖 D&D 2014 - Advantage</div>
+        <div style="font-size: 0.85em; opacity: 0.9;">Gain advantage on your next attack roll, saving throw, or ability check</div>
+      </button>
+      <button id="use-2024" ${!characterData.lastRoll ? 'disabled' : ''} style="padding: 18px; background: ${!characterData.lastRoll ? '#95a5a6' : '#e74c3c'}; color: white; border: none; border-radius: 8px; cursor: ${!characterData.lastRoll ? 'not-allowed' : 'pointer'}; font-weight: bold; text-align: left;">
+        <div style="font-size: 1.1em; margin-bottom: 5px;">📖 D&D 2024 - Reroll</div>
+        <div style="font-size: 0.85em; opacity: 0.9;">Reroll your last roll and use the new result</div>
+      </button>
+    </div>
+    <button id="cancel-use-modal" style="width: 100%; padding: 12px; background: #7f8c8d; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
+      Cancel
+    </button>
+  `;
+
+  modal.appendChild(modalContent);
+  document.body.appendChild(modal);
+
+  // 2014 Advantage button
+  document.getElementById('use-2014').addEventListener('click', () => {
     characterData.inspiration = false;
     const emoji = '✨';
 
-    debug.log(`${emoji} Heroic Inspiration expended to reroll: ${characterData.lastRoll.name}`);
-    showNotification(`${emoji} Heroic Inspiration used! Rerolling ${characterData.lastRoll.name}...`);
+    debug.log(`${emoji} Inspiration spent (2014 - Advantage)`);
+    showNotification(`${emoji} Inspiration used! Gain advantage on your next roll.`);
 
-    // Announce the reroll to Roll20
+    // Announce to Roll20
     const colorBanner = getColoredBanner();
-    const announceData = {
+    const messageData = {
       action: 'announceSpell',
-      message: `&{template:default} {{name=${colorBanner}${characterData.name} uses Heroic Inspiration}} {{${emoji}=Rerolling: ${characterData.lastRoll.name}}}`,
+      message: `&{template:default} {{name=${colorBanner}${characterData.name} uses Inspiration (2014)}} {{${emoji}=Gain advantage on your next attack roll, saving throw, or ability check!}}`,
       color: characterData.notificationColor
     };
 
-    // Send announcement to Roll20
+    // Send to Roll20
     if (window.opener && !window.opener.closed) {
       try {
-        window.opener.postMessage(announceData, '*');
+        window.opener.postMessage(messageData, '*');
       } catch (error) {
         debug.warn('⚠️ Could not send via window.opener:', error.message);
         browserAPI.runtime.sendMessage({
           action: 'relayRollToRoll20',
-          roll: announceData
+          roll: messageData
         });
       }
     } else {
       browserAPI.runtime.sendMessage({
         action: 'relayRollToRoll20',
-        roll: announceData
+        roll: messageData
       });
     }
 
-    // Execute the reroll
-    const lastRoll = characterData.lastRoll;
-    executeRoll(lastRoll.name, lastRoll.formula, lastRoll.effectNotes || []);
+    saveCharacterData();
+    buildSheet(characterData);
+    modal.remove();
+  });
+
+  // 2024 Reroll button
+  if (characterData.lastRoll) {
+    document.getElementById('use-2024').addEventListener('click', () => {
+      characterData.inspiration = false;
+      const emoji = '✨';
+
+      debug.log(`${emoji} Inspiration spent (2024 - Reroll): ${characterData.lastRoll.name}`);
+      showNotification(`${emoji} Inspiration used! Rerolling ${characterData.lastRoll.name}...`);
+
+      // Announce to Roll20
+      const colorBanner = getColoredBanner();
+      const messageData = {
+        action: 'announceSpell',
+        message: `&{template:default} {{name=${colorBanner}${characterData.name} uses Inspiration (2024)}} {{${emoji}=Rerolling: ${characterData.lastRoll.name}}}`,
+        color: characterData.notificationColor
+      };
+
+      // Send to Roll20
+      if (window.opener && !window.opener.closed) {
+        try {
+          window.opener.postMessage(messageData, '*');
+        } catch (error) {
+          debug.warn('⚠️ Could not send via window.opener:', error.message);
+          browserAPI.runtime.sendMessage({
+            action: 'relayRollToRoll20',
+            roll: messageData
+          });
+        }
+      } else {
+        browserAPI.runtime.sendMessage({
+          action: 'relayRollToRoll20',
+          roll: messageData
+        });
+      }
+
+      // Execute the reroll
+      const lastRoll = characterData.lastRoll;
+      executeRoll(lastRoll.name, lastRoll.formula, lastRoll.effectNotes || []);
+
+      saveCharacterData();
+      buildSheet(characterData);
+      modal.remove();
+    });
   }
 
-  saveCharacterData();
-  buildSheet(characterData);
+  // Cancel button
+  document.getElementById('cancel-use-modal').addEventListener('click', () => {
+    modal.remove();
+  });
+
+  // Click outside to close
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  });
 }
 
 function showDeathSavesModal() {
