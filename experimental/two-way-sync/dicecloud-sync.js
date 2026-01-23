@@ -194,7 +194,11 @@ class DiceCloudSync {
       // Get the DiceCloud API token for fetching raw data
       const tokenResult = await browserAPI.storage.local.get(['diceCloudToken']);
       const { diceCloudToken } = tokenResult;
-      
+
+      // Object to store current values extracted from API for initialization
+      // Declared here so it's in scope for initializePreviousValues call later
+      const currentValuesFromAPI = {};
+
       if (diceCloudToken && characterData.id) {
         console.log('[DiceCloud Sync] Fetching raw DiceCloud API data for property cache...');
 
