@@ -906,24 +906,26 @@
 
         case 'spell':
           // Extract summary from object or string
+          // Prioritize 'value' over 'text' because 'value' has inline calculations pre-computed
           let summary = '';
           if (prop.summary) {
-            if (typeof prop.summary === 'object' && prop.summary.text) {
-              summary = prop.summary.text;
-            } else if (typeof prop.summary === 'object' && prop.summary.value) {
+            if (typeof prop.summary === 'object' && prop.summary.value) {
               summary = prop.summary.value;
+            } else if (typeof prop.summary === 'object' && prop.summary.text) {
+              summary = prop.summary.text;
             } else if (typeof prop.summary === 'string') {
               summary = prop.summary;
             }
           }
 
           // Extract description from object or string
+          // Prioritize 'value' over 'text' because 'value' has inline calculations pre-computed
           let description = '';
           if (prop.description) {
-            if (typeof prop.description === 'object' && prop.description.text) {
-              description = prop.description.text;
-            } else if (typeof prop.description === 'object' && prop.description.value) {
+            if (typeof prop.description === 'object' && prop.description.value) {
               description = prop.description.value;
+            } else if (typeof prop.description === 'object' && prop.description.text) {
+              description = prop.description.text;
             } else if (typeof prop.description === 'string') {
               description = prop.description;
             }
