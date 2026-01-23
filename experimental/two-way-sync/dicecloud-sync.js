@@ -520,7 +520,6 @@ class DiceCloudSync {
                 this.propertyCache.set(propertyName, selectedProperty._id);
                 console.log(`[DiceCloud Sync] Cached property: ${propertyName} -> ${selectedProperty._id}`);
               }
-            }
 
             // Cache actions with limited uses from the raw API data
             // Group by name first, then use comprehensive matching
@@ -812,6 +811,7 @@ class DiceCloudSync {
             }
 
             console.log('[DiceCloud Sync] ✅ Comprehensive variant mapping complete');
+            }
           } else {
             console.warn('[DiceCloud Sync] Failed to fetch API data for property cache:', response.error);
           }
