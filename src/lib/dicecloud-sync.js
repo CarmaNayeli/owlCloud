@@ -1689,7 +1689,17 @@ class DiceCloudSync {
       return;
     }
 
-    console.log('[DiceCloud Sync] Handling character data update:', characterData.name);
+    console.log('[DiceCloud Sync] ========== HANDLING CHARACTER DATA UPDATE ==========');
+    console.log('[DiceCloud Sync] Character:', characterData.name);
+    console.log('[DiceCloud Sync] Received data keys:', Object.keys(characterData));
+    console.log('[DiceCloud Sync] Resources:', characterData.resources);
+    console.log('[DiceCloud Sync] Channel Divinity:', characterData.channelDivinity);
+    console.log('[DiceCloud Sync] Death Saves:', characterData.deathSaves);
+    console.log('[DiceCloud Sync] Inspiration:', characterData.inspiration);
+    console.log('[DiceCloud Sync] Actions:', characterData.actions);
+    console.log('[DiceCloud Sync] Property Cache size:', this.propertyCache.size);
+    console.log('[DiceCloud Sync] Property Cache keys:', Array.from(this.propertyCache.keys()));
+    console.log('[DiceCloud Sync] ========================================');
 
     // If previousValues is completely empty, this is the very first update
     // Initialize all values from this update without syncing
@@ -1777,47 +1787,91 @@ class DiceCloudSync {
     }
 
     // Update other tracked resources
+    console.log('[SYNC DEBUG] Checking resources for sync...');
     if (characterData.resources && Array.isArray(characterData.resources)) {
+      console.log(`[SYNC DEBUG] Found ${characterData.resources.length} resources in characterData`);
       for (const resource of characterData.resources) {
+        console.log(`[SYNC DEBUG] Resource: ${resource.name} - current: ${resource.current}, max: ${resource.max}`);
         if (resource.name && resource.current !== undefined) {
+          const propertyId = this.findPropertyId(resource.name);
+          console.log(`[SYNC DEBUG] Property ID for ${resource.name}: ${propertyId || 'NOT FOUND'}`);
           if (hasChanged(resource.name, resource.current)) {
-            console.log(`[DiceCloud Sync] Syncing resource ${resource.name}: ${resource.current}/${resource.max}`);
+            console.log(`[DiceCloud Sync] ✅ Syncing resource ${resource.name}: ${resource.current}/${resource.max}`);
             await this.updateResource(resource.name, resource.current);
+          } else {
+            console.log(`[SYNC DEBUG] ⏭️ Resource ${resource.name} unchanged, skipping sync`);
           }
+        } else {
+          console.log(`[SYNC DEBUG] ❌ Resource ${resource.name} missing name or current value`);
         }
       }
+    } else {
+      console.log('[SYNC DEBUG] No resources array in characterData');
     }
 
     // Update death saves if changed
+    console.log('[SYNC DEBUG] Checking death saves for sync...');
     if (characterData.deathSaves) {
+      console.log(`[SYNC DEBUG] Death saves object:`, characterData.deathSaves);
       if (characterData.deathSaves.successes !== undefined) {
+        const propertyId = this.findPropertyId('Succeeded Saves');
+        console.log(`[SYNC DEBUG] Property ID for Succeeded Saves: ${propertyId || 'NOT FOUND'}`);
         if (hasChanged('Succeeded Saves', characterData.deathSaves.successes)) {
+          console.log(`[DiceCloud Sync] ✅ Syncing Succeeded Saves: ${characterData.deathSaves.successes}`);
           await this.updateDeathSaves(characterData.deathSaves.successes, undefined);
+        } else {
+          console.log(`[SYNC DEBUG] ⏭️ Succeeded Saves unchanged, skipping sync`);
         }
       }
       if (characterData.deathSaves.failures !== undefined) {
+        const propertyId = this.findPropertyId('Failed Saves');
+        console.log(`[SYNC DEBUG] Property ID for Failed Saves: ${propertyId || 'NOT FOUND'}`);
         if (hasChanged('Failed Saves', characterData.deathSaves.failures)) {
+          console.log(`[DiceCloud Sync] ✅ Syncing Failed Saves: ${characterData.deathSaves.failures}`);
           await this.updateDeathSaves(undefined, characterData.deathSaves.failures);
+        } else {
+          console.log(`[SYNC DEBUG] ⏭️ Failed Saves unchanged, skipping sync`);
         }
       }
+    } else {
+      console.log('[SYNC DEBUG] No deathSaves object in characterData');
     }
 
     // Update inspiration if changed
-    if (characterData.inspiration !== undefined && hasChanged('Inspiration', characterData.inspiration)) {
-      await this.updateInspiration(characterData.inspiration);
+    console.log('[SYNC DEBUG] Checking inspiration for sync...');
+    if (characterData.inspiration !== undefined) {
+      const propertyId = this.findPropertyId('Inspiration');
+      console.log(`[SYNC DEBUG] Inspiration value: ${characterData.inspiration}, Property ID: ${propertyId || 'NOT FOUND'}`);
+      if (hasChanged('Inspiration', characterData.inspiration)) {
+        console.log(`[DiceCloud Sync] ✅ Syncing Inspiration: ${characterData.inspiration}`);
+        await this.updateInspiration(characterData.inspiration);
+      } else {
+        console.log(`[SYNC DEBUG] ⏭️ Inspiration unchanged, skipping sync`);
+      }
+    } else {
+      console.log('[SYNC DEBUG] No inspiration value in characterData');
     }
 
     // Update action uses if changed
+    console.log('[SYNC DEBUG] Checking actions for sync...');
     if (characterData.actions && Array.isArray(characterData.actions)) {
+      console.log(`[SYNC DEBUG] Found ${characterData.actions.length} actions in characterData`);
       for (const action of characterData.actions) {
+        console.log(`[SYNC DEBUG] Action: ${action.name} - uses: ${action.uses}, usesUsed: ${action.usesUsed}, _id: ${action._id}`);
         if (action.name && action.uses && action.usesUsed !== undefined && action._id) {
           const cacheKey = `action_${action.name}`;
           if (hasChanged(cacheKey, action.usesUsed)) {
-            console.log(`[DiceCloud Sync] Syncing action ${action.name}: ${action.usesUsed} uses used`);
+            console.log(`[DiceCloud Sync] ✅ Syncing action ${action.name}: ${action.usesUsed} uses used`);
             await this.setActionUses(action._id, action.usesUsed);
+          } else {
+            console.log(`[SYNC DEBUG] ⏭️ Action ${action.name} unchanged, skipping sync`);
           }
+        } else {
+          console.log(`[SYNC DEBUG] ❌ Action ${action.name} missing required fields (uses: ${action.uses}, usesUsed: ${action.usesUsed}, _id: ${action._id})`);
         }
       }
+    } else {
+      console.log('[SYNC DEBUG] No actions array in characterData');
     }
   }
 

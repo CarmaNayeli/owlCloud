@@ -5159,6 +5159,9 @@ function initColorPalette() {
   });
 }
 
+// Debounce timer for sync messages
+let syncDebounceTimer = null;
+
 function saveCharacterData() {
   // CRITICAL: Save to browser storage to persist through refresh/close
   browserAPI.runtime.sendMessage({
@@ -5171,6 +5174,20 @@ function saveCharacterData() {
     debug.error('❌ Failed to save character data:', err);
   });
 
+  // Debounce sync messages to prevent flickering
+  // Clear any pending sync
+  if (syncDebounceTimer) {
+    clearTimeout(syncDebounceTimer);
+  }
+
+  // Schedule sync after a short delay
+  syncDebounceTimer = setTimeout(() => {
+    sendSyncMessage();
+    syncDebounceTimer = null;
+  }, 300); // 300ms debounce delay
+}
+
+function sendSyncMessage() {
   // Send sync message to DiceCloud if experimental sync is available
   // Always send sync messages in experimental build - they'll be handled by Roll20 content script
   debug.log('🔄 Sending character data update to DiceCloud sync...');
@@ -5195,9 +5212,20 @@ function saveCharacterData() {
   const resourcesForSync = characterData.resources || [];
 
   // Debug logging to see what we're sending
-  console.log('[SYNC DEBUG] channelDivinityForSync:', channelDivinityForSync);
-  console.log('[SYNC DEBUG] resourcesForSync:', resourcesForSync);
-  console.log('[SYNC DEBUG] characterData.resources:', characterData.resources);
+  console.log('[SYNC DEBUG] ========== SYNC MESSAGE DATA ==========');
+  console.log('[SYNC DEBUG] Character Name:', characterData.name);
+  console.log('[SYNC DEBUG] HP:', characterData.hitPoints?.current, '/', characterData.hitPoints?.max);
+  console.log('[SYNC DEBUG] Temp HP:', characterData.temporaryHP);
+  console.log('[SYNC DEBUG] Spell Slots:', characterData.spellSlots);
+  console.log('[SYNC DEBUG] Channel Divinity (extracted):', channelDivinityForSync);
+  console.log('[SYNC DEBUG] Channel Divinity (raw resource):', channelDivinityResource);
+  console.log('[SYNC DEBUG] Resources (count):', resourcesForSync?.length);
+  console.log('[SYNC DEBUG] Resources (full):', resourcesForSync);
+  console.log('[SYNC DEBUG] Actions (count):', characterData.actions?.length);
+  console.log('[SYNC DEBUG] Actions (full):', characterData.actions);
+  console.log('[SYNC DEBUG] Death Saves:', characterData.deathSaves);
+  console.log('[SYNC DEBUG] Inspiration:', characterData.inspiration);
+  console.log('[SYNC DEBUG] =========================================');
 
   const syncMessage = {
     type: 'characterDataUpdate',
