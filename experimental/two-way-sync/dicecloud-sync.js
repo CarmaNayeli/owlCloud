@@ -1817,15 +1817,27 @@ class DiceCloudSync {
     }
 
     // Update other tracked resources
+    console.log('[SYNC DEBUG] ===== RESOURCES PROCESSING =====');
+    console.log('[SYNC DEBUG] characterData.resources:', JSON.stringify(characterData.resources, null, 2));
     if (characterData.resources && Array.isArray(characterData.resources)) {
+      console.log(`[SYNC DEBUG] Found ${characterData.resources.length} resources to process`);
       for (const resource of characterData.resources) {
+        console.log(`[SYNC DEBUG] Processing resource:`, JSON.stringify(resource, null, 2));
         if (resource.name && resource.current !== undefined) {
+          const previousValue = this.previousValues.get(resource.name);
+          console.log(`[SYNC DEBUG] Resource ${resource.name} - previous: ${previousValue}, current: ${resource.current}`);
           if (hasChanged(resource.name, resource.current)) {
-            console.log(`[DiceCloud Sync] Syncing resource ${resource.name}: ${resource.current}/${resource.max}`);
+            console.log(`[DiceCloud Sync] ✅ Syncing resource ${resource.name}: ${resource.current}/${resource.max}`);
             await this.updateResource(resource.name, resource.current);
+          } else {
+            console.log(`[SYNC DEBUG] ⏭️ Resource ${resource.name} unchanged (${resource.current}), skipping sync`);
           }
+        } else {
+          console.log(`[SYNC DEBUG] ⚠️ Resource missing name or current value:`, resource);
         }
       }
+    } else {
+      console.log('[SYNC DEBUG] No resources array found or not an array');
     }
 
     // Update death saves if changed
@@ -1848,21 +1860,31 @@ class DiceCloudSync {
     }
 
     // Update action uses if changed
+    console.log('[SYNC DEBUG] ===== ACTIONS PROCESSING =====');
+    console.log('[SYNC DEBUG] characterData.actions:', JSON.stringify(characterData.actions, null, 2));
     if (characterData.actions && Array.isArray(characterData.actions)) {
+      console.log(`[SYNC DEBUG] Found ${characterData.actions.length} actions to process`);
       for (const action of characterData.actions) {
+        console.log(`[SYNC DEBUG] Processing action:`, JSON.stringify(action, null, 2));
         // Only process actions that have uses
         if (action.uses && action.usesUsed !== undefined) {
           const actionKey = `${action.name}_usesUsed`;
           const currentUsesUsed = action.usesUsed;
+          const previousValue = this.previousValues.get(actionKey);
 
+          console.log(`[SYNC DEBUG] Action ${action.name} - previous: ${previousValue}, current: ${currentUsesUsed} (uses: ${action.uses})`);
           if (hasChanged(actionKey, currentUsesUsed)) {
             console.log(`[DiceCloud Sync] ✅ Syncing action uses: ${action.name} (${currentUsesUsed} used)`);
             await this.setActionUses(action.name, currentUsesUsed);
           } else {
             console.log(`[SYNC DEBUG] ⏭️ Action ${action.name} uses unchanged (${currentUsesUsed} used), skipping sync`);
           }
+        } else {
+          console.log(`[SYNC DEBUG] ⚠️ Action ${action.name} missing uses or usesUsed:`, action);
         }
       }
+    } else {
+      console.log('[SYNC DEBUG] No actions array found or not an array');
     }
   }
 
