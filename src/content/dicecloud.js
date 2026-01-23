@@ -2497,39 +2497,146 @@
     document.body.appendChild(button);
     makeDraggable(button);
 
-    // Add "See Structure" button for experimental build
+    // Add "Check Structure" button for experimental build only
+    // This exports the complete property hierarchy as JSON
     if (document.getElementById('experimental-sync-module')) {
-      const structureButton = document.createElement('button');
-      structureButton.id = 'dc-see-structure-btn';
-      structureButton.textContent = 'See Structure';
-      structureButton.style.cssText = `
+      const debugButton = document.createElement('button');
+      debugButton.id = 'dc-check-structure-btn';
+      debugButton.textContent = '🔍 Check Structure';
+      debugButton.style.cssText = `
         position: fixed;
-        bottom: 20px;
-        right: 180px;
-        background: #3498db;
+        top: 10px;
+        right: 10px;
+        z-index: 10000;
+        background: #ff6b6b;
         color: white;
         border: none;
-        padding: 12px 24px;
-        border-radius: 4px;
+        padding: 10px;
+        border-radius: 5px;
         cursor: pointer;
-        font-size: 14px;
-        font-weight: bold;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-        z-index: 10000;
-        transition: background 0.3s;
+        font-size: 12px;
       `;
-      structureButton.addEventListener('mouseenter', () => {
-        structureButton.style.background = '#2980b9';
+
+      debugButton.addEventListener('click', async () => {
+        console.log('🔍 [DiceCloud Structure] Fetching complete property structure...');
+
+        // Get current character ID from URL - handle different URL formats
+        const pathParts = window.location.pathname.split('/');
+        let characterId = null;
+
+        // Try different URL patterns
+        if (pathParts.includes('character')) {
+          // Format: /character/obDHmmtRdhNMkF9a7/New-Character
+          const characterIndex = pathParts.indexOf('character');
+          if (characterIndex + 1 < pathParts.length) {
+            characterId = pathParts[characterIndex + 1];
+          }
+        } else {
+          // Fallback: assume last part is the ID
+          characterId = pathParts[pathParts.length - 1];
+        }
+
+        console.log('🔍 [DiceCloud Structure] Extracted character ID:', characterId);
+
+        if (characterId && characterId !== 'New-Character') {
+          try {
+            // Fetch current character data
+            const response = await fetch(`https://dicecloud.com/api/creature/${characterId}`, {
+              headers: {
+                'Authorization': `Bearer ${localStorage.getItem('Meteor.loginToken')}`
+              }
+            });
+
+            if (response.ok) {
+              const data = await response.json();
+              const properties = data.creatureProperties || [];
+
+              console.log(`🔍 [DiceCloud Structure] Total properties: ${properties.length}`);
+
+              // Build property map for quick lookup
+              const propertyMap = new Map();
+              properties.forEach(p => {
+                if (p._id) {
+                  propertyMap.set(p._id, p);
+                }
+              });
+
+              // Build hierarchical structure with children
+              const buildHierarchy = (propId, visited = new Set()) => {
+                if (visited.has(propId)) return { _circular: true };
+                visited.add(propId);
+
+                const prop = propertyMap.get(propId);
+                if (!prop) return null;
+
+                // Create a copy of the property with all its data
+                const propCopy = { ...prop };
+
+                // Find all children of this property
+                const children = properties.filter(p => p.parent && p.parent.id === propId);
+                if (children.length > 0) {
+                  propCopy.children = children.map(child => buildHierarchy(child._id, new Set(visited)));
+                }
+
+                return propCopy;
+              };
+
+              // Find root properties (no parent or parent doesn't exist)
+              const rootProperties = properties.filter(p => !p.parent || !p.parent.id || !propertyMap.has(p.parent.id));
+
+              // Build complete hierarchical structure
+              const hierarchicalStructure = rootProperties.map(root => buildHierarchy(root._id));
+
+              // Create export data
+              const exportData = {
+                characterId: characterId,
+                exportDate: new Date().toISOString(),
+                totalProperties: properties.length,
+                propertyTypes: Object.entries(
+                  properties.reduce((acc, p) => {
+                    const type = p.type || 'unknown';
+                    acc[type] = (acc[type] || 0) + 1;
+                    return acc;
+                  }, {})
+                ).map(([type, count]) => ({ type, count })),
+                properties: hierarchicalStructure,
+                allPropertiesFlat: properties
+              };
+
+              // Create JSON blob
+              const jsonString = JSON.stringify(exportData, null, 2);
+              const blob = new Blob([jsonString], { type: 'application/json' });
+              const url = URL.createObjectURL(blob);
+
+              // Create download link
+              const downloadLink = document.createElement('a');
+              downloadLink.href = url;
+              downloadLink.download = `dicecloud-structure-${characterId}-${new Date().toISOString().split('T')[0]}.json`;
+              document.body.appendChild(downloadLink);
+              downloadLink.click();
+              document.body.removeChild(downloadLink);
+
+              // Clean up
+              URL.revokeObjectURL(url);
+
+              console.log('🔍 [DiceCloud Structure] JSON file generated and download initiated');
+              alert(`Structure exported!\n\nFound ${properties.length} total properties\n\nProperty types: ${exportData.propertyTypes.map(t => `${t.type}: ${t.count}`).join(', ')}\n\nJSON file will download shortly.`);
+            } else {
+              console.error('🔍 [DiceCloud Structure] Failed to fetch character data:', response.status);
+              alert('Failed to fetch character data. Make sure you\'re logged in.');
+            }
+          } catch (error) {
+            console.error('🔍 [DiceCloud Structure] Error checking structure:', error);
+            alert('Error fetching structure. Check console for details.');
+          }
+        } else {
+          console.error('🔍 [DiceCloud Structure] Could not extract valid character ID from URL');
+          alert('Could not extract character ID from URL. Make sure you\'re on a character page.');
+        }
       });
-      structureButton.addEventListener('mouseleave', () => {
-        structureButton.style.background = '#3498db';
-      });
-      structureButton.addEventListener('click', () => {
-        debugPageStructure();
-        showNotification('📋 Character structure logged to console (F12)', 'info');
-      });
-      document.body.appendChild(structureButton);
-      debug.log('🔍 See Structure button added for experimental build');
+
+      document.body.appendChild(debugButton);
+      debug.log('🔍 Check Structure button added for experimental build');
     }
   }
 
