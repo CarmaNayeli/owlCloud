@@ -1363,12 +1363,13 @@ class DiceCloudSync {
         total: property.total
       });
 
-      // Update the damage field (NOT value, which is computed as total - damage)
+      // Update the damage field using the damage method (same as HP sync)
+      // Resources work like health bars: we set the current value directly
       const result = await this.queueRequest(
-        () => this.ddp.call('creatureProperties.update', {
+        () => this.ddp.call('creatureProperties.damage', {
           _id: propertyId,
-          path: ['damage'],
-          value: damageValue
+          value: usesRemaining,
+          operation: 'set'
         }),
         `Update Channel Divinity to ${usesRemaining}`
       );
