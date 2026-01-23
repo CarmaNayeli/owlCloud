@@ -4597,6 +4597,10 @@ function getResourceCostsFromAction(action) {
 
   if (costs.length > 0) {
     debug.log(`💰 Resource costs for ${action.name}:`, costs);
+    // Debug: Log each cost with its variableName
+    costs.forEach(cost => {
+      debug.log(`   📋 Cost: ${cost.name || 'unnamed'}, variableName: "${cost.variableName}", quantity: ${cost.quantity}`);
+    });
   }
 
   return costs;

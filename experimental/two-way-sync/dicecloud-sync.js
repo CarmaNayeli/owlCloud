@@ -1314,10 +1314,14 @@ class DiceCloudSync {
           if (characterData.spellSlots[maxKey] > 0) {
             const cacheKey = `spellSlot${level}`;
             const currentValue = characterData.spellSlots[currentKey];
+            const previousValue = this.previousValues.get(cacheKey);
 
+            console.log(`[SYNC DEBUG] Spell Slot Level ${level} - previous: ${previousValue}, current: ${currentValue}`);
             if (hasChanged(cacheKey, currentValue)) {
-              console.log(`[DiceCloud Sync] Syncing spell slot level ${level}: ${currentValue}/${characterData.spellSlots[maxKey]}`);
+              console.log(`[DiceCloud Sync] ✅ Syncing spell slot level ${level}: ${currentValue}/${characterData.spellSlots[maxKey]}`);
               await this.updateSpellSlot(level, currentValue);
+            } else {
+              console.log(`[SYNC DEBUG] ⏭️ Spell slot level ${level} unchanged (${currentValue}), skipping sync`);
             }
           }
         }
@@ -1329,10 +1333,13 @@ class DiceCloudSync {
     console.log('[SYNC DEBUG] characterData.resources:', characterData.resources);
     if (characterData.channelDivinity && characterData.channelDivinity.current !== undefined) {
       const currentValue = characterData.channelDivinity.current;
-      console.log(`[SYNC DEBUG] Channel Divinity current value: ${currentValue}, checking if changed...`);
+      const previousValue = this.previousValues.get('Channel Divinity');
+      console.log(`[SYNC DEBUG] Channel Divinity - previous: ${previousValue}, current: ${currentValue}`);
       if (hasChanged('Channel Divinity', currentValue)) {
-        console.log(`[DiceCloud Sync] Syncing Channel Divinity: ${currentValue}/${characterData.channelDivinity.max}`);
+        console.log(`[DiceCloud Sync] ✅ Syncing Channel Divinity: ${currentValue}/${characterData.channelDivinity.max}`);
         await this.updateChannelDivinity(currentValue);
+      } else {
+        console.log(`[SYNC DEBUG] ⏭️ Channel Divinity unchanged (${currentValue}), skipping sync`);
       }
     } else {
       console.log('[SYNC DEBUG] Channel Divinity check failed - object is null or current is undefined');
