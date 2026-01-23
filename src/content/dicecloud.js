@@ -1223,7 +1223,8 @@
             ritual: prop.ritual || false,
             attackRoll: attackRoll,
             damage: damage,
-            damageType: damageType
+            damageType: damageType,
+            resources: prop.resources || null // Store resource consumption data
           });
           break;
 
@@ -1422,6 +1423,7 @@
 
             if (!isMetamagic && (attackRoll || hasValidActionType)) {
               const action = {
+                _id: prop._id, // Include DiceCloud property ID for syncing
                 name: prop.name,
                 actionType: prop.actionType || 'other',
                 attackRoll: attackRoll,
@@ -1430,6 +1432,7 @@
                 description: description,
                 uses: prop.uses || null,
                 usesUsed: prop.usesUsed || 0,
+                usesLeft: prop.usesLeft, // DiceCloud's computed uses remaining field
                 resources: prop.resources || null // Store DiceCloud's structured resource consumption data
               };
 
