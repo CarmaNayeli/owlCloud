@@ -518,7 +518,10 @@ class DiceCloudSync {
                 this.propertyCache.set(propertyName, selectedProperty._id);
                 console.log(`[DiceCloud Sync] Cached property: ${propertyName} -> ${selectedProperty._id}`);
               }
-            }
+
+            // Note: Removed a closing brace that was here at line 521
+            // It was ending the apiData.creatureProperties if block too early,
+            // causing allProperties to go out of scope. The block continues below.
 
             // Cache actions with limited uses from the raw API data
             // Group by name first, then use comprehensive matching
@@ -810,7 +813,8 @@ class DiceCloudSync {
             }
 
             console.log('[DiceCloud Sync] ✅ Comprehensive variant mapping complete');
-          } else {
+          } // Closes if (apiData.creatureProperties && Array.isArray(apiData.creatureProperties)) from line 330
+          else {
             console.warn('[DiceCloud Sync] Failed to fetch API data for property cache:', response.error);
           }
         } catch (error) {
