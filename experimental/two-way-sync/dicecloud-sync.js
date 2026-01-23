@@ -1222,6 +1222,11 @@ class DiceCloudSync {
     // Listen for character data updates from popup
     window.addEventListener('message', (event) => {
       if (event.data.type === 'characterDataUpdate') {
+        console.log('[SYNC DEBUG] Received characterDataUpdate message');
+        console.log('[SYNC DEBUG] Full event.data:', event.data);
+        console.log('[SYNC DEBUG] event.data.characterData:', event.data.characterData);
+        console.log('[SYNC DEBUG] channelDivinity in message:', event.data.characterData?.channelDivinity);
+        console.log('[SYNC DEBUG] resources in message:', event.data.characterData?.resources);
         this.handleCharacterDataUpdate(event.data.characterData);
       }
     });
