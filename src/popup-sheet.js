@@ -3934,7 +3934,7 @@ function createSpellCard(spell, index) {
 
       if (!damageRoll || !healingRoll) return;
 
-      // Cast spell AND roll both damage and healing
+      // Cast spell AND send combined damage+healing message
       const afterCast = (spell, slot) => {
         // Prepare damage formula
         let damageFormula = damageRoll.damage;
@@ -3944,23 +3944,43 @@ function createSpellCard(spell, index) {
         damageFormula = resolveVariablesInFormula(damageFormula);
         damageFormula = evaluateMathInFormula(damageFormula);
 
-        // Prepare healing formula
-        let healingFormula = healingRoll.damage;
-        if (slot && slot.level) {
-          healingFormula = healingFormula.replace(/slotLevel/g, slot.level);
+        // Determine healing relationship to damage
+        let healingText = 'You regain hit points equal to the damage dealt';
+        const damageNormalized = damageFormula.replace(/\s/g, '').toLowerCase();
+        const healingNormalized = healingRoll.damage.replace(/\s/g, '').toLowerCase();
+
+        // Check if healing formula matches or is related to damage
+        if (healingNormalized.includes('/2') || healingNormalized.includes('*0.5') || healingNormalized.includes('half')) {
+          healingText = 'You regain hit points equal to half the damage dealt';
+        } else if (healingNormalized !== damageNormalized && healingRoll.damage.match(/\d/)) {
+          // If formulas differ and healing has numbers, it might be a different amount
+          healingText = `You regain ${healingRoll.damage} hit points`;
         }
-        healingFormula = resolveVariablesInFormula(healingFormula);
-        healingFormula = evaluateMathInFormula(healingFormula);
 
-        // Roll damage first
-        const damageLabel = `${spell.name} - Damage (${damageRoll.damageType})`;
-        roll(damageLabel, damageFormula);
+        // Send combined message to Roll20
+        const colorBanner = `<span style="color: #c0392b; font-weight: bold;">`;
+        const messageData = {
+          action: 'sendRoll20Message',
+          message: `&{template:default} {{name=${colorBanner}${characterData.name} casts ${spell.name}}} {{💉 Damage=[[${damageFormula}]] ${damageRoll.damageType}}} {{💚 Healing=${healingText}}}`,
+          color: characterData.notificationColor
+        };
 
-        // Then roll healing after a short delay
-        setTimeout(() => {
-          const healingLabel = `${spell.name} - Healing`;
-          roll(healingLabel, healingFormula);
-        }, 500);
+        if (window.opener && !window.opener.closed) {
+          try {
+            window.opener.postMessage(messageData, '*');
+          } catch (error) {
+            debug.warn('⚠️ Could not send via window.opener:', error.message);
+            browserAPI.runtime.sendMessage({
+              action: 'relayRollToRoll20',
+              roll: messageData
+            });
+          }
+        } else {
+          browserAPI.runtime.sendMessage({
+            action: 'relayRollToRoll20',
+            roll: messageData
+          });
+        }
       };
       castSpell(spell, index, afterCast);
     });
@@ -3980,24 +4000,48 @@ function createSpellCard(spell, index) {
 
       if (!damageRoll || !healingRoll) return;
 
-      // Just roll damage and healing without casting (user already cast with Attack button)
+      // Just send combined damage+healing message without casting (user already cast with Attack button)
       let damageFormula = damageRoll.damage;
       damageFormula = resolveVariablesInFormula(damageFormula);
       damageFormula = evaluateMathInFormula(damageFormula);
 
-      let healingFormula = healingRoll.damage;
-      healingFormula = resolveVariablesInFormula(healingFormula);
-      healingFormula = evaluateMathInFormula(healingFormula);
+      // Determine healing relationship to damage
+      let healingText = 'You regain hit points equal to the damage dealt';
+      const damageNormalized = damageFormula.replace(/\s/g, '').toLowerCase();
+      const healingNormalized = healingRoll.damage.replace(/\s/g, '').toLowerCase();
 
-      // Roll damage first
-      const damageLabel = `${spell.name} - Damage (${damageRoll.damageType})`;
-      roll(damageLabel, damageFormula);
+      // Check if healing formula matches or is related to damage
+      if (healingNormalized.includes('/2') || healingNormalized.includes('*0.5') || healingNormalized.includes('half')) {
+        healingText = 'You regain hit points equal to half the damage dealt';
+      } else if (healingNormalized !== damageNormalized && healingRoll.damage.match(/\d/)) {
+        // If formulas differ and healing has numbers, it might be a different amount
+        healingText = `You regain ${healingRoll.damage} hit points`;
+      }
 
-      // Then roll healing after a short delay
-      setTimeout(() => {
-        const healingLabel = `${spell.name} - Healing`;
-        roll(healingLabel, healingFormula);
-      }, 500);
+      // Send combined message to Roll20
+      const colorBanner = `<span style="color: #c0392b; font-weight: bold;">`;
+      const messageData = {
+        action: 'sendRoll20Message',
+        message: `&{template:default} {{name=${colorBanner}${spell.name}}} {{💉 Damage=[[${damageFormula}]] ${damageRoll.damageType}}} {{💚 Healing=${healingText}}}`,
+        color: characterData.notificationColor
+      };
+
+      if (window.opener && !window.opener.closed) {
+        try {
+          window.opener.postMessage(messageData, '*');
+        } catch (error) {
+          debug.warn('⚠️ Could not send via window.opener:', error.message);
+          browserAPI.runtime.sendMessage({
+            action: 'relayRollToRoll20',
+            roll: messageData
+          });
+        }
+      } else {
+        browserAPI.runtime.sendMessage({
+          action: 'relayRollToRoll20',
+          roll: messageData
+        });
+      }
     });
   });
 
