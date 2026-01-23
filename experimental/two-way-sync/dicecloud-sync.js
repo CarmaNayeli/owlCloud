@@ -521,26 +521,39 @@ class DiceCloudSync {
             }
 
             // Cache actions with limited uses from the raw API data
-            // Note: 'uses' is an object with a 'value' property, not a number
-            const actionsWithUses = apiData.creatureProperties.filter(p =>
-              p.type === 'action' &&
-              p.name &&
-              p.uses !== undefined &&
-              p.uses !== null &&
-              !p.removed &&
-              !p.inactive
-            );
+            // Group by name first, then use comprehensive matching
+            const actionsByName = {};
+            apiData.creatureProperties.forEach(p => {
+              if (p.type === 'action' &&
+                  p.name &&
+                  p.uses !== undefined &&
+                  p.uses !== null &&
+                  !p.removed &&
+                  !p.inactive &&
+                  !this.propertyCache.has(p.name)) {
+                if (!actionsByName[p.name]) {
+                  actionsByName[p.name] = [];
+                }
+                actionsByName[p.name].push(p);
+              }
+            });
 
-            console.log(`[DiceCloud Sync] Found ${actionsWithUses.length} actions with limited uses`);
-            for (const action of actionsWithUses) {
-              // Only cache if not already cached by name
-              if (!this.propertyCache.has(action.name)) {
+            let actionCount = 0;
+            for (const [actionName, actions] of Object.entries(actionsByName)) {
+              const action = selectBestProperty(actionName, actions, {
+                requiredType: 'action',
+                requiredFields: ['uses'],
+                debug: actions.length > 1
+              });
+              if (action) {
                 this.propertyCache.set(action.name, action._id);
                 const maxUses = action.uses?.value ?? action.uses;
                 const usedUses = action.usesUsed ?? 0;
                 console.log(`[DiceCloud Sync] Cached action with uses: ${action.name} -> ${action._id} (${usedUses}/${maxUses} used)`);
+                actionCount++;
               }
             }
+            console.log(`[DiceCloud Sync] Found ${actionCount} actions with limited uses`);
 
             // Cache Temporary Hit Points using comprehensive matching
             if (allProperties['Temporary Hit Points']) {
@@ -637,57 +650,104 @@ class DiceCloudSync {
             console.log(`[DiceCloud Sync] Found ${classResourceCount} class resources`);
 
             // Cache any other attributes with reset fields (short/long rest resources)
-            const restorableAttributes = apiData.creatureProperties.filter(p =>
-              p.type === 'attribute' &&
-              p.name &&
-              p.reset &&
-              p.reset !== 'none' &&
-              !p.removed &&
-              !p.inactive &&
-              !this.propertyCache.has(p.name) // Don't duplicate
-            );
-            console.log(`[DiceCloud Sync] Found ${restorableAttributes.length} additional restorable attributes`);
-            for (const attr of restorableAttributes) {
-              this.propertyCache.set(attr.name, attr._id);
-              console.log(`[DiceCloud Sync] Cached restorable attribute: ${attr.name} (resets on ${attr.reset}) -> ${attr._id}`);
+            // Group by name first, then use comprehensive matching
+            const restorableByName = {};
+            apiData.creatureProperties.forEach(p => {
+              if (p.type === 'attribute' &&
+                  p.name &&
+                  p.reset &&
+                  p.reset !== 'none' &&
+                  !p.removed &&
+                  !p.inactive &&
+                  !this.propertyCache.has(p.name)) {
+                if (!restorableByName[p.name]) {
+                  restorableByName[p.name] = [];
+                }
+                restorableByName[p.name].push(p);
+              }
+            });
+
+            let restorableCount = 0;
+            for (const [attrName, attrs] of Object.entries(restorableByName)) {
+              const attr = selectBestProperty(attrName, attrs, {
+                requiredType: 'attribute',
+                requiredFields: ['reset'],
+                debug: attrs.length > 1
+              });
+              if (attr) {
+                this.propertyCache.set(attr.name, attr._id);
+                console.log(`[DiceCloud Sync] Cached restorable attribute: ${attr.name} (resets on ${attr.reset}) -> ${attr._id}`);
+                restorableCount++;
+              }
             }
+            console.log(`[DiceCloud Sync] Found ${restorableCount} additional restorable attributes`);
 
             // IMPROVEMENT: Cache ALL remaining attributes (even without reset fields)
             // This ensures custom resources and homebrew attributes sync properly
-            const allRemainingAttributes = apiData.creatureProperties.filter(p =>
-              p.type === 'attribute' &&
-              p.name &&
-              !p.removed &&
-              !p.inactive &&
-              !this.propertyCache.has(p.name) && // Don't duplicate
-              // Only cache if it has a value or baseValue (actual trackable resource)
-              (p.value !== undefined || p.baseValue !== undefined)
-            );
-            console.log(`[DiceCloud Sync] Found ${allRemainingAttributes.length} additional custom attributes to cache`);
-            for (const attr of allRemainingAttributes) {
-              this.propertyCache.set(attr.name, attr._id);
-              console.log(`[DiceCloud Sync] Cached custom attribute: ${attr.name} -> ${attr._id} (value: ${attr.value}, baseValue: ${attr.baseValue})`);
+            const customAttrsByName = {};
+            apiData.creatureProperties.forEach(p => {
+              if (p.type === 'attribute' &&
+                  p.name &&
+                  !p.removed &&
+                  !p.inactive &&
+                  !this.propertyCache.has(p.name) &&
+                  (p.value !== undefined || p.baseValue !== undefined)) {
+                if (!customAttrsByName[p.name]) {
+                  customAttrsByName[p.name] = [];
+                }
+                customAttrsByName[p.name].push(p);
+              }
+            });
 
-              // Extract current value for initialization
-              const currentValue = attr.value !== undefined ? attr.value : (attr.baseValue || 0);
-              currentValuesFromAPI[attr.name] = currentValue;
-              console.log(`[DiceCloud Sync] 📊 Extracted current value for ${attr.name}: ${currentValue}`);
-            }
+            let customAttrCount = 0;
+            for (const [attrName, attrs] of Object.entries(customAttrsByName)) {
+              const attr = selectBestProperty(attrName, attrs, {
+                requiredType: 'attribute',
+                requiredFields: ['value'],
+                debug: attrs.length > 1
+              });
+              if (attr) {
+                this.propertyCache.set(attr.name, attr._id);
+                console.log(`[DiceCloud Sync] Cached custom attribute: ${attr.name} -> ${attr._id} (value: ${attr.value}, baseValue: ${attr.baseValue})`);
 
-            // Cache important toggles (conditions, active features, etc.)
-            const importantToggles = apiData.creatureProperties.filter(p =>
-              p.type === 'toggle' &&
-              p.name &&
-              !p.removed &&
-              !p.inactive
-            );
-            console.log(`[DiceCloud Sync] Found ${importantToggles.length} toggles`);
-            for (const toggle of importantToggles) {
-              if (!this.propertyCache.has(toggle.name)) {
-                this.propertyCache.set(toggle.name, toggle._id);
-                console.log(`[DiceCloud Sync] Cached toggle: ${toggle.name} -> ${toggle._id}`);
+                // Extract current value for initialization
+                const currentValue = attr.value !== undefined ? attr.value : (attr.baseValue || 0);
+                currentValuesFromAPI[attr.name] = currentValue;
+                console.log(`[DiceCloud Sync] 📊 Extracted current value for ${attr.name}: ${currentValue}`);
+                customAttrCount++;
               }
             }
+            console.log(`[DiceCloud Sync] Found ${customAttrCount} additional custom attributes to cache`);
+
+            // Cache important toggles (conditions, active features, etc.)
+            // Group by name first, then use comprehensive matching
+            const togglesByName = {};
+            apiData.creatureProperties.forEach(p => {
+              if (p.type === 'toggle' &&
+                  p.name &&
+                  !p.removed &&
+                  !p.inactive &&
+                  !this.propertyCache.has(p.name)) {
+                if (!togglesByName[p.name]) {
+                  togglesByName[p.name] = [];
+                }
+                togglesByName[p.name].push(p);
+              }
+            });
+
+            let toggleCount = 0;
+            for (const [toggleName, toggles] of Object.entries(togglesByName)) {
+              const toggle = selectBestProperty(toggleName, toggles, {
+                requiredType: 'toggle',
+                debug: toggles.length > 1
+              });
+              if (toggle) {
+                this.propertyCache.set(toggle.name, toggle._id);
+                console.log(`[DiceCloud Sync] Cached toggle: ${toggle.name} -> ${toggle._id}`);
+                toggleCount++;
+              }
+            }
+            console.log(`[DiceCloud Sync] Found ${toggleCount} toggles`);
 
             // COMPREHENSIVE VARIANT MAPPING
             // Search for all properties that match any variant name in our mapping
