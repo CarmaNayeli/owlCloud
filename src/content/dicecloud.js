@@ -2442,59 +2442,13 @@
   /**
    * Adds an export button to the Dice Cloud UI
    */
-  function addExportButton() {
+  function addCheckStructureButton() {
     // Wait for page to fully load
     if (document.readyState !== 'complete') {
-      window.addEventListener('load', addExportButton);
+      window.addEventListener('load', addCheckStructureButton);
       return;
     }
 
-    // Avoid adding duplicate buttons
-    if (document.getElementById('dc-roll20-export-btn')) {
-      return;
-    }
-
-    const button = document.createElement('button');
-    button.id = 'dc-roll20-export-btn';
-    button.textContent = 'Export to Roll20';
-    button.style.cssText = `
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      background: #e74c3c;
-      color: white;
-      border: none;
-      padding: 12px 24px;
-      border-radius: 4px;
-      cursor: move;
-      font-size: 14px;
-      font-weight: bold;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-      z-index: 10000;
-      transition: background 0.3s;
-      user-select: none;
-    `;
-    button.addEventListener('mouseenter', () => {
-      button.style.background = '#c0392b';
-    });
-    button.addEventListener('mouseleave', () => {
-      button.style.background = '#e74c3c';
-    });
-    button.addEventListener('click', (e) => {
-      // Shift+Click for debug mode
-      if (e.shiftKey) {
-        debugPageStructure();
-        showNotification('Debug info logged to console (F12)', 'info');
-      } else {
-        extractAndStoreCharacterData();
-      }
-    });
-
-    document.body.appendChild(button);
-    makeDraggable(button);
-
-    // Add "Check Structure" button
-    // This exports the complete property hierarchy as JSON
     // Only add if not already present
     if (!document.getElementById('dc-check-structure-btn')) {
       const debugButton = document.createElement('button');
@@ -4615,13 +4569,13 @@
     document.addEventListener('DOMContentLoaded', () => {
       debug.log('📄 DOM loaded, adding buttons...');
       addSyncButton();
-      addExportButton();
+      addCheckStructureButton();
       observeRollLog();
     });
   } else {
     debug.log('📄 DOM already loaded, adding buttons...');
     addSyncButton();
-    addExportButton();
+    addCheckStructureButton();
     observeRollLog();
   }
 })();
