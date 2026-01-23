@@ -2497,9 +2497,10 @@
     document.body.appendChild(button);
     makeDraggable(button);
 
-    // Add "Check Structure" button for experimental build only
+    // Add "Check Structure" button
     // This exports the complete property hierarchy as JSON
-    if (document.getElementById('experimental-sync-module')) {
+    // Only add if not already present
+    if (!document.getElementById('dc-check-structure-btn')) {
       const debugButton = document.createElement('button');
       debugButton.id = 'dc-check-structure-btn';
       debugButton.textContent = '🔍 Check Structure';
@@ -2636,7 +2637,7 @@
       });
 
       document.body.appendChild(debugButton);
-      debug.log('🔍 Check Structure button added for experimental build');
+      debug.log('🔍 Check Structure button added');
     }
   }
 
