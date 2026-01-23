@@ -53,11 +53,13 @@ function Build-ChromeExperimental {
     # Replace both occurrences using proper string concatenation
     $replacement1 = "addSyncButton();`n      addCheckStructureButton();`n      observeRollLog();"
     $dicecloudContent = $dicecloudContent -replace 'addSyncButton\(\);\s*observeRollLog\(\);', $replacement1
-    
+
     $replacement2 = "addSyncButton();`n    addCheckStructureButton();`n    observeRollLog();"
     $dicecloudContent = $dicecloudContent -replace 'addSyncButton\(\);\s*observeRollLog\(\);', $replacement2
-    
-    Set-Content $dicecloudJsPath $dicecloudContent -Encoding UTF8
+
+    # Write UTF-8 without BOM (compatible with both Windows PowerShell and PowerShell Core)
+    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText($dicecloudJsPath, $dicecloudContent, $utf8NoBom)
 
     # Copy documentation
     Copy-Item -Path "experimental\two-way-sync\README.md" -Destination "$CHROME_DIR\EXPERIMENTAL-README.md" -Force
@@ -133,11 +135,13 @@ function Build-FirefoxExperimental {
     # Replace both occurrences using proper string concatenation
     $replacement1 = "addSyncButton();`n      addCheckStructureButton();`n      observeRollLog();"
     $dicecloudContent = $dicecloudContent -replace 'addSyncButton\(\);\s*observeRollLog\(\);', $replacement1
-    
+
     $replacement2 = "addSyncButton();`n    addCheckStructureButton();`n    observeRollLog();"
     $dicecloudContent = $dicecloudContent -replace 'addSyncButton\(\);\s*observeRollLog\(\);', $replacement2
-    
-    Set-Content $dicecloudJsPath $dicecloudContent -Encoding UTF8
+
+    # Write UTF-8 without BOM (compatible with both Windows PowerShell and PowerShell Core)
+    $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText($dicecloudJsPath, $dicecloudContent, $utf8NoBom)
 
     # Copy documentation
     Copy-Item -Path "experimental\two-way-sync\README.md" -Destination "$FIREFOX_DIR\EXPERIMENTAL-README.md" -Force
