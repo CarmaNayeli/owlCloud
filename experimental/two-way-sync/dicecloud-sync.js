@@ -187,17 +187,14 @@ class DiceCloudSync {
         console.warn('[DiceCloud Sync] This is likely the default/placeholder character');
         return;
       }
-      
-      // Object to store current values extracted from API for initialization
-      const currentValuesFromAPI = {};
-      
-      // Get the DiceCloud API token for fetching raw data
-      const tokenResult = await browserAPI.storage.local.get(['diceCloudToken']);
-      const { diceCloudToken } = tokenResult;
 
       // Object to store current values extracted from API for initialization
       // Declared here so it's in scope for initializePreviousValues call later
       const currentValuesFromAPI = {};
+
+      // Get the DiceCloud API token for fetching raw data
+      const tokenResult = await browserAPI.storage.local.get(['diceCloudToken']);
+      const { diceCloudToken } = tokenResult;
 
       if (diceCloudToken && characterData.id) {
         console.log('[DiceCloud Sync] Fetching raw DiceCloud API data for property cache...');
