@@ -138,17 +138,12 @@ function Build-FirefoxExperimental {
         }
     }
 
-    # Add web_accessible_resources
+    # Add web_accessible_resources (Manifest V2 format - array of strings)
     if (-not $firefoxManifest.web_accessible_resources) {
         $firefoxManifest.web_accessible_resources = @()
     }
-    $firefoxManifest.web_accessible_resources += @{
-        resources = @(
-            "src/lib/meteor-ddp-client.js",
-            "src/lib/dicecloud-sync.js"
-        )
-        matches = @("<all_urls>")
-    }
+    $firefoxManifest.web_accessible_resources += "src/lib/meteor-ddp-client.js"
+    $firefoxManifest.web_accessible_resources += "src/lib/dicecloud-sync.js"
 
     $firefoxManifest | ConvertTo-Json -Depth 10 | Set-Content "$FIREFOX_DIR\manifest.json" -Encoding UTF8
 
