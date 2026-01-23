@@ -624,7 +624,7 @@ class DiceCloudSync {
     if (apiValues['Channel Divinity'] !== undefined) {
       this.previousValues.set('Channel Divinity', apiValues['Channel Divinity']);
       console.log(`[DiceCloud Sync] 📊 Initialized Channel Divinity from API: ${apiValues['Channel Divinity']}`);
-    } else if (characterData.channelDivinity !== undefined && characterData.channelDivinity.current !== undefined) {
+    } else if (characterData.channelDivinity && characterData.channelDivinity.current !== undefined) {
       this.previousValues.set('Channel Divinity', characterData.channelDivinity.current);
     }
 
@@ -1320,7 +1320,7 @@ class DiceCloudSync {
     }
 
     // Update Channel Divinity if it exists
-    if (characterData.channelDivinity !== undefined) {
+    if (characterData.channelDivinity && characterData.channelDivinity.current !== undefined) {
       const currentValue = characterData.channelDivinity.current;
       if (hasChanged('Channel Divinity', currentValue)) {
         console.log(`[DiceCloud Sync] Syncing Channel Divinity: ${currentValue}/${characterData.channelDivinity.max}`);
