@@ -1701,6 +1701,41 @@ function buildActionsDisplay(container, actions) {
       useBtn.addEventListener('click', (e) => {
         e.stopPropagation();
 
+        // Special handling for Harness Divine Power
+        if (action.name === 'Harness Divine Power' || action.name === 'Recover Spell Slot') {
+          // Get Channel Divinity from otherVariables
+          const otherVars = characterData.otherVariables || {};
+
+          if (otherVars.channelDivinity === undefined) {
+            showNotification('❌ No Channel Divinity resource found', 'error');
+            return;
+          }
+
+          const currentUses = otherVars.channelDivinity || 0;
+          const maxUses = otherVars.channelDivinityMax || 0;
+
+          if (currentUses <= 0) {
+            showNotification('❌ No Channel Divinity uses remaining!', 'error');
+            return;
+          }
+
+          // Create a resource object for the modal
+          const channelDivinityResource = {
+            name: 'Channel Divinity',
+            current: currentUses,
+            max: maxUses,
+            varName: 'channelDivinity'
+          };
+
+          // Calculate max spell slot level for restoration (ceil(proficiencyBonus/2))
+          const profBonus = characterData.proficiencyBonus || 2;
+          const maxSlotLevel = Math.ceil(profBonus / 2);
+
+          // Show the spell slot restoration modal
+          showSpellSlotRestorationModal(channelDivinityResource, maxSlotLevel);
+          return;
+        }
+
         // Special handling for Font of Magic conversions
         if (action.name === 'Convert Spell Slot to Sorcery Points') {
           showConvertSlotToPointsModal();
