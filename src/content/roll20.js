@@ -2718,8 +2718,8 @@ ${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗
       if (response && response.success && response.manifest) {
         debug.log('🔍 Manifest check:', response.manifest);
         debug.log('🔍 Manifest name:', response.manifest.name);
-        
-        if (response.manifest.name && response.manifest.name.includes('EXPERIMENTAL')) {
+
+        if (response.manifest.name && response.manifest.name.toLowerCase().includes('experimental')) {
           debug.log('🧪 Experimental build detected, initializing two-way sync...');
           
           // Scripts are loaded as content scripts, just initialize
