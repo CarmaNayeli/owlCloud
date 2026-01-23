@@ -22,6 +22,52 @@ class DiceCloudSync {
     this.minRequestDelay = 250; // Minimum delay between requests (ms)
     this.lastRequestTime = 0;
     this.maxRetries = 3; // Maximum retries for failed requests
+
+    // Property variants map: canonical name -> array of all possible variable names
+    // This allows us to find properties regardless of which naming convention DiceCloud uses
+    this.propertyVariants = {
+      'Channel Divinity': ['channelDivinity', 'channelDivinityCleric', 'channelDivinityPaladin'],
+      'Ki Points': ['kiPoints', 'ki', 'kiPoint'],
+      'Sorcery Points': ['sorceryPoints', 'sorceryPoint', 'sorceryPt'],
+      'Bardic Inspiration': ['bardicInspiration', 'bardic', 'inspiration'],
+      'Superiority Dice': ['superiorityDice', 'superiority'],
+      'Lay on Hands': ['layOnHands', 'layOnHandsPool'],
+      'Wild Shape': ['wildShape', 'wildShapeUses'],
+      'Rage': ['rage', 'rageUses', 'rages'],
+      'Action Surge': ['actionSurge', 'actionSurgeUses'],
+      'Indomitable': ['indomitable', 'indomitableUses'],
+      'Second Wind': ['secondWind', 'secondWindUses'],
+      'Sneak Attack': ['sneakAttack', 'sneakAttackDice'],
+      'Cunning Action': ['cunningAction'],
+      'Arcane Recovery': ['arcaneRecovery', 'arcaneRecoveryUses'],
+      'Song of Rest': ['songOfRest'],
+      'Font of Magic': ['fontOfMagic'],
+      'Metamagic': ['metamagic'],
+      'Warlock Spell Slots': ['warlockSpellSlots', 'pactMagicSlots'],
+      'Pact Magic': ['pactMagic', 'pactMagicSlots'],
+      'Divine Sense': ['divineSense', 'divineSenseUses'],
+      'Divine Smite': ['divineSmite'],
+      'Aura of Protection': ['auraOfProtection'],
+      'Cleansing Touch': ['cleansingTouch', 'cleansingTouchUses'],
+      'Harness Divine Power': ['harnessDivinePower'],
+      'Wild Companion': ['wildCompanion', 'wildCompanionUses'],
+      'Natural Recovery': ['naturalRecovery'],
+      'Beast Spells': ['beastSpells'],
+      'Favored Foe': ['favoredFoe', 'favoredFoeUses'],
+      'Deft Explorer': ['deftExplorer'],
+      'Primal Awareness': ['primalAwareness'],
+      'Eldritch Invocations': ['eldritchInvocations'],
+      'Pact Boon': ['pactBoon'],
+      'Mystic Arcanum': ['mysticArcanum'],
+      'Eldritch Master': ['eldritchMaster'],
+      'Signature Spells': ['signatureSpells'],
+      'Spell Mastery': ['spellMastery'],
+      'Heroic Inspiration': ['heroicInspiration', 'inspiration'],
+      'Temporary Hit Points': ['temporaryHitPoints', 'tempHitPoints', 'tempHP'],
+      'Hit Points': ['hitPoints', 'hp', 'health'],
+      'Death Saves - Success': ['deathSaveSuccesses', 'succeededSaves', 'deathSaves.successes'],
+      'Death Saves - Failure': ['deathSaveFails', 'failedSaves', 'deathSaves.failures']
+    };
   }
 
   /**
@@ -164,6 +210,75 @@ class DiceCloudSync {
       console.error('[DiceCloud Sync] Initialization failed:', error);
       throw error;
     }
+  }
+
+  /**
+   * Map all variant names to a single property ID
+   * @param {string} canonicalName - The canonical property name
+   * @param {string} foundVariableName - The variable name that was actually found in DiceCloud
+   * @param {string} propertyId - The property _id from DiceCloud
+   */
+  cachePropertyWithVariants(canonicalName, foundVariableName, propertyId) {
+    // Cache the canonical name
+    this.propertyCache.set(canonicalName, propertyId);
+
+    // Cache ALL possible variants for this property
+    const variants = this.propertyVariants[canonicalName];
+    if (variants) {
+      for (const variant of variants) {
+        this.propertyCache.set(variant, propertyId);
+      }
+      console.log(`[DiceCloud Sync] 🗺️  Mapped ${canonicalName} (found as "${foundVariableName}") to ${propertyId}`);
+      console.log(`[DiceCloud Sync]     All variants cached: ${variants.join(', ')}`);
+    } else {
+      // No variants defined, just cache the canonical name
+      console.log(`[DiceCloud Sync] Cached property: ${canonicalName} -> ${propertyId}`);
+    }
+  }
+
+  /**
+   * Find a property in the raw API data by checking all possible variant names
+   * @param {Array} properties - Array of properties from DiceCloud API
+   * @param {string} canonicalName - The canonical property name to search for
+   * @param {Object} filter - Optional filter criteria (type, attributeType, etc.)
+   * @returns {Object|null} The found property or null
+   */
+  findPropertyByVariants(properties, canonicalName, filter = {}) {
+    const variants = this.propertyVariants[canonicalName];
+    if (!variants) {
+      // No variants defined, just search by canonical name
+      return properties.find(p => {
+        if (p.removed || p.inactive) return false;
+        if (p.name !== canonicalName && p.variableName !== canonicalName) return false;
+
+        // Apply additional filters
+        for (const [key, value] of Object.entries(filter)) {
+          if (p[key] !== value) return false;
+        }
+        return true;
+      });
+    }
+
+    // Search for any variant
+    for (const variant of variants) {
+      const property = properties.find(p => {
+        if (p.removed || p.inactive) return false;
+        if (p.variableName !== variant && p.name !== variant) return false;
+
+        // Apply additional filters
+        for (const [key, value] of Object.entries(filter)) {
+          if (p[key] !== value) return false;
+        }
+        return true;
+      });
+
+      if (property) {
+        console.log(`[DiceCloud Sync] 🔍 Found ${canonicalName} using variant "${variant}" (variableName: ${property.variableName})`);
+        return property;
+      }
+    }
+
+    return null;
   }
 
   /**
@@ -333,10 +448,9 @@ class DiceCloudSync {
                   continue;
                 }
 
-                // Cache Channel Divinity and similar limited-use class features
+                // Cache Channel Divinity - handled by comprehensive variant search below
+                // This section is kept for backwards compatibility but will be overridden
                 if (propertyName === 'Channel Divinity') {
-                  // IMPORTANT: Must be type 'attribute' with attributeType 'resource'
-                  // (not the feature or trigger with the same name)
                   const channelDivinity = properties.find(p =>
                     p.name === propertyName &&
                     p.type === 'attribute' &&
@@ -349,7 +463,6 @@ class DiceCloudSync {
                     this.propertyCache.set('Channel Divinity', channelDivinity._id);
                     console.log(`[DiceCloud Sync] Cached Channel Divinity: ${channelDivinity._id} (attributeType: ${channelDivinity.attributeType})`);
 
-                    // Extract current Channel Divinity value for initialization
                     const currentCD = channelDivinity.value || 0;
                     currentValuesFromAPI['Channel Divinity'] = currentCD;
                     console.log(`[DiceCloud Sync] 📊 Extracted current Channel Divinity value: ${currentCD}`);
@@ -533,6 +646,68 @@ class DiceCloudSync {
                 console.log(`[DiceCloud Sync] Cached toggle: ${toggle.name} -> ${toggle._id}`);
               }
             }
+
+            // COMPREHENSIVE VARIANT MAPPING
+            // Search for all properties that match any variant name in our mapping
+            // This ensures we catch properties regardless of naming convention
+            console.log('[DiceCloud Sync] 🗺️  Starting comprehensive variant mapping...');
+
+            for (const [canonicalName, variants] of Object.entries(this.propertyVariants)) {
+              // Search for a property matching any variant
+              let foundProperty = null;
+              let foundVariant = null;
+
+              // Try each variant
+              for (const variant of variants) {
+                const property = apiData.creatureProperties.find(p => {
+                  if (p.removed || p.inactive) return false;
+
+                  // Check both name and variableName fields
+                  if (p.variableName === variant || p.name === variant) {
+                    // For resources and specific types, verify the type
+                    if (canonicalName === 'Channel Divinity' ||
+                        canonicalName === 'Ki Points' ||
+                        canonicalName === 'Sorcery Points' ||
+                        canonicalName === 'Bardic Inspiration') {
+                      // Must be attribute with resource type
+                      return p.type === 'attribute' && p.attributeType === 'resource';
+                    }
+
+                    if (canonicalName === 'Temporary Hit Points') {
+                      return p.type === 'attribute' && p.attributeType === 'healthBar';
+                    }
+
+                    if (canonicalName === 'Hit Points') {
+                      return p.type === 'attribute' && p.attributeType === 'healthBar';
+                    }
+
+                    // For other properties, just check it's an attribute
+                    return p.type === 'attribute' || p.type === 'action';
+                  }
+
+                  return false;
+                });
+
+                if (property) {
+                  foundProperty = property;
+                  foundVariant = variant;
+                  break;
+                }
+              }
+
+              // If we found a property, cache ALL variants to point to this ID
+              if (foundProperty) {
+                this.cachePropertyWithVariants(canonicalName, foundVariant, foundProperty._id);
+
+                // Extract current value for initialization
+                if (foundProperty.value !== undefined) {
+                  currentValuesFromAPI[canonicalName] = foundProperty.value;
+                  console.log(`[DiceCloud Sync] 📊 Extracted current value for ${canonicalName}: ${foundProperty.value}`);
+                }
+              }
+            }
+
+            console.log('[DiceCloud Sync] ✅ Comprehensive variant mapping complete');
           } else {
             console.warn('[DiceCloud Sync] Failed to fetch API data for property cache:', response.error);
           }
@@ -1186,22 +1361,49 @@ class DiceCloudSync {
   }
 
   findPropertyId(attributeName) {
+    // Direct cache lookup (handles all mapped variants)
     const propertyId = this.propertyCache.get(attributeName);
     if (propertyId) {
-      console.log(`[DiceCloud Sync] Found property ID for ${attributeName}: ${propertyId}`);
+      console.log(`[DiceCloud Sync] ✅ Found property ID for "${attributeName}": ${propertyId}`);
       return propertyId;
     }
 
+    // Try to find the canonical name for this attribute
+    // (in case the attribute name is a variant we haven't seen before)
+    for (const [canonicalName, variants] of Object.entries(this.propertyVariants)) {
+      if (variants.includes(attributeName) || canonicalName === attributeName) {
+        // Try to find the property by canonical name
+        const canonicalId = this.propertyCache.get(canonicalName);
+        if (canonicalId) {
+          console.log(`[DiceCloud Sync] 🔍 Found "${attributeName}" via canonical name "${canonicalName}": ${canonicalId}`);
+          // Cache this variant for future lookups
+          this.propertyCache.set(attributeName, canonicalId);
+          return canonicalId;
+        }
+
+        // Try each variant
+        for (const variant of variants) {
+          const variantId = this.propertyCache.get(variant);
+          if (variantId) {
+            console.log(`[DiceCloud Sync] 🔍 Found "${attributeName}" via variant "${variant}": ${variantId}`);
+            // Cache this variant for future lookups
+            this.propertyCache.set(attributeName, variantId);
+            return variantId;
+          }
+        }
+      }
+    }
+
     // Handle special cases for Hit Points (use class-specific HP instead of calculated base HP)
-    if (attributeName === 'Hit Points') {
+    if (attributeName === 'Hit Points' || attributeName === 'hitPoints' || attributeName === 'hp') {
       console.log('[DiceCloud Sync] Looking for Hit Points alternatives...');
-      const hpRelatedProps = Array.from(this.propertyCache.keys()).filter(name => 
-        name.toLowerCase().includes('hit points') || 
+      const hpRelatedProps = Array.from(this.propertyCache.keys()).filter(name =>
+        name.toLowerCase().includes('hit points') ||
         name.toLowerCase().includes('hp') ||
         name.toLowerCase().includes('health')
       );
       console.log('[DiceCloud Sync] HP-related properties found:', hpRelatedProps);
-      
+
       // Try class-specific HP first (like "Hit Points: Monk")
       const classSpecificHP = hpRelatedProps.find(name => name !== 'Hit Points' && name.includes('Hit Points'));
       if (classSpecificHP) {
@@ -1211,8 +1413,18 @@ class DiceCloudSync {
       }
     }
 
-    console.warn(`[DiceCloud Sync] Property ID not found for: ${attributeName}`);
-    console.log(`[DiceCloud Sync] Available properties:`, Array.from(this.propertyCache.keys()).slice(0, 20));
+    console.warn(`[DiceCloud Sync] ❌ Property ID not found for: "${attributeName}"`);
+    console.warn(`[DiceCloud Sync] Available properties (showing first 20):`, Array.from(this.propertyCache.keys()).slice(0, 20));
+
+    // Show potential matches
+    const potentialMatches = Array.from(this.propertyCache.keys()).filter(name =>
+      name.toLowerCase().includes(attributeName.toLowerCase()) ||
+      attributeName.toLowerCase().includes(name.toLowerCase())
+    );
+    if (potentialMatches.length > 0) {
+      console.warn(`[DiceCloud Sync] 💡 Potential matches:`, potentialMatches);
+    }
+
     return null;
   }
 
