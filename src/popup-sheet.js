@@ -1653,13 +1653,26 @@ function buildActionsDisplay(container, actions) {
           debug.log('🐱 Feline Agility used');
           showNotification('🐱 Feline Agility activated!', 'success');
           
-          // Post to Roll20 chat like other actions
-          postToChatIfOpener(`${characterData.name} uses Feline Agility! 🐱
-
-When you move on your turn, you can double your speed until the end of the turn. Once you use this ability, you can't use it again until you move 0 feet on one of your turns.`);
+          // Announce the action properly
+          announceAction({
+            name: action.name,
+            description: `When you move on your turn, you can double your speed until the end of the turn. Once you use this ability, you can't use it again until you move 0 feet on one of your turns.`,
+            actionType: action.actionType || 'bonus'
+          });
           
           // Refresh the display to show updated uses
           buildSheet(characterData);
+          return;
+        }
+
+        // Special handling for Recover Spell Slot
+        if (action.name && action.name.toLowerCase().includes('recover spell slot')) {
+          // Check and decrement uses before proceeding
+          if (action.uses && !decrementActionUses(action)) {
+            return; // No uses remaining
+          }
+          
+          handleRecoverSpellSlot(action);
           return;
         }
 
@@ -4006,6 +4019,81 @@ function handleLayOnHands(action) {
   }
 
   // Refresh display to show updated pool
+  buildSheet(characterData);
+}
+
+function handleRecoverSpellSlot(action) {
+  // Calculate max recoverable level from proficiency bonus
+  const profBonus = characterData.proficiencyBonus || 2;
+  const maxLevel = Math.ceil(profBonus / 2);
+  
+  debug.log(`🔮 Recover Spell Slot: proficiencyBonus=${profBonus}, maxLevel=${maxLevel}`);
+  
+  // Find available spell slots of eligible levels
+  const eligibleSlots = [];
+  for (let level = 1; level <= maxLevel && level <= 9; level++) {
+    const slotKey = `level${level}SpellSlots`;
+    const maxKey = `level${level}SpellSlotsMax`;
+    
+    if (characterData[slotKey] !== undefined && characterData[maxKey] !== undefined) {
+      const current = characterData[slotKey];
+      const max = characterData[maxKey];
+      
+      if (current < max) {
+        eligibleSlots.push({ level, current, max, slotKey, maxKey });
+      }
+    }
+  }
+  
+  if (eligibleSlots.length === 0) {
+    showNotification(`❌ No spell slots to recover (max level: ${maxLevel})`, 'error');
+    return;
+  }
+  
+  // If only one eligible slot, recover it automatically
+  if (eligibleSlots.length === 1) {
+    const slot = eligibleSlots[0];
+    recoverSpellSlot(slot, action, maxLevel);
+    return;
+  }
+  
+  // If multiple slots, let user choose
+  let message = `Recover Spell Slot (max level: ${maxLevel})\n\nChoose which spell slot to recover:\n\n`;
+  eligibleSlots.forEach((slot, index) => {
+    message += `${index + 1}. Level ${slot.level}: ${slot.current}/${slot.max}\n`;
+  });
+  
+  const choice = prompt(message);
+  if (choice === null) return; // Cancelled
+  
+  const choiceIndex = parseInt(choice) - 1;
+  if (isNaN(choiceIndex) || choiceIndex < 0 || choiceIndex >= eligibleSlots.length) {
+    showNotification('❌ Invalid choice', 'error');
+    return;
+  }
+  
+  const selectedSlot = eligibleSlots[choiceIndex];
+  recoverSpellSlot(selectedSlot, action, maxLevel);
+}
+
+function recoverSpellSlot(slot, action, maxLevel) {
+  // Increment the spell slot
+  characterData[slot.slotKey] = Math.min(characterData[slot.slotKey] + 1, characterData[slot.maxKey]);
+  saveCharacterData();
+  
+  // Create description with resolved formula
+  const description = `You expend a use of your Channel Divinity to fuel your spells. As a bonus action, you touch your holy symbol, utter a prayer, and regain one expended spell slot, the level of which can be no higher than ${maxLevel}.`;
+  
+  // Announce the action
+  announceAction({
+    name: action.name,
+    description: description,
+    actionType: action.actionType || 'bonus'
+  });
+  
+  showNotification(`🔮 Recovered Level ${slot.level} Spell Slot (${characterData[slot.slotKey]}/${characterData[slot.maxKey]})`, 'success');
+  
+  // Refresh display
   buildSheet(characterData);
 }
 

@@ -188,15 +188,15 @@ class DiceCloudSync {
         return;
       }
       
+      // Object to store current values extracted from API for initialization
+      const currentValuesFromAPI = {};
+      
       // Get the DiceCloud API token for fetching raw data
       const tokenResult = await browserAPI.storage.local.get(['diceCloudToken']);
       const { diceCloudToken } = tokenResult;
       
       if (diceCloudToken && characterData.id) {
         console.log('[DiceCloud Sync] Fetching raw DiceCloud API data for property cache...');
-
-        // Object to store current values extracted from API for initialization
-        const currentValuesFromAPI = {};
 
         try {
           // Route API request through background script to avoid CORS
