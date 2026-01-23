@@ -45,6 +45,20 @@ function Build-ChromeExperimental {
     Copy-Item -Path "experimental\two-way-sync\meteor-ddp-client.js" -Destination "$LIB_DIR\meteor-ddp-client.js" -Force
     Copy-Item -Path "experimental\two-way-sync\dicecloud-sync.js" -Destination "$LIB_DIR\dicecloud-sync.js" -Force
 
+    # Add back check structure button for experimental builds
+    Write-Host "  Adding check structure button for experimental builds..." -ForegroundColor Gray
+    $dicecloudJsPath = "$CHROME_DIR\src\content\dicecloud.js"
+    $dicecloudContent = Get-Content $dicecloudJsPath -Raw
+    
+    # Replace both occurrences using proper string concatenation
+    $replacement1 = "addSyncButton();`n      addCheckStructureButton();`n      observeRollLog();"
+    $dicecloudContent = $dicecloudContent -replace 'addSyncButton\(\);\s*observeRollLog\(\);', $replacement1
+    
+    $replacement2 = "addSyncButton();`n    addCheckStructureButton();`n    observeRollLog();"
+    $dicecloudContent = $dicecloudContent -replace 'addSyncButton\(\);\s*observeRollLog\(\);', $replacement2
+    
+    Set-Content $dicecloudJsPath $dicecloudContent -Encoding UTF8
+
     # Copy documentation
     Copy-Item -Path "experimental\two-way-sync\README.md" -Destination "$CHROME_DIR\EXPERIMENTAL-README.md" -Force
     Copy-Item -Path "experimental\two-way-sync\IMPLEMENTATION_GUIDE.md" -Destination "$CHROME_DIR\IMPLEMENTATION_GUIDE.md" -Force
@@ -110,6 +124,20 @@ function Build-FirefoxExperimental {
     Write-Host "  Adding experimental sync modules..." -ForegroundColor Gray
     Copy-Item -Path "experimental\two-way-sync\meteor-ddp-client.js" -Destination "$LIB_DIR\meteor-ddp-client.js" -Force
     Copy-Item -Path "experimental\two-way-sync\dicecloud-sync.js" -Destination "$LIB_DIR\dicecloud-sync.js" -Force
+
+    # Add back check structure button for experimental builds
+    Write-Host "  Adding check structure button for experimental builds..." -ForegroundColor Gray
+    $dicecloudJsPath = "$FIREFOX_DIR\src\content\dicecloud.js"
+    $dicecloudContent = Get-Content $dicecloudJsPath -Raw
+    
+    # Replace both occurrences using proper string concatenation
+    $replacement1 = "addSyncButton();`n      addCheckStructureButton();`n      observeRollLog();"
+    $dicecloudContent = $dicecloudContent -replace 'addSyncButton\(\);\s*observeRollLog\(\);', $replacement1
+    
+    $replacement2 = "addSyncButton();`n    addCheckStructureButton();`n    observeRollLog();"
+    $dicecloudContent = $dicecloudContent -replace 'addSyncButton\(\);\s*observeRollLog\(\);', $replacement2
+    
+    Set-Content $dicecloudJsPath $dicecloudContent -Encoding UTF8
 
     # Copy documentation
     Copy-Item -Path "experimental\two-way-sync\README.md" -Destination "$FIREFOX_DIR\EXPERIMENTAL-README.md" -Force

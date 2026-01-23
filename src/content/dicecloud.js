@@ -4569,13 +4569,11 @@
     document.addEventListener('DOMContentLoaded', () => {
       debug.log('📄 DOM loaded, adding buttons...');
       addSyncButton();
-      addCheckStructureButton();
       observeRollLog();
     });
   } else {
     debug.log('📄 DOM already loaded, adding buttons...');
     addSyncButton();
-    addCheckStructureButton();
     observeRollLog();
   }
 })();
