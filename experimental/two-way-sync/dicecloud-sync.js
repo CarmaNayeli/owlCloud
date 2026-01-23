@@ -1350,11 +1350,10 @@ class DiceCloudSync {
         total: property.total
       });
 
-      // Update using adjustQuantity method
+      // Update using creatureProperties.update for attribute type properties
       const result = await this.queueRequest(
-        () => this.ddp.call('creatureProperties.adjustQuantity', {
+        () => this.ddp.call('creatureProperties.update', {
           _id: propertyId,
-          operation: 'set',
           value: usesRemaining
         }),
         `Update Channel Divinity to ${usesRemaining}`
