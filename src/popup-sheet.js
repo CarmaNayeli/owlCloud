@@ -3920,6 +3920,44 @@ function createSpellCard(spell, index) {
     });
   });
 
+  // Helper function to evaluate dice rolls
+  function evaluateDiceFormula(formula) {
+    // Parse and roll dice in a formula like "3d6+5" or "2d8"
+    let result = 0;
+    const rolls = [];
+
+    // Replace dice notation with actual rolls
+    const dicePattern = /(\d+)d(\d+)/gi;
+    let formulaWithRolls = formula;
+
+    let match;
+    while ((match = dicePattern.exec(formula)) !== null) {
+      const numDice = parseInt(match[1]);
+      const dieSize = parseInt(match[2]);
+      let rollTotal = 0;
+      const individualRolls = [];
+
+      for (let i = 0; i < numDice; i++) {
+        const roll = Math.floor(Math.random() * dieSize) + 1;
+        rollTotal += roll;
+        individualRolls.push(roll);
+      }
+
+      rolls.push({ dice: match[0], rolls: individualRolls, total: rollTotal });
+      formulaWithRolls = formulaWithRolls.replace(match[0], rollTotal.toString());
+    }
+
+    // Evaluate the final expression (e.g., "14+5")
+    try {
+      result = eval(formulaWithRolls);
+    } catch (e) {
+      debug.error('Failed to evaluate dice formula:', formula, e);
+      result = 0;
+    }
+
+    return { total: result, rolls: rolls, formula: formulaWithRolls };
+  }
+
   // Lifesteal buttons (spells that deal damage and heal based on damage dealt)
   const spellLifestealBtns = header.querySelectorAll('.spell-lifesteal-btn');
   spellLifestealBtns.forEach(btn => {
@@ -3934,7 +3972,7 @@ function createSpellCard(spell, index) {
 
       if (!damageRoll || !healingRoll) return;
 
-      // Cast spell AND send combined damage+healing message
+      // Cast spell AND roll damage, then calculate and apply healing
       const afterCast = (spell, slot) => {
         // Prepare damage formula
         let damageFormula = damageRoll.damage;
@@ -3944,43 +3982,99 @@ function createSpellCard(spell, index) {
         damageFormula = resolveVariablesInFormula(damageFormula);
         damageFormula = evaluateMathInFormula(damageFormula);
 
-        // Determine healing relationship to damage
-        let healingText = 'You regain hit points equal to the damage dealt';
-        const damageNormalized = damageFormula.replace(/\s/g, '').toLowerCase();
-        const healingNormalized = healingRoll.damage.replace(/\s/g, '').toLowerCase();
+        // Roll the damage dice
+        const damageResult = evaluateDiceFormula(damageFormula);
+        const damageTotal = damageResult.total;
 
-        // Check if healing formula matches or is related to damage
-        if (healingNormalized.includes('/2') || healingNormalized.includes('*0.5') || healingNormalized.includes('half')) {
-          healingText = 'You regain hit points equal to half the damage dealt';
-        } else if (healingNormalized !== damageNormalized && healingRoll.damage.match(/\d/)) {
-          // If formulas differ and healing has numbers, it might be a different amount
-          healingText = `You regain ${healingRoll.damage} hit points`;
+        // Check if dice evaluation succeeded - fallback to Roll20 inline rolls if not
+        if (!damageTotal || damageTotal === 0) {
+          const healingNormalized = healingRoll.damage.replace(/\s/g, '').toLowerCase();
+          let healingText = 'You regain hit points equal to the damage dealt';
+          if (healingNormalized.includes('/2') || healingNormalized.includes('*0.5') || healingNormalized.includes('half')) {
+            healingText = 'You regain hit points equal to half the damage dealt';
+          }
+
+          const colorBanner = `<span style="color: #c0392b; font-weight: bold;">`;
+          const fallbackMessage = {
+            action: 'sendRoll20Message',
+            message: `&{template:default} {{name=${colorBanner}${characterData.name} casts ${spell.name}}} {{💉 Damage=[[${damageFormula}]] ${damageRoll.damageType}}} {{💚 Healing=${healingText}}}`,
+            color: characterData.notificationColor
+          };
+
+          if (window.opener && !window.opener.closed) {
+            try {
+              window.opener.postMessage(fallbackMessage, '*');
+            } catch (error) {
+              browserAPI.runtime.sendMessage({ action: 'relayRollToRoll20', roll: fallbackMessage });
+            }
+          } else {
+            browserAPI.runtime.sendMessage({ action: 'relayRollToRoll20', roll: fallbackMessage });
+          }
+
+          showNotification(`💉 Lifesteal! ${healingText}`, 'success');
+          return;
         }
 
-        // Send combined message to Roll20
+        // Determine healing amount based on damage
+        const healingNormalized = healingRoll.damage.replace(/\s/g, '').toLowerCase();
+        let healingAmount = damageTotal; // Default: full damage
+        let healingRatio = 'equal to';
+
+        if (healingNormalized.includes('/2') || healingNormalized.includes('*0.5') || healingNormalized.includes('half')) {
+          healingAmount = Math.floor(damageTotal / 2);
+          healingRatio = 'half of';
+        }
+
+        // Apply healing to character
+        if (characterData.currentHP !== undefined && characterData.maxHP) {
+          const oldHP = characterData.currentHP;
+          characterData.currentHP = Math.min(characterData.currentHP + healingAmount, characterData.maxHP);
+          const actualHealing = characterData.currentHP - oldHP;
+
+          saveCharacterData();
+          buildSheet(characterData); // Refresh display to show new HP
+
+          debug.log(`💚 Lifesteal healing applied: ${actualHealing} HP (${oldHP} → ${characterData.currentHP})`);
+        }
+
+        // Send damage roll to Roll20
         const colorBanner = `<span style="color: #c0392b; font-weight: bold;">`;
-        const messageData = {
+        const damageMessage = {
           action: 'sendRoll20Message',
-          message: `&{template:default} {{name=${colorBanner}${characterData.name} casts ${spell.name}}} {{💉 Damage=[[${damageFormula}]] ${damageRoll.damageType}}} {{💚 Healing=${healingText}}}`,
+          message: `&{template:default} {{name=${colorBanner}${characterData.name} casts ${spell.name}}} {{💉 Damage=${damageTotal} ${damageRoll.damageType}}}`,
           color: characterData.notificationColor
         };
 
         if (window.opener && !window.opener.closed) {
           try {
-            window.opener.postMessage(messageData, '*');
+            window.opener.postMessage(damageMessage, '*');
           } catch (error) {
-            debug.warn('⚠️ Could not send via window.opener:', error.message);
-            browserAPI.runtime.sendMessage({
-              action: 'relayRollToRoll20',
-              roll: messageData
-            });
+            browserAPI.runtime.sendMessage({ action: 'relayRollToRoll20', roll: damageMessage });
           }
         } else {
-          browserAPI.runtime.sendMessage({
-            action: 'relayRollToRoll20',
-            roll: messageData
-          });
+          browserAPI.runtime.sendMessage({ action: 'relayRollToRoll20', roll: damageMessage });
         }
+
+        // Send healing message after a short delay
+        setTimeout(() => {
+          const healingMessage = {
+            action: 'sendRoll20Message',
+            message: `&{template:default} {{name=${colorBanner}${characterData.name}}} {{💚 Healing=${healingAmount} HP (${healingRatio} ${damageTotal} damage)}}`,
+            color: characterData.notificationColor
+          };
+
+          if (window.opener && !window.opener.closed) {
+            try {
+              window.opener.postMessage(healingMessage, '*');
+            } catch (error) {
+              browserAPI.runtime.sendMessage({ action: 'relayRollToRoll20', roll: healingMessage });
+            }
+          } else {
+            browserAPI.runtime.sendMessage({ action: 'relayRollToRoll20', roll: healingMessage });
+          }
+        }, 500);
+
+        showNotification(`💉 ${damageTotal} damage dealt, 💚 ${healingAmount} HP healed!`, 'success');
       };
       castSpell(spell, index, afterCast);
     });
@@ -4000,48 +4094,106 @@ function createSpellCard(spell, index) {
 
       if (!damageRoll || !healingRoll) return;
 
-      // Just send combined damage+healing message without casting (user already cast with Attack button)
+      // Just roll damage and calculate healing without casting (user already cast with Attack button)
       let damageFormula = damageRoll.damage;
       damageFormula = resolveVariablesInFormula(damageFormula);
       damageFormula = evaluateMathInFormula(damageFormula);
 
-      // Determine healing relationship to damage
-      let healingText = 'You regain hit points equal to the damage dealt';
-      const damageNormalized = damageFormula.replace(/\s/g, '').toLowerCase();
-      const healingNormalized = healingRoll.damage.replace(/\s/g, '').toLowerCase();
+      // Roll the damage dice
+      const damageResult = evaluateDiceFormula(damageFormula);
+      const damageTotal = damageResult.total;
 
-      // Check if healing formula matches or is related to damage
-      if (healingNormalized.includes('/2') || healingNormalized.includes('*0.5') || healingNormalized.includes('half')) {
-        healingText = 'You regain hit points equal to half the damage dealt';
-      } else if (healingNormalized !== damageNormalized && healingRoll.damage.match(/\d/)) {
-        // If formulas differ and healing has numbers, it might be a different amount
-        healingText = `You regain ${healingRoll.damage} hit points`;
+      // Check if dice evaluation succeeded - fallback to Roll20 inline rolls if not
+      if (!damageTotal || damageTotal === 0) {
+        const healingNormalized = healingRoll.damage.replace(/\s/g, '').toLowerCase();
+        let healingText = 'You regain hit points equal to the damage dealt';
+        if (healingNormalized.includes('/2') || healingNormalized.includes('*0.5') || healingNormalized.includes('half')) {
+          healingText = 'You regain hit points equal to half the damage dealt';
+        }
+
+        const colorBanner = `<span style="color: #c0392b; font-weight: bold;">`;
+        const fallbackMessage = {
+          action: 'sendRoll20Message',
+          message: `&{template:default} {{name=${colorBanner}${spell.name}}} {{💉 Damage=[[${damageFormula}]] ${damageRoll.damageType}}} {{💚 Healing=${healingText}}}`,
+          color: characterData.notificationColor
+        };
+
+        // Send message and return early
+        if (window.opener && !window.opener.closed) {
+          try {
+            window.opener.postMessage(fallbackMessage, '*');
+          } catch (error) {
+            browserAPI.runtime.sendMessage({ action: 'relayRollToRoll20', roll: fallbackMessage });
+          }
+        } else {
+          browserAPI.runtime.sendMessage({ action: 'relayRollToRoll20', roll: fallbackMessage });
+        }
+
+        showNotification(`💉 Lifesteal! ${healingText}`, 'success');
+        return;
       }
 
-      // Send combined message to Roll20
+      // Determine healing amount based on damage
+      const healingNormalized = healingRoll.damage.replace(/\s/g, '').toLowerCase();
+      let healingAmount = damageTotal; // Default: full damage
+      let healingRatio = 'equal to';
+
+      if (healingNormalized.includes('/2') || healingNormalized.includes('*0.5') || healingNormalized.includes('half')) {
+        healingAmount = Math.floor(damageTotal / 2);
+        healingRatio = 'half of';
+      }
+
+      // Apply healing to character
+      if (characterData.currentHP !== undefined && characterData.maxHP) {
+        const oldHP = characterData.currentHP;
+        characterData.currentHP = Math.min(characterData.currentHP + healingAmount, characterData.maxHP);
+        const actualHealing = characterData.currentHP - oldHP;
+
+        saveCharacterData();
+        buildSheet(characterData); // Refresh display to show new HP
+
+        debug.log(`💚 Lifesteal healing applied: ${actualHealing} HP (${oldHP} → ${characterData.currentHP})`);
+      }
+
+      // Send damage roll to Roll20
       const colorBanner = `<span style="color: #c0392b; font-weight: bold;">`;
-      const messageData = {
+      const damageMessage = {
         action: 'sendRoll20Message',
-        message: `&{template:default} {{name=${colorBanner}${spell.name}}} {{💉 Damage=[[${damageFormula}]] ${damageRoll.damageType}}} {{💚 Healing=${healingText}}}`,
+        message: `&{template:default} {{name=${colorBanner}${spell.name}}} {{💉 Damage=${damageTotal} ${damageRoll.damageType}}}`,
         color: characterData.notificationColor
       };
 
       if (window.opener && !window.opener.closed) {
         try {
-          window.opener.postMessage(messageData, '*');
+          window.opener.postMessage(damageMessage, '*');
         } catch (error) {
-          debug.warn('⚠️ Could not send via window.opener:', error.message);
-          browserAPI.runtime.sendMessage({
-            action: 'relayRollToRoll20',
-            roll: messageData
-          });
+          browserAPI.runtime.sendMessage({ action: 'relayRollToRoll20', roll: damageMessage });
         }
       } else {
-        browserAPI.runtime.sendMessage({
-          action: 'relayRollToRoll20',
-          roll: messageData
-        });
+        browserAPI.runtime.sendMessage({ action: 'relayRollToRoll20', roll: damageMessage });
       }
+
+      // Send healing message after a short delay
+      setTimeout(() => {
+        const healingMessage = {
+          action: 'sendRoll20Message',
+          message: `&{template:default} {{name=${colorBanner}${characterData.name}}} {{💚 Healing=${healingAmount} HP (${healingRatio} ${damageTotal} damage)}}`,
+          color: characterData.notificationColor
+        };
+
+        if (window.opener && !window.opener.closed) {
+          try {
+            window.opener.postMessage(healingMessage, '*');
+          } catch (error) {
+            browserAPI.runtime.sendMessage({ action: 'relayRollToRoll20', roll: healingMessage });
+          }
+        } else {
+          browserAPI.runtime.sendMessage({ action: 'relayRollToRoll20', roll: healingMessage });
+        }
+      }, 500);
+
+      showNotification(`💉 ${damageTotal} damage dealt, 💚 ${healingAmount} HP healed!`, 'success');
+
     });
   });
 
