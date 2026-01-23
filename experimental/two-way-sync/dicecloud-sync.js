@@ -1320,12 +1320,17 @@ class DiceCloudSync {
     }
 
     // Update Channel Divinity if it exists
+    console.log('[SYNC DEBUG] characterData.channelDivinity:', characterData.channelDivinity);
+    console.log('[SYNC DEBUG] characterData.resources:', characterData.resources);
     if (characterData.channelDivinity && characterData.channelDivinity.current !== undefined) {
       const currentValue = characterData.channelDivinity.current;
+      console.log(`[SYNC DEBUG] Channel Divinity current value: ${currentValue}, checking if changed...`);
       if (hasChanged('Channel Divinity', currentValue)) {
         console.log(`[DiceCloud Sync] Syncing Channel Divinity: ${currentValue}/${characterData.channelDivinity.max}`);
         await this.updateChannelDivinity(currentValue);
       }
+    } else {
+      console.log('[SYNC DEBUG] Channel Divinity check failed - object is null or current is undefined');
     }
 
     // Update other tracked resources
