@@ -14,6 +14,8 @@ class DiceCloudSync {
     this.characterId = null;
     this.propertyCache = new Map(); // propertyName -> property _id
     this.previousValues = new Map(); // propertyName -> last synced value
+    this.updateCooldowns = new Map(); // propertyName -> { timestamp, value }
+    this.cooldownPeriod = 2000; // Ignore incoming updates for 2 seconds after we update
     this.enabled = false;
 
     // Request queue to prevent spamming DDP
@@ -1275,6 +1277,11 @@ class DiceCloudSync {
       );
 
       console.log(`[DiceCloud Sync] ⏳ Spell slot level ${level} update request sent:`, result);
+
+      // Set cooldown to prevent flickering from subscription updates
+      this.updateCooldowns.set(`spellSlot${level}`, { timestamp: Date.now(), value: slotsRemaining });
+      console.log(`[DiceCloud Sync] 🕒 Set cooldown for spell slot level ${level} with value ${slotsRemaining} (${this.cooldownPeriod}ms)`);
+
       return result;
     } catch (error) {
       console.error(`[DiceCloud Sync] ❌ Failed to update spell slot level ${level}:`, error);
@@ -1355,6 +1362,10 @@ class DiceCloudSync {
       );
 
       console.log('[DiceCloud Sync] ⏳ Channel Divinity update request sent:', result);
+
+      // Set cooldown to prevent flickering from subscription updates
+      this.updateCooldowns.set('Channel Divinity', { timestamp: Date.now(), value: usesRemaining });
+      console.log(`[DiceCloud Sync] 🕒 Set cooldown for Channel Divinity with value ${usesRemaining} (${this.cooldownPeriod}ms)`);
 
       // Verify the update was applied
       if (this.characterId) {
@@ -1690,6 +1701,29 @@ class DiceCloudSync {
         console.log(`[DiceCloud Sync] 📥 Initializing ${key}: ${newValue} (no sync)`);
         this.previousValues.set(key, newValue);
         return false; // Don't sync on first initialization
+      }
+
+      // Check if this property is in cooldown (we just updated it)
+      const cooldownInfo = this.updateCooldowns.get(key);
+      if (cooldownInfo) {
+        const timeSinceUpdate = Date.now() - cooldownInfo.timestamp;
+        if (timeSinceUpdate < this.cooldownPeriod) {
+          // Only block if the new value matches what we just sent (subscription echo)
+          if (newValue === cooldownInfo.value) {
+            console.log(`[DiceCloud Sync] 🕒 ${key} in cooldown and matches sent value (${newValue}), ignoring echo`);
+            // Update previousValues to the new value to avoid re-syncing when cooldown expires
+            this.previousValues.set(key, newValue);
+            return false;
+          } else {
+            // Different value - user made another change, allow it through
+            console.log(`[DiceCloud Sync] 🕒 ${key} in cooldown but value changed (${cooldownInfo.value} -> ${newValue}), allowing update`);
+            // Update cooldown with new value and timestamp
+            this.updateCooldowns.set(key, { timestamp: Date.now(), value: newValue });
+          }
+        } else {
+          // Cooldown expired, clear it
+          this.updateCooldowns.delete(key);
+        }
       }
 
       const changed = oldValue !== newValue;
