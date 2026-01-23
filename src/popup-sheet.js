@@ -445,7 +445,8 @@ async function switchToCharacter(characterId) {
           channelDivinity: characterData.channelDivinity,
           resources: characterData.resources || [],
           deathSaves: characterData.deathSaves,
-          inspiration: characterData.inspiration
+          inspiration: characterData.inspiration,
+          lastRoll: characterData.lastRoll
         }
       };
       
@@ -619,6 +620,11 @@ function buildSheet(data) {
     data.inspiration = false;
   }
 
+  // Initialize last roll tracking for heroic inspiration
+  if (data.lastRoll === undefined) {
+    data.lastRoll = null;
+  }
+
   // Capitalize race name - handle both string and object formats
   let raceName = 'Unknown';
   if (data.race) {
@@ -688,15 +694,15 @@ function buildSheet(data) {
     deathSavesDisplay.style.background = 'var(--bg-tertiary)';
   }
 
-  // Inspiration
+  // Heroic Inspiration
   const inspirationDisplay = document.getElementById('inspiration-display');
   const inspirationValue = document.getElementById('inspiration-value');
   if (data.inspiration) {
-    inspirationValue.textContent = '⭐ Active';
+    inspirationValue.textContent = '⭐ Click to Reroll';
     inspirationValue.style.color = '#f57f17';
     inspirationDisplay.style.background = '#fff9c4';
   } else {
-    inspirationValue.textContent = '☆ None';
+    inspirationValue.textContent = '☆ Click to Gain';
     inspirationValue.style.color = 'var(--text-muted)';
     inspirationDisplay.style.background = 'var(--bg-tertiary)';
   }
@@ -2796,39 +2802,86 @@ function showHPModal() {
 function toggleInspiration() {
   if (!characterData) return;
 
-  // Toggle inspiration
-  characterData.inspiration = !characterData.inspiration;
+  // Heroic Inspiration behavior:
+  // - If expended (false): gain it
+  // - If active (true): expend it to reroll last roll
 
-  const action = characterData.inspiration ? 'gained' : 'spent';
-  const emoji = characterData.inspiration ? '⭐' : '✨';
+  if (!characterData.inspiration) {
+    // Gain inspiration
+    characterData.inspiration = true;
+    const emoji = '⭐';
 
-  debug.log(`${emoji} Inspiration ${action}`);
-  showNotification(`${emoji} Inspiration ${action}!`);
+    debug.log(`${emoji} Heroic Inspiration gained`);
+    showNotification(`${emoji} Heroic Inspiration gained!`);
 
-  // Announce to Roll20
-  const colorBanner = getColoredBanner();
-  const messageData = {
-    action: 'announceSpell',
-    message: `&{template:default} {{name=${colorBanner}${characterData.name} ${characterData.inspiration ? 'gains' : 'spends'} Inspiration}} {{${emoji}=${characterData.inspiration ? 'You now have Inspiration! Use it to gain advantage on an attack roll, saving throw, or ability check.' : 'Inspiration spent. You can earn it again from your DM!'}}}`,
-    color: characterData.notificationColor
-  };
+    // Announce to Roll20
+    const colorBanner = getColoredBanner();
+    const messageData = {
+      action: 'announceSpell',
+      message: `&{template:default} {{name=${colorBanner}${characterData.name} gains Heroic Inspiration}} {{${emoji}=You now have Heroic Inspiration! Click it again to reroll your last roll.}}`,
+      color: characterData.notificationColor
+    };
 
-  // Send to Roll20
-  if (window.opener && !window.opener.closed) {
-    try {
-      window.opener.postMessage(messageData, '*');
-    } catch (error) {
-      debug.warn('⚠️ Could not send via window.opener:', error.message);
+    // Send to Roll20
+    if (window.opener && !window.opener.closed) {
+      try {
+        window.opener.postMessage(messageData, '*');
+      } catch (error) {
+        debug.warn('⚠️ Could not send via window.opener:', error.message);
+        browserAPI.runtime.sendMessage({
+          action: 'relayRollToRoll20',
+          roll: messageData
+        });
+      }
+    } else {
       browserAPI.runtime.sendMessage({
         action: 'relayRollToRoll20',
         roll: messageData
       });
     }
   } else {
-    browserAPI.runtime.sendMessage({
-      action: 'relayRollToRoll20',
-      roll: messageData
-    });
+    // Expend inspiration to reroll last roll
+    if (!characterData.lastRoll) {
+      showNotification('❌ No previous roll to reroll!', 'error');
+      return;
+    }
+
+    // Expend the inspiration
+    characterData.inspiration = false;
+    const emoji = '✨';
+
+    debug.log(`${emoji} Heroic Inspiration expended to reroll: ${characterData.lastRoll.name}`);
+    showNotification(`${emoji} Heroic Inspiration used! Rerolling ${characterData.lastRoll.name}...`);
+
+    // Announce the reroll to Roll20
+    const colorBanner = getColoredBanner();
+    const announceData = {
+      action: 'announceSpell',
+      message: `&{template:default} {{name=${colorBanner}${characterData.name} uses Heroic Inspiration}} {{${emoji}=Rerolling: ${characterData.lastRoll.name}}}`,
+      color: characterData.notificationColor
+    };
+
+    // Send announcement to Roll20
+    if (window.opener && !window.opener.closed) {
+      try {
+        window.opener.postMessage(announceData, '*');
+      } catch (error) {
+        debug.warn('⚠️ Could not send via window.opener:', error.message);
+        browserAPI.runtime.sendMessage({
+          action: 'relayRollToRoll20',
+          roll: announceData
+        });
+      }
+    } else {
+      browserAPI.runtime.sendMessage({
+        action: 'relayRollToRoll20',
+        roll: announceData
+      });
+    }
+
+    // Execute the reroll
+    const lastRoll = characterData.lastRoll;
+    executeRoll(lastRoll.name, lastRoll.formula, lastRoll.effectNotes || []);
   }
 
   saveCharacterData();
@@ -4654,7 +4707,8 @@ function saveCharacterData() {
       channelDivinity: characterData.channelDivinity,
       resources: characterData.resources || [],
       deathSaves: characterData.deathSaves,
-      inspiration: characterData.inspiration
+      inspiration: characterData.inspiration,
+      lastRoll: characterData.lastRoll
     }
   };
   
@@ -5930,6 +5984,16 @@ function executeRoll(name, formula, effectNotes, prerolledResult = null) {
   // Add effect notes to roll name if any
   if (effectNotes.length > 0) {
     rollName += ` ${effectNotes.join(' ')}`;
+  }
+
+  // Save this as the character's last roll (for heroic inspiration reroll)
+  if (characterData) {
+    characterData.lastRoll = {
+      name: name,
+      formula: formula,
+      effectNotes: effectNotes
+    };
+    saveCharacterData();
   }
 
   // If we have a prerolled result (e.g., from death saves), include it
@@ -7497,7 +7561,8 @@ function initManualSyncButton() {
             channelDivinity: characterData.channelDivinity,
             resources: characterData.resources || [],
             deathSaves: characterData.deathSaves,
-            inspiration: characterData.inspiration
+            inspiration: characterData.inspiration,
+            lastRoll: characterData.lastRoll
           }
         };
 
