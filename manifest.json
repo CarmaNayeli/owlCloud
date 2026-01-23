@@ -27,8 +27,6 @@
       "js": [
         "src/common/browser-polyfill.js",
         "src/common/debug.js",
-        "experimental/two-way-sync/meteor-ddp-client.js",
-        "experimental/two-way-sync/dicecloud-sync.js",
         "src/content/roll20.js",
         "src/content/character-sheet-overlay.js"
       ],
