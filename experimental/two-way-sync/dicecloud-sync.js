@@ -1278,9 +1278,7 @@ class DiceCloudSync {
 
       console.log(`[DiceCloud Sync] ⏳ Spell slot level ${level} update request sent:`, result);
 
-      // Set cooldown to prevent flickering from subscription updates
-      this.updateCooldowns.set(`spellSlot${level}`, { timestamp: Date.now(), value: slotsRemaining });
-      console.log(`[DiceCloud Sync] 🕒 Set cooldown for spell slot level ${level} with value ${slotsRemaining} (${this.cooldownPeriod}ms)`);
+      // Cooldown was already set before calling this function
 
       return result;
     } catch (error) {
@@ -1341,21 +1339,22 @@ class DiceCloudSync {
         return;
       }
 
-      // Resources have value and total fields
-      // Unlike healthBar attributes, we can update the value field directly
+      // Resources may use the quantity field like items
+      // Try using adjustQuantity method with operation='set'
       const total = property.total || property.baseValue?.value || 3;
 
       console.log(`[DiceCloud Sync] Resource calculation: total=${total}, usesRemaining=${usesRemaining}`);
       console.log(`[DiceCloud Sync] Channel Divinity before update:`, {
         value: property.value,
+        quantity: property.quantity,
         total: property.total
       });
 
-      // Update the value field directly using creatureProperties.update
+      // Update using adjustQuantity method
       const result = await this.queueRequest(
-        () => this.ddp.call('creatureProperties.update', {
+        () => this.ddp.call('creatureProperties.adjustQuantity', {
           _id: propertyId,
-          path: ['value'],
+          operation: 'set',
           value: usesRemaining
         }),
         `Update Channel Divinity to ${usesRemaining}`
@@ -1363,9 +1362,7 @@ class DiceCloudSync {
 
       console.log('[DiceCloud Sync] ⏳ Channel Divinity update request sent:', result);
 
-      // Set cooldown to prevent flickering from subscription updates
-      this.updateCooldowns.set('Channel Divinity', { timestamp: Date.now(), value: usesRemaining });
-      console.log(`[DiceCloud Sync] 🕒 Set cooldown for Channel Divinity with value ${usesRemaining} (${this.cooldownPeriod}ms)`);
+      // Cooldown was already set before calling this function
 
       // Verify the update was applied
       if (this.characterId) {
@@ -1377,9 +1374,10 @@ class DiceCloudSync {
             if (verifiedProperty) {
               console.log(`[DiceCloud Sync] Channel Divinity after update:`, {
                 value: verifiedProperty.value,
+                quantity: verifiedProperty.quantity,
                 total: verifiedProperty.total
               });
-              if (verifiedProperty.value === usesRemaining) {
+              if (verifiedProperty.value === usesRemaining || verifiedProperty.quantity === usesRemaining) {
                 console.log('[DiceCloud Sync] ✅ SUCCESS: Channel Divinity updated correctly!');
               } else {
                 console.warn(`[DiceCloud Sync] ⚠️ WARNING: Channel Divinity value mismatch! Expected ${usesRemaining}, got ${verifiedProperty.value}`);
@@ -1766,6 +1764,9 @@ class DiceCloudSync {
             console.log(`[SYNC DEBUG] Spell Slot Level ${level} - previous: ${previousValue}, current: ${currentValue}`);
             if (hasChanged(cacheKey, currentValue)) {
               console.log(`[DiceCloud Sync] ✅ Syncing spell slot level ${level}: ${currentValue}/${characterData.spellSlots[maxKey]}`);
+              // Set cooldown IMMEDIATELY to prevent duplicate updates from rapid messages
+              this.updateCooldowns.set(cacheKey, { timestamp: Date.now(), value: currentValue });
+              console.log(`[DiceCloud Sync] 🕒 Set cooldown for spell slot level ${level} with value ${currentValue} (${this.cooldownPeriod}ms)`);
               await this.updateSpellSlot(level, currentValue);
             } else {
               console.log(`[SYNC DEBUG] ⏭️ Spell slot level ${level} unchanged (${currentValue}), skipping sync`);
@@ -1784,6 +1785,9 @@ class DiceCloudSync {
       console.log(`[SYNC DEBUG] Channel Divinity - previous: ${previousValue}, current: ${currentValue}`);
       if (hasChanged('Channel Divinity', currentValue)) {
         console.log(`[DiceCloud Sync] ✅ Syncing Channel Divinity: ${currentValue}/${characterData.channelDivinity.max}`);
+        // Set cooldown IMMEDIATELY to prevent duplicate updates from rapid messages
+        this.updateCooldowns.set('Channel Divinity', { timestamp: Date.now(), value: currentValue });
+        console.log(`[DiceCloud Sync] 🕒 Set cooldown for Channel Divinity with value ${currentValue} (${this.cooldownPeriod}ms)`);
         await this.updateChannelDivinity(currentValue);
       } else {
         console.log(`[SYNC DEBUG] ⏭️ Channel Divinity unchanged (${currentValue}), skipping sync`);
