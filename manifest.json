@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "RollCloud: Dice Cloud Integration for Roll20",
-  "version": "1.1.2",
+  "name": "RollCloud: Dice Cloud Integration for Roll20 (Experimental Sync)",
+  "version": "1.1.2.1",
   "description": "Import D&D characters from DiceCloud to Roll20 with enhanced authentication, interactive character sheets, and GM combat tools",
   "permissions": [
     "storage",
@@ -27,6 +27,8 @@
       "js": [
         "src/common/browser-polyfill.js",
         "src/common/debug.js",
+        "src/lib/meteor-ddp-client.js",
+        "src/lib/dicecloud-sync.js",
         "src/content/roll20.js",
         "src/content/character-sheet-overlay.js"
       ],
@@ -52,6 +54,10 @@
     {
       "resources": ["src/popup-sheet.html", "src/popup-sheet.js"],
       "matches": ["https://app.roll20.net/*"]
+    },
+    {
+      "resources": ["src/lib/meteor-ddp-client.js", "src/lib/dicecloud-sync.js"],
+      "matches": ["<all_urls>"]
     }
   ]
 }

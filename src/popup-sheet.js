@@ -434,6 +434,15 @@ async function switchToCharacter(characterId) {
       // Send sync message to DiceCloud if experimental sync is available
       // Always send sync messages in experimental build - they'll be handled by Roll20 content script
       debug.log('🔄 Sending character data update to DiceCloud sync...');
+
+      // Extract Channel Divinity from resources if it exists
+      const channelDivinityResource = characterData.resources?.find(r =>
+        r.name === 'Channel Divinity' ||
+        r.variableName === 'channelDivinityCleric' ||
+        r.variableName === 'channelDivinityPaladin' ||
+        r.variableName === 'channelDivinity'
+      );
+
       const syncMessage = {
         type: 'characterDataUpdate',
         characterData: {
@@ -442,8 +451,12 @@ async function switchToCharacter(characterId) {
           tempHp: characterData.temporaryHP || 0,
           maxHp: characterData.hitPoints.max,
           spellSlots: characterData.spellSlots || {},
-          channelDivinity: characterData.channelDivinity,
+          channelDivinity: channelDivinityResource ? {
+            current: channelDivinityResource.current,
+            max: channelDivinityResource.max
+          } : undefined,
           resources: characterData.resources || [],
+          actions: characterData.actions || [],
           deathSaves: characterData.deathSaves,
           inspiration: characterData.inspiration,
           lastRoll: characterData.lastRoll
@@ -5196,6 +5209,7 @@ function saveCharacterData() {
       spellSlots: characterData.spellSlots || {},
       channelDivinity: channelDivinityForSync,
       resources: resourcesForSync,
+      actions: characterData.actions || [],
       deathSaves: characterData.deathSaves,
       inspiration: characterData.inspiration,
       lastRoll: characterData.lastRoll
@@ -8098,6 +8112,14 @@ function initManualSyncButton() {
           throw new Error('No character data available');
         }
 
+        // Extract Channel Divinity from resources if it exists
+        const channelDivinityResource = characterData.resources?.find(r =>
+          r.name === 'Channel Divinity' ||
+          r.variableName === 'channelDivinityCleric' ||
+          r.variableName === 'channelDivinityPaladin' ||
+          r.variableName === 'channelDivinity'
+        );
+
         // Build comprehensive sync message
         const syncMessage = {
           type: 'characterDataUpdate',
@@ -8107,8 +8129,12 @@ function initManualSyncButton() {
             tempHp: characterData.temporaryHP || 0,
             maxHp: characterData.hitPoints.max,
             spellSlots: characterData.spellSlots || {},
-            channelDivinity: characterData.channelDivinity,
+            channelDivinity: channelDivinityResource ? {
+              current: channelDivinityResource.current,
+              max: channelDivinityResource.max
+            } : undefined,
             resources: characterData.resources || [],
+            actions: characterData.actions || [],
             deathSaves: characterData.deathSaves,
             inspiration: characterData.inspiration,
             lastRoll: characterData.lastRoll
