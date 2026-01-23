@@ -1199,6 +1199,27 @@ class DiceCloudSync {
 
       console.log(`[DiceCloud Sync] Updating Channel Divinity to ${usesRemaining} uses remaining`);
 
+      // First, fetch the property to see its current structure
+      const apiData = await this.fetchDiceCloudData(this.characterId);
+      const property = apiData?.creatureProperties?.find(p => p._id === propertyId);
+
+      if (!property) {
+        console.error('[DiceCloud Sync] Could not find Channel Divinity property in API data');
+        return;
+      }
+
+      console.log(`[DiceCloud Sync] Channel Divinity property before update:`, {
+        id: property._id,
+        name: property.name,
+        type: property.type,
+        attributeType: property.attributeType,
+        value: property.value,
+        total: property.total,
+        damage: property.damage,
+        baseValue: property.baseValue
+      });
+
+      // Use generic update method - try updating just the value field
       const result = await this.queueRequest(
         () => this.ddp.call('creatureProperties.update', {
           _id: propertyId,
@@ -1209,6 +1230,34 @@ class DiceCloudSync {
       );
 
       console.log('[DiceCloud Sync] ⏳ Channel Divinity update request sent:', result);
+
+      // Verify the update was applied
+      if (this.characterId) {
+        console.log('[DiceCloud Sync] Verifying Channel Divinity update...');
+        try {
+          const verifyData = await this.fetchDiceCloudData(this.characterId);
+          if (verifyData && verifyData.creatureProperties) {
+            const verifiedProperty = verifyData.creatureProperties.find(p => p._id === propertyId);
+            if (verifiedProperty) {
+              console.log(`[DiceCloud Sync] Channel Divinity after update:`, {
+                value: verifiedProperty.value,
+                damage: verifiedProperty.damage,
+                total: verifiedProperty.total,
+                baseValue: verifiedProperty.baseValue
+              });
+              if (verifiedProperty.value === usesRemaining) {
+                console.log('[DiceCloud Sync] ✅ SUCCESS: Channel Divinity updated correctly!');
+              } else {
+                console.warn(`[DiceCloud Sync] ⚠️ WARNING: Channel Divinity value mismatch! Expected ${usesRemaining}, got ${verifiedProperty.value}`);
+                console.warn(`[DiceCloud Sync] ⚠️ This might be because 'value' is calculated from other fields. Full property:`, verifiedProperty);
+              }
+            }
+          }
+        } catch (verifyError) {
+          console.warn('[DiceCloud Sync] Could not verify Channel Divinity update:', verifyError);
+        }
+      }
+
       return result;
     } catch (error) {
       console.error('[DiceCloud Sync] Failed to update Channel Divinity:', error);
