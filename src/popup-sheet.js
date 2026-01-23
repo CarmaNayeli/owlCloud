@@ -1703,29 +1703,23 @@ function buildActionsDisplay(container, actions) {
 
         // Special handling for Harness Divine Power
         if (action.name === 'Harness Divine Power' || action.name === 'Recover Spell Slot') {
-          // Get Channel Divinity from otherVariables
-          const otherVars = characterData.otherVariables || {};
+          // Find Channel Divinity resource from the resources array
+          const channelDivinityResource = characterData.resources?.find(r =>
+            r.name === 'Channel Divinity' ||
+            r.variableName === 'channelDivinityCleric' ||
+            r.variableName === 'channelDivinityPaladin' ||
+            r.variableName === 'channelDivinity'
+          );
 
-          if (otherVars.channelDivinity === undefined) {
+          if (!channelDivinityResource) {
             showNotification('❌ No Channel Divinity resource found', 'error');
             return;
           }
 
-          const currentUses = otherVars.channelDivinity || 0;
-          const maxUses = otherVars.channelDivinityMax || 0;
-
-          if (currentUses <= 0) {
+          if (channelDivinityResource.current <= 0) {
             showNotification('❌ No Channel Divinity uses remaining!', 'error');
             return;
           }
-
-          // Create a resource object for the modal
-          const channelDivinityResource = {
-            name: 'Channel Divinity',
-            current: currentUses,
-            max: maxUses,
-            varName: 'channelDivinity'
-          };
 
           // Calculate max spell slot level for restoration (ceil(proficiencyBonus/2))
           const profBonus = characterData.proficiencyBonus || 2;
@@ -2666,9 +2660,11 @@ function restoreSpellSlot(level, channelDivinityResource) {
   // Expend Channel Divinity use
   channelDivinityResource.current = Math.max(0, channelDivinityResource.current - 1);
 
-  // Update character data
-  if (characterData.otherVariables && characterData.otherVariables.channelDivinity !== undefined) {
-    characterData.otherVariables.channelDivinity = channelDivinityResource.current;
+  // Update character data - sync with otherVariables using the correct variable name
+  if (characterData.otherVariables && channelDivinityResource.variableName) {
+    characterData.otherVariables[channelDivinityResource.variableName] = channelDivinityResource.current;
+  } else if (characterData.otherVariables && channelDivinityResource.varName) {
+    characterData.otherVariables[channelDivinityResource.varName] = channelDivinityResource.current;
   }
 
   saveCharacterData();
@@ -3738,9 +3734,16 @@ function detectClassResources(spell) {
   if (otherVars.ki !== undefined || otherVars.kiPoints !== undefined) {
     const ki = otherVars.ki || otherVars.kiPoints || 0;
     const kiMax = otherVars.kiMax || otherVars.kiPointsMax || 0;
+    const kiVarName = otherVars.ki !== undefined ? 'ki' : 'kiPoints';
     // Always include Ki if max > 0, even when current is 0 (for proper sync)
     if (kiMax > 0) {
-      resources.push({ name: 'Ki', current: ki, max: kiMax, varName: otherVars.ki !== undefined ? 'ki' : 'kiPoints' });
+      resources.push({
+        name: 'Ki',
+        current: ki,
+        max: kiMax,
+        varName: kiVarName,
+        variableName: kiVarName // Add variableName for resource deduction
+      });
     }
   }
 
@@ -3753,18 +3756,44 @@ function detectClassResources(spell) {
     const slotsMax = otherVars.pactMagicSlotsMax || 0;
     // Always include Pact Magic if max > 0, even when current is 0 (for proper sync)
     if (slotsMax > 0) {
-      resources.push({ name: 'Pact Magic', current: slots, max: slotsMax, varName: 'pactMagicSlots' });
+      resources.push({
+        name: 'Pact Magic',
+        current: slots,
+        max: slotsMax,
+        varName: 'pactMagicSlots',
+        variableName: 'pactMagicSlots' // Add variableName for resource deduction
+      });
     }
   }
 
   // Check for Channel Divinity (Cleric/Paladin)
-  if (otherVars.channelDivinity !== undefined) {
-    const uses = otherVars.channelDivinity || 0;
-    const usesMax = otherVars.channelDivinityMax || 0;
-    // Always include Channel Divinity if max > 0, even when current uses are 0 (for proper sync)
-    if (usesMax > 0) {
-      resources.push({ name: 'Channel Divinity', current: uses, max: usesMax, varName: 'channelDivinity' });
-    }
+  // Try class-specific variable names first (channelDivinityCleric, channelDivinityPaladin), then fall back to generic
+  let channelDivinityVarName = null;
+  let channelDivinityUses = 0;
+  let channelDivinityMax = 0;
+
+  if (otherVars.channelDivinityCleric !== undefined) {
+    channelDivinityVarName = 'channelDivinityCleric';
+    channelDivinityUses = otherVars.channelDivinityCleric || 0;
+    channelDivinityMax = otherVars.channelDivinityClericMax || 0;
+  } else if (otherVars.channelDivinityPaladin !== undefined) {
+    channelDivinityVarName = 'channelDivinityPaladin';
+    channelDivinityUses = otherVars.channelDivinityPaladin || 0;
+    channelDivinityMax = otherVars.channelDivinityPaladinMax || 0;
+  } else if (otherVars.channelDivinity !== undefined) {
+    channelDivinityVarName = 'channelDivinity';
+    channelDivinityUses = otherVars.channelDivinity || 0;
+    channelDivinityMax = otherVars.channelDivinityMax || 0;
+  }
+
+  if (channelDivinityVarName && channelDivinityMax > 0) {
+    resources.push({
+      name: 'Channel Divinity',
+      current: channelDivinityUses,
+      max: channelDivinityMax,
+      varName: channelDivinityVarName,
+      variableName: channelDivinityVarName // Add variableName for resource deduction
+    });
   }
 
   return resources;
@@ -5107,7 +5136,11 @@ function saveCharacterData() {
   // Extract Channel Divinity from characterData.resources array (this has the current values after use)
   let channelDivinityForSync = null;
   const channelDivinityResource = characterData.resources?.find(r =>
-    r.name === 'Channel Divinity' || r.varName === 'channelDivinity'
+    r.name === 'Channel Divinity' ||
+    r.variableName === 'channelDivinityCleric' ||
+    r.variableName === 'channelDivinityPaladin' ||
+    r.variableName === 'channelDivinity' ||
+    r.varName === 'channelDivinity'
   );
   if (channelDivinityResource) {
     channelDivinityForSync = {
@@ -6834,7 +6867,12 @@ function takeLongRest() {
       characterData.otherVariables.pactMagicSlots = characterData.otherVariables.pactMagicSlotsMax;
     }
 
-    if (characterData.otherVariables.channelDivinityMax !== undefined) {
+    // Restore Channel Divinity (try all possible variable names)
+    if (characterData.otherVariables.channelDivinityClericMax !== undefined) {
+      characterData.otherVariables.channelDivinityCleric = characterData.otherVariables.channelDivinityClericMax;
+    } else if (characterData.otherVariables.channelDivinityPaladinMax !== undefined) {
+      characterData.otherVariables.channelDivinityPaladin = characterData.otherVariables.channelDivinityPaladinMax;
+    } else if (characterData.otherVariables.channelDivinityMax !== undefined) {
       characterData.otherVariables.channelDivinity = characterData.otherVariables.channelDivinityMax;
     }
   }
