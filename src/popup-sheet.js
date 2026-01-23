@@ -2458,7 +2458,7 @@ function showChannelDivinityModal(resource) {
   const modalContent = document.createElement('div');
   modalContent.style.cssText = 'background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); min-width: 400px; max-width: 500px;';
 
-  // Calculate max spell slot level for restoration (ceil(proficiencyBonus/2))
+  // Harness Divine Power - Calculate max spell slot level for restoration (ceil(proficiencyBonus/2))
   const profBonus = characterData.proficiencyBonus || 2;
   const maxSlotLevel = Math.ceil(profBonus / 2);
 
@@ -2471,7 +2471,7 @@ function showChannelDivinityModal(resource) {
     </div>
     <div style="margin-bottom: 20px;">
       <button id="restore-spell-slot" style="width: 100%; padding: 18px; background: #9b59b6; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; text-align: left; margin-bottom: 12px;">
-        <div style="font-size: 1.1em; margin-bottom: 5px;">🔮 Restore Spell Slot</div>
+        <div style="font-size: 1.1em; margin-bottom: 5px;">🔮 Harness Divine Power</div>
         <div style="font-size: 0.85em; opacity: 0.9;">Touch your holy symbol and regain an expended spell slot (max level ${maxSlotLevel})</div>
       </button>
       <button id="adjust-manually" style="width: 100%; padding: 15px; background: #95a5a6; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">
@@ -2563,7 +2563,7 @@ function showSpellSlotRestorationModal(channelDivinityResource, maxSlotLevel) {
   }
 
   modalContent.innerHTML = `
-    <h3 style="margin: 0 0 15px 0; color: #2c3e50; text-align: center;">🔮 Restore Spell Slot</h3>
+    <h3 style="margin: 0 0 15px 0; color: #2c3e50; text-align: center;">🔮 Harness Divine Power</h3>
     <p style="text-align: center; margin-bottom: 20px; color: #555; font-size: 0.95em;">
       Choose which spell slot to restore (max level ${maxSlotLevel})
     </p>
@@ -2634,7 +2634,7 @@ function restoreSpellSlot(level, channelDivinityResource) {
   const colorBanner = getColoredBanner();
   const messageData = {
     action: 'announceSpell',
-    message: `&{template:default} {{name=${colorBanner}${characterData.name} uses Channel Divinity}} {{🔮=Restored a Level ${level} spell slot! (${slot.current}/${slot.max})}}`,
+    message: `&{template:default} {{name=${colorBanner}${characterData.name} uses Harness Divine Power}} {{🔮=Restored a Level ${level} spell slot! (${slot.current}/${slot.max})}}`,
     color: characterData.notificationColor
   };
 
@@ -2656,8 +2656,8 @@ function restoreSpellSlot(level, channelDivinityResource) {
     });
   }
 
-  showNotification(`🔮 Restored Level ${level} spell slot! Channel Divinity: ${channelDivinityResource.current}/${channelDivinityResource.max}`);
-  debug.log(`✨ Channel Divinity used to restore Level ${level} spell slot`);
+  showNotification(`🔮 Harness Divine Power! Restored Level ${level} spell slot. Channel Divinity: ${channelDivinityResource.current}/${channelDivinityResource.max}`);
+  debug.log(`✨ Harness Divine Power used to restore Level ${level} spell slot`);
 }
 
 function buildSpellSlotsDisplay() {
