@@ -1,0 +1,15 @@
+import '/imports/server/publications/publicationRateLimit';
+import '/imports/server/publications/characterList';
+import '/imports/server/publications/creatureTemplates';
+import '/imports/server/publications/library';
+import '/imports/server/publications/singleCharacter';
+import '/imports/server/publications/experiences';
+import '/imports/server/publications/users';
+import '/imports/server/publications/icons';
+import '/imports/server/publications/tabletops';
+import '/imports/server/publications/slotFillers';
+import '/imports/server/publications/ownedDocuments';
+import '/imports/server/publications/searchLibraryNodes';
+import '/imports/server/publications/archiveFiles';
+import '/imports/server/publications/userImages';
+import '/imports/server/publications/docs';

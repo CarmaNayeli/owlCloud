@@ -1,0 +1,25 @@
+html {
+  --scrollbarBG: #f0f0f0;
+  --thumbBG: #bbb;
+  scrollbar-gutter: stable;
+  background-color: var(--scrollbarBG);
+}
+
+html:has(#app.theme--dark) {
+  --scrollbarBG: #212121;
+  --thumbBG: #404040;
+}
+
+#app.theme--dark {
+  --scrollbarBG: #212121;
+  --thumbBG: #404040;
+}
+
+html.lock-scroll {
+  overflow-y: hidden;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--thumbBG) var(--scrollbarBG);
+}
