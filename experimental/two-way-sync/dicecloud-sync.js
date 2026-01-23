@@ -1433,15 +1433,51 @@ class DiceCloudSync {
 window.initializeDiceCloudSync = async function() {
   console.log('[DiceCloud Sync] Global initialization called');
   console.log('[DiceCloud Sync] Current URL:', window.location.href);
-  
+
   try {
-    // Create DDP client
-    console.log('[DiceCloud Sync] Creating DDP client...');
-    const ddpClient = new DDPClient('wss://dicecloud.com/websocket');
-    
     // Get DiceCloud token for authentication
     const tokenResult = await browserAPI.storage.local.get(['diceCloudToken']);
     const { diceCloudToken } = tokenResult;
+
+    // Check if we already have a DDP client that's connected
+    if (window.diceCloudSync && window.diceCloudSync.ddp && window.diceCloudSync.ddp.isConnected()) {
+      console.log('[DiceCloud Sync] DDP already connected, checking authentication...');
+
+      // If we now have a token but weren't authenticated before, authenticate now
+      if (diceCloudToken) {
+        console.log('[DiceCloud Sync] Authenticating existing DDP connection...');
+        try {
+          const result = await window.diceCloudSync.ddp.call('login', {
+            resume: diceCloudToken
+          });
+          console.log('[DiceCloud Sync] DDP authentication successful:', result);
+
+          // Re-initialize the sync with character data
+          const charResult = await browserAPI.storage.local.get(['activeCharacterId', 'characterProfiles']);
+          const { activeCharacterId, characterProfiles } = charResult;
+
+          if (activeCharacterId && characterProfiles && characterProfiles[activeCharacterId]) {
+            const profileData = characterProfiles[activeCharacterId];
+            if (profileData && profileData.id) {
+              console.log('[DiceCloud Sync] Re-initializing with character:', profileData.id);
+              await window.diceCloudSync.initialize(profileData.id);
+            }
+          }
+
+          return; // Don't create a new connection
+        } catch (error) {
+          console.error('[DiceCloud Sync] Authentication failed:', error);
+          // Fall through to create a new connection
+        }
+      } else {
+        console.log('[DiceCloud Sync] Already initialized, skipping');
+        return;
+      }
+    }
+
+    // Create DDP client
+    console.log('[DiceCloud Sync] Creating new DDP client...');
+    const ddpClient = new DDPClient('wss://dicecloud.com/websocket');
     
     if (diceCloudToken) {
       console.log('[DiceCloud Sync] Setting up DDP authentication...');
@@ -1557,4 +1593,22 @@ if (window.location.hostname === 'app.roll20.net') {
   setTimeout(() => {
     window.initializeDiceCloudSync();
   }, 1000);
+
+  // Listen for storage changes (e.g., when user logs in via popup)
+  if (typeof browserAPI !== 'undefined' && browserAPI.storage && browserAPI.storage.onChanged) {
+    browserAPI.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName === 'local' && changes.diceCloudToken) {
+        const newToken = changes.diceCloudToken.newValue;
+        const oldToken = changes.diceCloudToken.oldValue;
+
+        // If token was added or changed, re-initialize sync with authentication
+        if (newToken && newToken !== oldToken) {
+          console.log('[DiceCloud Sync] Token detected, re-initializing with authentication...');
+          // Re-initialize the sync with the new token
+          window.initializeDiceCloudSync();
+        }
+      }
+    });
+    console.log('[DiceCloud Sync] Storage listener registered for token changes');
+  }
 }
