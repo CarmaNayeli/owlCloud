@@ -1248,30 +1248,14 @@ class DiceCloudSync {
 
       console.log(`[DiceCloud Sync] Updating spell slot level ${level} to ${slotsRemaining} remaining`);
 
-      // First, let's debug what the spell slot property looks like
-      const debugTokenResult = await browserAPI.storage.local.get(['diceCloudToken']);
-      if (debugTokenResult.diceCloudToken && this.characterId) {
-        const debugResponse = await browserAPI.runtime.sendMessage({
-          action: 'fetchDiceCloudAPI',
-          url: `https://dicecloud.com/api/creature/${this.characterId}`,
-          token: debugTokenResult.diceCloudToken
-        });
-
-        if (debugResponse.success && debugResponse.data) {
-          const spellSlotProp = debugResponse.data.creatureProperties.find(p => p._id === propertyId);
-          if (spellSlotProp) {
-            // Log as JSON for easy reading (all fields auto-expanded)
-            console.log(`[DiceCloud Sync] 🔍 Spell slot property structure:\n` +
-              JSON.stringify(spellSlotProp, null, 2));
-          }
-        }
-      }
-
+      // Spell slot attributes work like healthBar and resource attributes:
+      // They use the damage system where value = total - damage
+      // Use creatureProperties.damage method (same as HP, Channel Divinity, and other resources)
       const result = await this.queueRequest(
-        () => this.ddp.call('creatureProperties.update', {
+        () => this.ddp.call('creatureProperties.damage', {
           _id: propertyId,
-          path: ['value'],
-          value: slotsRemaining
+          value: slotsRemaining,
+          operation: 'set'
         }),
         `Update spell slot level ${level} to ${slotsRemaining}`
       );
@@ -1861,6 +1845,24 @@ class DiceCloudSync {
     // Update inspiration if changed
     if (characterData.inspiration !== undefined && hasChanged('Inspiration', characterData.inspiration)) {
       await this.updateInspiration(characterData.inspiration);
+    }
+
+    // Update action uses if changed
+    if (characterData.actions && Array.isArray(characterData.actions)) {
+      for (const action of characterData.actions) {
+        // Only process actions that have uses
+        if (action.uses && action.usesUsed !== undefined) {
+          const actionKey = `${action.name}_usesUsed`;
+          const currentUsesUsed = action.usesUsed;
+
+          if (hasChanged(actionKey, currentUsesUsed)) {
+            console.log(`[DiceCloud Sync] ✅ Syncing action uses: ${action.name} (${currentUsesUsed} used)`);
+            await this.setActionUses(action.name, currentUsesUsed);
+          } else {
+            console.log(`[SYNC DEBUG] ⏭️ Action ${action.name} uses unchanged (${currentUsesUsed} used), skipping sync`);
+          }
+        }
+      }
     }
   }
 
