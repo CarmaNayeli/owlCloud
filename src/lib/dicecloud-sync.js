@@ -1352,11 +1352,10 @@ class DiceCloudSync {
       }
 
       // Resources work like health bars: value = total - damage
-      // To set uses remaining, we calculate: damage = total - usesRemaining
+      // To set uses remaining, we use the damage method just like HP
       const total = property.total || property.baseValue?.value || 3;
-      const damageValue = total - usesRemaining;
 
-      console.log(`[DiceCloud Sync] Resource calculation: total=${total}, usesRemaining=${usesRemaining}, damage=${damageValue}`);
+      console.log(`[DiceCloud Sync] Resource calculation: total=${total}, usesRemaining=${usesRemaining}, damage=${property.damage || 0}`);
       console.log(`[DiceCloud Sync] Channel Divinity before update:`, {
         value: property.value,
         damage: property.damage,
