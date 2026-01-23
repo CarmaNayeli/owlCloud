@@ -1413,6 +1413,36 @@ class DiceCloudSync {
       }
     }
 
+    // Handle special cases for Channel Divinity (search for class-specific variants)
+    if (attributeName === 'Channel Divinity' || attributeName === 'channelDivinity' ||
+        attributeName === 'channelDivinityCleric' || attributeName === 'channelDivinityPaladin') {
+      console.log('[DiceCloud Sync] Looking for Channel Divinity alternatives...');
+      const cdRelatedProps = Array.from(this.propertyCache.keys()).filter(name =>
+        name.toLowerCase().includes('channel divinity') ||
+        name.toLowerCase().includes('channeldivinity')
+      );
+      console.log('[DiceCloud Sync] Channel Divinity-related properties found:', cdRelatedProps);
+
+      // Try class-specific Channel Divinity first (like "Channel Divinity: Cleric" or "Channel Divinity: Paladin")
+      const classSpecificCD = cdRelatedProps.find(name =>
+        name !== 'Channel Divinity' &&
+        (name.includes('Channel Divinity') || name.includes('channelDivinity'))
+      );
+      if (classSpecificCD) {
+        const classSpecificId = this.propertyCache.get(classSpecificCD);
+        console.log(`[DiceCloud Sync] Using class-specific Channel Divinity: ${classSpecificCD} -> ${classSpecificId}`);
+        return classSpecificId;
+      }
+
+      // Fall back to any Channel Divinity variant found
+      if (cdRelatedProps.length > 0) {
+        const anyCD = cdRelatedProps[0];
+        const anyCDId = this.propertyCache.get(anyCD);
+        console.log(`[DiceCloud Sync] Using Channel Divinity variant: ${anyCD} -> ${anyCDId}`);
+        return anyCDId;
+      }
+    }
+
     console.warn(`[DiceCloud Sync] ❌ Property ID not found for: "${attributeName}"`);
     console.warn(`[DiceCloud Sync] Available properties (showing first 20):`, Array.from(this.propertyCache.keys()).slice(0, 20));
 
