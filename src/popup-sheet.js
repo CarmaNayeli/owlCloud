@@ -3340,7 +3340,8 @@ function detectClassResources(spell) {
   if (otherVars.ki !== undefined || otherVars.kiPoints !== undefined) {
     const ki = otherVars.ki || otherVars.kiPoints || 0;
     const kiMax = otherVars.kiMax || otherVars.kiPointsMax || 0;
-    if (ki > 0) {
+    // Always include Ki if max > 0, even when current is 0 (for proper sync)
+    if (kiMax > 0) {
       resources.push({ name: 'Ki', current: ki, max: kiMax, varName: otherVars.ki !== undefined ? 'ki' : 'kiPoints' });
     }
   }
@@ -3352,7 +3353,8 @@ function detectClassResources(spell) {
   if (otherVars.pactMagicSlots !== undefined) {
     const slots = otherVars.pactMagicSlots || 0;
     const slotsMax = otherVars.pactMagicSlotsMax || 0;
-    if (slots > 0) {
+    // Always include Pact Magic if max > 0, even when current is 0 (for proper sync)
+    if (slotsMax > 0) {
       resources.push({ name: 'Pact Magic', current: slots, max: slotsMax, varName: 'pactMagicSlots' });
     }
   }
@@ -3361,7 +3363,8 @@ function detectClassResources(spell) {
   if (otherVars.channelDivinity !== undefined) {
     const uses = otherVars.channelDivinity || 0;
     const usesMax = otherVars.channelDivinityMax || 0;
-    if (uses > 0) {
+    // Always include Channel Divinity if max > 0, even when current uses are 0 (for proper sync)
+    if (usesMax > 0) {
       resources.push({ name: 'Channel Divinity', current: uses, max: usesMax, varName: 'channelDivinity' });
     }
   }
@@ -4696,6 +4699,19 @@ function saveCharacterData() {
   // Send sync message to DiceCloud if experimental sync is available
   // Always send sync messages in experimental build - they'll be handled by Roll20 content script
   debug.log('🔄 Sending character data update to DiceCloud sync...');
+
+  // Rebuild Channel Divinity object from otherVariables for sync
+  let channelDivinityForSync = null;
+  if (characterData.otherVariables && characterData.otherVariables.channelDivinity !== undefined) {
+    channelDivinityForSync = {
+      current: characterData.otherVariables.channelDivinity || 0,
+      max: characterData.otherVariables.channelDivinityMax || 0
+    };
+  }
+
+  // Rebuild resources array from otherVariables for sync
+  const resourcesForSync = detectClassResources();
+
   const syncMessage = {
     type: 'characterDataUpdate',
     characterData: {
@@ -4704,8 +4720,8 @@ function saveCharacterData() {
       tempHp: characterData.temporaryHP || 0,
       maxHp: characterData.hitPoints.max,
       spellSlots: characterData.spellSlots || {},
-      channelDivinity: characterData.channelDivinity,
-      resources: characterData.resources || [],
+      channelDivinity: channelDivinityForSync,
+      resources: resourcesForSync,
       deathSaves: characterData.deathSaves,
       inspiration: characterData.inspiration,
       lastRoll: characterData.lastRoll
