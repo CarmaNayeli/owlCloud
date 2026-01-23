@@ -2524,13 +2524,6 @@ function buildResourcesDisplay() {
 }
 
 function adjustResource(resource) {
-  // Special handling for Channel Divinity - show modal with options
-  if (resource.name === 'Channel Divinity' && resource.current > 0) {
-    showChannelDivinityModal(resource);
-    return;
-  }
-
-  // Default behavior for other resources
   const newValue = prompt(`Adjust ${resource.name}\n\nCurrent: ${resource.current}/${resource.max}\n\nEnter new current value (0-${resource.max}):`);
 
   if (newValue === null) return; // Cancelled
@@ -2542,85 +2535,16 @@ function adjustResource(resource) {
   }
 
   resource.current = parsed;
+
+  // Also update otherVariables if this is Channel Divinity
+  if (resource.varName && characterData.otherVariables) {
+    characterData.otherVariables[resource.varName] = parsed;
+  }
+
   saveCharacterData();
   buildSheet(characterData);
 
   showNotification(`✅ ${resource.name} updated to ${resource.current}/${resource.max}`);
-}
-
-function showChannelDivinityModal(resource) {
-  // Create modal overlay
-  const modal = document.createElement('div');
-  modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
-
-  // Create modal content
-  const modalContent = document.createElement('div');
-  modalContent.style.cssText = 'background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); min-width: 400px; max-width: 500px;';
-
-  // Harness Divine Power - Calculate max spell slot level for restoration (ceil(proficiencyBonus/2))
-  const profBonus = characterData.proficiencyBonus || 2;
-  const maxSlotLevel = Math.ceil(profBonus / 2);
-
-  modalContent.innerHTML = `
-    <h3 style="margin: 0 0 20px 0; color: #2c3e50; text-align: center;">✨ Channel Divinity</h3>
-    <div style="text-align: center; margin-bottom: 20px;">
-      <div style="font-size: 1.2em; font-weight: bold; color: #3498db;">
-        Uses: ${resource.current}/${resource.max}
-      </div>
-    </div>
-    <div style="margin-bottom: 20px;">
-      <button id="restore-spell-slot" style="width: 100%; padding: 18px; background: #9b59b6; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; text-align: left; margin-bottom: 12px;">
-        <div style="font-size: 1.1em; margin-bottom: 5px;">🔮 Harness Divine Power</div>
-        <div style="font-size: 0.85em; opacity: 0.9;">Touch your holy symbol and regain an expended spell slot (max level ${maxSlotLevel})</div>
-      </button>
-      <button id="adjust-manually" style="width: 100%; padding: 15px; background: #95a5a6; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">
-        ⚙️ Manually Adjust Uses
-      </button>
-    </div>
-    <button id="cancel-cd-modal" style="width: 100%; padding: 12px; background: #7f8c8d; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
-      Cancel
-    </button>
-  `;
-
-  modal.appendChild(modalContent);
-  document.body.appendChild(modal);
-
-  // Restore spell slot button
-  document.getElementById('restore-spell-slot').addEventListener('click', () => {
-    modal.remove();
-    showSpellSlotRestorationModal(resource, maxSlotLevel);
-  });
-
-  // Manually adjust button
-  document.getElementById('adjust-manually').addEventListener('click', () => {
-    modal.remove();
-    const newValue = prompt(`Adjust ${resource.name}\n\nCurrent: ${resource.current}/${resource.max}\n\nEnter new current value (0-${resource.max}):`);
-
-    if (newValue === null) return;
-
-    const parsed = parseInt(newValue);
-    if (isNaN(parsed) || parsed < 0 || parsed > resource.max) {
-      alert(`Please enter a number between 0 and ${resource.max}`);
-      return;
-    }
-
-    resource.current = parsed;
-    saveCharacterData();
-    buildSheet(characterData);
-    showNotification(`✅ ${resource.name} updated to ${resource.current}/${resource.max}`);
-  });
-
-  // Cancel button
-  document.getElementById('cancel-cd-modal').addEventListener('click', () => {
-    modal.remove();
-  });
-
-  // Click outside to close
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) {
-      modal.remove();
-    }
-  });
 }
 
 function showSpellSlotRestorationModal(channelDivinityResource, maxSlotLevel) {
@@ -2637,9 +2561,10 @@ function showSpellSlotRestorationModal(channelDivinityResource, maxSlotLevel) {
   const spellSlots = characterData.spellSlots || {};
 
   for (let level = 1; level <= maxSlotLevel; level++) {
-    const slotKey = `level${level}`;
-    const current = spellSlots[slotKey]?.current || 0;
-    const max = spellSlots[slotKey]?.max || 0;
+    const slotVar = `level${level}SpellSlots`;
+    const slotMaxVar = `level${level}SpellSlotsMax`;
+    const current = spellSlots[slotVar] || 0;
+    const max = spellSlots[slotMaxVar] || 0;
 
     const isAvailable = max > 0 && current < max;
     const disabled = !isAvailable ? 'disabled' : '';
@@ -2701,22 +2626,29 @@ function showSpellSlotRestorationModal(channelDivinityResource, maxSlotLevel) {
 }
 
 function restoreSpellSlot(level, channelDivinityResource) {
-  const slotKey = `level${level}`;
+  const slotVar = `level${level}SpellSlots`;
+  const slotMaxVar = `level${level}SpellSlotsMax`;
 
-  if (!characterData.spellSlots || !characterData.spellSlots[slotKey]) {
+  if (!characterData.spellSlots) {
+    showNotification('❌ No spell slots available!', 'error');
+    return;
+  }
+
+  const current = characterData.spellSlots[slotVar] || 0;
+  const max = characterData.spellSlots[slotMaxVar] || 0;
+
+  if (max === 0) {
     showNotification('❌ No spell slots at that level!', 'error');
     return;
   }
 
-  const slot = characterData.spellSlots[slotKey];
-
-  if (slot.current >= slot.max) {
+  if (current >= max) {
     showNotification(`❌ Level ${level} spell slots already full!`, 'error');
     return;
   }
 
   // Restore the spell slot
-  slot.current = Math.min(slot.current + 1, slot.max);
+  characterData.spellSlots[slotVar] = Math.min(current + 1, max);
 
   // Expend Channel Divinity use
   channelDivinityResource.current = Math.max(0, channelDivinityResource.current - 1);
@@ -2731,9 +2663,10 @@ function restoreSpellSlot(level, channelDivinityResource) {
 
   // Announce to Roll20
   const colorBanner = getColoredBanner();
+  const newCurrent = characterData.spellSlots[slotVar];
   const messageData = {
     action: 'announceSpell',
-    message: `&{template:default} {{name=${colorBanner}${characterData.name} uses Harness Divine Power}} {{🔮=Restored a Level ${level} spell slot! (${slot.current}/${slot.max})}}`,
+    message: `&{template:default} {{name=${colorBanner}${characterData.name} uses Harness Divine Power}} {{🔮=Restored a Level ${level} spell slot! (${newCurrent}/${max})}}`,
     color: characterData.notificationColor
   };
 
