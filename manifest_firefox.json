@@ -5,7 +5,7 @@
   "description": "Import D&D characters from DiceCloud to Roll20 with enhanced authentication, interactive character sheets, and GM combat tools",
   "applications": {
     "gecko": {
-      "id": "rollcloud@extension.local",
+      "id": "rollcloud-experimental@extension.local",
       "strict_min_version": "109.0"
     }
   },
