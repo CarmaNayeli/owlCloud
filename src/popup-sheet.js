@@ -4580,6 +4580,30 @@ function recoverSpellSlot(slot, action, maxLevel) {
   buildSheet(characterData);
 }
 
+// Helper function to find resources with flexible Channel Divinity matching
+function findResourceByVariableName(variableName) {
+  // Check for exact match first
+  let resource = characterData.resources?.find(r => r.variableName === variableName);
+
+  if (resource) {
+    return resource;
+  }
+
+  // Special handling for Channel Divinity - try all possible variable names
+  if (variableName === 'channelDivinity' ||
+      variableName === 'channelDivinityCleric' ||
+      variableName === 'channelDivinityPaladin') {
+    resource = characterData.resources?.find(r =>
+      r.name === 'Channel Divinity' ||
+      r.variableName === 'channelDivinityCleric' ||
+      r.variableName === 'channelDivinityPaladin' ||
+      r.variableName === 'channelDivinity'
+    );
+  }
+
+  return resource;
+}
+
 function getResourceCostsFromAction(action) {
   // Use DiceCloud's structured resource consumption data instead of regex parsing
   if (!action || !action.resources || !action.resources.attributesConsumed) {
@@ -4657,8 +4681,8 @@ function decrementActionResources(action) {
       continue;
     }
 
-    // Find the resource in character data
-    const resource = characterData.resources?.find(r => r.variableName === cost.variableName);
+    // Find the resource in character data (with flexible Channel Divinity matching)
+    const resource = findResourceByVariableName(cost.variableName);
 
     if (!resource) {
       debug.log(`⚠️ Resource not found: ${cost.variableName} for ${action.name}`);
@@ -4682,7 +4706,8 @@ function decrementActionResources(action) {
       continue;
     }
 
-    const resource = characterData.resources?.find(r => r.variableName === cost.variableName);
+    // Find the resource (with flexible Channel Divinity matching)
+    const resource = findResourceByVariableName(cost.variableName);
 
     if (resource) {
       resource.current -= cost.quantity;
