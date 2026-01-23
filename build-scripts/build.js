@@ -265,16 +265,29 @@ function buildFirefox() {
     manifest.description = manifest.description + ' - EXPERIMENTAL: Includes two-way sync features for testing';
 
     // Add web_accessible_resources for experimental files
+    // Manifest V2 (Firefox) uses array of strings, not objects
     if (!manifest.web_accessible_resources) {
       manifest.web_accessible_resources = [];
     }
-    manifest.web_accessible_resources.push({
-      resources: [
-        'src/lib/meteor-ddp-client.js',
-        'src/lib/dicecloud-sync.js'
-      ],
-      matches: ['<all_urls>']
-    });
+    manifest.web_accessible_resources.push(
+      'src/lib/meteor-ddp-client.js',
+      'src/lib/dicecloud-sync.js'
+    );
+
+    // Add experimental sync scripts to Roll20 content script
+    const roll20ContentScript = manifest.content_scripts.find(script =>
+      script.matches && script.matches.includes('https://app.roll20.net/*')
+    );
+    if (roll20ContentScript) {
+      // Insert sync files before roll20.js
+      const roll20Index = roll20ContentScript.js.indexOf('src/content/roll20.js');
+      if (roll20Index !== -1) {
+        roll20ContentScript.js.splice(roll20Index, 0,
+          'src/lib/meteor-ddp-client.js',
+          'src/lib/dicecloud-sync.js'
+        );
+      }
+    }
 
     fs.writeFileSync(manifestDest, JSON.stringify(manifest, null, 2));
   }
