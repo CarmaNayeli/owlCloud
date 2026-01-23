@@ -828,12 +828,13 @@
                 let damageValue = '';
                 let rollValue = '';
 
-                // For damage properties, check amount field (can be string or object with calculation)
+                // For damage properties, check amount field (can be string or object with value/calculation)
+                // Prioritize 'value' over 'calculation' for pre-computed formulas
                 if (child.type === 'damage') {
                   if (typeof child.amount === 'string') {
                     damageValue = child.amount;
-                  } else if (typeof child.amount === 'object' && child.amount.calculation) {
-                    damageValue = child.amount.calculation;
+                  } else if (typeof child.amount === 'object') {
+                    damageValue = child.amount.value || child.amount.calculation || '';
                   }
                   debug.log(`🎯 Found damage property: "${child.name || prop.name}" with value: "${damageValue}"`);
                 }
@@ -841,8 +842,8 @@
                 else if (child.type === 'effect' && child.operation === 'add' && child.amount) {
                   if (typeof child.amount === 'string') {
                     damageValue = child.amount;
-                  } else if (typeof child.amount === 'object' && child.amount.calculation) {
-                    damageValue = child.amount.calculation;
+                  } else if (typeof child.amount === 'object') {
+                    damageValue = child.amount.value || child.amount.calculation || '';
                   }
                 }
                 // For features, use roll or damage fields
@@ -1120,13 +1121,13 @@
                   damage = child.amount;
                   debug.log(`      → Using amount string: "${damage}"`);
                 } else if (typeof child.amount === 'object') {
-                  // Prefer calculation over value for dynamic formulas
-                  if (child.amount.calculation) {
-                    damage = child.amount.calculation;
-                    debug.log(`      → Using amount.calculation: "${damage}"`);
-                  } else if (child.amount.value !== undefined) {
+                  // Prefer value over calculation for pre-computed formulas with modifiers
+                  if (child.amount.value !== undefined) {
                     damage = String(child.amount.value);
                     debug.log(`      → Using amount.value: "${damage}"`);
+                  } else if (child.amount.calculation) {
+                    damage = child.amount.calculation;
+                    debug.log(`      → Using amount.calculation: "${damage}"`);
                   }
                 }
               } else if (child.roll) {
@@ -1134,13 +1135,13 @@
                   damage = child.roll;
                   debug.log(`      → Using roll string: "${damage}"`);
                 } else if (typeof child.roll === 'object') {
-                  // Prefer calculation over value for dynamic formulas
-                  if (child.roll.calculation) {
-                    damage = child.roll.calculation;
-                    debug.log(`      → Using roll.calculation: "${damage}"`);
-                  } else if (child.roll.value !== undefined) {
+                  // Prefer value over calculation for pre-computed formulas with modifiers
+                  if (child.roll.value !== undefined) {
                     damage = String(child.roll.value);
                     debug.log(`      → Using roll.value: "${damage}"`);
+                  } else if (child.roll.calculation) {
+                    damage = child.roll.calculation;
+                    debug.log(`      → Using roll.calculation: "${damage}"`);
                   }
                 }
               }
@@ -1365,8 +1366,9 @@
                   if (typeof damageProp.amount === 'string') {
                     damageFormula = damageProp.amount;
                   } else if (typeof damageProp.amount === 'object') {
-                    // Get base calculation (e.g., "1d8")
-                    damageFormula = damageProp.amount.calculation || damageProp.amount.value || damageProp.amount.text || '';
+                    // Get base damage formula (e.g., "1d8")
+                    // Prioritize 'value' over 'calculation' for pre-computed formulas
+                    damageFormula = damageProp.amount.value || damageProp.amount.calculation || damageProp.amount.text || '';
 
                     // Add effects (modifiers) to build complete formula
                     if (damageProp.amount.effects && Array.isArray(damageProp.amount.effects)) {
