@@ -490,6 +490,138 @@ export const RACIAL_FEATURE_EDGE_CASES = {
     damageTypes: ['psychic', 'force'],
     saveAdvantage: 'charmed_frightened_saves',
     description: 'Psychic/force resistance + advantage on charm/frighten saves'
+  },
+
+  // ===== MISSING RACES =====
+  'warf forged': {
+    type: 'defense_calculation',
+    effect: 'integrated_protection',
+    description: 'AC calculation includes integrated protection'
+  },
+  'warf constructed resilience': {
+    type: 'immunity',
+    effects: ['poison_resistance', 'disease_resistance', 'advantage_vs_poison_disease_saves'],
+    description: 'Various immunities and resistances'
+  },
+  'aarakocra': {
+    type: 'flight_ability',
+    effect: 'fly_speed',
+    description: 'Flight speed'
+  },
+  'bugbear surprise attack': {
+    type: 'surprise_attack',
+    effect: 'advantage_on_attack_against_surprised_creatures',
+    description: 'Surprise attack advantage'
+  },
+  'bugbear long-limbed': {
+    type: 'reach_extension',
+    effect: '5ft_reach',
+    description: 'Long-limbed reach'
+  },
+  'goblin fury of the small': {
+    type: 'damage_bonus',
+    condition: 'creature_larger_than_you',
+    effect: 'bonus_damage',
+    description: 'Bonus damage against larger creatures'
+  },
+  'goblin nimble escape': {
+    type: 'disengage',
+    actionType: 'bonus_action',
+    effect: 'hide_as_bonus_action',
+    description: 'Hide as bonus action'
+  },
+  'hobgoblin saving face': {
+    type: 'reroll',
+    trigger: 'failed_attack_or_check',
+    effect: 'reroll_with_advantage',
+    description: 'Reroll failed attack or check with advantage'
+  },
+  'kobold pack tactics': {
+    type: 'attack_bonus',
+    condition: 'ally_within_5ft',
+    effect: 'advantage_on_attack',
+    description: 'Advantage on attack when ally within 5ft'
+  },
+  'kobold sunlight sensitivity': {
+    type: 'disadvantage',
+    condition: 'in_sunlight',
+    effect: 'disadvantage_on_attacks_and_perception_checks',
+    description: 'Disadvantage in sunlight'
+  },
+  'orc aggressive': {
+    type: 'movement_bonus',
+    actionType: 'bonus_action',
+    effect: 'dash_toward_enemy',
+    description: 'Bonus action dash toward enemy'
+  },
+  'orc powerful build': {
+    type: 'carry_capacity',
+    effect: 'double_carrying_capacity',
+    description: 'Double carrying capacity'
+  },
+  'yuan-ti pureblood': {
+    type: 'immunity',
+    effects: ['magic_resistance', 'poison_immunity'],
+    description: 'Magic resistance + poison immunity'
+  },
+  'tortle natural armor': {
+    type: 'defense_bonus',
+    effect: 'ac_17_natural_armor',
+    description: 'Natural armor AC 17'
+  },
+  'tortle shell defense': {
+    type: 'defense_action',
+    actionType: 'action',
+    effect: 'add_shield_bonus_to_ac',
+    description: 'Action to add shield bonus to AC'
+  },
+  'grung poison skin': {
+    type: 'contact_poison',
+    effect: 'poison_on_contact',
+    description: 'Poison skin'
+  },
+  'grung standing leap': {
+    type: 'movement_enhancement',
+    effect: 'standing_jump',
+    jumpDistance: 'height',
+    description: 'Standing jump equal to height'
+  },
+  'centaur equine build': {
+    type: 'movement_type',
+    effects: ['cannot_be_ridden', 'no_climbing_swimming_costs_extra'],
+    description: 'Equine build limitations'
+  },
+  'centaur hooves': {
+    type: 'attack',
+    actionType: 'action',
+    damageFormula: '2d4 + strength_mod',
+    description: 'Hooves attack'
+  },
+  'centaur charge': {
+    type: 'attack_bonus',
+    condition: 'move_at_least_20ft_straight_line',
+    effect: 'bonus_damage',
+    description: 'Bonus damage on charge'
+  },
+
+  // ===== 2024 RACIAL CHANGES =====
+  'lucky (2024)': {
+    type: 'advantage',
+    trigger: 'roll_1_on_attack_save_or_check',
+    condition: 'self_or_ally_within_30_feet',
+    effect: 'advantage_instead_of_reroll',
+    ruleset: '2024',
+    description: 'Now gives advantage instead of rerolls'
+  },
+  'breath weapon (2024)': {
+    type: 'damage_aoe',
+    actionType: 'action',
+    damageFormula: '2d6_dragon_breath',
+    saveType: 'dexterity',
+    saveDC: '8 + proficiency + con_mod',
+    recharge: 'short_rest',
+    ruleset: '2024',
+    description: '2024 version of dragonborn breath weapon'
   }
 };
 

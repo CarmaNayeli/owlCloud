@@ -382,6 +382,159 @@ export const COMBAT_MANEUVER_EDGE_CASES = {
     condition: 'target_prone_and_beyond_5_feet',
     effect: 'disadvantage_on_ranged_attacks',
     description: 'Disadvantage on ranged attacks vs prone beyond 5ft'
+  },
+
+  // ===== MISSING COMBAT MANEUVERS =====
+  'climbing onto a bigger creature': {
+    type: 'contest_check',
+    actionType: 'action',
+    attackType: 'athletics',
+    defenseType: 'athletics_or_acrobatics',
+    condition: 'target_larger_than_you',
+    effect: 'grapple_and_mount',
+    description: 'Contest to grapple/mount larger creature'
+  },
+  'tumble': {
+    type: 'contest_check',
+    actionType: 'bonus_action',
+    attackType: 'acrobatics',
+    defenseType: 'acrobatics',
+    effect: 'move_through_hostile_space',
+    description: 'Acrobatics vs Acrobatics to move through hostile space'
+  },
+  'called shot': {
+    type: 'attack_modifier',
+    actionType: 'action',
+    effect: 'disadvantage_for_specific_effect',
+    condition: 'dm_discretion',
+    description: 'Disadvantage to attack for specific effect (DM discretion)'
+  },
+  'disarm self': {
+    type: 'free_action',
+    actionType: 'free_action',
+    effect: 'drop_item',
+    description: 'Drop item as free action'
+  },
+  'don shield': {
+    type: 'equipment_action',
+    actionType: 'action',
+    effect: 'equip_shield',
+    description: 'Action to equip shield'
+  },
+  'doff shield': {
+    type: 'equipment_action',
+    actionType: 'action',
+    effect: 'remove_shield',
+    description: 'Action to remove shield'
+  },
+  'don armor': {
+    type: 'equipment_action',
+    actionType: 'time_based_action',
+    effect: 'equip_armor',
+    description: 'Time-based action to equip armor'
+  },
+  'doff armor': {
+    type: 'equipment_action',
+    actionType: 'time_based_action',
+    effect: 'remove_armor',
+    description: 'Time-based action to remove armor'
+  },
+
+  // ===== 2024 COMBAT MANEUVER CHANGES =====
+  'grapple (2024)': {
+    type: 'contest_check',
+    actionType: 'action',
+    attackType: 'athletics',
+    defenseType: 'athletics_or_acrobatics',
+    effect: 'grappled_condition',
+    ruleset: '2024',
+    description: '2024 version of grapple rules'
+  },
+  'shove (2024)': {
+    type: 'contest_check',
+    actionType: 'action',
+    attackType: 'athletics',
+    defenseType: 'athletics_or_acrobatics',
+    effects: ['knock_prone', 'push_5_feet'],
+    ruleset: '2024',
+    description: '2024 version of shove rules'
+  },
+
+  // ===== 2024 WEAPON MASTERIES (NEW SYSTEM) =====
+  'cleave': {
+    type: 'weapon_mastery',
+    condition: 'hit_creature',
+    effect: 'hit_second_target_within_5ft',
+    description: 'Hit second target within 5ft'
+  },
+  'graze': {
+    type: 'weapon_mastery',
+    condition: 'miss_attack',
+    effect: 'damage_equal_to_ability_mod',
+    description: 'Miss still deals damage equal to ability mod'
+  },
+  'nick': {
+    type: 'weapon_mastery',
+    condition: 'light_weapon',
+    effect: 'extra_attack_no_bonus_action',
+    description: 'Make extra attack with light weapon (no bonus action needed)'
+  },
+  'push': {
+    type: 'weapon_mastery',
+    condition: 'hit_creature',
+    effect: 'push_10ft',
+    description: 'Push 10ft on hit'
+  },
+  'sap': {
+    type: 'weapon_mastery',
+    condition: 'hit_creature',
+    effect: 'disadvantage_on_next_attack',
+    description: 'Disadvantage on next attack'
+  },
+  'slow': {
+    type: 'weapon_mastery',
+    condition: 'hit_creature',
+    effect: 'reduce_speed_by_10ft',
+    description: 'Reduce speed by 10ft'
+  },
+  'topple': {
+    type: 'weapon_mastery',
+    condition: 'hit_creature',
+    effect: 'knock_prone_on_failed_con_save',
+    description: 'Knock prone on failed CON save'
+  },
+  'vex': {
+    type: 'weapon_mastery',
+    condition: 'hit_creature',
+    effect: 'advantage_on_next_attack_vs_same_target',
+    description: 'Advantage on next attack vs same target'
+  },
+
+  // ===== 2024 FEATS SYSTEM =====
+  'alert (2024)': {
+    type: 'initiative_bonus',
+    effect: 'add_proficiency_to_initiative',
+    additionalEffect: 'cannot_be_surprised',
+    ruleset: '2024',
+    description: '+Initiative equal to proficiency, cannot be surprised'
+  },
+  'lucky (2024 feat)': {
+    type: 'advantage',
+    effect: 'advantage_instead_of_reroll',
+    ruleset: '2024',
+    description: 'Now gives advantage instead of rerolls'
+  },
+  'great weapon master (2024)': {
+    type: 'attack_option',
+    choice: 'redesigned_system',
+    ruleset: '2024',
+    description: 'Redesigned completely'
+  },
+  'sharpshooter (2024)': {
+    type: 'attack_option',
+    choice: 'redesigned_system',
+    ruleset: '2024',
+    description: 'Redesigned completely'
   }
 };
 

@@ -319,6 +319,30 @@ export const SPELL_EDGE_CASES = {
     description: 'Too complicated for normal casting - requires DM intervention',
     ruleset: '2024',
     notes: '2024 standardized summoning spell'
+  },
+  'hunter\'s mark (2024)': {
+    type: 'reusable',
+    description: 'Can be recast without using spell slot',
+    ruleset: '2024',
+    notes: 'Now a spell known for free, concentration changes'
+  },
+  'hex (2024)': {
+    type: 'reusable',
+    description: 'Can be recast without using spell slot',
+    ruleset: '2024',
+    notes: 'Similar to Hunter\'s Mark changes'
+  },
+  'counterspell (2024)': {
+    type: 'too_complicated',
+    description: 'Too complicated for normal casting - requires DM intervention',
+    ruleset: '2024',
+    notes: 'Different DC calculation in 2024'
+  },
+  'healing spirit (2024)': {
+    type: 'too_complicated',
+    description: 'Too complicated for normal casting - requires DM intervention',
+    ruleset: '2024',
+    notes: 'Nerfed heavily in 2024'
   }
 };
 
