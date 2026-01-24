@@ -4093,6 +4093,50 @@ function showSpellModal(spell, spellIndex, options) {
     slotSelect.updateButtonLabels = null;
   }
 
+  // Concentration spell recast option (if already concentrating on this spell)
+  let skipSlotCheckbox = null;
+  if (spell.concentration && characterData.concentration === spell.name) {
+    const recastSection = document.createElement('div');
+    recastSection.style.cssText = 'margin-bottom: 16px; padding: 12px; background: #fff3cd; border-radius: 6px; border: 2px solid #f39c12;';
+
+    const checkboxContainer = document.createElement('label');
+    checkboxContainer.style.cssText = 'display: flex; align-items: center; gap: 8px; cursor: pointer;';
+
+    skipSlotCheckbox = document.createElement('input');
+    skipSlotCheckbox.type = 'checkbox';
+    skipSlotCheckbox.checked = true; // Default to checked (don't consume slot)
+    skipSlotCheckbox.style.cssText = 'width: 20px; height: 20px;';
+
+    const checkboxLabel = document.createElement('span');
+    checkboxLabel.style.cssText = 'font-weight: bold; color: #856404;';
+    checkboxLabel.textContent = '🧠 Already concentrating - don\'t consume spell slot';
+
+    checkboxContainer.appendChild(skipSlotCheckbox);
+    checkboxContainer.appendChild(checkboxLabel);
+    recastSection.appendChild(checkboxContainer);
+
+    const helpText = document.createElement('div');
+    helpText.style.cssText = 'font-size: 0.85em; color: #856404; margin-top: 6px; margin-left: 28px;';
+    helpText.textContent = 'You can use this spell\'s effect again while concentrating on it without recasting.';
+    recastSection.appendChild(helpText);
+
+    modal.appendChild(recastSection);
+
+    // If skip slot is checked, disable slot selection
+    skipSlotCheckbox.addEventListener('change', () => {
+      if (slotSelect) {
+        slotSelect.disabled = skipSlotCheckbox.checked;
+        slotSelect.style.opacity = skipSlotCheckbox.checked ? '0.5' : '1';
+      }
+    });
+
+    // Initialize disabled state
+    if (slotSelect && skipSlotCheckbox.checked) {
+      slotSelect.disabled = true;
+      slotSelect.style.opacity = '0.5';
+    }
+  }
+
   // Metamagic options (if character has metamagic features)
   // Only the 8 official Sorcerer metamagic options from PHB
   const metamagicCheckboxes = [];
@@ -4246,6 +4290,9 @@ function showSpellModal(spell, spellIndex, options) {
         .filter(cb => cb.checked)
         .map(cb => cb.value);
 
+      // Check if we should skip slot consumption (concentration recast)
+      const skipSlot = skipSlotCheckbox ? skipSlotCheckbox.checked : false;
+
       if (option.type === 'attack') {
         // Cast spell + roll attack, but keep modal open
         const afterCast = (spell, slot) => {
@@ -4254,7 +4301,7 @@ function showSpellModal(spell, spellIndex, options) {
           const attackFormula = attackBonus >= 0 ? `1d20+${attackBonus}` : `1d20${attackBonus}`;
           roll(`${spell.name} - Spell Attack`, attackFormula);
         };
-        castSpell(spell, spellIndex, afterCast, selectedSlotLevel, selectedMetamagic);
+        castSpell(spell, spellIndex, afterCast, selectedSlotLevel, selectedMetamagic, skipSlot);
         spellCast = true;
 
         // Disable slot selection and metamagic after casting
@@ -4288,7 +4335,7 @@ function showSpellModal(spell, spellIndex, options) {
               `${spell.name} - Damage (${option.damageType || ''})`;
             roll(label, formula);
           };
-          castSpell(spell, spellIndex, afterCast, selectedSlotLevel, selectedMetamagic);
+          castSpell(spell, spellIndex, afterCast, selectedSlotLevel, selectedMetamagic, skipSlot);
         } else {
           // Spell already cast (via attack), just roll damage
           let formula = option.formula;
@@ -4334,7 +4381,7 @@ function showSpellModal(spell, spellIndex, options) {
           const healingText = option.healingRatio === 'half' ? 'half the damage dealt' : 'the damage dealt';
           showNotification(`💉 Lifesteal! You regain HP equal to ${healingText}`, 'success');
         };
-        castSpell(spell, spellIndex, afterCast, selectedSlotLevel, selectedMetamagic);
+        castSpell(spell, spellIndex, afterCast, selectedSlotLevel, selectedMetamagic, skipSlot);
 
         // Close modal after rolling
         document.body.removeChild(overlay);
@@ -4447,8 +4494,8 @@ function handleSpellOption(spell, spellIndex, option) {
   }
 }
 
-function castSpell(spell, index, afterCast = null, selectedSlotLevel = null, selectedMetamagic = []) {
-  debug.log('✨ Attempting to cast:', spell.name, spell, 'at level:', selectedSlotLevel, 'with metamagic:', selectedMetamagic);
+function castSpell(spell, index, afterCast = null, selectedSlotLevel = null, selectedMetamagic = [], skipSlotConsumption = false) {
+  debug.log('✨ Attempting to cast:', spell.name, spell, 'at level:', selectedSlotLevel, 'with metamagic:', selectedMetamagic, 'skipSlot:', skipSlotConsumption);
 
   if (!characterData) {
     showNotification('❌ Character data not available', 'error');
@@ -4481,17 +4528,18 @@ function castSpell(spell, index, afterCast = null, selectedSlotLevel = null, sel
                        spell.resources.attributesConsumed &&
                        spell.resources.attributesConsumed.length === 0;
 
-  // Cantrips (level 0), magic item spells, and free spells don't need slots
-  if (!spell.level || spell.level === 0 || spell.level === '0' || isMagicItemSpell || isFreeSpell) {
-    const reason = isMagicItemSpell ? 'magic item' : (isFreeSpell ? 'free spell' : 'cantrip');
+  // Cantrips (level 0), magic item spells, free spells, or concentration recast don't need slots
+  if (!spell.level || spell.level === 0 || spell.level === '0' || isMagicItemSpell || isFreeSpell || skipSlotConsumption) {
+    const reason = skipSlotConsumption ? 'concentration recast' : (isMagicItemSpell ? 'magic item' : (isFreeSpell ? 'free spell' : 'cantrip'));
     debug.log(`✨ Casting ${reason} (no spell slot needed)`);
-    announceSpellCast(spell, (isMagicItemSpell || isFreeSpell) ? `${spell.source} (no slot)` : null);
-    showNotification(`✨ Cast ${spell.name}!`);
+    announceSpellCast(spell, skipSlotConsumption ? 'concentration recast (no slot)' : ((isMagicItemSpell || isFreeSpell) ? `${spell.source} (no slot)` : null));
+    showNotification(`✨ ${skipSlotConsumption ? 'Using' : 'Cast'} ${spell.name}!`);
     // Execute afterCast with a fake slot for magic items and free spells to allow formulas to work
     if (afterCast && typeof afterCast === 'function') {
       setTimeout(() => {
-        // For magic items and free spells, create a slot object with the spell's level
-        const fakeSlot = ((isMagicItemSpell || isFreeSpell) && spell.level) ? { level: parseInt(spell.level) } : null;
+        // For magic items, free spells, and concentration recasts, create a slot object with the appropriate level
+        const fakeSlotLevel = skipSlotConsumption && selectedSlotLevel ? selectedSlotLevel : spell.level;
+        const fakeSlot = ((isMagicItemSpell || isFreeSpell || skipSlotConsumption) && fakeSlotLevel) ? { level: parseInt(fakeSlotLevel) } : null;
         afterCast(spell, fakeSlot);
       }, 300);
     }
