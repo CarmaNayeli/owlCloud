@@ -437,8 +437,9 @@
 
     // Also check for slot level variable
     const slotLevelVarNames = [
+      'slotLevel', // Generic slot level (commonly used in DiceCloud)
       'pactMagicSlotLevel', 'pactSlotLevel', 'warlockSlotLevel',
-      'pactMagicLevel', 'warlockSpellLevel'
+      'pactMagicLevel', 'warlockSpellLevel', 'pactCasterLevel'
     ];
 
     let foundPactMagic = false;
@@ -460,15 +461,8 @@
           slotLevel = Math.min(5, Math.ceil(variables.warlockLevel.value / 2));
         }
 
-        // Store pact magic slots at the appropriate level
-        const currentKey = `level${slotLevel}SpellSlots`;
-        const maxKey = `level${slotLevel}SpellSlotsMax`;
-
-        // Add to existing slots (in case of multiclass)
-        characterData.spellSlots[currentKey] = (characterData.spellSlots[currentKey] || 0) + currentSlots;
-        characterData.spellSlots[maxKey] = (characterData.spellSlots[maxKey] || 0) + maxSlots;
-
-        // Also store pact-specific info
+        // Store pact magic slots separately (they recharge on short rest, regular slots on long rest)
+        // Do NOT combine with regular spell slots - they are tracked independently
         characterData.spellSlots.pactMagicSlots = currentSlots;
         characterData.spellSlots.pactMagicSlotsMax = maxSlots;
         characterData.spellSlots.pactMagicSlotLevel = slotLevel;
