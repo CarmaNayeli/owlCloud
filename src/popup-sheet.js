@@ -3894,10 +3894,27 @@ function getSpellOptions(spell) {
   if (spell.damageRolls && spell.damageRolls.length > 0) {
     spell.damageRolls.forEach((roll, index) => {
       const isHealing = roll.damageType === 'healing';
+
+      // Resolve non-slot-dependent variables for display (character level, ability mods, etc.)
+      // Keep slotLevel as-is since we don't know what slot will be used yet
+      let displayFormula = roll.damage;
+      displayFormula = resolveVariablesInFormula(displayFormula);
+      displayFormula = evaluateMathInFormula(displayFormula);
+
+      // Format damage type nicely
+      let damageTypeLabel = '';
+      if (roll.damageType && roll.damageType !== 'untyped') {
+        // Capitalize first letter
+        damageTypeLabel = roll.damageType.charAt(0).toUpperCase() + roll.damageType.slice(1);
+      }
+
+      // Build label: formula + damage type
+      const label = damageTypeLabel ? `${displayFormula} ${damageTypeLabel}` : displayFormula;
+
       options.push({
         type: isHealing ? 'healing' : 'damage',
-        label: `${roll.damage} ${roll.damageType || 'damage'}`,
-        formula: roll.damage,
+        label: label,
+        formula: roll.damage, // Keep original formula for actual rolling
         damageType: roll.damageType,
         index: index,
         icon: isHealing ? '💚' : '💥',
@@ -3922,23 +3939,119 @@ function showSpellModal(spell, spellIndex, options) {
   // Create modal content
   const modal = document.createElement('div');
   modal.className = 'spell-modal';
-  modal.style.cssText = 'background: white; padding: 24px; border-radius: 8px; max-width: 500px; width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.3);';
+  modal.style.cssText = 'background: white; padding: 24px; border-radius: 8px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);';
 
   // Modal header
   const header = document.createElement('div');
   header.style.cssText = 'margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #eee;';
+
+  // Format spell level text
+  let levelText = '';
+  if (spell.level === 0) {
+    levelText = '<div style="color: #666; font-size: 14px;">Cantrip</div>';
+  } else if (spell.level) {
+    levelText = `<div style="color: #666; font-size: 14px;">Level ${spell.level} Spell</div>`;
+  }
+
   header.innerHTML = `
     <h2 style="margin: 0 0 8px 0; color: #333;">Cast ${spell.name}</h2>
-    ${spell.level ? `<div style="color: #666; font-size: 14px;">Level ${spell.level} Spell</div>` : ''}
+    ${levelText}
   `;
 
-  // Options container
+  modal.appendChild(header);
+
+  // Slot selection (for leveled spells)
+  let slotSelect = null;
+  if (spell.level && spell.level > 0) {
+    const slotSection = document.createElement('div');
+    slotSection.style.cssText = 'margin-bottom: 16px; padding: 12px; background: #f8f9fa; border-radius: 6px;';
+
+    const slotLabel = document.createElement('label');
+    slotLabel.style.cssText = 'display: block; margin-bottom: 8px; font-weight: bold; color: #333;';
+    slotLabel.textContent = 'Cast at level:';
+
+    slotSelect = document.createElement('select');
+    slotSelect.style.cssText = 'width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 4px; font-size: 14px;';
+
+    // Add options for available spell slots (spell level and higher)
+    for (let level = spell.level; level <= 9; level++) {
+      const slotsProp = `level${level}SpellSlots`;
+      const maxSlotsProp = `level${level}SpellSlotsMax`;
+      const available = characterData[slotsProp] || 0;
+      const max = characterData[maxSlotsProp] || 0;
+
+      if (max > 0) {
+        const option = document.createElement('option');
+        option.value = level;
+        option.textContent = `Level ${level} (${available}/${max} slots)`;
+        option.disabled = available === 0;
+        if (level === spell.level) option.selected = true;
+        slotSelect.appendChild(option);
+      }
+    }
+
+    slotSection.appendChild(slotLabel);
+    slotSection.appendChild(slotSelect);
+    modal.appendChild(slotSection);
+  }
+
+  // Metamagic options (if character has metamagic features)
+  const metamagicCheckboxes = [];
+  const metamagicFeatures = characterData.features ? characterData.features.filter(f =>
+    f.name && (f.name.includes('Spell') || f.name.includes('Twinned') || f.name.includes('Quickened') ||
+               f.name.includes('Heightened') || f.name.includes('Empowered') ||
+               f.name.includes('Extended') || f.name.includes('Distant') || f.name.includes('Subtle') ||
+               f.name.includes('Careful'))
+  ) : [];
+
+  if (metamagicFeatures.length > 0) {
+    const metamagicSection = document.createElement('div');
+    metamagicSection.style.cssText = 'margin-bottom: 16px; padding: 12px; background: #f0f8ff; border-radius: 6px;';
+
+    const metamagicTitle = document.createElement('div');
+    metamagicTitle.style.cssText = 'font-weight: bold; margin-bottom: 8px; color: #333;';
+    metamagicTitle.textContent = 'Metamagic:';
+    metamagicSection.appendChild(metamagicTitle);
+
+    metamagicFeatures.forEach(feature => {
+      const checkboxContainer = document.createElement('label');
+      checkboxContainer.style.cssText = 'display: flex; align-items: center; gap: 8px; margin-bottom: 4px; cursor: pointer;';
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.value = feature.name;
+      checkbox.style.cssText = 'width: 18px; height: 18px;';
+
+      const label = document.createElement('span');
+      label.textContent = feature.name;
+      label.style.cssText = 'font-size: 14px;';
+
+      checkboxContainer.appendChild(checkbox);
+      checkboxContainer.appendChild(label);
+      metamagicSection.appendChild(checkboxContainer);
+
+      metamagicCheckboxes.push(checkbox);
+    });
+
+    modal.appendChild(metamagicSection);
+  }
+
+  // Track whether spell has been cast (for attack spells)
+  let spellCast = false;
+  let usedSlot = null;
+
+  // Check if spell has both attack and damage options
+  const hasAttack = options.some(opt => opt.type === 'attack');
+  const hasDamage = options.some(opt => opt.type === 'damage' || opt.type === 'healing');
+
+  // Options container (spell action buttons)
   const optionsContainer = document.createElement('div');
-  optionsContainer.style.cssText = 'display: flex; flex-direction: column; gap: 12px; margin-top: 16px;';
+  optionsContainer.style.cssText = 'display: flex; flex-direction: column; gap: 12px;';
 
   // Add buttons for each option
   options.forEach(option => {
     const btn = document.createElement('button');
+    btn.className = `spell-option-btn-${option.type}`;
     btn.style.cssText = `
       padding: 12px 16px;
       background: ${option.color};
@@ -3957,15 +4070,89 @@ function showSpellModal(spell, spellIndex, options) {
     btn.addEventListener('mouseleave', () => btn.style.opacity = '1');
 
     btn.addEventListener('click', () => {
-      // Close modal
-      document.body.removeChild(overlay);
+      // Get selected slot level
+      const selectedSlotLevel = slotSelect ? parseInt(slotSelect.value) : (spell.level || null);
 
-      // Handle the option
-      handleSpellOption(spell, spellIndex, option);
+      // Get selected metamagic options
+      const selectedMetamagic = metamagicCheckboxes
+        .filter(cb => cb.checked)
+        .map(cb => cb.value);
+
+      if (option.type === 'attack') {
+        // Cast spell + roll attack, but keep modal open
+        const afterCast = (spell, slot) => {
+          usedSlot = slot;
+          const attackBonus = getSpellAttackBonus();
+          const attackFormula = attackBonus >= 0 ? `1d20+${attackBonus}` : `1d20${attackBonus}`;
+          roll(`${spell.name} - Spell Attack`, attackFormula);
+        };
+        castSpell(spell, spellIndex, afterCast, selectedSlotLevel, selectedMetamagic);
+        spellCast = true;
+
+        // Disable slot selection and metamagic after casting
+        if (slotSelect) slotSelect.disabled = true;
+        metamagicCheckboxes.forEach(cb => cb.disabled = true);
+
+        // Disable attack button after casting
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+        btn.style.cursor = 'not-allowed';
+
+      } else if (option.type === 'damage' || option.type === 'healing') {
+        // If spell not cast yet (no attack roll), cast it first
+        if (!spellCast) {
+          const afterCast = (spell, slot) => {
+            usedSlot = slot;
+            let formula = option.formula;
+            const actualSlotLevel = selectedSlotLevel || (slot && slot.level);
+            if (actualSlotLevel) {
+              formula = formula.replace(/slotLevel/g, actualSlotLevel);
+            }
+            formula = resolveVariablesInFormula(formula);
+            formula = evaluateMathInFormula(formula);
+
+            const label = option.type === 'healing' ?
+              `${spell.name} - Healing` :
+              `${spell.name} - Damage (${option.damageType || ''})`;
+            roll(label, formula);
+          };
+          castSpell(spell, spellIndex, afterCast, selectedSlotLevel, selectedMetamagic);
+        } else {
+          // Spell already cast (via attack), just roll damage
+          let formula = option.formula;
+          const actualSlotLevel = selectedSlotLevel || (usedSlot && usedSlot.level);
+          if (actualSlotLevel) {
+            formula = formula.replace(/slotLevel/g, actualSlotLevel);
+          }
+          formula = resolveVariablesInFormula(formula);
+          formula = evaluateMathInFormula(formula);
+
+          const label = option.type === 'healing' ?
+            `${spell.name} - Healing` :
+            `${spell.name} - Damage (${option.damageType || ''})`;
+          roll(label, formula);
+        }
+
+        // Close modal after rolling damage
+        document.body.removeChild(overlay);
+      }
     });
 
     optionsContainer.appendChild(btn);
   });
+
+  // Add "Done" button if spell has attack (to close modal after attacking without rolling damage)
+  if (hasAttack && hasDamage) {
+    const doneBtn = document.createElement('button');
+    doneBtn.style.cssText = 'padding: 10px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;';
+    doneBtn.textContent = 'Done';
+    doneBtn.addEventListener('click', () => {
+      document.body.removeChild(overlay);
+    });
+    optionsContainer.appendChild(doneBtn);
+  }
+
+  modal.appendChild(optionsContainer);
 
   // Cancel button
   const cancelBtn = document.createElement('button');
@@ -3975,9 +4162,6 @@ function showSpellModal(spell, spellIndex, options) {
     document.body.removeChild(overlay);
   });
 
-  // Assemble modal
-  modal.appendChild(header);
-  modal.appendChild(optionsContainer);
   modal.appendChild(cancelBtn);
   overlay.appendChild(modal);
 
@@ -4043,8 +4227,8 @@ function handleSpellOption(spell, spellIndex, option) {
   }
 }
 
-function castSpell(spell, index, afterCast = null) {
-  debug.log('✨ Attempting to cast:', spell.name, spell);
+function castSpell(spell, index, afterCast = null, selectedSlotLevel = null, selectedMetamagic = []) {
+  debug.log('✨ Attempting to cast:', spell.name, spell, 'at level:', selectedSlotLevel, 'with metamagic:', selectedMetamagic);
 
   if (!characterData) {
     showNotification('❌ Character data not available', 'error');
@@ -4096,42 +4280,42 @@ function castSpell(spell, index, afterCast = null) {
 
   const spellLevel = parseInt(spell.level);
 
-  // Check spell slots
-  const slotVar = `level${spellLevel}SpellSlots`;
-  const slotMaxVar = `level${spellLevel}SpellSlotsMax`;
+  // If slot level was selected in modal, use it directly
+  if (selectedSlotLevel !== null) {
+    const slotVar = `level${selectedSlotLevel}SpellSlots`;
+    const slotMaxVar = `level${selectedSlotLevel}SpellSlotsMax`;
 
-  const currentSlots = characterData.spellSlots?.[slotVar] || 0;
-  const maxSlots = characterData.spellSlots?.[slotMaxVar] || 0;
+    const currentSlots = characterData[slotVar] || 0;
 
-  debug.log(`📊 Spell slots for level ${spellLevel}:`, { current: currentSlots, max: maxSlots });
-
-  // In D&D 5e, spells are cast using spell slots (not class resources like Ki or Sorcery Points)
-  // Class resources are used for class features, and Sorcery Points are used for metamagic
-  // Metamagic is handled in showUpcastChoice(), not here
-
-  // Use spell slot - but check if there are higher level slots for upcasting
-  if (currentSlots <= 0) {
-    // Check if there are any higher level slots available for upcasting
-    let hasHigherSlots = false;
-    for (let level = spellLevel + 1; level <= 9; level++) {
-      const higherSlotVar = `level${level}SpellSlots`;
-      if ((characterData.spellSlots?.[higherSlotVar] || 0) > 0) {
-        hasHigherSlots = true;
-        break;
-      }
-    }
-
-    if (hasHigherSlots) {
-      // Show upcast choice even though base level is empty
-      showUpcastChoice(spell, spellLevel, afterCast);
-      return;
-    } else {
-      showNotification(`❌ No spell slots remaining for level ${spellLevel} or higher!`, 'error');
+    if (currentSlots <= 0) {
+      showNotification(`❌ No level ${selectedSlotLevel} spell slots remaining!`, 'error');
       return;
     }
+
+    // Consume the slot
+    characterData[slotVar] = currentSlots - 1;
+    saveCharacterData();
+    buildSheet(characterData);
+
+    // Apply metamagic costs
+    if (selectedMetamagic && selectedMetamagic.length > 0) {
+      // TODO: Deduct sorcery points based on selected metamagic
+      debug.log('Metamagic selected:', selectedMetamagic);
+    }
+
+    announceSpellCast(spell, `level ${selectedSlotLevel} slot`);
+    showNotification(`✨ Cast ${spell.name} (Level ${selectedSlotLevel})!`);
+
+    // Execute afterCast
+    if (afterCast && typeof afterCast === 'function') {
+      setTimeout(() => {
+        afterCast(spell, { level: selectedSlotLevel });
+      }, 300);
+    }
+    return;
   }
 
-  // Has slots at this level - show upcast choice
+  // No slot level selected - show upcast choice (legacy behavior)
   showUpcastChoice(spell, spellLevel, afterCast);
 }
 

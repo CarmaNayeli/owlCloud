@@ -1070,7 +1070,7 @@
 
           // Find child properties for attack rolls and damage
           let attackRoll = '';
-          const damageRolls = []; // Array to store multiple damage/healing rolls
+          let damageRolls = []; // Array to store multiple damage/healing rolls
 
           // Look for child rolls/damage that are descendants of this spell
           const spellChildren = properties.filter(p => {
@@ -1175,6 +1175,20 @@
               }
             }
           });
+
+          // Deduplicate damage rolls (remove exact duplicates with same formula AND damage type)
+          const uniqueDamageRolls = [];
+          const seenRolls = new Set();
+          damageRolls.forEach(roll => {
+            const key = `${roll.damage}|${roll.damageType}`;
+            if (!seenRolls.has(key)) {
+              seenRolls.add(key);
+              uniqueDamageRolls.push(roll);
+            } else {
+              console.log(`    🔄 Skipping duplicate damage roll: ${roll.damage} (${roll.damageType})`);
+            }
+          });
+          damageRolls = uniqueDamageRolls;
 
           // For backward compatibility, set single damage/damageType to first entry
           const damage = damageRolls.length > 0 ? damageRolls[0].damage : '';
