@@ -1984,6 +1984,12 @@
         // e.g., "highElf" -> "High Elf", "elf" -> "Elf"
         const formatRaceName = (name) => {
           if (!name) return null;
+
+          // Special handling for "custom" -> "Custom Lineage"
+          if (name.toLowerCase() === 'custom' || name.toLowerCase() === 'customlineage') {
+            return 'Custom Lineage';
+          }
+
           // Convert camelCase to space-separated (highElf -> high Elf)
           let formatted = name.replace(/([a-z])([A-Z])/g, '$1 $2');
           // Capitalize first letter of each word
