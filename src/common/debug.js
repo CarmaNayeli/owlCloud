@@ -14,7 +14,7 @@
 // - Development builds: DEBUG = true
 // - Production builds: DEBUG = false
 // - Use --dev flag to force DEBUG = true in production build
-const DEBUG = true; // BUILD_PLACEHOLDER: Set by build script
+const DEBUG = true; // Hardcoded for debugging
 
 /**
  * Debug logger instance

@@ -6,8 +6,8 @@
 (function() {
   'use strict';
 
-  console.log('🎲 RollCloud: DiceCloud content script loaded');
-  console.log('📍 Current URL:', window.location.href);
+  debug.log('🎲 RollCloud: DiceCloud content script loaded');
+  debug.log('📍 Current URL:', window.location.href);
 
   // DiceCloud API endpoint
   const API_BASE = 'https://dicecloud.com/api';
@@ -65,7 +65,7 @@
    */
   function getCharacterIdFromUrl() {
     const url = window.location.pathname;
-    console.log('🔍 Parsing URL:', url);
+    debug.log('🔍 Parsing URL:', url);
     
     // Try different patterns
     const patterns = [
@@ -77,7 +77,7 @@
     for (const pattern of patterns) {
       const match = url.match(pattern);
       if (match) {
-        console.log('✅ Found character ID:', match[1]);
+        debug.log('✅ Found character ID:', match[1]);
         return match[1];
       }
     }
@@ -89,7 +89,7 @@
    * Fetches character data from DiceCloud API
    */
   async function fetchCharacterDataFromAPI() {
-    console.log('📡 Starting API fetch...');
+    debug.log('📡 Starting API fetch...');
     
     const characterId = getCharacterIdFromUrl();
 
@@ -99,7 +99,7 @@
       throw new Error(error);
     }
 
-    console.log('🔐 Requesting API token from background...');
+    debug.log('🔐 Requesting API token from background...');
     
     // Get stored API token from background script
     let tokenResponse;
@@ -109,7 +109,7 @@
       debug.error('Extension context error:', error);
       throw new Error('Extension reloaded. Please refresh the page.');
     }
-    console.log('🔑 Token response:', tokenResponse);
+    debug.log('🔑 Token response:', tokenResponse);
 
     if (!tokenResponse.success || !tokenResponse.token) {
       const error = 'Not logged in to DiceCloud. Please login via the extension popup.';
@@ -117,13 +117,13 @@
       throw new Error(error);
     }
 
-    console.log('✅ API token obtained');
-    console.log('📡 Fetching character data for ID:', characterId);
+    debug.log('✅ API token obtained');
+    debug.log('📡 Fetching character data for ID:', characterId);
 
     // Add timestamp to URL to bypass any caching (cache busting)
     const timestamp = Date.now();
     const apiUrl = `${API_BASE}/creature/${characterId}?_t=${timestamp}`;
-    console.log('🌐 API URL:', apiUrl);
+    debug.log('🌐 API URL:', apiUrl);
 
     // Fetch character data from API
     try {
@@ -139,7 +139,7 @@
         cache: 'no-store'
       });
 
-      console.log('📨 API Response status:', response.status);
+      debug.log('📨 API Response status:', response.status);
 
       if (!response.ok) {
         if (response.status === 401) {
@@ -151,8 +151,8 @@
       }
 
       const data = await response.json();
-      console.log('✅ Received API data:', data);
-      console.log('📊 Data structure:', {
+      debug.log('✅ Received API data:', data);
+      debug.log('📊 Data structure:', {
         hasCreatures: !!data.creatures,
         creaturesCount: (data.creatures && data.creatures.length) || 0,
         hasVariables: !!data.creatureVariables,
@@ -172,7 +172,7 @@
    * Parses API response into structured character data
    */
   function parseCharacterData(apiData) {
-    console.log('🔧 Parsing character data...');
+    debug.log('🔧 Parsing character data...');
     
     if (!apiData.creatures || apiData.creatures.length === 0) {
       debug.error('❌ No creatures found in API response');
@@ -183,9 +183,9 @@
     const variables = (apiData.creatureVariables && apiData.creatureVariables[0]) || {};
     const properties = apiData.creatureProperties || [];
 
-    console.log('📝 Creature:', creature);
-    console.log('📊 Variables count:', Object.keys(variables).length);
-    console.log('📋 Properties count:', properties.length);
+    debug.log('📝 Creature:', creature);
+    debug.log('📊 Variables count:', Object.keys(variables).length);
+    debug.log('📋 Properties count:', properties.length);
 
     // Calculate AC from properties with armor stat effects
     const calculateArmorClass = () => {
@@ -193,14 +193,14 @@
       let armorAC = null;
       const acBonuses = [];
       
-      console.log('🛡️ Calculating AC from properties...');
-      console.log(`🛡️ Total properties to scan: ${properties.length}`);
+      debug.log('🛡️ Calculating AC from properties...');
+      debug.log(`🛡️ Total properties to scan: ${properties.length}`);
       
       // Debug: Log all properties with type 'effect' to see structure
       const effectProps = properties.filter(p => p.type === 'effect');
-      console.log(`🛡️ Found ${effectProps.length} effect properties`);
+      debug.log(`🛡️ Found ${effectProps.length} effect properties`);
       if (effectProps.length > 0) {
-        console.log('🛡️ Sample effect properties:', effectProps.slice(0, 5).map(p => ({
+        debug.log('🛡️ Sample effect properties:', effectProps.slice(0, 5).map(p => ({
           name: p.name,
           type: p.type,
           stat: p.stat,
@@ -218,7 +218,7 @@
           (typeof p.stats === 'string' && p.stats === 'armor') ||
           (p.name && p.name.toLowerCase().includes('armor'))
         );
-        console.log(`🛡️ Found ${armorEffects.length} armor-related effects:`, armorEffects.map(p => ({
+        debug.log(`🛡️ Found ${armorEffects.length} armor-related effects:`, armorEffects.map(p => ({
           name: p.name,
           type: p.type,
           stat: p.stat,
@@ -241,7 +241,7 @@
         // Common spell names that affect AC temporarily
         const spellACEffects = ['shield', 'shield of faith', 'armor of agathys', 'mage armor', 'barkskin'];
         if (prop.name && spellACEffects.some(spell => prop.name.toLowerCase().includes(spell))) {
-          console.log(`  ⏭️ Skipping spell effect: ${prop.name} (only applies when spell is active)`);
+          debug.log(`  ⏭️ Skipping spell effect: ${prop.name} (only applies when spell is active)`);
           return;
         }
         
@@ -262,30 +262,30 @@
             // For calculated amounts, try to parse the calculation string
             // This handles formulas like "14+min(dexterity.modifier, 2)"
             const calc = prop.amount.calculation;
-            console.log(`🛡️ Found calculated armor amount: "${calc}" for ${prop.name || 'Unnamed'}`);
+            debug.log(`🛡️ Found calculated armor amount: "${calc}" for ${prop.name || 'Unnamed'}`);
             // Try to extract a base number from the calculation (e.g., "14" from "14+...")
             const baseMatch = calc.match(/^(\d+)/);
             if (baseMatch) {
               amount = parseInt(baseMatch[1]);
-              console.log(`  📊 Extracted base AC value: ${amount} from calculation`);
+              debug.log(`  📊 Extracted base AC value: ${amount} from calculation`);
             }
           }
           
           if (amount !== null && !isNaN(amount)) {
             const operation = prop.operation || '';
-            console.log(`🛡️ Found armor effect: ${prop.name || 'Unnamed'} - Operation: ${operation}, Amount: ${amount}`);
+            debug.log(`🛡️ Found armor effect: ${prop.name || 'Unnamed'} - Operation: ${operation}, Amount: ${amount}`);
             
             // Base value operations set the AC directly (like armor)
             if (operation === 'base' || operation === 'Base value') {
               if (armorAC === null || amount > armorAC) {
                 armorAC = amount;
-                console.log(`  ✅ Set armor AC to ${amount} from ${prop.name || 'Unnamed'}`);
+                debug.log(`  ✅ Set armor AC to ${amount} from ${prop.name || 'Unnamed'}`);
               }
             }
             // Add operations add to AC (like shields, bonuses)
             else if (operation === 'add' || operation === 'Add') {
               acBonuses.push({ name: prop.name, amount });
-              console.log(`  ✅ Added AC bonus: +${amount} from ${prop.name || 'Unnamed'}`);
+              debug.log(`  ✅ Added AC bonus: +${amount} from ${prop.name || 'Unnamed'}`);
             }
           }
         }
@@ -293,12 +293,12 @@
       
       // Dicecloud pre-calculates AC including all formulas and modifiers
       // Use that value if available, otherwise calculate from our detected effects
-      console.log('🛡️ Full armorClass variable object:', variables.armorClass);
+      debug.log('🛡️ Full armorClass variable object:', variables.armorClass);
       
       // Check if Dicecloud provided a calculated AC
       if (variables.armorClass && (variables.armorClass.total || variables.armorClass.value)) {
         const variableAC = variables.armorClass.total || variables.armorClass.value;
-        console.log(`🛡️ Using Dicecloud's calculated AC: ${variableAC}`);
+        debug.log(`🛡️ Using Dicecloud's calculated AC: ${variableAC}`);
         return variableAC;
       }
       
@@ -308,10 +308,10 @@
         finalAC += bonus.amount;
       });
       
-      console.log(`🛡️ Dicecloud didn't provide AC variable, calculating from effects:`);
-      console.log(`   Base: ${armorAC !== null ? armorAC + ' (armor)' : baseAC + ' (unarmored)'}`);
-      console.log(`   Bonuses: ${acBonuses.map(b => `+${b.amount} (${b.name})`).join(', ') || 'none'}`);
-      console.log(`   Final AC: ${finalAC}`);
+      debug.log(`🛡️ Dicecloud didn't provide AC variable, calculating from effects:`);
+      debug.log(`   Base: ${armorAC !== null ? armorAC + ' (armor)' : baseAC + ' (unarmored)'}`);
+      debug.log(`   Bonuses: ${acBonuses.map(b => `+${b.amount} (${b.name})`).join(', ') || 'none'}`);
+      debug.log(`   Final AC: ${finalAC}`);
       
       return finalAC;
     };
@@ -378,9 +378,9 @@
         // Use Dice Cloud modifier if it exists and is different, otherwise use calculated
         if (diceCloudMod !== 0 && diceCloudMod !== calculatedMod) {
           characterData.attributeMods[abilityName] = diceCloudMod;
-          console.log(`📊 Using Dice Cloud modifier for ${abilityName}: ${diceCloudMod} (calculated: ${calculatedMod})`);
+          debug.log(`📊 Using Dice Cloud modifier for ${abilityName}: ${diceCloudMod} (calculated: ${calculatedMod})`);
         } else {
-          console.log(`📊 Using calculated modifier for ${abilityName}: ${calculatedMod}`);
+          debug.log(`📊 Using calculated modifier for ${abilityName}: ${calculatedMod}`);
         }
       }
     });
@@ -405,7 +405,7 @@
 
     // Extract spell slots
     // Dice Cloud uses: slotLevel1, slotLevel2, etc. (current and max combined in one variable)
-    console.log('🔍 Extracting spell slots...');
+    debug.log('🔍 Extracting spell slots...');
     characterData.spellSlots = {};
 
     for (let level = 1; level <= 9; level++) {
@@ -421,13 +421,13 @@
         characterData.spellSlots[currentKey] = currentSlots;
         characterData.spellSlots[maxKey] = maxSlots;
 
-        console.log(`  ✅ Level ${level}: ${currentSlots}/${maxSlots} (from ${diceCloudVarName})`);
+        debug.log(`  ✅ Level ${level}: ${currentSlots}/${maxSlots} (from ${diceCloudVarName})`);
       } else {
-        console.log(`  ⚠️ Level ${level}: ${diceCloudVarName} not found in variables`);
+        debug.log(`  ⚠️ Level ${level}: ${diceCloudVarName} not found in variables`);
       }
     }
 
-    console.log('📊 Final spell slots object:', characterData.spellSlots);
+    debug.log('📊 Final spell slots object:', characterData.spellSlots);
 
     // Extract ALL kingdom attributes (Pathfinder Kingmaker / Kingdom Builder)
     const kingdomSkills = [
@@ -505,10 +505,10 @@
       }
     });
 
-    console.log(`Extracted ${Object.keys(characterData.otherVariables).length} additional variables`);
+    debug.log(`Extracted ${Object.keys(characterData.otherVariables).length} additional variables`);
     
     // Debug: Check for race in other variables as fallback
-    console.log('🔍 Checking for race in otherVariables:', Object.keys(characterData.otherVariables).filter(key => key.toLowerCase().includes('race')).map(key => `${key}: ${characterData.otherVariables[key]}`));
+    debug.log('🔍 Checking for race in otherVariables:', Object.keys(characterData.otherVariables).filter(key => key.toLowerCase().includes('race')).map(key => `${key}: ${characterData.otherVariables[key]}`));
 
     // Build a map of property IDs to names for spell source resolution
     const propertyIdToName = new Map();
@@ -517,15 +517,15 @@
         propertyIdToName.set(prop._id, prop.name);
       }
     });
-    console.log(`📋 Built property ID map with ${propertyIdToName.size} entries`);
+    debug.log(`📋 Built property ID map with ${propertyIdToName.size} entries`);
 
     // Debug: Show sample entries from the map
     const sampleEntries = Array.from(propertyIdToName.entries()).slice(0, 10);
-    console.log('📋 Sample property ID map entries:', sampleEntries);
+    debug.log('📋 Sample property ID map entries:', sampleEntries);
 
     // Debug: Show all class-type entries in the map
     const classEntries = properties.filter(p => p.type === 'class' && p._id && p.name);
-    console.log('📋 Class entries in map:', classEntries.map(p => ({ id: p._id, name: p.name, type: p.type })));
+    debug.log('📋 Class entries in map:', classEntries.map(p => ({ id: p._id, name: p.name, type: p.type })));
 
     // Parse properties for classes, race, features, spells, etc.
     // Track unique classes to avoid duplicates
@@ -551,10 +551,10 @@
         const nameMatchesRace = commonRaces.some(race => prop.name.toLowerCase().includes(race));
         if (nameMatchesRace) {
           const parentDepth = prop.ancestors ? prop.ancestors.length : 0;
-          console.log(`🔍 DEBUG: Found folder "${prop.name}" with parentDepth ${parentDepth}, ancestors:`, prop.ancestors);
+          debug.log(`🔍 DEBUG: Found folder "${prop.name}" with parentDepth ${parentDepth}, ancestors:`, prop.ancestors);
 
           if (parentDepth <= 2) { // Top-level or near top-level folder
-            console.log('🔍 Found potential race folder:', {
+            debug.log('🔍 Found potential race folder:', {
               name: prop.name,
               type: prop.type,
               _id: prop._id,
@@ -564,40 +564,40 @@
               raceName = prop.name;
               racePropertyId = prop._id;
               characterData.race = prop.name;
-              console.log('🔍 Set race to:', prop.name, '(ID:', prop._id, ')');
+              debug.log('🔍 Set race to:', prop.name, '(ID:', prop._id, ')');
               raceFound = true;
             }
           } else {
-            console.log(`🔍 DEBUG: Skipping "${prop.name}" - parentDepth ${parentDepth} > 2`);
+            debug.log(`🔍 DEBUG: Skipping "${prop.name}" - parentDepth ${parentDepth} > 2`);
           }
         }
       }
 
       if (prop.type === 'race') {
-        console.log('🔍 Found race property:', prop);
+        debug.log('🔍 Found race property:', prop);
         if (prop.name) {
           raceName = prop.name;
           racePropertyId = prop._id;
           characterData.race = prop.name;
-          console.log('🔍 Set race to:', prop.name, '(ID:', prop._id, ')');
+          debug.log('🔍 Set race to:', prop.name, '(ID:', prop._id, ')');
           raceFound = true;
         }
       } else if (prop.type === 'species') {
-        console.log('🔍 Found species property:', prop);
+        debug.log('🔍 Found species property:', prop);
         if (prop.name) {
           raceName = prop.name;
           racePropertyId = prop._id;
           characterData.race = prop.name;
-          console.log('🔍 Set race to (from species):', prop.name, '(ID:', prop._id, ')');
+          debug.log('🔍 Set race to (from species):', prop.name, '(ID:', prop._id, ')');
           raceFound = true;
         }
       } else if (prop.type === 'characterRace') {
-        console.log('🔍 Found characterRace property:', prop);
+        debug.log('🔍 Found characterRace property:', prop);
         if (prop.name) {
           raceName = prop.name;
           racePropertyId = prop._id;
           characterData.race = prop.name;
-          console.log('🔍 Set race to (from characterRace):', prop.name, '(ID:', prop._id, ')');
+          debug.log('🔍 Set race to (from characterRace):', prop.name, '(ID:', prop._id, ')');
           raceFound = true;
         }
       }
@@ -610,9 +610,9 @@
             // Remove [Multiclass] suffix before normalizing
             const cleanName = prop.name.replace(/\s*\[Multiclass\]/i, '').trim();
             const normalizedClassName = cleanName.toLowerCase().trim();
-            console.log(`📚 Found class property: "${prop.name}" (cleaned: "${cleanName}", normalized: "${normalizedClassName}")`);
+            debug.log(`📚 Found class property: "${prop.name}" (cleaned: "${cleanName}", normalized: "${normalizedClassName}")`);
             if (!uniqueClasses.has(normalizedClassName)) {
-              console.log(`  ✅ Adding class (not in set yet)`);
+              debug.log(`  ✅ Adding class (not in set yet)`);
               uniqueClasses.add(normalizedClassName);
               if (characterData.class) {
                 characterData.class += ` / ${cleanName}`;
@@ -620,10 +620,10 @@
                 characterData.class = cleanName;
               }
             } else {
-              console.log(`  ⏭️  Skipping class (already in set:`, Array.from(uniqueClasses), ')');
+              debug.log(`  ⏭️  Skipping class (already in set:`, Array.from(uniqueClasses), ')');
             }
           } else if (prop.name && (prop.inactive || prop.disabled)) {
-            console.log(`  ⏭️  Skipping inactive/disabled class: ${prop.name}`);
+            debug.log(`  ⏭️  Skipping inactive/disabled class: ${prop.name}`);
           }
           break;
 
@@ -631,7 +631,7 @@
           // Skip inactive or disabled class levels
           if (prop.inactive || prop.disabled) {
             if (prop.name) {
-              console.log(`  ⏭️  Skipping inactive/disabled classLevel: ${prop.name}`);
+              debug.log(`  ⏭️  Skipping inactive/disabled classLevel: ${prop.name}`);
             }
             break;
           }
@@ -643,9 +643,9 @@
             // Remove [Multiclass] suffix before normalizing
             const cleanName = prop.name.replace(/\s*\[Multiclass\]/i, '').trim();
             const normalizedClassName = cleanName.toLowerCase().trim();
-            console.log(`📊 Found classLevel property: "${prop.name}" (cleaned: "${cleanName}", normalized: "${normalizedClassName}")`);
+            debug.log(`📊 Found classLevel property: "${prop.name}" (cleaned: "${cleanName}", normalized: "${normalizedClassName}")`);
             if (!uniqueClasses.has(normalizedClassName)) {
-              console.log(`  ✅ Adding class from classLevel (not in set yet)`);
+              debug.log(`  ✅ Adding class from classLevel (not in set yet)`);
               uniqueClasses.add(normalizedClassName);
               if (characterData.class) {
                 characterData.class += ` / ${cleanName}`;
@@ -653,7 +653,7 @@
                 characterData.class = cleanName;
               }
             } else {
-              console.log(`  ⏭️  Skipping classLevel (already in set:`, Array.from(uniqueClasses), ')');
+              debug.log(`  ⏭️  Skipping classLevel (already in set:`, Array.from(uniqueClasses), ')');
             }
           }
           break;
@@ -661,21 +661,21 @@
         case 'race':
           if (prop.name) {
             characterData.race = prop.name;
-            console.log('🔍 Found race property:', prop.name);
+            debug.log('🔍 Found race property:', prop.name);
           }
           break;
           
         case 'species':
           if (prop.name) {
             characterData.race = prop.name;
-            console.log('🔍 Found species property (using as race):', prop.name);
+            debug.log('🔍 Found species property (using as race):', prop.name);
           }
           break;
           
         case 'characterRace':
           if (prop.name) {
             characterData.race = prop.name;
-            console.log('🔍 Found characterRace property:', prop.name);
+            debug.log('🔍 Found characterRace property:', prop.name);
           }
           break;
 
@@ -688,7 +688,7 @@
         case 'feature':
           // Skip inactive or disabled features (handles expired temporary features)
           if (prop.inactive || prop.disabled) {
-            console.log(`⏭️ Skipping inactive/disabled feature: ${prop.name}`);
+            debug.log(`⏭️ Skipping inactive/disabled feature: ${prop.name}`);
             break;
           }
 
@@ -724,7 +724,7 @@
               damageType: '',
               description: feature.description
             });
-            console.log(`⚔️ Added feature with roll to actions: ${feature.name}`);
+            debug.log(`⚔️ Added feature with roll to actions: ${feature.name}`);
           }
           break;
 
@@ -733,12 +733,12 @@
           // Our sheet will have its own independent toggle to control when to use them
           // BUT skip inactive toggles (these are expired/removed temporary features)
           if (prop.inactive || prop.disabled) {
-            console.log(`⏭️ Skipping inactive/disabled toggle: ${prop.name}`);
+            debug.log(`⏭️ Skipping inactive/disabled toggle: ${prop.name}`);
             break;
           }
 
-          console.log(`🔘 Found toggle: ${prop.name} (enabled on DiceCloud: ${prop.enabled})`);
-          console.log(`🔘 Toggle full object:`, prop);
+          debug.log(`🔘 Found toggle: ${prop.name} (enabled on DiceCloud: ${prop.enabled})`);
+          debug.log(`🔘 Toggle full object:`, prop);
 
             // Check if this is a condition toggle (affects rolls)
             const conditionNames = ['guidance', 'bless', 'bane', 'bardic inspiration', 'inspiration', 
@@ -752,8 +752,8 @@
               return child.parent && child.parent.id === prop._id;
             });
 
-            console.log(`🔘 Toggle "${prop.name}" has ${toggleChildren.length} children:`, toggleChildren.map(c => c.name));
-            console.log(`🔘 Toggle children full objects:`, toggleChildren);
+            debug.log(`🔘 Toggle "${prop.name}" has ${toggleChildren.length} children:`, toggleChildren.map(c => c.name));
+            debug.log(`🔘 Toggle children full objects:`, toggleChildren);
             
             // If this is a condition toggle and it's enabled, add it to conditions
             if (isConditionToggle && prop.enabled) {
@@ -775,12 +775,12 @@
                 active: true,
                 source: 'dicecloud'
               });
-              console.log(`✨ Added active condition: ${prop.name} (${effectValue || '1d4'})`);
+              debug.log(`✨ Added active condition: ${prop.name} (${effectValue || '1d4'})`);
             }
 
             // Debug: Log child types
             toggleChildren.forEach(child => {
-              console.log(`🔘   Child "${child.name}" has type: ${child.type}`);
+              debug.log(`🔘   Child "${child.name}" has type: ${child.type}`);
             });
 
             // Process each child (features, damage, effects, etc.)
@@ -788,7 +788,7 @@
             toggleChildren.forEach(child => {
               // Skip inactive or disabled children (handles temporary/expired features)
               if (child.inactive || child.disabled) {
-                console.log(`⏭️ Skipping inactive/disabled toggle child: ${child.name}`);
+                debug.log(`⏭️ Skipping inactive/disabled toggle child: ${child.name}`);
                 return;
               }
               if (child.type === 'feature' || child.type === 'damage' || child.type === 'effect') {
@@ -836,7 +836,7 @@
                   } else if (typeof child.amount === 'object') {
                     damageValue = child.amount.value || child.amount.calculation || '';
                   }
-                  console.log(`🎯 Found damage property: "${child.name || prop.name}" with value: "${damageValue}"`);
+                  debug.log(`🎯 Found damage property: "${child.name || prop.name}" with value: "${damageValue}"`);
                 }
                 // For effects, check if there's an operation that modifies damage
                 else if (child.type === 'effect' && child.operation === 'add' && child.amount) {
@@ -860,7 +860,7 @@
                   damage: damageValue
                 };
 
-                console.log(`🔘 Created toggle feature: "${toggleFeature.name}" with damage: "${damageValue}", roll: "${rollValue}"`);
+                debug.log(`🔘 Created toggle feature: "${toggleFeature.name}" with damage: "${damageValue}", roll: "${rollValue}"`);
 
                 characterData.features.push(toggleFeature);
 
@@ -874,7 +874,7 @@
                 const hasValidRoll = typeof toggleFeature.roll === 'string' && toggleFeature.roll.trim().length > 0;
                 const hasValidDamage = typeof toggleFeature.damage === 'string' && toggleFeature.damage.trim().length > 0;
 
-                console.log(`🔘 Checking "${toggleFeature.name}": hasValidRoll=${hasValidRoll}, hasValidDamage=${hasValidDamage}, hasValidActionType=${hasValidActionType}, type=${child.type}`);
+                debug.log(`🔘 Checking "${toggleFeature.name}": hasValidRoll=${hasValidRoll}, hasValidDamage=${hasValidDamage}, hasValidActionType=${hasValidActionType}, type=${child.type}`);
 
                 // Only add to actions if:
                 // 1. It's NOT an effect (effects are passive modifiers like Guidance, Resistance)
@@ -883,7 +883,7 @@
                 const isDamageEffect = child.type === 'effect' && hasValidDamage;
                 const shouldAddToActions = (child.type !== 'effect' || isDamageEffect) && (hasValidRoll || hasValidDamage || hasValidActionType);
 
-                console.log(`🔘 shouldAddToActions for "${toggleFeature.name}": ${shouldAddToActions} (isDamageEffect=${isDamageEffect})`);
+                debug.log(`🔘 shouldAddToActions for "${toggleFeature.name}": ${shouldAddToActions} (isDamageEffect=${isDamageEffect})`);
 
                 if (shouldAddToActions) {
                   characterData.actions.push({
@@ -896,9 +896,9 @@
                   });
 
                   if (toggleFeature.damage || toggleFeature.roll) {
-                    console.log(`⚔️ Added toggle feature to actions: ${toggleFeature.name}`);
+                    debug.log(`⚔️ Added toggle feature to actions: ${toggleFeature.name}`);
                   } else {
-                    console.log(`✨ Added toggle non-attack feature to actions: ${toggleFeature.name} (${child.actionType || 'feature'})`);
+                    debug.log(`✨ Added toggle non-attack feature to actions: ${toggleFeature.name} (${child.actionType || 'feature'})`);
                   }
                 }
               }
@@ -949,7 +949,7 @@
           const parentId = typeof prop.parent === 'object' ? prop.parent?.id : prop.parent;
 
           // Debug: Log parent and ancestors info for ALL spells to diagnose the issue
-          console.log(`🔍 Spell "${prop.name}" debug:`, {
+          debug.log(`🔍 Spell "${prop.name}" debug:`, {
             parent: prop.parent,
             parentId: parentId,
             parentInMap: parentId ? propertyIdToName.has(parentId) : false,
@@ -971,7 +971,7 @@
           // Try to get parent name from the map
           if (parentId && propertyIdToName.has(parentId)) {
             source = propertyIdToName.get(parentId);
-            console.log(`✅ Found source from parent for "${prop.name}": ${source}`);
+            debug.log(`✅ Found source from parent for "${prop.name}": ${source}`);
           }
           // Fallback to ancestors if parent lookup failed
           else if (prop.ancestors && prop.ancestors.length > 0) {
@@ -984,12 +984,12 @@
 
               if (ancestorId && propertyIdToName.has(ancestorId)) {
                 source = propertyIdToName.get(ancestorId);
-                console.log(`✅ Found source from ancestor[${i}] for "${prop.name}": ${source}`);
+                debug.log(`✅ Found source from ancestor[${i}] for "${prop.name}": ${source}`);
                 found = true;
               }
             }
             if (!found) {
-              console.log(`❌ No source found in ${prop.ancestors.length} ancestors for "${prop.name}"`);
+              debug.log(`❌ No source found in ${prop.ancestors.length} ancestors for "${prop.name}"`);
             }
           }
           // Fallback to libraryTags - parse class names from tags like "clericSpell"
@@ -1009,17 +1009,17 @@
               });
 
               source = classNames.join(' / ');
-              console.log(`✅ Found source from libraryTags for "${prop.name}": ${source}`);
+              debug.log(`✅ Found source from libraryTags for "${prop.name}": ${source}`);
             }
           }
           // Fallback to regular tags
           else if (source === 'Unknown Source' && prop.tags && prop.tags.length > 0) {
             source = prop.tags.join(', ');
-            console.log(`✅ Found source from tags for "${prop.name}": ${source}`);
+            debug.log(`✅ Found source from tags for "${prop.name}": ${source}`);
           }
 
           if (source === 'Unknown Source') {
-            console.log(`❌ No source found for "${prop.name}"`);
+            debug.log(`❌ No source found for "${prop.name}"`);
           }
 
           // Check if spell is from a locked feature (e.g., "11th Level Ranger" when character is level 3)
@@ -1029,7 +1029,7 @@
 
           // Skip spells from features not yet unlocked
           if (requiredLevel > characterLevel) {
-            console.log(`⏭️ Skipping "${prop.name}" from "${source}" (requires level ${requiredLevel}, character is level ${characterLevel})`);
+            debug.log(`⏭️ Skipping "${prop.name}" from "${source}" (requires level ${requiredLevel}, character is level ${characterLevel})`);
             break;
           }
 
@@ -1064,7 +1064,7 @@
               usesUsed: 0,
               resources: null
             });
-            console.log(`✨ Added Font of Magic conversion as action: ${prop.name}`);
+            debug.log(`✨ Added Font of Magic conversion as action: ${prop.name}`);
             break;
           }
 
@@ -1078,7 +1078,7 @@
 
             // Skip inactive or disabled properties
             if (p.inactive || p.disabled) {
-              console.log(`  ⏭️ Skipping inactive/disabled child: ${p.name} (${p.type})`);
+              debug.log(`  ⏭️ Skipping inactive/disabled child: ${p.name} (${p.type})`);
               return false;
             }
 
@@ -1089,21 +1089,21 @@
                 return ancestorId === prop._id;
               });
               if (hasSpellAsAncestor) {
-                console.log(`  ✅ Including spell child: ${p.name} (${p.type})`, { amount: p.amount, roll: p.roll });
+                debug.log(`  ✅ Including spell child: ${p.name} (${p.type})`, { amount: p.amount, roll: p.roll });
               } else {
-                console.log(`  ⏭️ Skipping child not descended from this spell: ${p.name} (${p.type})`);
+                debug.log(`  ⏭️ Skipping child not descended from this spell: ${p.name} (${p.type})`);
               }
               return hasSpellAsAncestor;
             }
-            console.log(`  ⏭️ Skipping child with no ancestors: ${p.name} (${p.type})`);
+            debug.log(`  ⏭️ Skipping child with no ancestors: ${p.name} (${p.type})`);
             return false;
           });
 
-          console.log(`🔍 Spell "${prop.name}" has ${spellChildren.length} child properties:`, spellChildren.map(c => ({ type: c.type, name: c.name })));
+          debug.log(`🔍 Spell "${prop.name}" has ${spellChildren.length} child properties:`, spellChildren.map(c => ({ type: c.type, name: c.name })));
 
           // Extract attack rolls and damage from children
           spellChildren.forEach(child => {
-            console.log(`  📋 Processing child: ${child.name} (${child.type})`);
+            debug.log(`  📋 Processing child: ${child.name} (${child.type})`);
 
             if (child.type === 'attack' || (child.type === 'roll' && child.name && child.name.toLowerCase().includes('attack'))) {
               // This is a spell attack roll
@@ -1117,12 +1117,12 @@
                   attackRoll = child.roll.calculation;
                 }
               }
-              console.log(`    ✅ Found attack roll: ${attackRoll}`);
+              debug.log(`    ✅ Found attack roll: ${attackRoll}`);
             }
 
             if (child.type === 'damage' || (child.type === 'roll' && child.name && child.name.toLowerCase().includes('damage'))) {
               // This is spell damage
-              console.log(`    📊 Damage child found:`, {
+              debug.log(`    📊 Damage child found:`, {
                 name: child.name,
                 amount: child.amount,
                 roll: child.roll,
@@ -1133,29 +1133,29 @@
               if (child.amount) {
                 if (typeof child.amount === 'string') {
                   damageFormula = child.amount;
-                  console.log(`      → Using amount string: "${damageFormula}"`);
+                  debug.log(`      → Using amount string: "${damageFormula}"`);
                 } else if (typeof child.amount === 'object') {
                   // Prefer value over calculation for pre-computed formulas with modifiers
                   if (child.amount.value !== undefined) {
                     damageFormula = String(child.amount.value);
-                    console.log(`      → Using amount.value: "${damageFormula}"`);
+                    debug.log(`      → Using amount.value: "${damageFormula}"`);
                   } else if (child.amount.calculation) {
                     damageFormula = child.amount.calculation;
-                    console.log(`      → Using amount.calculation: "${damageFormula}"`);
+                    debug.log(`      → Using amount.calculation: "${damageFormula}"`);
                   }
                 }
               } else if (child.roll) {
                 if (typeof child.roll === 'string') {
                   damageFormula = child.roll;
-                  console.log(`      → Using roll string: "${damageFormula}"`);
+                  debug.log(`      → Using roll string: "${damageFormula}"`);
                 } else if (typeof child.roll === 'object') {
                   // Prefer value over calculation for pre-computed formulas with modifiers
                   if (child.roll.value !== undefined) {
                     damageFormula = String(child.roll.value);
-                    console.log(`      → Using roll.value: "${damageFormula}"`);
+                    debug.log(`      → Using roll.value: "${damageFormula}"`);
                   } else if (child.roll.calculation) {
                     damageFormula = child.roll.calculation;
-                    console.log(`      → Using roll.calculation: "${damageFormula}"`);
+                    debug.log(`      → Using roll.calculation: "${damageFormula}"`);
                   }
                 }
               }
@@ -1166,7 +1166,7 @@
                   damage: damageFormula,
                   damageType: child.damageType || 'untyped'
                 });
-                console.log(`    ✅ Added damage roll: ${damageFormula} (${child.damageType || 'untyped'})`);
+                debug.log(`    ✅ Added damage roll: ${damageFormula} (${child.damageType || 'untyped'})`);
               }
             }
           });
@@ -1180,14 +1180,14 @@
             // Look for spell attack patterns like "ranged spell attack" or "melee spell attack"
             // Check this even if damage is already found, since many spells have both
             const lowerDesc = description.toLowerCase();
-            console.log(`  🔍 Checking description for spell attack (attackRoll currently: "${attackRoll}")`);
+            debug.log(`  🔍 Checking description for spell attack (attackRoll currently: "${attackRoll}")`);
             if (!attackRoll && lowerDesc.includes('spell attack')) {
               attackRoll = 'use_spell_attack_bonus'; // Flag to use calculated spell attack bonus
-              console.log(`  💡 Found "spell attack" in description, marking for spell attack bonus`);
+              debug.log(`  💡 Found "spell attack" in description, marking for spell attack bonus`);
             } else if (!attackRoll) {
-              console.log(`  ⚠️ No "spell attack" found in description for "${prop.name}"`);
+              debug.log(`  ⚠️ No "spell attack" found in description for "${prop.name}"`);
             } else {
-              console.log(`  ℹ️ Attack roll already set from child properties, skipping description check`);
+              debug.log(`  ℹ️ Attack roll already set from child properties, skipping description check`);
             }
 
             // Look for damage patterns like "4d6" or "1d10" only if no damage found yet
@@ -1197,7 +1197,7 @@
               if (damageMatch) {
                 damage = damageMatch[1].replace(/\s/g, '');
                 damageType = damageMatch[2];
-                console.log(`  💡 Found damage in description: ${damage} ${damageType}`);
+                debug.log(`  💡 Found damage in description: ${damage} ${damageType}`);
               }
             }
           }
@@ -1205,7 +1205,7 @@
           // Clean up range - remove spellSniper calculations
           let cleanRange = prop.range || '';
           if (cleanRange && cleanRange.toLowerCase().includes('spellsniper')) {
-            console.log(`  🔍 Cleaning spellSniper from range: "${cleanRange}"`);
+            debug.log(`  🔍 Cleaning spellSniper from range: "${cleanRange}"`);
 
             // Try multiple patterns to extract base range value
             // Pattern 1: {60 * (1 + spellSniper)} feet
@@ -1214,7 +1214,7 @@
               const baseValue = match[1];
               const afterMatch = cleanRange.substring(match.index + match[0].length).trim();
               cleanRange = `${baseValue} ${afterMatch}`.trim();
-              console.log(`  ✅ Extracted base range (pattern 1): "${cleanRange}"`);
+              debug.log(`  ✅ Extracted base range (pattern 1): "${cleanRange}"`);
             } else {
               // Pattern 2: Try to find any number before spellSniper calculation
               match = cleanRange.match(/\{(\d+)[^}]*spellSniper[^}]*\}/i);
@@ -1222,11 +1222,11 @@
                 const baseValue = match[1];
                 const afterMatch = cleanRange.substring(match.index + match[0].length).trim();
                 cleanRange = `${baseValue} ${afterMatch}`.trim();
-                console.log(`  ✅ Extracted base range (pattern 2): "${cleanRange}"`);
+                debug.log(`  ✅ Extracted base range (pattern 2): "${cleanRange}"`);
               } else {
                 // Fallback: just remove the entire spellSniper expression
                 cleanRange = cleanRange.replace(/\{[^}]*spellSniper[^}]*\}/gi, '').trim();
-                console.log(`  ✅ Removed spellSniper expression (fallback): "${cleanRange}"`);
+                debug.log(`  ✅ Removed spellSniper expression (fallback): "${cleanRange}"`);
               }
             }
           }
@@ -1264,7 +1264,7 @@
                 damageRolls[i].isOrGroupMember = true; // Don't create separate button for this
               });
 
-              console.log(`🔀 Detected OR condition in "${prop.name}": ${roll.damage} with types: ${roll.orChoices.map(c => c.damageType).join(' OR ')}`);
+              debug.log(`🔀 Detected OR condition in "${prop.name}": ${roll.damage} with types: ${roll.orChoices.map(c => c.damageType).join(' OR ')}`);
             }
           });
 
@@ -1292,14 +1292,14 @@
               );
 
               if (isLifesteal) {
-                console.log(`💉 Detected lifesteal mechanic in "${prop.name}"`);
+                debug.log(`💉 Detected lifesteal mechanic in "${prop.name}"`);
               }
             }
           }
 
           // Log final attack/damage values before adding to spells array
           if (attackRoll || damageRolls.length > 0) {
-            console.log(`📊 Spell "${prop.name}" final values:`, {
+            debug.log(`📊 Spell "${prop.name}" final values:`, {
               attackRoll: attackRoll || '(none)',
               damageRolls: damageRolls.length > 0 ? damageRolls : '(none)',
               isLifesteal: isLifesteal,
@@ -1465,7 +1465,7 @@
                           // Skip dice formula calculations (like "3d6" from Sneak Attack toggle)
                           // These are handled by separate action buttons
                           if (effect.amount.calculation) {
-                            console.log(`⏭️ Skipping dice formula effect in weapon damage: ${effect.amount.calculation} (handled by separate action)`);
+                            debug.log(`⏭️ Skipping dice formula effect in weapon damage: ${effect.amount.calculation} (handled by separate action)`);
                             continue;
                           }
                           // Only add numeric modifiers (like +4 from Dex)
@@ -1516,7 +1516,7 @@
                 uses: prop.uses
               };
               characterData.features.push(metamagicFeature);
-              console.log(`🔮 Added metamagic action to features: ${prop.name}`);
+              debug.log(`🔮 Added metamagic action to features: ${prop.name}`);
             }
 
             // Add action if it has attack roll OR if it's a non-attack action (bonus action, reaction, etc.)
@@ -1543,13 +1543,13 @@
               characterData.actions.push(action);
 
               if (attackRoll) {
-                console.log(`⚔️ Added attack action: ${action.name} (attack: ${attackRoll}, damage: ${damage} ${damageType})`);
+                debug.log(`⚔️ Added attack action: ${action.name} (attack: ${attackRoll}, damage: ${damage} ${damageType})`);
               } else {
-                console.log(`✨ Added non-attack action: ${action.name} (${prop.actionType || 'other'})`);
+                debug.log(`✨ Added non-attack action: ${action.name} (${prop.actionType || 'other'})`);
               }
             }
           } else if (prop.inactive || prop.disabled) {
-            console.log(`⏭️ Skipped action: ${prop.name} (inactive: ${!!prop.inactive}, disabled: ${!!prop.disabled})`);
+            debug.log(`⏭️ Skipped action: ${prop.name} (inactive: ${!!prop.inactive}, disabled: ${!!prop.disabled})`);
           }
           break;
 
@@ -1561,13 +1561,13 @@
               !prop.inactive && !prop.disabled) {
             
             // Debug: Log all potential resources for troubleshooting
-            console.log(`🔍 Potential resource found: ${prop.name} (type: ${prop.attributeType}, variable: ${prop.variableName || 'none'})`);
+            debug.log(`🔍 Potential resource found: ${prop.name} (type: ${prop.attributeType}, variable: ${prop.variableName || 'none'})`);
             
             // Skip hit points (already extracted) and Font of Magic trackers (not actual resources)
             const lowerName = prop.name.toLowerCase();
             if (lowerName.includes('hit point') || lowerName === 'hp' ||
                 lowerName.includes('slot level to create')) {
-              console.log(`⏭️ Skipping filtered resource: ${prop.name}`);
+              debug.log(`⏭️ Skipping filtered resource: ${prop.name}`);
               break;
             }
 
@@ -1638,9 +1638,9 @@
             if (!uniqueResources.has(resourceKey)) {
               uniqueResources.add(resourceKey);
               characterData.resources.push(resource);
-              console.log(`💎 Added resource: ${resource.name} (${resource.current}/${resource.max})`);
+              debug.log(`💎 Added resource: ${resource.name} (${resource.current}/${resource.max})`);
             } else {
-              console.log(`  ⏭️  Skipping duplicate resource: ${resource.name}`);
+              debug.log(`  ⏭️  Skipping duplicate resource: ${resource.name}`);
             }
           }
           break;
@@ -1648,27 +1648,27 @@
     });
 
     // Debug: Log all property types found
-    console.log('🔍 All property types found in character:', Array.from(propertyTypes).sort());
+    debug.log('🔍 All property types found in character:', Array.from(propertyTypes).sort());
 
     // Extract companions from features (Animal Companions, Familiars, Summons, etc.)
     extractCompanions(characterData, apiData);
 
     // 🔍 DEBUG: Check what companion data exists
-    console.log('🔍 DEBUG: Checking for companions');
-    console.log('📊 Properties with type=creature:', 
+    debug.log('🔍 DEBUG: Checking for companions');
+    debug.log('📊 Properties with type=creature:', 
       apiData.creatureProperties.filter(p => p.type === 'creature').map(p => ({
         name: p.name,
         type: p.type,
         tags: p.tags
       }))
     );
-    console.log('📊 Features with "companion" in name:', 
+    debug.log('📊 Features with "companion" in name:', 
       characterData.features.filter(f => /companion|beast/i.test(f.name)).map(f => f.name)
     );
 
     // Second pass: look for subrace as a child of the race property
     if (racePropertyId && raceName) {
-      console.log('🔍 Looking for subrace children of race property ID:', racePropertyId);
+      debug.log('🔍 Looking for subrace children of race property ID:', racePropertyId);
       const subraceProps = apiData.creatureProperties.filter(prop => {
         const isChild = prop.parent && prop.parent.id === racePropertyId;
         const hasSubraceTag = prop.tags && Array.isArray(prop.tags) && prop.tags.some(tag =>
@@ -1676,7 +1676,7 @@
         );
         const isFolder = prop.type === 'folder';
         if (isChild) {
-          console.log('🔍 Found child of race:', {
+          debug.log('🔍 Found child of race:', {
             name: prop.name,
             type: prop.type,
             tags: prop.tags,
@@ -1690,17 +1690,17 @@
 
       if (subraceProps.length > 0) {
         const subraceProp = subraceProps[0];
-        console.log('🔍 Found subrace child property:', subraceProp.name, 'with tags:', subraceProp.tags);
+        debug.log('🔍 Found subrace child property:', subraceProp.name, 'with tags:', subraceProp.tags);
         characterData.race = `${raceName} - ${subraceProp.name}`;
-        console.log('🔍 Combined race with subrace:', characterData.race);
+        debug.log('🔍 Combined race with subrace:', characterData.race);
       } else {
-        console.log('🔍 No subrace children found for race');
+        debug.log('🔍 No subrace children found for race');
       }
     }
 
     // Fallback: Check for race in otherVariables if not found in properties
     if (!raceFound && !characterData.race) {
-      console.log('🔍 Race not found in properties, checking otherVariables...');
+      debug.log('🔍 Race not found in properties, checking otherVariables...');
       const raceVars = Object.keys(characterData.otherVariables).filter(key =>
         key.toLowerCase().includes('race') || key.toLowerCase().includes('species')
       );
@@ -1739,23 +1739,23 @@
         const subRaceVar = raceVars.find(key => key.toLowerCase() === 'subrace');
         if (subRaceVar) {
           const subRaceValue = characterData.otherVariables[subRaceVar];
-          console.log(`🔍 DEBUG: subRace value:`, subRaceValue, `type:`, typeof subRaceValue);
+          debug.log(`🔍 DEBUG: subRace value:`, subRaceValue, `type:`, typeof subRaceValue);
           if (typeof subRaceValue === 'object' && subRaceValue !== null) {
-            console.log(`🔍 DEBUG: subRace object keys:`, Object.keys(subRaceValue));
+            debug.log(`🔍 DEBUG: subRace object keys:`, Object.keys(subRaceValue));
             if (subRaceValue.name) {
               suberaceName = formatRaceName(subRaceValue.name);
-              console.log(`🔍 Found subrace name: ${suberaceName}`);
+              debug.log(`🔍 Found subrace name: ${suberaceName}`);
             } else if (subRaceValue.text) {
               suberaceName = formatRaceName(subRaceValue.text);
-              console.log(`🔍 Found subrace text: ${suberaceName}`);
+              debug.log(`🔍 Found subrace text: ${suberaceName}`);
             } else if (subRaceValue.value) {
               // Try value property
               suberaceName = formatRaceName(subRaceValue.value);
-              console.log(`🔍 Found subrace value: ${suberaceName}`);
+              debug.log(`🔍 Found subrace value: ${suberaceName}`);
             }
           } else if (typeof subRaceValue === 'string') {
             suberaceName = formatRaceName(subRaceValue);
-            console.log(`🔍 Found subrace string: ${suberaceName}`);
+            debug.log(`🔍 Found subrace string: ${suberaceName}`);
           }
         }
 
@@ -1763,22 +1763,22 @@
         const raceVar = raceVars.find(key => key.toLowerCase() === 'race');
         if (raceVar) {
           const raceValue = characterData.otherVariables[raceVar];
-          console.log(`🔍 DEBUG: race value:`, raceValue, `type:`, typeof raceValue);
+          debug.log(`🔍 DEBUG: race value:`, raceValue, `type:`, typeof raceValue);
           if (typeof raceValue === 'object' && raceValue !== null) {
-            console.log(`🔍 DEBUG: race object keys:`, Object.keys(raceValue));
+            debug.log(`🔍 DEBUG: race object keys:`, Object.keys(raceValue));
             if (raceValue.name) {
               raceName = formatRaceName(raceValue.name);
-              console.log(`🔍 Found race name: ${raceName}`);
+              debug.log(`🔍 Found race name: ${raceName}`);
             } else if (raceValue.text) {
               raceName = formatRaceName(raceValue.text);
-              console.log(`🔍 Found race text: ${raceName}`);
+              debug.log(`🔍 Found race text: ${raceName}`);
             } else if (raceValue.value) {
               raceName = formatRaceName(raceValue.value);
-              console.log(`🔍 Found race value: ${raceName}`);
+              debug.log(`🔍 Found race value: ${raceName}`);
             }
           } else if (typeof raceValue === 'string') {
             raceName = formatRaceName(raceValue);
-            console.log(`🔍 Found race string: ${raceName}`);
+            debug.log(`🔍 Found race string: ${raceName}`);
           }
         }
 
@@ -1791,7 +1791,7 @@
               const extracted = extractRaceFromVarName(varName);
               if (extracted) {
                 raceName = extracted;
-                console.log(`🔍 Extracted race from variable name: ${varName} -> ${raceName}`);
+                debug.log(`🔍 Extracted race from variable name: ${varName} -> ${raceName}`);
                 break;
               }
             }
@@ -1801,22 +1801,22 @@
         // Combine race and subrace if we have both
         if (raceName && suberaceName) {
           characterData.race = `${raceName} - ${suberaceName}`;
-          console.log(`🔍 Combined race and subrace: ${characterData.race}`);
+          debug.log(`🔍 Combined race and subrace: ${characterData.race}`);
         } else if (suberaceName) {
           characterData.race = suberaceName;
-          console.log(`🔍 Using subrace as race: ${characterData.race}`);
+          debug.log(`🔍 Using subrace as race: ${characterData.race}`);
         } else if (raceName) {
           characterData.race = raceName;
-          console.log(`🔍 Using race: ${characterData.race}`);
+          debug.log(`🔍 Using race: ${characterData.race}`);
         } else {
-          console.log('🔍 Could not determine race from variables:', raceVars);
+          debug.log('🔍 Could not determine race from variables:', raceVars);
         }
       } else {
-        console.log('🔍 No race found in otherVariables either');
+        debug.log('🔍 No race found in otherVariables either');
       }
     }
 
-    console.log('Parsed character data:', characterData);
+    debug.log('Parsed character data:', characterData);
     return characterData;
   }
 
@@ -1824,8 +1824,8 @@
    * Extracts companion creatures from features
    */
   function extractCompanions(characterData, apiData) {
-    console.log('🐾🐾🐾 extractCompanions FUNCTION STARTED 🐾🐾🐾');
-    console.log('🐾 Searching for companion creatures in features...');
+    debug.log('🐾🐾🐾 extractCompanions FUNCTION STARTED 🐾🐾🐾');
+    debug.log('🐾 Searching for companion creatures in features...');
 
     // Look for features that appear to be companions
     // Common patterns: "Companion:", "Beast of", "Familiar", "Summon", "Mount"
@@ -1840,35 +1840,35 @@
       /drake/i
     ];
 
-    console.log('🐾 Total features to check:', characterData.features.length);
+    debug.log('🐾 Total features to check:', characterData.features.length);
 
     characterData.features.forEach((feature, index) => {
       const isCompanion = companionPatterns.some(pattern => pattern.test(feature.name));
 
       if (isCompanion) {
-        console.log(`🐾 Found potential companion: ${feature.name} (index ${index})`);
-        console.log(`🔍 DEBUG: Feature object keys:`, Object.keys(feature));
-        console.log(`🔍 DEBUG: Has description:`, !!feature.description);
-        console.log(`🔍 DEBUG: Description value:`, feature.description);
+        debug.log(`🐾 Found potential companion: ${feature.name} (index ${index})`);
+        debug.log(`🔍 DEBUG: Feature object keys:`, Object.keys(feature));
+        debug.log(`🔍 DEBUG: Has description:`, !!feature.description);
+        debug.log(`🔍 DEBUG: Description value:`, feature.description);
         
         if (feature.description) {
-          console.log(`🔍 DEBUG: Companion description:`, feature.description);
+          debug.log(`🔍 DEBUG: Companion description:`, feature.description);
 
           const companion = parseCompanionStatBlock(feature.name, feature.description);
           if (companion) {
             characterData.companions.push(companion);
-            console.log(`✅ Added companion: ${companion.name}`);
+            debug.log(`✅ Added companion: ${companion.name}`);
           } else {
-            console.log(`❌ Failed to parse companion: ${feature.name} - no valid stat block found`);
+            debug.log(`❌ Failed to parse companion: ${feature.name} - no valid stat block found`);
           }
         } else {
-          console.log(`⚠️ Companion ${feature.name} has no description - skipping (no stat block)`);
+          debug.log(`⚠️ Companion ${feature.name} has no description - skipping (no stat block)`);
           // Don't add companions without descriptions/stat blocks
         }
       }
     });
 
-    console.log(`🐾 Total companions found: ${characterData.companions.length}`);
+    debug.log(`🐾 Total companions found: ${characterData.companions.length}`);
   }
 
   /**
@@ -1880,16 +1880,16 @@
     if (typeof description === 'object' && description !== null) {
       descText = description.value || description.text || '';
     } else if (typeof description !== 'string') {
-      console.log(`⚠️ Companion "${name}" has invalid description type:`, typeof description);
+      debug.log(`⚠️ Companion "${name}" has invalid description type:`, typeof description);
       return null;
     }
 
     if (!descText || descText.trim() === '') {
-      console.log(`⚠️ Companion "${name}" has empty description`);
+      debug.log(`⚠️ Companion "${name}" has empty description`);
       return null;
     }
 
-    console.log(`🔍 DEBUG: Parsing companion "${name}" with description:`, descText);
+    debug.log(`🔍 DEBUG: Parsing companion "${name}" with description:`, descText);
 
     const companion = {
       name: name,
@@ -1914,7 +1914,7 @@
       companion.size = sizeTypeMatch[1];
       companion.type = sizeTypeMatch[2];
       companion.alignment = sizeTypeMatch[3];
-      console.log(`✅ Parsed size/type: ${companion.size} ${companion.type}, ${companion.alignment}`);
+      debug.log(`✅ Parsed size/type: ${companion.size} ${companion.type}, ${companion.alignment}`);
     }
 
     // Parse AC - try multiple patterns including markdown
@@ -1928,7 +1928,7 @@
       const acMatch = descText.match(pattern);
       if (acMatch) {
         companion.ac = parseInt(acMatch[1]);
-        console.log(`✅ Parsed AC: ${companion.ac}`);
+        debug.log(`✅ Parsed AC: ${companion.ac}`);
         break;
       }
     }
@@ -1945,7 +1945,7 @@
       const hpMatch = descText.match(pattern);
       if (hpMatch) {
         companion.hp = hpMatch[1];
-        console.log(`✅ Parsed HP: ${companion.hp}`);
+        debug.log(`✅ Parsed HP: ${companion.hp}`);
         break;
       }
     }
@@ -1959,7 +1959,7 @@
       const speedMatch = descText.match(pattern);
       if (speedMatch) {
         companion.speed = speedMatch[1].trim();
-        console.log(`✅ Parsed Speed: ${companion.speed}`);
+        debug.log(`✅ Parsed Speed: ${companion.speed}`);
         break;
       }
     }
@@ -1972,50 +1972,50 @@
     const lines = descText.split('\n');
     let abilityLine = null;
     
-    console.log(`🔍 DEBUG: Checking ${lines.length} lines for ability table`);
+    debug.log(`🔍 DEBUG: Checking ${lines.length} lines for ability table`);
     for (const line of lines) {
       if (line.match(/^>?\s*\|\s*\d+\s*\([+\-]\d+\)\s*\|\s*\d+\s*\([+\-]\d+\)\s*\|\s*\d+\s*\([+\-]\d+\)\s*\|\s*\d+\s*\([+\-]\d+\)\s*\|\s*\d+\s*\([+\-]\d+\)\s*\|\s*\d+\s*\([+\-]\d+\)\s*\|/)) {
         abilityLine = line;
-        console.log(`🔍 DEBUG: Found matching ability line`);
+        debug.log(`🔍 DEBUG: Found matching ability line`);
       }
     }
     
     if (abilityLine) {
-      console.log(`🔍 Found ability line: ${abilityLine}`);
+      debug.log(`🔍 Found ability line: ${abilityLine}`);
       // Extract the 6 ability values from the table row - simpler approach
       // Remove the >| prefix and split by |
       const cleanLine = abilityLine.replace(/^>\|/, '');
       const abilityValues = cleanLine.split('|').filter(val => val.trim());
       
-      console.log(`🔍 Split ability values:`, abilityValues);
+      debug.log(`🔍 Split ability values:`, abilityValues);
       
       if (abilityValues.length >= 6) {
         // Take the last 6 values (in case there are extra columns)
         const abilityScores = abilityValues.slice(-6);
-        console.log(`🔍 Using ability scores:`, abilityScores);
+        debug.log(`🔍 Using ability scores:`, abilityScores);
         
         abilities.forEach((ability, index) => {
           if (index < abilityScores.length) {
             const abilityText = abilityScores[index].trim();
-            console.log(`🔍 DEBUG: Processing ${ability} with text: "${abilityText}"`);
+            debug.log(`🔍 DEBUG: Processing ${ability} with text: "${abilityText}"`);
             const abilityMatch = abilityText.match(/(\d+)\s*\(([+\-]\d+)\)/);
-            console.log(`🔍 DEBUG: ${ability} regex result:`, abilityMatch);
+            debug.log(`🔍 DEBUG: ${ability} regex result:`, abilityMatch);
             if (abilityMatch) {
               companion.abilities[ability.toLowerCase()] = {
                 score: parseInt(abilityMatch[1]),
                 modifier: parseInt(abilityMatch[2])
               };
-              console.log(`✅ Parsed ${ability}: ${abilityMatch[1]} (${abilityMatch[2]})`);
+              debug.log(`✅ Parsed ${ability}: ${abilityMatch[1]} (${abilityMatch[2]})`);
             } else {
-              console.log(`❌ Failed to parse ${ability} from "${abilityText}"`);
+              debug.log(`❌ Failed to parse ${ability} from "${abilityText}"`);
             }
           }
         });
       } else {
-        console.log(`❌ Not enough ability values found. Found ${abilityValues.length} values`);
+        debug.log(`❌ Not enough ability values found. Found ${abilityValues.length} values`);
       }
     } else {
-      console.log(`❌ No ability line found, trying fallback`);
+      debug.log(`❌ No ability line found, trying fallback`);
       // Fallback to original format
       abilities.forEach(ability => {
         const regex = new RegExp(ability + '\\s+(\\d+)\\s*\\(([+\\-]\\d+)\\)', 'i');
@@ -2025,7 +2025,7 @@
             score: parseInt(match[1]),
             modifier: parseInt(match[2])
           };
-          console.log(`✅ Parsed ${ability}: ${match[1]} (${match[2]})`);
+          debug.log(`✅ Parsed ${ability}: ${match[1]} (${match[2]})`);
         }
       });
     }
@@ -2039,7 +2039,7 @@
       const sensesMatch = descText.match(pattern);
       if (sensesMatch) {
         companion.senses = sensesMatch[1].trim();
-        console.log(`✅ Parsed Senses: ${companion.senses}`);
+        debug.log(`✅ Parsed Senses: ${companion.senses}`);
         break;
       }
     }
@@ -2053,7 +2053,7 @@
       const languagesMatch = descText.match(pattern);
       if (languagesMatch) {
         companion.languages = languagesMatch[1].trim();
-        console.log(`✅ Parsed Languages: ${companion.languages}`);
+        debug.log(`✅ Parsed Languages: ${companion.languages}`);
         break;
       }
     }
@@ -2067,7 +2067,7 @@
       const pbMatch = descText.match(pattern);
       if (pbMatch) {
         companion.proficiencyBonus = parseInt(pbMatch[1]);
-        console.log(`✅ Parsed Proficiency Bonus: ${companion.proficiencyBonus}`);
+        debug.log(`✅ Parsed Proficiency Bonus: ${companion.proficiencyBonus}`);
         break;
       }
     }
@@ -2080,20 +2080,20 @@
         name: featureMatch[1].trim(),
         description: featureMatch[2].trim()
       });
-      console.log(`✅ Parsed Feature: ${featureMatch[1].trim()}`);
+      debug.log(`✅ Parsed Feature: ${featureMatch[1].trim()}`);
     }
 
     // Parse Actions section
     const actionsMatch = descText.match(/###?\s*Actions\s+([\s\S]+)/i);
     if (actionsMatch) {
       const actionsText = actionsMatch[1];
-      console.log(`🔍 DEBUG: Found actions section:`, actionsText);
+      debug.log(`🔍 DEBUG: Found actions section:`, actionsText);
 
       // Simple approach: extract attack data using basic string matching
       const attackLines = actionsText.split('\n').filter(line => line.includes('***') && line.includes('Melee Weapon Attack'));
       
       attackLines.forEach(attackLine => {
-        console.log(`🔍 DEBUG: Processing attack line:`, attackLine);
+        debug.log(`🔍 DEBUG: Processing attack line:`, attackLine);
         
         // Extract name (between *** and ***)
         const nameMatch = attackLine.match(/\*\*\*(\w+)\.\*\*\*/);
@@ -2104,18 +2104,18 @@
         // Extract damage (after *Hit:* and **)
         // Try multiple patterns for damage extraction
         let damageMatch = attackLine.match(/\*?Hit:\*?\s*\*\*([^*]+?)\*\*/);
-        console.log(`🔍 DEBUG: Damage pattern 1 result:`, damageMatch);
+        debug.log(`🔍 DEBUG: Damage pattern 1 result:`, damageMatch);
         if (!damageMatch) {
           // Fallback: capture everything after Hit: and ** up to the next word
           damageMatch = attackLine.match(/\*?Hit:\*?\s*\*\*([^*]+?)(?:\s+[a-z]+|$)/i);
-          console.log(`🔍 DEBUG: Damage pattern 2 result:`, damageMatch);
+          debug.log(`🔍 DEBUG: Damage pattern 2 result:`, damageMatch);
         }
         if (!damageMatch) {
           // Another fallback: just capture after Hit: and **
           damageMatch = attackLine.match(/\*?Hit:\*?\s*\*\*([^*]+)/);
-          console.log(`🔍 DEBUG: Damage pattern 3 result:`, damageMatch);
+          debug.log(`🔍 DEBUG: Damage pattern 3 result:`, damageMatch);
         }
-        console.log(`🔍 DEBUG: Final damage match:`, damageMatch);
+        debug.log(`🔍 DEBUG: Final damage match:`, damageMatch);
         
         if (nameMatch && bonusMatch && reachMatch && damageMatch) {
           companion.actions.push({
@@ -2125,24 +2125,24 @@
             reach: reachMatch[1].trim(),
             damage: damageMatch[1].trim()
           });
-          console.log(`✅ Parsed Action: ${nameMatch[1].trim()}`);
-          console.log(`🔍 DEBUG: Parsed damage: "${damageMatch[1].trim()}"`);
+          debug.log(`✅ Parsed Action: ${nameMatch[1].trim()}`);
+          debug.log(`🔍 DEBUG: Parsed damage: "${damageMatch[1].trim()}"`);
         } else {
-          console.log(`❌ Failed to parse attack. Matches:`, {nameMatch, bonusMatch, reachMatch, damageMatch});
+          debug.log(`❌ Failed to parse attack. Matches:`, {nameMatch, bonusMatch, reachMatch, damageMatch});
         }
       });
     } else {
-      console.log(`🔍 DEBUG: No actions section found`);
+      debug.log(`🔍 DEBUG: No actions section found`);
     }
 
     // Only return if we found at least some stats
     if (companion.ac > 0 || companion.hp || Object.keys(companion.abilities).length > 0) {
-      console.log(`✅ Successfully parsed companion "${name}"`);
-      console.log(`🔍 DEBUG: Final companion object:`, companion);
+      debug.log(`✅ Successfully parsed companion "${name}"`);
+      debug.log(`🔍 DEBUG: Final companion object:`, companion);
       return companion;
     }
 
-    console.log(`❌ Failed to parse any stats for companion "${name}"`);
+    debug.log(`❌ Failed to parse any stats for companion "${name}"`);
     return null;
   }
 
@@ -2151,20 +2151,20 @@
    */
   async function extractCharacterData() {
     try {
-      console.log('🚀 Starting character extraction...');
+      debug.log('🚀 Starting character extraction...');
       
       // Try API first (this returns parsed data directly)
       const characterData = await fetchCharacterDataFromAPI();
       if (characterData) {
-        console.log('✅ Character data extracted via API:', characterData.name);
+        debug.log('✅ Character data extracted via API:', characterData.name);
         return characterData;
       }
       
       // Fallback to DOM extraction
-      console.log('🔄 API failed, trying DOM extraction...');
+      debug.log('🔄 API failed, trying DOM extraction...');
       const domData = extractCharacterDataFromDOM();
       if (domData) {
-        console.log('✅ Character data extracted via DOM:', domData.name);
+        debug.log('✅ Character data extracted via DOM:', domData.name);
         return domData;
       }
       
@@ -2181,7 +2181,7 @@
    */
   function handleRollRequest(name, formula) {
     return new Promise((resolve, reject) => {
-      console.log(`🎲 Handling roll request: ${name} with formula ${formula}`);
+      debug.log(`🎲 Handling roll request: ${name} with formula ${formula}`);
       
       // Create a mock roll entry to simulate the roll
       const rollResult = Math.floor(Math.random() * 20) + 1;
@@ -2195,7 +2195,7 @@
         timestamp: Date.now()
       };
       
-      console.log('🎲 Simulated roll:', rollData);
+      debug.log('🎲 Simulated roll:', rollData);
       
       // Send the roll to Roll20 (this will trigger the existing roll forwarding)
       sendRollToRoll20(rollData);
@@ -2212,9 +2212,9 @@
    */
   function extractSpellsFromDOM(characterData) {
     try {
-      console.log('🔍 Extracting spells from DOM...');
-      console.log('🔍 Current hostname:', window.location.hostname);
-      console.log('🔍 Current URL:', window.location.href);
+      debug.log('🔍 Extracting spells from DOM...');
+      debug.log('🔍 Current hostname:', window.location.hostname);
+      debug.log('🔍 Current URL:', window.location.href);
       
       // Look for spell sections in Dice Cloud
       const spellSelectors = [
@@ -2246,11 +2246,11 @@
         }
       });
       
-      console.log(`🔍 Found ${spellElements.length} potential spell elements`);
+      debug.log(`🔍 Found ${spellElements.length} potential spell elements`);
       
       // If we're not in Dice Cloud, try a broader search
       if (window.location.hostname !== 'dicecloud.com' && !window.location.hostname.includes('dicecloud')) {
-        console.log('🔍 Not in Dice Cloud, trying broader search...');
+        debug.log('🔍 Not in Dice Cloud, trying broader search...');
         
         // Look for any text that might contain spell information
         const allElements = document.querySelectorAll('*');
@@ -2268,7 +2268,7 @@
           }
         });
         
-        console.log(`🔍 Found ${spellTextElements.length} elements with spell-related text`);
+        debug.log(`🔍 Found ${spellTextElements.length} elements with spell-related text`);
         spellElements.push(...spellTextElements);
       }
       
@@ -2285,7 +2285,7 @@
           
           // Skip spell slot elements
           if (lowerText.includes('spell slots') || lowerText.includes('slot') || lowerText.includes('slots')) {
-            console.log(`🔍 Skipping spell slot element: ${text.substring(0, 50)}`);
+            debug.log(`🔍 Skipping spell slot element: ${text.substring(0, 50)}`);
             return;
           }
           
@@ -2293,7 +2293,7 @@
           if (lowerText.includes('stats') || lowerText.includes('actions') || lowerText.includes('inventory') || 
               lowerText.includes('features') || lowerText.includes('journal') || lowerText.includes('build') ||
               lowerText.includes('hit points') || lowerText.includes('armor class') || lowerText.includes('speed')) {
-            console.log(`🔍 Skipping navigation element: ${text.substring(0, 50)}`);
+            debug.log(`🔍 Skipping navigation element: ${text.substring(0, 50)}`);
             return;
           }
           
@@ -2304,11 +2304,11 @@
           
           // Skip if it looks like a character name or general navigation
           if (text.includes(characterData.name) || lowerText.includes('grey')) {
-            console.log(`🔍 Skipping character name element: ${text.substring(0, 50)}`);
+            debug.log(`🔍 Skipping character name element: ${text.substring(0, 50)}`);
             return;
           }
           
-          console.log(`🔍 Processing element ${index}:`, text.substring(0, 100));
+          debug.log(`🔍 Processing element ${index}:`, text.substring(0, 100));
           
           // Try to extract spell name (first line or bold text)
           let spellName = '';
@@ -2328,7 +2328,7 @@
           // Skip if it's a known D&D spell name that should have more content
           const knownSpells = ['detect magic', 'disguise self', 'summon fey', 'fireball', 'magic missile', 'cure wounds'];
           if (knownSpells.includes(spellName.toLowerCase()) && text.length < 100) {
-            console.log(`🔍 Skipping incomplete spell entry for "${spellName}"`);
+            debug.log(`🔍 Skipping incomplete spell entry for "${spellName}"`);
             return;
           }
           
@@ -2360,7 +2360,7 @@
             if (existingSpell) {
               // Update existing spell with description
               existingSpell.description = description;
-              console.log(`✅ Updated description for "${spellName}": "${description.substring(0, 50)}..."`);
+              debug.log(`✅ Updated description for "${spellName}": "${description.substring(0, 50)}..."`);
             } else {
               // Add new spell
               characterData.spells.push({
@@ -2374,17 +2374,17 @@
                 duration: '',
                 prepared: false
               });
-              console.log(`✅ Added new spell "${spellName}" (Level ${spellLevel}): "${description.substring(0, 50)}..."`);
+              debug.log(`✅ Added new spell "${spellName}" (Level ${spellLevel}): "${description.substring(0, 50)}..."`);
             }
           } else {
-            console.log(`🔍 No meaningful description found for "${spellName}"`);
+            debug.log(`🔍 No meaningful description found for "${spellName}"`);
           }
         } catch (error) {
           debug.error(`❌ Error processing spell element ${index}:`, error);
         }
       });
       
-      console.log(`✅ Spell extraction complete. Found ${characterData.spells.length} spells with descriptions.`);
+      debug.log(`✅ Spell extraction complete. Found ${characterData.spells.length} spells with descriptions.`);
     } catch (error) {
       debug.error('❌ Error extracting spells from DOM:', error);
     }
@@ -2395,7 +2395,7 @@
    */
   function extractCharacterDataFromDOM() {
     try {
-      console.log('🔍 Extracting character data from DOM...');
+      debug.log('🔍 Extracting character data from DOM...');
 
       const characterData = {
         id: getCharacterIdFromUrl(),  // CRITICAL: Store character ID for proper persistence
@@ -2462,7 +2462,7 @@
       // Extract spells from the page
       extractSpellsFromDOM(characterData);
 
-      console.log('✅ DOM extraction completed:', characterData);
+      debug.log('✅ DOM extraction completed:', characterData);
       return characterData;
     } catch (error) {
       debug.error('❌ Error extracting from DOM:', error);
@@ -2475,7 +2475,7 @@
    */
   async function extractAndStoreCharacterData() {
     try {
-      console.log('🚀 Starting character extraction...');
+      debug.log('🚀 Starting character extraction...');
       showNotification('Extracting character data...', 'info');
 
       const characterData = await fetchCharacterDataFromAPI();
@@ -2494,7 +2494,7 @@
             }
             
             if (response && response.success) {
-              console.log('✅ Character data stored successfully');
+              debug.log('✅ Character data stored successfully');
               showNotification(`${characterData.name} extracted! Navigate to Roll20 to import.`, 'success');
             } else {
               debug.error('❌ Failed to store character data:', response && response.error);
@@ -2694,7 +2694,7 @@
       });
 
       document.body.appendChild(debugButton);
-      console.log('🔍 Check Structure button added');
+      debug.log('🔍 Check Structure button added');
     }
   }
 
@@ -2702,7 +2702,7 @@
    * Listens for messages from popup and other parts of the extension
    */
   browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    console.log('DiceCloud received message:', request);
+    debug.log('DiceCloud received message:', request);
 
     switch (request.action) {
       case 'syncCharacter':
@@ -2720,7 +2720,7 @@
         // Handle roll request from Roll20 character sheet
         handleRollRequest(request.roll.name, request.roll.formula)
           .then(() => {
-            console.log('✅ Roll handled in Dice Cloud');
+            debug.log('✅ Roll handled in Dice Cloud');
             sendResponse({ success: true });
           })
           .catch((error) => {
@@ -2763,7 +2763,7 @@
           const userId = localStorage.getItem('Meteor.userId');
 
           if (loginToken && userId) {
-            console.log('✅ Found auth token in localStorage');
+            debug.log('✅ Found auth token in localStorage');
 
             // Try to get username from the page
             let username = 'DiceCloud User';
@@ -2807,7 +2807,7 @@
    * Debug: Analyzes the page structure to find roll-related elements
    */
   function debugPageStructure() {
-    console.log('=== DICECLOUD ROLL LOG DEBUG ===');
+    debug.log('=== DICECLOUD ROLL LOG DEBUG ===');
 
     // Find all elements that might be the roll log
     const potentialSelectors = [
@@ -2821,22 +2821,22 @@
       '[role="complementary"]'
     ];
 
-    console.log('Searching for roll log container...');
+    debug.log('Searching for roll log container...');
     potentialSelectors.forEach(selector => {
       const elements = document.querySelectorAll(selector);
       if (elements.length > 0) {
-        console.log(`Found ${elements.length} element(s) matching "${selector}":`);
+        debug.log(`Found ${elements.length} element(s) matching "${selector}":`);
         elements.forEach((el, i) => {
-          console.log(`  [${i}] Classes:`, el.className);
-          console.log(`  [${i}] ID:`, el.id);
-          console.log(`  [${i}] Tag:`, el.tagName);
-          console.log(`  [${i}] Text preview:`, el.textContent && el.textContent.substring(0, 100));
+          debug.log(`  [${i}] Classes:`, el.className);
+          debug.log(`  [${i}] ID:`, el.id);
+          debug.log(`  [${i}] Tag:`, el.tagName);
+          debug.log(`  [${i}] Text preview:`, el.textContent && el.textContent.substring(0, 100));
         });
       }
     });
 
     // Look for elements containing dice notation patterns
-    console.log('\nSearching for elements with dice notation (e.g., "1d20 [ 6 ]", "2d6+3")...');
+    debug.log('\nSearching for elements with dice notation (e.g., "1d20 [ 6 ]", "2d6+3")...');
     const allElements = document.querySelectorAll('*');
     const dicePattern = /\d+d\d+\s*\[/i; // DiceCloud format: 1d20 [ 6 ]
     const elementsWithDice = [];
@@ -2857,20 +2857,20 @@
     });
 
     if (elementsWithDice.length > 0) {
-      console.log(`Found ${elementsWithDice.length} elements with dice notation:`);
+      debug.log(`Found ${elementsWithDice.length} elements with dice notation:`);
       debug.table(elementsWithDice.slice(0, 20));
-      console.log('\n📋 Full element details (expand to inspect):');
+      debug.log('\n📋 Full element details (expand to inspect):');
       elementsWithDice.slice(0, 5).forEach((item, i) => {
-        console.log(`\n[${i}] Element:`, item.element);
-        console.log(`[${i}] Full text (first 200 chars):\n`, item.element.textContent.substring(0, 200));
-        console.log(`[${i}] Parent chain:`, getParentChain(item.element));
+        debug.log(`\n[${i}] Element:`, item.element);
+        debug.log(`[${i}] Full text (first 200 chars):\n`, item.element.textContent.substring(0, 200));
+        debug.log(`[${i}] Parent chain:`, getParentChain(item.element));
       });
     } else {
-      console.log('❌ No elements with dice notation found!');
-      console.log('This might mean:');
-      console.log('1. No rolls have been made yet - try making a roll');
-      console.log('2. Rolls appear in a different format');
-      console.log('3. Rolls are in a shadow DOM or iframe');
+      debug.log('❌ No elements with dice notation found!');
+      debug.log('This might mean:');
+      debug.log('1. No rolls have been made yet - try making a roll');
+      debug.log('2. Rolls appear in a different format');
+      debug.log('3. Rolls are in a shadow DOM or iframe');
     }
 
     // Helper to show parent chain
@@ -2888,11 +2888,11 @@
       return chain;
     }
 
-    console.log('\n=== END DEBUG ===');
-    console.log('Instructions:');
-    console.log('1. Make a test roll in DiceCloud');
-    console.log('2. Run debugPageStructure() again to see the new elements');
-    console.log('3. Right-click on the roll in the page and select "Inspect" to see its HTML structure');
+    debug.log('\n=== END DEBUG ===');
+    debug.log('Instructions:');
+    debug.log('1. Make a test roll in DiceCloud');
+    debug.log('2. Run debugPageStructure() again to see the new elements');
+    debug.log('3. Right-click on the roll in the page and select "Inspect" to see its HTML structure');
   }
 
   /**
@@ -2911,8 +2911,8 @@
       for (const selector of selectors) {
         const element = document.querySelector(selector);
         if (element) {
-          console.log('✓ Roll log detection: Found roll log using selector:', selector);
-          console.log('Roll log element:', element);
+          debug.log('✓ Roll log detection: Found roll log using selector:', selector);
+          debug.log('Roll log element:', element);
           return element;
         }
       }
@@ -2921,15 +2921,15 @@
 
     const rollLog = findRollLog();
     if (!rollLog) {
-      console.log('⏳ Roll log not found, will retry in 2 seconds...');
-      console.log('💡 Run window.debugDiceCloudRolls() in console for detailed debug info');
+      debug.log('⏳ Roll log not found, will retry in 2 seconds...');
+      debug.log('💡 Run window.debugDiceCloudRolls() in console for detailed debug info');
       setTimeout(observeRollLog, 2000);
       return;
     }
 
-    console.log('✅ Observing DiceCloud roll log for new rolls');
-    console.log('📋 Roll log classes:', rollLog.className);
-    console.log('🎲 Ready to detect rolls!');
+    debug.log('✅ Observing DiceCloud roll log for new rolls');
+    debug.log('📋 Roll log classes:', rollLog.className);
+    debug.log('🎲 Ready to detect rolls!');
 
     // Track when we start observing to ignore existing nodes
     const observerStartTime = Date.now();
@@ -2947,20 +2947,20 @@
               
               // Only process if we can find a valid timestamp
               if (nodeTimestamp && parseInt(nodeTimestamp) > observerStartTime) {
-                console.log('🎲 New roll detected:', node);
+                debug.log('🎲 New roll detected:', node);
 
                 // Try to parse the roll from the added node
                 const rollData = parseRollFromElement(node);
                 if (rollData) {
-                  console.log('✅ Successfully parsed roll:', rollData);
+                  debug.log('✅ Successfully parsed roll:', rollData);
                   sendRollToRoll20(rollData);
                 } else {
-                  console.log('⚠️  Could not parse roll data from element');
+                  debug.log('⚠️  Could not parse roll data from element');
                 }
               } else if (!nodeTimestamp) {
-                console.log('🔄 Ignoring node without timestamp (likely existing content)');
+                debug.log('🔄 Ignoring node without timestamp (likely existing content)');
               } else {
-                console.log('🔄 Ignoring existing roll entry (added before observer started)');
+                debug.log('🔄 Ignoring existing roll entry (added before observer started)');
               }
             }
           }
@@ -2973,7 +2973,7 @@
       subtree: true
     });
 
-    console.log('💡 TIP: Make a test roll to see if it gets detected');
+    debug.log('💡 TIP: Make a test roll to see if it gets detected');
   }
 
   // Expose debug function globally for console access
@@ -2991,7 +2991,7 @@
     try {
       // Extract roll name from the text content
       const fullText = element.textContent || element.innerText || '';
-      console.log('🔍 Full roll text:', fullText);
+      debug.log('🔍 Full roll text:', fullText);
       
       // Extract the roll name (first line before the formula)
       const lines = fullText.split('\n').filter(line => line.trim());
@@ -3001,18 +3001,18 @@
       const formulaLine = lines.find(line => line.includes('d20') || line.includes('d6') || line.includes('d8') || line.includes('d10') || line.includes('d12') || line.includes('d4'));
       
       if (!formulaLine) {
-        console.log('⚠️  No dice formula found in roll text');
+        debug.log('⚠️  No dice formula found in roll text');
         return null;
       }
 
-      console.log('📊 Formula line:', formulaLine);
+      debug.log('📊 Formula line:', formulaLine);
 
       // Parse DiceCloud format: "Strength check\n1d20 [ 17 ] + 0 = 17"
       // Extract the formula and result
       const formulaMatch = formulaLine.match(/^(.+?)\s*=\s*(.+)$/);
 
       if (!formulaMatch) {
-        console.log('⚠️  Could not parse formula from:', formulaLine);
+        debug.log('⚠️  Could not parse formula from:', formulaLine);
         return null;
       }
 
@@ -3030,7 +3030,7 @@
 
       const result = formulaMatch[2].trim();
 
-      console.log(`📊 Parsed: name="${name}", formula="${formula}", result="${result}", baseRoll="${baseRoll}"`);
+      debug.log(`📊 Parsed: name="${name}", formula="${formula}", result="${result}", baseRoll="${baseRoll}"`);
 
       return {
         name: name,
@@ -3943,7 +3943,7 @@
 
         // Save to storage
         browserAPI.storage.local.set({ rollSettings: rollStats.settings });
-        console.log('Roll mode changed to:', mode);
+        debug.log('Roll mode changed to:', mode);
         showNotification(`Roll mode: ${mode.charAt(0).toUpperCase() + mode.slice(1)}`, 'info');
       });
     });
@@ -4108,10 +4108,10 @@
    * Sends roll data to all Roll20 tabs with visual feedback
    */
   function sendRollToRoll20(rollData) {
-    console.log('🚀 sendRollToRoll20 called with:', rollData);
+    debug.log('🚀 sendRollToRoll20 called with:', rollData);
     
     if (!rollStats.settings.enabled) {
-      console.log('⚠️ Roll forwarding disabled in settings');
+      debug.log('⚠️ Roll forwarding disabled in settings');
       return;
     }
 
@@ -4123,7 +4123,7 @@
 
     // Log if formula was modified
     if (modifiedRoll.formula !== rollData.formula) {
-      console.log(`Formula modified: ${rollData.formula} -> ${modifiedRoll.formula} (${rollStats.settings.advantageMode})`);
+      debug.log(`Formula modified: ${rollData.formula} -> ${modifiedRoll.formula} (${rollStats.settings.advantageMode})`);
     }
 
     // Add visual feedback and tracking
@@ -4131,7 +4131,7 @@
     addToRollHistory(modifiedRoll);
 
     // Send to Roll20
-    console.log('📡 Sending roll to Roll20...');
+    debug.log('📡 Sending roll to Roll20...');
     try {
       browserAPI.runtime.sendMessage({
         action: 'sendRollToRoll20',
@@ -4144,7 +4144,7 @@
         }
         
         if (response && response.success) {
-          console.log('✅ Roll sent to Roll20:', response);
+          debug.log('✅ Roll sent to Roll20:', response);
           showNotification(`${modifiedRoll.name} roll sent to Roll20! 🎲`, 'success');
         } else {
           debug.error('❌ Failed to send roll to Roll20:', response?.error);
@@ -4185,7 +4185,7 @@
           button.style.bottom = 'auto';
         } else {
           // Invalid position, clear it and use default
-          console.log('🔄 Clearing invalid button position');
+          debug.log('🔄 Clearing invalid button position');
           localStorage.removeItem(`${storageKey}_position`);
         }
       } catch (e) {
@@ -4589,7 +4589,7 @@
     // Make it draggable and add hide/show functionality
     makeSyncButtonDraggable(button, 'dc-sync-btn');
 
-    console.log('✅ Sync button added to Dice Cloud');
+    debug.log('✅ Sync button added to Dice Cloud');
   }
 
   /**
@@ -4598,7 +4598,7 @@
    * @returns {Promise<void>}
    */
   function syncCharacterData(slotId) {
-    console.log('🔄 Starting character data sync...', slotId ? `to ${slotId}` : '');
+    debug.log('🔄 Starting character data sync...', slotId ? `to ${slotId}` : '');
 
     const button = document.getElementById('dc-sync-btn');
     if (button) {
@@ -4635,7 +4635,7 @@
               }
               reject(new Error(browserAPI.runtime.lastError.message));
             } else {
-              console.log('✅ Character data synced to extension:', characterData.name);
+              debug.log('✅ Character data synced to extension:', characterData.name);
               showNotification(`✅ ${characterData.name} synced to RollCloud! 🎲`, 'success');
               if (button) {
                 button.innerHTML = '✅ Synced!';
@@ -4674,12 +4674,12 @@
   // Initialize
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-      console.log('📄 DOM loaded, adding buttons...');
+      debug.log('📄 DOM loaded, adding buttons...');
       addSyncButton();
       observeRollLog();
     });
   } else {
-    console.log('📄 DOM already loaded, adding buttons...');
+    debug.log('📄 DOM already loaded, adding buttons...');
     addSyncButton();
     observeRollLog();
   }
