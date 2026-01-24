@@ -3791,15 +3791,13 @@ function createSpellCard(spell, index) {
       e.stopPropagation();
       const options = getSpellOptions(spell);
 
-      // Always announce spell description immediately when Cast is clicked
-      announceSpellDescription(spell);
-
       if (options.length === 0) {
-        // No rolls - just cast immediately (will consume resource and handle concentration)
+        // No rolls - announce description and cast immediately
+        announceSpellDescription(spell);
         castSpell(spell, index, null, null, [], false, true); // skipAnnouncement = true
       } else {
         // Has rolls - show modal with options
-        // Description already announced, modal will handle resource consumption and rolls
+        // Description will be announced from modal when user commits to action
         showSpellModal(spell, index, options);
       }
     });
@@ -3858,8 +3856,8 @@ function validateSpellData(spell) {
   const fullText = `${summary} ${description}`;
 
   if (fullText) {
-    // Check for attack mention
-    const hasAttackMention = /spell attack|attack roll|make.*attack/i.test(fullText);
+    // Check for attack mention (use word boundaries to avoid false positives like Shield's "triggering attack")
+    const hasAttackMention = /\b(spell attack|attack roll)\b/i.test(fullText);
     const hasAttackData = spell.attackRoll && spell.attackRoll !== '(none)';
 
     if (hasAttackMention && !hasAttackData) {
@@ -4313,13 +4311,18 @@ function showSpellModal(spell, spellIndex, options) {
 
       if (option.type === 'attack') {
         // Cast spell + roll attack, but keep modal open
+        // Announce description ONLY if not using concentration recast
+        if (!skipSlot) {
+          announceSpellDescription(spell);
+        }
+
         const afterCast = (spell, slot) => {
           usedSlot = slot;
           const attackBonus = getSpellAttackBonus();
           const attackFormula = attackBonus >= 0 ? `1d20+${attackBonus}` : `1d20${attackBonus}`;
           roll(`${spell.name} - Spell Attack`, attackFormula);
         };
-        // Description already announced before modal opened
+        // Description announced above (if needed), don't announce again
         castSpell(spell, spellIndex, afterCast, selectedSlotLevel, selectedMetamagic, skipSlot, true);
         spellCast = true;
 
@@ -4335,6 +4338,11 @@ function showSpellModal(spell, spellIndex, options) {
       } else if (option.type === 'damage' || option.type === 'healing') {
         // If spell not cast yet (no attack roll), cast it first
         if (!spellCast) {
+          // Announce description ONLY if not using concentration recast
+          if (!skipSlot) {
+            announceSpellDescription(spell);
+          }
+
           const afterCast = (spell, slot) => {
             usedSlot = slot;
             let formula = option.formula;
@@ -4354,7 +4362,7 @@ function showSpellModal(spell, spellIndex, options) {
               `${spell.name} - Damage (${option.damageType || ''})`;
             roll(label, formula);
           };
-          // Description already announced before modal opened
+          // Description announced above (if needed), don't announce again
           castSpell(spell, spellIndex, afterCast, selectedSlotLevel, selectedMetamagic, skipSlot, true);
         } else {
           // Spell already cast (via attack), just roll damage
@@ -4381,6 +4389,11 @@ function showSpellModal(spell, spellIndex, options) {
 
       } else if (option.type === 'lifesteal') {
         // Lifesteal: Cast spell, roll damage, calculate and apply healing
+        // Announce description ONLY if not using concentration recast
+        if (!skipSlot) {
+          announceSpellDescription(spell);
+        }
+
         const afterCast = (spell, slot) => {
           let damageFormula = option.damageFormula;
           const actualSlotLevel = selectedSlotLevel != null ? selectedSlotLevel : (slot && slot.level);
@@ -4401,7 +4414,7 @@ function showSpellModal(spell, spellIndex, options) {
           const healingText = option.healingRatio === 'half' ? 'half the damage dealt' : 'the damage dealt';
           showNotification(`💉 Lifesteal! You regain HP equal to ${healingText}`, 'success');
         };
-        // Description already announced before modal opened
+        // Description announced above (if needed), don't announce again
         castSpell(spell, spellIndex, afterCast, selectedSlotLevel, selectedMetamagic, skipSlot, true);
 
         // Close modal after rolling
