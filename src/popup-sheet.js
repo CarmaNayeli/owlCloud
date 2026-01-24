@@ -6945,11 +6945,11 @@ function evaluateMathInFormula(formula) {
   const match = processedFormula.match(dicePattern);
 
   if (match) {
-    const mathPart = match[1]; // e.g., "(floor((9 + 1) / 6) + 1)"
+    const mathPart = match[1]; // e.g., "(Math.floor((9 + 1) / 6) + 1)"
     const dicePart = match[2]; // e.g., "d8"
 
-    // Check if the math part is evaluable
-    const mathOnlyPattern = /^[\d\s+\-*/().Math]+$/;
+    // Check if the math part is evaluable (allows numbers, operators, parens, and Math functions)
+    const mathOnlyPattern = /^[\d\s+\-*/().\w]+$/;
     if (mathOnlyPattern.test(mathPart)) {
       try {
         const result = Function(`'use strict'; return (${mathPart})`)();
