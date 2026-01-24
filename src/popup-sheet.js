@@ -3881,10 +3881,17 @@ function getSpellOptions(spell) {
 
   // Check for attack
   if (spell.attackRoll && spell.attackRoll !== '(none)') {
+    // Handle special flag from dicecloud.js that indicates we should use spell attack bonus
+    let attackFormula = spell.attackRoll;
+    if (attackFormula === 'use_spell_attack_bonus') {
+      const attackBonus = getSpellAttackBonus();
+      attackFormula = attackBonus >= 0 ? `1d20+${attackBonus}` : `1d20${attackBonus}`;
+    }
+
     options.push({
       type: 'attack',
       label: '⚔️ Spell Attack',
-      formula: spell.attackRoll,
+      formula: attackFormula,
       icon: '⚔️',
       color: '#e74c3c'
     });
@@ -3933,6 +3940,11 @@ function getSpellOptions(spell) {
     } else {
       // Normal spells - show separate buttons for each damage/healing type
       spell.damageRolls.forEach((roll, index) => {
+        // Skip rolls that are part of an OR group (they'll be represented by the main roll)
+        if (roll.isOrGroupMember) {
+          return;
+        }
+
         const isHealing = roll.damageType === 'healing';
 
         // Resolve non-slot-dependent variables for display (character level, ability mods, etc.)
@@ -3947,26 +3959,49 @@ function getSpellOptions(spell) {
         displayFormula = resolveVariablesInFormula(displayFormula);
         displayFormula = evaluateMathInFormula(displayFormula);
 
-        // Format damage type nicely
-        let damageTypeLabel = '';
-        if (roll.damageType && roll.damageType !== 'untyped') {
-          // Capitalize first letter
-          damageTypeLabel = roll.damageType.charAt(0).toUpperCase() + roll.damageType.slice(1);
+        // If this roll has OR choices, create separate buttons for each choice
+        if (roll.orChoices && roll.orChoices.length > 1) {
+          roll.orChoices.forEach(choice => {
+            // Format damage type nicely
+            let damageTypeLabel = '';
+            if (choice.damageType && choice.damageType !== 'untyped') {
+              damageTypeLabel = choice.damageType.charAt(0).toUpperCase() + choice.damageType.slice(1);
+            }
+
+            const label = damageTypeLabel ? `${displayFormula} ${damageTypeLabel}` : displayFormula;
+
+            options.push({
+              type: isHealing ? 'healing' : 'damage',
+              label: label,
+              formula: roll.damage,
+              damageType: choice.damageType,
+              index: index,
+              icon: isHealing ? '💚' : '💥',
+              color: isHealing ? '#27ae60' : '#e67e22'
+            });
+          });
+        } else {
+          // Single damage type - create one button
+          // Format damage type nicely
+          let damageTypeLabel = '';
+          if (roll.damageType && roll.damageType !== 'untyped') {
+            // Capitalize first letter
+            damageTypeLabel = roll.damageType.charAt(0).toUpperCase() + roll.damageType.slice(1);
+          }
+
+          // Build label: formula + damage type
+          const label = damageTypeLabel ? `${displayFormula} ${damageTypeLabel}` : displayFormula;
+
+          options.push({
+            type: isHealing ? 'healing' : 'damage',
+            label: label,
+            formula: roll.damage, // Keep original formula for actual rolling
+            damageType: roll.damageType,
+            index: index,
+            icon: isHealing ? '💚' : '💥',
+            color: isHealing ? '#27ae60' : '#e67e22'
+          });
         }
-
-        // Build label: formula + damage type
-        const label = damageTypeLabel ? `${displayFormula} ${damageTypeLabel}` : displayFormula;
-
-        options.push({
-          type: isHealing ? 'healing' : 'damage',
-          label: label,
-          formula: roll.damage, // Keep original formula for actual rolling
-          damageType: roll.damageType,
-          index: index,
-          icon: isHealing ? '💚' : '💥',
-          color: isHealing ? '#27ae60' : '#e67e22',
-          orChoices: roll.orChoices
-        });
       });
     }
   }
