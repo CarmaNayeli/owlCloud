@@ -3732,12 +3732,20 @@ function createSpellCard(spell, index) {
     }
     // Check for multiple damage types (e.g., spell with both healing and damage, but NOT lifesteal)
     else if (hasDamage && spell.damageRolls && spell.damageRolls.length > 0) {
-      // Create a button for each damage type
+      // Create a button for each damage type, but skip OR group members
       spell.damageRolls.forEach((damageRoll, rollIndex) => {
+        // Skip if this is a member of an OR group (not the primary)
+        if (damageRoll.isOrGroupMember) return;
+
         const isHealing = damageRoll.damageType && damageRoll.damageType.toLowerCase() === 'healing';
         const icon = isHealing ? '💚' : '💥';
-        const label = isHealing ? 'Healing' : 'Damage';
+        let label = isHealing ? 'Healing' : 'Damage';
         const bgColor = isHealing ? '#27ae60' : '#e67e22';
+
+        // If this roll has OR choices, add indicator
+        if (damageRoll.orChoices && damageRoll.orChoices.length > 1) {
+          label = `${label} (Choose)`;
+        }
 
         const buttonClass = hasAttack ? 'spell-damage-only-btn' : 'spell-damage-btn';
         headerButtons += `<button class="${buttonClass}" data-spell-index="${index}" data-damage-index="${rollIndex}" style="padding: 6px 12px; background: ${bgColor}; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">${icon} ${label}</button>`;
@@ -3848,11 +3856,30 @@ function createSpellCard(spell, index) {
       const damageIndex = parseInt(btn.dataset.damageIndex);
 
       // Get damage from damageRolls array or fallback to single damage
-      let damageFormula, damageType, isHealing;
+      let damageFormula, damageType, isHealing, orChoices;
       if (!isNaN(damageIndex) && spell.damageRolls && spell.damageRolls[damageIndex]) {
-        damageFormula = spell.damageRolls[damageIndex].damage;
-        damageType = spell.damageRolls[damageIndex].damageType;
+        const damageRoll = spell.damageRolls[damageIndex];
+        damageFormula = damageRoll.damage;
+        damageType = damageRoll.damageType;
+        orChoices = damageRoll.orChoices;
         isHealing = damageType && damageType.toLowerCase() === 'healing';
+
+        // If there are OR choices, prompt user to select damage type
+        if (orChoices && orChoices.length > 1) {
+          const choiceText = orChoices.map((c, i) => `${i + 1}. ${c.damageType}`).join('\n');
+          const choice = prompt(`Choose damage type for ${spell.name}:\n${choiceText}\n\nEnter number (1-${orChoices.length}):`);
+
+          if (choice === null) return; // User cancelled
+
+          const choiceIndex = parseInt(choice) - 1;
+          if (choiceIndex >= 0 && choiceIndex < orChoices.length) {
+            damageType = orChoices[choiceIndex].damageType;
+            isHealing = damageType && damageType.toLowerCase() === 'healing';
+          } else {
+            alert(`Invalid choice. Please enter a number between 1 and ${orChoices.length}.`);
+            return;
+          }
+        }
       } else {
         // Fallback to old-style single damage
         damageFormula = spell.damage;
@@ -3891,11 +3918,30 @@ function createSpellCard(spell, index) {
       const damageIndex = parseInt(btn.dataset.damageIndex);
 
       // Get damage from damageRolls array or fallback to single damage
-      let damageFormula, damageType, isHealing;
+      let damageFormula, damageType, isHealing, orChoices;
       if (!isNaN(damageIndex) && spell.damageRolls && spell.damageRolls[damageIndex]) {
-        damageFormula = spell.damageRolls[damageIndex].damage;
-        damageType = spell.damageRolls[damageIndex].damageType;
+        const damageRoll = spell.damageRolls[damageIndex];
+        damageFormula = damageRoll.damage;
+        damageType = damageRoll.damageType;
+        orChoices = damageRoll.orChoices;
         isHealing = damageType && damageType.toLowerCase() === 'healing';
+
+        // If there are OR choices, prompt user to select damage type
+        if (orChoices && orChoices.length > 1) {
+          const choiceText = orChoices.map((c, i) => `${i + 1}. ${c.damageType}`).join('\n');
+          const choice = prompt(`Choose damage type for ${spell.name}:\n${choiceText}\n\nEnter number (1-${orChoices.length}):`);
+
+          if (choice === null) return; // User cancelled
+
+          const choiceIndex = parseInt(choice) - 1;
+          if (choiceIndex >= 0 && choiceIndex < orChoices.length) {
+            damageType = orChoices[choiceIndex].damageType;
+            isHealing = damageType && damageType.toLowerCase() === 'healing';
+          } else {
+            alert(`Invalid choice. Please enter a number between 1 and ${orChoices.length}.`);
+            return;
+          }
+        }
       } else {
         // Fallback to old-style single damage
         damageFormula = spell.damage;

@@ -1076,6 +1076,13 @@
           const spellChildren = properties.filter(p => {
             if (p.type !== 'roll' && p.type !== 'damage' && p.type !== 'attack') return false;
 
+            // Skip inactive or disabled properties
+            if (p.inactive || p.disabled) return false;
+
+            // Only include if the property has actual roll/amount data
+            const hasRollData = p.roll || p.amount;
+            if (!hasRollData) return false;
+
             // Check if this spell is in the child property's ancestors
             if (p.ancestors && Array.isArray(p.ancestors)) {
               return p.ancestors.some(ancestor => {
@@ -1217,6 +1224,43 @@
               }
             }
           }
+
+          // Detect OR conditions (multiple damage rolls with same formula but different types)
+          // Group them together so UI can present as a choice
+          const processedOrGroups = new Set();
+          damageRolls.forEach((roll, index) => {
+            if (processedOrGroups.has(index)) return;
+
+            // Find other damage rolls with same formula but different damage type
+            const similarRolls = [];
+            for (let i = index + 1; i < damageRolls.length; i++) {
+              if (processedOrGroups.has(i)) continue;
+
+              if (damageRolls[i].damage === roll.damage &&
+                  damageRolls[i].damageType !== roll.damageType) {
+                similarRolls.push(i);
+              }
+            }
+
+            // If we found similar rolls, mark them as part of an OR group
+            if (similarRolls.length > 0) {
+              const orGroupId = `or_group_${index}`;
+              roll.orGroup = orGroupId;
+              roll.orChoices = [
+                { damageType: roll.damageType },
+                ...similarRolls.map(i => ({ damageType: damageRolls[i].damageType }))
+              ];
+
+              // Mark similar rolls as processed and part of this OR group
+              similarRolls.forEach(i => {
+                processedOrGroups.add(i);
+                damageRolls[i].orGroup = orGroupId;
+                damageRolls[i].isOrGroupMember = true; // Don't create separate button for this
+              });
+
+              debug.log(`🔀 Detected OR condition in "${prop.name}": ${roll.damage} with types: ${roll.orChoices.map(c => c.damageType).join(' OR ')}`);
+            }
+          });
 
           // Detect lifesteal mechanics (damage + healing where healing depends on damage dealt)
           let isLifesteal = false;
