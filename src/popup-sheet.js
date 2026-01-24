@@ -4667,6 +4667,9 @@ function getSpellOptions(spell) {
  * @param {boolean} descriptionAnnounced - Whether spell description was already announced
  */
 function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false) {
+  // Get theme-aware colors
+  const colors = getPopupThemeColors();
+
   // Check for custom macros
   const customMacros = getCustomMacros(spell.name);
   const hasCustomMacros = customMacros && customMacros.buttons && customMacros.buttons.length > 0;
@@ -4679,22 +4682,22 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
   // Create modal content
   const modal = document.createElement('div');
   modal.className = 'spell-modal';
-  modal.style.cssText = 'background: white; padding: 24px; border-radius: 8px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);';
+  modal.style.cssText = `background: ${colors.background}; padding: 24px; border-radius: 8px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);`;
 
   // Modal header
   const header = document.createElement('div');
-  header.style.cssText = 'margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #eee;';
+  header.style.cssText = `margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid ${colors.border};`;
 
   // Format spell level text
   let levelText = '';
   if (spell.level === 0) {
-    levelText = '<div style="color: #666; font-size: 14px;">Cantrip</div>';
+    levelText = `<div style="color: ${colors.infoText}; font-size: 14px;">Cantrip</div>`;
   } else if (spell.level) {
-    levelText = `<div style="color: #666; font-size: 14px;">Level ${spell.level} Spell</div>`;
+    levelText = `<div style="color: ${colors.infoText}; font-size: 14px;">Level ${spell.level} Spell</div>`;
   }
 
   header.innerHTML = `
-    <h2 style="margin: 0 0 8px 0; color: #333;">Cast ${spell.name}</h2>
+    <h2 style="margin: 0 0 8px 0; color: ${colors.heading};">Cast ${spell.name}</h2>
     ${levelText}
   `;
 
@@ -4704,14 +4707,14 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
   let slotSelect = null;
   if (spell.level && spell.level > 0) {
     const slotSection = document.createElement('div');
-    slotSection.style.cssText = 'margin-bottom: 16px; padding: 12px; background: #f8f9fa; border-radius: 6px;';
+    slotSection.style.cssText = `margin-bottom: 16px; padding: 12px; background: ${colors.infoBox}; border-radius: 6px;`;
 
     const slotLabel = document.createElement('label');
-    slotLabel.style.cssText = 'display: block; margin-bottom: 8px; font-weight: bold; color: #333;';
+    slotLabel.style.cssText = `display: block; margin-bottom: 8px; font-weight: bold; color: ${colors.text};`;
     slotLabel.textContent = 'Cast at level:';
 
     slotSelect = document.createElement('select');
-    slotSelect.style.cssText = 'width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 4px; font-size: 14px;';
+    slotSelect.style.cssText = `width: 100%; padding: 8px; border: 2px solid ${colors.border}; border-radius: 4px; font-size: 14px; background: ${colors.background}; color: ${colors.text};`;
 
     // Check for Pact Magic slots (Warlock)
     const pactMagicSlotLevel = characterData.spellSlots?.pactMagicSlotLevel;
@@ -4849,10 +4852,10 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
 
   if (metamagicFeatures.length > 0) {
     const metamagicSection = document.createElement('div');
-    metamagicSection.style.cssText = 'margin-bottom: 16px; padding: 12px; background: #f0f8ff; border-radius: 6px;';
+    metamagicSection.style.cssText = `margin-bottom: 16px; padding: 12px; background: ${colors.infoBox}; border-radius: 6px; border: 1px solid ${colors.border};`;
 
     const metamagicTitle = document.createElement('div');
-    metamagicTitle.style.cssText = 'font-weight: bold; margin-bottom: 8px; color: #333;';
+    metamagicTitle.style.cssText = `font-weight: bold; margin-bottom: 8px; color: ${colors.text};`;
     metamagicTitle.textContent = 'Metamagic:';
     metamagicSection.appendChild(metamagicTitle);
 
@@ -4867,7 +4870,7 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
 
       const label = document.createElement('span');
       label.textContent = feature.name;
-      label.style.cssText = 'font-size: 14px;';
+      label.style.cssText = `font-size: 14px; color: ${colors.infoText};`;
 
       checkboxContainer.appendChild(checkbox);
       checkboxContainer.appendChild(label);
