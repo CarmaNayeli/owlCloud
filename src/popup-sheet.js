@@ -3570,6 +3570,10 @@ function buildSpellSlotsDisplay() {
   let totalCurrentSlots = 0;
   let totalMaxSlots = 0;
 
+  // Check for Pact Magic (Warlock)
+  const pactMagicSlotLevel = characterData.spellSlots.pactMagicSlotLevel;
+  const hasPactMagic = pactMagicSlotLevel && characterData.spellSlots.pactMagicSlotsMax > 0;
+
   // Check each level (1-9)
   for (let level = 1; level <= 9; level++) {
     const slotVar = `level${level}SpellSlots`;
@@ -3581,7 +3585,7 @@ function buildSpellSlotsDisplay() {
     if (maxSlots > 0) {
       hasAnySlots = true;
       const currentSlots = characterData.spellSlots[slotVar] || 0;
-      
+
       // Track totals
       totalCurrentSlots += currentSlots;
       totalMaxSlots += maxSlots;
@@ -3589,8 +3593,12 @@ function buildSpellSlotsDisplay() {
       const slotCard = document.createElement('div');
       slotCard.className = currentSlots > 0 ? 'spell-slot-card' : 'spell-slot-card empty';
 
+      // Check if this is a Pact Magic slot
+      const isPactSlot = hasPactMagic && level === pactMagicSlotLevel;
+      const levelLabel = isPactSlot ? `Pact (${level})` : `Level ${level}`;
+
       slotCard.innerHTML = `
-        <div class="spell-slot-level">Level ${level}</div>
+        <div class="spell-slot-level">${levelLabel}</div>
         <div class="spell-slot-count">${currentSlots}/${maxSlots}</div>
       `;
 
@@ -4659,6 +4667,9 @@ function getSpellOptions(spell) {
  * @param {boolean} descriptionAnnounced - Whether spell description was already announced
  */
 function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false) {
+  // Get theme-aware colors
+  const colors = getPopupThemeColors();
+
   // Check for custom macros
   const customMacros = getCustomMacros(spell.name);
   const hasCustomMacros = customMacros && customMacros.buttons && customMacros.buttons.length > 0;
@@ -4671,22 +4682,22 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
   // Create modal content
   const modal = document.createElement('div');
   modal.className = 'spell-modal';
-  modal.style.cssText = 'background: white; padding: 24px; border-radius: 8px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);';
+  modal.style.cssText = `background: ${colors.background}; padding: 24px; border-radius: 8px; max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);`;
 
   // Modal header
   const header = document.createElement('div');
-  header.style.cssText = 'margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #eee;';
+  header.style.cssText = `margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid ${colors.border};`;
 
   // Format spell level text
   let levelText = '';
   if (spell.level === 0) {
-    levelText = '<div style="color: #666; font-size: 14px;">Cantrip</div>';
+    levelText = `<div style="color: ${colors.infoText}; font-size: 14px;">Cantrip</div>`;
   } else if (spell.level) {
-    levelText = `<div style="color: #666; font-size: 14px;">Level ${spell.level} Spell</div>`;
+    levelText = `<div style="color: ${colors.infoText}; font-size: 14px;">Level ${spell.level} Spell</div>`;
   }
 
   header.innerHTML = `
-    <h2 style="margin: 0 0 8px 0; color: #333;">Cast ${spell.name}</h2>
+    <h2 style="margin: 0 0 8px 0; color: ${colors.heading};">Cast ${spell.name}</h2>
     ${levelText}
   `;
 
@@ -4696,16 +4707,21 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
   let slotSelect = null;
   if (spell.level && spell.level > 0) {
     const slotSection = document.createElement('div');
-    slotSection.style.cssText = 'margin-bottom: 16px; padding: 12px; background: #f8f9fa; border-radius: 6px;';
+    slotSection.style.cssText = `margin-bottom: 16px; padding: 12px; background: ${colors.infoBox}; border-radius: 6px;`;
 
     const slotLabel = document.createElement('label');
-    slotLabel.style.cssText = 'display: block; margin-bottom: 8px; font-weight: bold; color: #333;';
+    slotLabel.style.cssText = `display: block; margin-bottom: 8px; font-weight: bold; color: ${colors.text};`;
     slotLabel.textContent = 'Cast at level:';
 
     slotSelect = document.createElement('select');
-    slotSelect.style.cssText = 'width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 4px; font-size: 14px;';
+    slotSelect.style.cssText = `width: 100%; padding: 8px; border: 2px solid ${colors.border}; border-radius: 4px; font-size: 14px; background: ${colors.background}; color: ${colors.text};`;
+
+    // Check for Pact Magic slots (Warlock)
+    const pactMagicSlotLevel = characterData.spellSlots?.pactMagicSlotLevel;
+    const hasPactMagic = pactMagicSlotLevel && characterData.spellSlots?.pactMagicSlotsMax > 0;
 
     // Add options for available spell slots (spell level and higher)
+    let hasAnySlots = false;
     for (let level = spell.level; level <= 9; level++) {
       const slotsProp = `level${level}SpellSlots`;
       const maxSlotsProp = `level${level}SpellSlotsMax`;
@@ -4713,13 +4729,28 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
       const max = characterData.spellSlots?.[maxSlotsProp] || characterData[maxSlotsProp] || 0;
 
       if (max > 0) {
+        hasAnySlots = true;
         const option = document.createElement('option');
         option.value = level;
-        option.textContent = `Level ${level} (${available}/${max} slots)`;
+
+        // Mark Pact Magic slots distinctly
+        const isPactSlot = hasPactMagic && level === pactMagicSlotLevel;
+        const slotLabel = isPactSlot ? `Level ${level} - Pact Magic (${available}/${max})` : `Level ${level} (${available}/${max} slots)`;
+        option.textContent = slotLabel;
         option.disabled = available === 0;
         if (level === spell.level) option.selected = true;
         slotSelect.appendChild(option);
       }
+    }
+
+    // If no slots available at all, show a message
+    if (!hasAnySlots) {
+      const noSlotsOption = document.createElement('option');
+      noSlotsOption.value = spell.level;
+      noSlotsOption.textContent = 'No spell slots available';
+      noSlotsOption.disabled = true;
+      noSlotsOption.selected = true;
+      slotSelect.appendChild(noSlotsOption);
     }
 
     slotSection.appendChild(slotLabel);
@@ -4733,11 +4764,14 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
 
   // Concentration spell recast option OR special spells that allow reuse without slots
   // (if already concentrating on this spell, or for spells like Spiritual Weapon, Meld into Stone)
+  // NOTE: Cantrips (level 0) never use slots, so don't show this checkbox for them
   let skipSlotCheckbox = null;
+  const isCantrip = spell.level === 0;
   const isConcentrationRecast = spell.concentration && concentratingSpell === spell.name;
 
   // Spells that allow repeated use without consuming slots (non-concentration)
-  const isReuseableSpellType = isReuseableSpell(spell.name, characterData);
+  // Exclude cantrips since they never use slots anyway
+  const isReuseableSpellType = !isCantrip && isReuseableSpell(spell.name, characterData);
 
   // Check if this spell was already cast (stored in localStorage or session)
   const castSpellsKey = `castSpells_${characterData.name}`;
@@ -4745,7 +4779,8 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
   const wasAlreadyCast = castSpells.includes(spell.name);
 
   // Show checkbox for concentration recasts OR for all reuseable spells (even on first cast)
-  if (isConcentrationRecast || isReuseableSpellType) {
+  // But NOT for cantrips since they never consume slots
+  if (!isCantrip && (isConcentrationRecast || isReuseableSpellType)) {
     const recastSection = document.createElement('div');
     recastSection.style.cssText = 'margin-bottom: 16px; padding: 12px; background: #fff3cd; border-radius: 6px; border: 2px solid #f39c12;';
 
@@ -4817,10 +4852,10 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
 
   if (metamagicFeatures.length > 0) {
     const metamagicSection = document.createElement('div');
-    metamagicSection.style.cssText = 'margin-bottom: 16px; padding: 12px; background: #f0f8ff; border-radius: 6px;';
+    metamagicSection.style.cssText = `margin-bottom: 16px; padding: 12px; background: ${colors.infoBox}; border-radius: 6px; border: 1px solid ${colors.border};`;
 
     const metamagicTitle = document.createElement('div');
-    metamagicTitle.style.cssText = 'font-weight: bold; margin-bottom: 8px; color: #333;';
+    metamagicTitle.style.cssText = `font-weight: bold; margin-bottom: 8px; color: ${colors.text};`;
     metamagicTitle.textContent = 'Metamagic:';
     metamagicSection.appendChild(metamagicTitle);
 
@@ -4835,7 +4870,7 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
 
       const label = document.createElement('span');
       label.textContent = feature.name;
-      label.style.cssText = 'font-size: 14px;';
+      label.style.cssText = `font-size: 14px; color: ${colors.infoText};`;
 
       checkboxContainer.appendChild(checkbox);
       checkboxContainer.appendChild(label);
@@ -8600,16 +8635,31 @@ function roll(name, formula, prerolledResult = null) {
       const { modifiedFormula, effectNotes } = applyEffectModifiers(name, resolvedFormula);
       let finalFormula = modifiedFormula;
 
+      // Check if this is a skill/ability check (same logic as popup detection)
+      const isSkillOrAbilityCheck = rollLower.includes('check') ||
+                        rollLower.includes('acrobatics') || rollLower.includes('animal') ||
+                        rollLower.includes('arcana') || rollLower.includes('athletics') ||
+                        rollLower.includes('deception') || rollLower.includes('history') ||
+                        rollLower.includes('insight') || rollLower.includes('intimidation') ||
+                        rollLower.includes('investigation') || rollLower.includes('medicine') ||
+                        rollLower.includes('nature') || rollLower.includes('perception') ||
+                        rollLower.includes('performance') || rollLower.includes('persuasion') ||
+                        rollLower.includes('religion') || rollLower.includes('sleight') ||
+                        rollLower.includes('stealth') || rollLower.includes('survival') ||
+                        rollLower.includes('strength') || rollLower.includes('dexterity') ||
+                        rollLower.includes('constitution') || rollLower.includes('intelligence') ||
+                        rollLower.includes('wisdom') || rollLower.includes('charisma');
+
       debug.log(`🎯 Applying chosen effect: ${chosenEffect.name}`, {
         modifier: chosenEffect.modifier,
         rollLower: rollLower,
         hasSkillMod: !!chosenEffect.modifier?.skill,
-        includesCheck: rollLower.includes('check'),
+        isSkillOrAbilityCheck: isSkillOrAbilityCheck,
         formulaBefore: finalFormula
       });
 
       // Add the chosen effect's modifier
-      if (chosenEffect.modifier?.skill && rollLower.includes('check')) {
+      if (chosenEffect.modifier?.skill && isSkillOrAbilityCheck) {
         finalFormula += ` + ${chosenEffect.modifier.skill}`;
         effectNotes.push(`[${chosenEffect.icon} ${chosenEffect.name}: ${chosenEffect.modifier.skill}]`);
         debug.log(`✅ Added skill modifier: ${chosenEffect.modifier.skill}, formula now: ${finalFormula}`);
