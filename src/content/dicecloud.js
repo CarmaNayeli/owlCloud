@@ -435,12 +435,12 @@
       'pactMagic', 'pactMagicUses', 'spellSlotsPact'
     ];
 
-    // Also check for slot level variable
+    // Also check for slot level variable (check pact-specific names first!)
     const slotLevelVarNames = [
-      'slotLevel', // Generic slot level (commonly used in DiceCloud)
-      'pactSlotLevelVisible', 'pactSlotLevel', // TLoE/common DiceCloud naming
+      'pactSlotLevelVisible', 'pactSlotLevel', // TLoE/common DiceCloud naming - check first!
       'pactMagicSlotLevel', 'warlockSlotLevel',
-      'pactMagicLevel', 'warlockSpellLevel', 'pactCasterLevel'
+      'pactMagicLevel', 'warlockSpellLevel', 'pactCasterLevel',
+      'slotLevel' // Generic slot level - check last as fallback
     ];
 
     let foundPactMagic = false;
@@ -451,15 +451,33 @@
 
         // Try to find the slot level from various sources
         let slotLevel = 1;
-        for (const levelVarName of slotLevelVarNames) {
-          if (variables[levelVarName]) {
-            slotLevel = variables[levelVarName].value || 1;
-            break;
+
+        // First check if the pact slot variable itself has a spellSlotLevel property
+        // DiceCloud stores this as a property of Spell Slot type attributes
+        if (variables[varName].spellSlotLevel) {
+          slotLevel = variables[varName].spellSlotLevel;
+          debug.log(`  📊 Found slot level ${slotLevel} from ${varName}.spellSlotLevel`);
+        } else if (variables[varName].slotLevel) {
+          slotLevel = variables[varName].slotLevel;
+          debug.log(`  📊 Found slot level ${slotLevel} from ${varName}.slotLevel`);
+        } else if (variables[varName].level) {
+          slotLevel = variables[varName].level;
+          debug.log(`  📊 Found slot level ${slotLevel} from ${varName}.level`);
+        } else {
+          // Try separate slot level variables
+          for (const levelVarName of slotLevelVarNames) {
+            if (variables[levelVarName]) {
+              slotLevel = variables[levelVarName].value || 1;
+              debug.log(`  📊 Found slot level ${slotLevel} from variable ${levelVarName}`);
+              break;
+            }
           }
         }
+
         // Fallback: calculate from warlock level (slots are at ceil(warlockLevel/2) up to 5)
         if (slotLevel === 1 && variables.warlockLevel) {
           slotLevel = Math.min(5, Math.ceil(variables.warlockLevel.value / 2));
+          debug.log(`  📊 Calculated slot level ${slotLevel} from warlockLevel`);
         }
 
         // Store pact magic slots separately (they recharge on short rest, regular slots on long rest)
@@ -469,6 +487,7 @@
         characterData.spellSlots.pactMagicSlotLevel = slotLevel;
 
         debug.log(`  ✅ Pact Magic: ${currentSlots}/${maxSlots} at level ${slotLevel} (from ${varName})`);
+        debug.log(`  📋 Full ${varName} variable:`, JSON.stringify(variables[varName]));
         foundPactMagic = true;
         break;
       }
