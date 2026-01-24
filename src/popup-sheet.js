@@ -1710,11 +1710,11 @@ function buildActionsDisplay(container, actions) {
       actionOptions.forEach((option, optionIndex) => {
         const actionBtn = document.createElement('button');
         actionBtn.className = `${option.type}-btn`;
-        
+
         // Add edge case note if present
         const edgeCaseNote = option.edgeCaseNote ? `<div style="font-size: 0.7em; color: #666; margin-top: 1px;">${option.edgeCaseNote}</div>` : '';
         actionBtn.innerHTML = `${option.label}${edgeCaseNote}`;
-        
+
         actionBtn.style.cssText = `
           background: ${option.color};
           color: white;
@@ -1727,17 +1727,12 @@ function buildActionsDisplay(container, actions) {
           margin-right: 4px;
           margin-bottom: 4px;
         `;
-        
+
         actionBtn.addEventListener('click', () => {
           // Handle different option types
           if (option.type === 'attack') {
             // Mark action as used for attacks
             markActionAsUsed('action');
-
-            // Announce the action with description AFTER action tracking
-            if (action.description) {
-              announceAction(action);
-            }
 
             // Add Sneak Attack if toggle is enabled and this is a weapon attack
             let attackFormula = option.formula;
@@ -4510,6 +4505,12 @@ function validateSpellData(spell) {
 function getSpellOptions(spell) {
   // Validate spell data first
   const validation = validateSpellData(spell);
+
+  debug.log(`🔮 getSpellOptions for "${spell.name}":`, {
+    attackRoll: spell.attackRoll,
+    damageRolls: spell.damageRolls,
+    concentration: spell.concentration
+  });
 
   const options = [];
 
