@@ -2,11 +2,18 @@
 
 A browser extension that integrates Dice Cloud with Roll20. Import D&D character data using the DiceCloud REST API, use interactive character sheets with click-to-roll functionality, and manage combat with GM tools.
 
-**🎲 Version 1.1.4 - Inventory Management & QoL Improvements**
+**🎲 Version 1.1.6 - Paladin Feature Improvements**
 
-**Quick Download:** [Firefox](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-firefox-v1.1.4.zip) | [Chrome](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-chrome-v1.1.4.zip) | [Safari](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-safari-v1.1.4.zip)
+**Quick Download:** [Firefox](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-firefox-v1.1.6.zip) | [Chrome](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-chrome-v1.1.6.zip) | [Safari](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-safari-v1.1.6.zip)
 
 ### 📋 Recent Changes
+
+**Version 1.1.6**
+- Custom modal for Lay on Hands: Heal with healing pool selection
+- Proper separation of Lay on Hands: Heal (modal) vs Restore (normal handler)
+- Consistent button text across all action buttons
+- Robust name normalization for punctuation/spacing variations
+- Enhanced edge case system for class features
 
 **Version 1.1.4**
 - Inventory management improvements with enhanced filtering and organization
