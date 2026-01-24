@@ -1076,12 +1076,6 @@
           const spellChildren = properties.filter(p => {
             if (p.type !== 'roll' && p.type !== 'damage' && p.type !== 'attack') return false;
 
-            // Skip inactive or disabled properties
-            if (p.inactive || p.disabled) {
-              debug.log(`  ⏭️ Skipping inactive/disabled child: ${p.name} (${p.type})`);
-              return false;
-            }
-
             // Check if this spell is in the child property's ancestors
             if (p.ancestors && Array.isArray(p.ancestors)) {
               const hasSpellAsAncestor = p.ancestors.some(ancestor => {
@@ -1089,13 +1083,10 @@
                 return ancestorId === prop._id;
               });
               if (hasSpellAsAncestor) {
-                debug.log(`  ✅ Including spell child: ${p.name} (${p.type})`, { amount: p.amount, roll: p.roll });
-              } else {
-                debug.log(`  ⏭️ Skipping child not descended from this spell: ${p.name} (${p.type})`);
+                console.log(`  ✅ Including spell child: ${p.name} (${p.type})`, { amount: p.amount, roll: p.roll, inactive: p.inactive, disabled: p.disabled });
               }
               return hasSpellAsAncestor;
             }
-            debug.log(`  ⏭️ Skipping child with no ancestors: ${p.name} (${p.type})`);
             return false;
           });
 
