@@ -199,6 +199,13 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
           break;
         }
 
+        case 'postTurnToDiscord': {
+          // New method: write turn to Supabase, Pip Bot posts with buttons
+          const turnResult = await postTurnToSupabase(request.payload);
+          response = turnResult;
+          break;
+        }
+
         // Discord Pairing (Supabase)
         case 'createDiscordPairing': {
           const pairingResult = await createDiscordPairing(request.code, request.username);
@@ -208,7 +215,24 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
         case 'checkDiscordPairing': {
           const checkResult = await checkDiscordPairing(request.code);
+          // If connected, store pairing ID and start polling
+          if (checkResult.success && checkResult.connected && checkResult.pairingId) {
+            await storePairingId(checkResult.pairingId);
+            await startCommandPolling(checkResult.pairingId);
+          }
           response = checkResult;
+          break;
+        }
+
+        case 'startCommandPolling': {
+          await startCommandPolling(request.pairingId);
+          response = { success: true };
+          break;
+        }
+
+        case 'stopCommandPolling': {
+          stopCommandPolling();
+          response = { success: true };
           break;
         }
 
@@ -1070,7 +1094,8 @@ async function checkDiscordPairing(code) {
             success: true,
             connected: true,
             webhookUrl: pairing.webhook_url,
-            serverName: pairing.discord_guild_name
+            serverName: pairing.discord_guild_name,
+            pairingId: pairing.id // Return pairing ID for command polling
           };
         } else {
           return { success: true, connected: false };
@@ -1085,4 +1110,418 @@ async function checkDiscordPairing(code) {
     debug.error('❌ Supabase check error:', error);
     return { success: false, error: error.message };
   }
+}
+
+// ============================================================================
+// Discord Command Polling (Discord → Extension → Roll20)
+// ============================================================================
+
+let commandPollInterval = null;
+let currentPairingId = null;
+const COMMAND_POLL_INTERVAL_MS = 2000; // Poll every 2 seconds
+
+/**
+ * Start polling for Discord commands
+ * Called when webhook is connected and user is in Roll20
+ */
+async function startCommandPolling(pairingId) {
+  if (commandPollInterval) {
+    debug.log('Command polling already active');
+    return;
+  }
+
+  if (!pairingId) {
+    // Try to get pairing ID from storage
+    const settings = await browserAPI.storage.local.get(['discordPairingId']);
+    pairingId = settings.discordPairingId;
+  }
+
+  if (!pairingId) {
+    debug.warn('No pairing ID available for command polling');
+    return;
+  }
+
+  currentPairingId = pairingId;
+  debug.log('🎧 Starting Discord command polling for pairing:', pairingId);
+
+  // Poll immediately, then set interval
+  await pollForCommands();
+  commandPollInterval = setInterval(pollForCommands, COMMAND_POLL_INTERVAL_MS);
+}
+
+/**
+ * Stop polling for Discord commands
+ */
+function stopCommandPolling() {
+  if (commandPollInterval) {
+    clearInterval(commandPollInterval);
+    commandPollInterval = null;
+    debug.log('🔇 Stopped Discord command polling');
+  }
+}
+
+/**
+ * Poll Supabase for pending commands
+ */
+async function pollForCommands() {
+  if (!isSupabaseConfigured() || !currentPairingId) {
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/rollcloud_commands?pairing_id=eq.${currentPairingId}&status=eq.pending&order=created_at.asc&limit=5`,
+      {
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+        }
+      }
+    );
+
+    if (!response.ok) {
+      debug.warn('Failed to poll for commands:', response.status);
+      return;
+    }
+
+    const commands = await response.json();
+
+    if (commands.length > 0) {
+      debug.log(`📥 Received ${commands.length} command(s) from Discord`);
+
+      for (const command of commands) {
+        await executeCommand(command);
+      }
+    }
+  } catch (error) {
+    debug.error('Command poll error:', error);
+  }
+}
+
+/**
+ * Execute a command from Discord
+ */
+async function executeCommand(command) {
+  debug.log('⚡ Executing command:', command.command_type, command);
+
+  try {
+    // Mark as processing
+    await updateCommandStatus(command.id, 'processing');
+
+    let result;
+
+    switch (command.command_type) {
+      case 'roll':
+        result = await executeRollCommand(command);
+        break;
+
+      case 'use_action':
+        result = await executeUseActionCommand(command, 'action');
+        break;
+
+      case 'use_bonus':
+        result = await executeUseActionCommand(command, 'bonus');
+        break;
+
+      case 'end_turn':
+        result = await executeEndTurnCommand(command);
+        break;
+
+      case 'use_ability':
+        result = await executeUseAbilityCommand(command);
+        break;
+
+      default:
+        result = { success: false, error: `Unknown command type: ${command.command_type}` };
+    }
+
+    // Mark as completed or failed
+    await updateCommandStatus(
+      command.id,
+      result.success ? 'completed' : 'failed',
+      result
+    );
+
+    debug.log('✅ Command executed:', command.command_type, result);
+  } catch (error) {
+    debug.error('❌ Command execution failed:', error);
+    await updateCommandStatus(command.id, 'failed', null, error.message);
+  }
+}
+
+/**
+ * Execute a roll command (e.g., attack roll, save, check)
+ */
+async function executeRollCommand(command) {
+  const { action_name, command_data } = command;
+
+  // Build roll string from command data
+  const rollString = command_data.roll_string || `/roll 1d20`;
+  const rollName = action_name || command_data.roll_name || 'Discord Roll';
+
+  // Send to Roll20
+  await sendRollToAllRoll20Tabs({
+    formula: rollString,
+    name: rollName,
+    source: 'discord'
+  });
+
+  return { success: true, message: `Rolled ${rollName}` };
+}
+
+/**
+ * Execute an action/bonus action use command
+ */
+async function executeUseActionCommand(command, actionType) {
+  const { action_name, command_data } = command;
+
+  // Send action use to Roll20 tabs
+  const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
+
+  for (const tab of tabs) {
+    try {
+      await browserAPI.tabs.sendMessage(tab.id, {
+        action: 'useActionFromDiscord',
+        actionType: actionType,
+        actionName: action_name,
+        commandData: command_data
+      });
+    } catch (err) {
+      debug.warn(`Failed to send action to tab ${tab.id}:`, err);
+    }
+  }
+
+  return { success: true, message: `Used ${actionType}: ${action_name}` };
+}
+
+/**
+ * Execute end turn command
+ */
+async function executeEndTurnCommand(command) {
+  const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
+
+  for (const tab of tabs) {
+    try {
+      await browserAPI.tabs.sendMessage(tab.id, {
+        action: 'endTurnFromDiscord'
+      });
+    } catch (err) {
+      debug.warn(`Failed to send end turn to tab ${tab.id}:`, err);
+    }
+  }
+
+  return { success: true, message: 'Turn ended' };
+}
+
+/**
+ * Execute use ability command (spell, feature, etc.)
+ */
+async function executeUseAbilityCommand(command) {
+  const { action_name, command_data } = command;
+
+  const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
+
+  for (const tab of tabs) {
+    try {
+      await browserAPI.tabs.sendMessage(tab.id, {
+        action: 'useAbilityFromDiscord',
+        abilityName: action_name,
+        abilityData: command_data
+      });
+    } catch (err) {
+      debug.warn(`Failed to send ability use to tab ${tab.id}:`, err);
+    }
+  }
+
+  return { success: true, message: `Used ability: ${action_name}` };
+}
+
+/**
+ * Update command status in Supabase
+ */
+async function updateCommandStatus(commandId, status, result = null, errorMessage = null) {
+  if (!isSupabaseConfigured()) return;
+
+  try {
+    const update = {
+      status: status,
+      processed_at: new Date().toISOString()
+    };
+
+    if (result) {
+      update.result = result;
+    }
+
+    if (errorMessage) {
+      update.error_message = errorMessage;
+    }
+
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/rollcloud_commands?id=eq.${commandId}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify(update)
+      }
+    );
+
+    if (!response.ok) {
+      debug.warn('Failed to update command status:', response.status);
+    }
+  } catch (error) {
+    debug.error('Error updating command status:', error);
+  }
+}
+
+/**
+ * Store pairing ID for command polling
+ */
+async function storePairingId(pairingId) {
+  await browserAPI.storage.local.set({ discordPairingId: pairingId });
+  debug.log('Stored pairing ID:', pairingId);
+}
+
+// Auto-start polling when extension loads and webhook is configured
+(async () => {
+  try {
+    const settings = await browserAPI.storage.local.get(['discordWebhookEnabled', 'discordPairingId']);
+    if (settings.discordWebhookEnabled && settings.discordPairingId) {
+      debug.log('Auto-starting command polling...');
+      await startCommandPolling(settings.discordPairingId);
+    }
+  } catch (error) {
+    debug.warn('Failed to auto-start command polling:', error);
+  }
+})();
+
+// ============================================================================
+// Turn Posting via Supabase (for Pip Bot to add buttons)
+// ============================================================================
+
+/**
+ * Post turn data to Supabase for Pip Bot to pick up and post with buttons
+ * This enables interactive buttons on Discord messages (webhooks can't do this)
+ */
+async function postTurnToSupabase(payload) {
+  // Check if Supabase is configured
+  if (!isSupabaseConfigured()) {
+    // Fall back to webhook if Supabase not configured
+    debug.log('Supabase not configured, falling back to webhook');
+    return await postToDiscordWebhook(payload);
+  }
+
+  // Get pairing ID
+  const settings = await browserAPI.storage.local.get(['discordPairingId']);
+  if (!settings.discordPairingId) {
+    debug.warn('No pairing ID, falling back to webhook');
+    return await postToDiscordWebhook(payload);
+  }
+
+  const { type, characterName, round, actions, initiative } = payload;
+
+  // Map payload type to event type
+  const eventTypeMap = {
+    turnStart: 'turn_start',
+    turnEnd: 'turn_end',
+    actionUpdate: 'action_update',
+    combatStart: 'combat_start',
+    roundChange: 'round_change'
+  };
+
+  const eventType = eventTypeMap[type] || type;
+
+  try {
+    // Get character data for available actions
+    const characterData = await getCharacterData();
+    const availableActions = characterData ? extractAvailableActions(characterData) : [];
+
+    const turnData = {
+      pairing_id: settings.discordPairingId,
+      event_type: eventType,
+      character_name: characterName,
+      character_id: characterData?.id || null,
+      round_number: round || null,
+      initiative: initiative || null,
+      action_available: actions ? !actions.action : true,
+      bonus_available: actions ? !actions.bonus : true,
+      movement_available: actions ? !actions.movement : true,
+      reaction_available: actions ? !actions.reaction : true,
+      available_actions: availableActions,
+      status: 'pending'
+    };
+
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/rollcloud_turns`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Prefer': 'return=representation'
+      },
+      body: JSON.stringify(turnData)
+    });
+
+    if (response.ok) {
+      debug.log('✅ Turn posted to Supabase for Pip Bot:', eventType);
+      return { success: true };
+    } else {
+      const error = await response.text();
+      debug.warn('❌ Failed to post turn to Supabase:', error);
+      // Fall back to webhook
+      return await postToDiscordWebhook(payload);
+    }
+  } catch (error) {
+    debug.error('❌ Error posting turn to Supabase:', error);
+    // Fall back to webhook
+    return await postToDiscordWebhook(payload);
+  }
+}
+
+/**
+ * Extract available actions from character data for Discord buttons
+ * Returns array of { name, type, roll } objects
+ */
+function extractAvailableActions(characterData) {
+  const actions = [];
+
+  // Extract attacks
+  if (characterData.attacks) {
+    for (const attack of characterData.attacks) {
+      actions.push({
+        name: attack.name,
+        type: 'action',
+        roll: attack.attackBonus ? `1d20+${attack.attackBonus}` : '1d20',
+        damage: attack.damage
+      });
+    }
+  }
+
+  // Extract spells (cantrips and prepared)
+  if (characterData.spells) {
+    for (const spell of characterData.spells) {
+      if (spell.prepared || spell.level === 0) {
+        actions.push({
+          name: spell.name,
+          type: spell.level === 0 ? 'cantrip' : 'spell',
+          level: spell.level,
+          actionType: spell.castingTime?.includes('bonus') ? 'bonus' : 'action'
+        });
+      }
+    }
+  }
+
+  // Extract common actions
+  actions.push(
+    { name: 'Dodge', type: 'action', builtin: true },
+    { name: 'Dash', type: 'action', builtin: true },
+    { name: 'Disengage', type: 'action', builtin: true },
+    { name: 'Help', type: 'action', builtin: true },
+    { name: 'Hide', type: 'action', builtin: true, roll: '1d20+stealth' }
+  );
+
+  return actions;
 }

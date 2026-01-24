@@ -1,4 +1,5 @@
 import { Events, ActivityType } from 'discord.js';
+import { startTurnPoller } from '../rollcloud/turnPoller.js';
 
 export default {
   name: Events.ClientReady,
@@ -14,6 +15,13 @@ export default {
       activities: [{ name: 'Dice Cat | /help', type: ActivityType.Playing }],
       status: 'online',
     });
+
+    // Start RollCloud turn poller (if Supabase is configured)
+    if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY) {
+      startTurnPoller(client);
+    } else {
+      console.log('ℹ️ RollCloud turn poller disabled (Supabase not configured)');
+    }
 
     console.log('🤖 Pip Bot is ready!\n');
   }
