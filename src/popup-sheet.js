@@ -1830,8 +1830,9 @@ function buildActionsDisplay(container, actions) {
       });
     }
 
-    // Add "Use" button for actions with no attack/damage but have descriptions
-    if (actionOptions.length === 0 && action.description && !action.attackRoll && !action.damage) {
+    // Add "Use" button for actions with no attack/damage options
+    // Show for any action that should be usable (has description OR is a valid action type)
+    if (actionOptions.length === 0 && !actionOptionsResult.skipNormalButtons) {
       const useBtn = document.createElement('button');
       useBtn.className = 'use-btn';
       useBtn.textContent = '✨ Use';
@@ -2643,6 +2644,33 @@ function buildActionsDisplay(container, actions) {
       buttonsDiv.appendChild(useBtn);
     }
 
+    // Add Details button if there's a description
+    if (action.description) {
+      const detailsBtn = document.createElement('button');
+      detailsBtn.className = 'details-btn';
+      detailsBtn.textContent = '📋 Details';
+      detailsBtn.style.cssText = `
+        background: #34495e;
+        color: white;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: bold;
+        margin-right: 4px;
+        margin-bottom: 4px;
+      `;
+      detailsBtn.addEventListener('click', () => {
+        const descDiv = actionCard.querySelector('.action-description');
+        if (descDiv) {
+          descDiv.style.display = descDiv.style.display === 'none' ? 'block' : 'none';
+          detailsBtn.textContent = descDiv.style.display === 'none' ? '📋 Details' : '📋 Hide';
+        }
+      });
+      buttonsDiv.appendChild(detailsBtn);
+    }
+
     // Append nameDiv and buttonsDiv to actionHeader
     actionHeader.appendChild(nameDiv);
     actionHeader.appendChild(buttonsDiv);
@@ -2650,14 +2678,15 @@ function buildActionsDisplay(container, actions) {
     // Append actionHeader to actionCard
     actionCard.appendChild(actionHeader);
 
-    // Add description if available
+    // Add description if available (hidden by default, toggled by Details button)
     if (action.description) {
       const descDiv = document.createElement('div');
       descDiv.className = 'action-description';
+      descDiv.style.display = 'none'; // Hidden by default
       // Resolve any variables in the description (like {bardicInspirationDie})
       const resolvedDescription = resolveVariablesInFormula(action.description);
       descDiv.innerHTML = `
-        <div style="margin-top: 10px;">${resolvedDescription}</div>
+        <div style="margin-top: 10px; padding: 10px; background: var(--bg-secondary, #f5f5f5); border-radius: 4px; font-size: 0.9em;">${resolvedDescription}</div>
       `;
 
       actionCard.appendChild(descDiv);
