@@ -1585,7 +1585,8 @@ function buildActionsDisplay(container, actions) {
     }
 
     // Damage button (if damage exists and is a valid dice formula)
-    const isValidDiceFormula = action.damage && (/\d+d/.test(action.damage) || /\d+d/.test(action.damage.replace(/\s*\+\s*/g, '+'))); // Check for dice formula
+    // Match dice notation with optional leading digit: "d4" or "1d4" or "2d6+3", etc.
+    const isValidDiceFormula = action.damage && (/\d*d\d+/.test(action.damage) || /\d*d\d+/.test(action.damage.replace(/\s*\+\s*/g, '+'))); // Check for dice formula
     if (isValidDiceFormula) {
       const damageBtn = document.createElement('button');
       damageBtn.className = 'damage-btn';
@@ -1655,6 +1656,9 @@ function buildActionsDisplay(container, actions) {
           action.name;
         let damageFormula = action.damage;
 
+        // Normalize dice formulas: "d4" -> "1d4", "d6" -> "1d6", etc.
+        damageFormula = damageFormula.replace(/\bd(\d+)/g, '1d$1');
+
         // If damage formula is a bare variable that doesn't exist, try to extract from description
         const bareVarPattern = /^[a-zA-Z_][a-zA-Z0-9_.]*$/;
         if (bareVarPattern.test(damageFormula.trim()) && !characterData.otherVariables.hasOwnProperty(damageFormula.trim())) {
@@ -1706,7 +1710,7 @@ function buildActionsDisplay(container, actions) {
 
     // Use button for non-attack actions (bonus actions, reactions, etc.)
     // Only show if there's no attack roll AND (no damage OR damage is invalid/descriptive text)
-    const hasValidDamage = action.damage && /\dd/.test(action.damage); // Check for dice formula (e.g., "1d6", "2d8")
+    const hasValidDamage = action.damage && /\d*d\d+/.test(action.damage); // Check for dice formula (e.g., "d4", "1d6", "2d8")
     if (!action.attackRoll && !hasValidDamage && action.description) {
       const useBtn = document.createElement('button');
       useBtn.className = 'use-btn';
