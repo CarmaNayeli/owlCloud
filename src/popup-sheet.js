@@ -1716,13 +1716,39 @@ function buildActionsDisplay(container, actions) {
         // Mark action as used based on action type
         const actionType = action.actionType || 'action';
         debug.log(`🎯 Action type for "${action.name}": "${actionType}"`);
-        
+
         if (actionType === 'bonus action' || actionType === 'bonus' || actionType === 'Bonus Action' || actionType === 'Bonus') {
           markActionAsUsed('bonus action');
         } else if (actionType === 'reaction' || actionType === 'Reaction') {
           markActionAsUsed('reaction');
         } else {
           markActionAsUsed('action');
+        }
+
+        // Announce description for healing actions (like Healer's Kit)
+        if (action.damageType && action.damageType.toLowerCase().includes('heal') && action.description) {
+          const colorBanner = getColoredBanner();
+          let message = `&{template:default} {{name=${colorBanner}${characterData.name} uses ${action.name}}}`;
+          message += ` {{Description=${action.description}}}`;
+
+          const messageData = {
+            action: 'announceSpell',
+            message: message,
+            color: characterData.notificationColor
+          };
+
+          if (window.opener && !window.opener.closed) {
+            try {
+              window.opener.postMessage(messageData, '*');
+            } catch (error) {
+              debug.warn('⚠️ Could not send description via window.opener:', error.message);
+            }
+          } else {
+            browserAPI.runtime.sendMessage({
+              action: 'relayRollToRoll20',
+              roll: messageData
+            });
+          }
         }
 
         roll(damageName, damageFormula);
@@ -3979,9 +4005,12 @@ function getSpellOptions(spell) {
           return;
         }
 
-        const isHealing = roll.damageType === 'healing';
-        const isTempHP = roll.damageType === 'temphp' || roll.damageType === 'temporary' ||
-                         (roll.damageType && roll.damageType.toLowerCase().includes('temp'));
+        const isHealing = roll.damageType && roll.damageType.toLowerCase() === 'healing';
+        const isTempHP = roll.damageType && (
+          roll.damageType.toLowerCase() === 'temphp' ||
+          roll.damageType.toLowerCase() === 'temporary' ||
+          roll.damageType.toLowerCase().includes('temp')
+        );
 
         // Resolve non-slot-dependent variables for display (character level, ability mods, etc.)
         // Keep slotLevel as-is since we don't know what slot will be used yet
@@ -4135,7 +4164,8 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
   const castSpells = JSON.parse(localStorage.getItem(castSpellsKey) || '[]');
   const wasAlreadyCast = castSpells.includes(spell.name);
 
-  if (isConcentrationRecast || (isReuseableSpell && wasAlreadyCast)) {
+  // Show checkbox for concentration recasts OR for all reuseable spells (even on first cast)
+  if (isConcentrationRecast || isReuseableSpell) {
     const recastSection = document.createElement('div');
     recastSection.style.cssText = 'margin-bottom: 16px; padding: 12px; background: #fff3cd; border-radius: 6px; border: 2px solid #f39c12;';
 
@@ -4144,15 +4174,18 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
 
     skipSlotCheckbox = document.createElement('input');
     skipSlotCheckbox.type = 'checkbox';
-    skipSlotCheckbox.checked = true; // Default to checked (don't consume slot)
+    // Default checked if concentration recast OR if reuseable spell was already cast
+    skipSlotCheckbox.checked = isConcentrationRecast || wasAlreadyCast;
     skipSlotCheckbox.style.cssText = 'width: 20px; height: 20px;';
 
     const checkboxLabel = document.createElement('span');
     checkboxLabel.style.cssText = 'font-weight: bold; color: #856404;';
     if (isConcentrationRecast) {
       checkboxLabel.textContent = '🧠 Already concentrating - don\'t consume spell slot';
-    } else {
+    } else if (wasAlreadyCast) {
       checkboxLabel.textContent = '⚔️ Spell already active - don\'t consume spell slot';
+    } else {
+      checkboxLabel.textContent = '⚔️ Reuse spell effect without consuming slot (first cast required)';
     }
 
     checkboxContainer.appendChild(skipSlotCheckbox);
@@ -4257,9 +4290,10 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
     debug.log(`🏷️ getResolvedLabel called with formula: "${formula}", slotLevel: ${selectedSlotLevel}`);
 
     // Replace slotLevel with actual slot level (check for null/undefined, but allow 0)
-    if (selectedSlotLevel != null && formula && formula.includes('slotLevel')) {
+    // Use case-insensitive regex to handle slotLevel, slotlevel, SlotLevel, etc.
+    if (selectedSlotLevel != null && formula && /slotlevel/i.test(formula)) {
       const originalFormula = formula;
-      formula = formula.split('slotLevel').join(String(selectedSlotLevel));
+      formula = formula.replace(/slotlevel/gi, String(selectedSlotLevel));
       debug.log(`  ✅ Replaced slotLevel: "${originalFormula}" -> "${formula}"`);
     }
 
@@ -4384,7 +4418,7 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
             let formula = option.formula;
             const actualSlotLevel = selectedSlotLevel != null ? selectedSlotLevel : (slot && slot.level);
             if (actualSlotLevel != null) {
-              formula = formula.replace(/slotLevel/g, actualSlotLevel);
+              formula = formula.replace(/slotlevel/gi, actualSlotLevel);
             }
             // Replace ~target.level with character level (for cantrips)
             if (formula.includes('~target.level') && characterData.level) {
@@ -4407,7 +4441,7 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
           let formula = option.formula;
           const actualSlotLevel = selectedSlotLevel != null ? selectedSlotLevel : (usedSlot && usedSlot.level);
           if (actualSlotLevel != null) {
-            formula = formula.replace(/slotLevel/g, actualSlotLevel);
+            formula = formula.replace(/slotlevel/gi, actualSlotLevel);
           }
           // Replace ~target.level with character level (for cantrips)
           if (formula.includes('~target.level') && characterData.level) {
@@ -4438,7 +4472,7 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
           let damageFormula = option.damageFormula;
           const actualSlotLevel = selectedSlotLevel != null ? selectedSlotLevel : (slot && slot.level);
           if (actualSlotLevel != null) {
-            damageFormula = damageFormula.replace(/slotLevel/g, actualSlotLevel);
+            damageFormula = damageFormula.replace(/slotlevel/gi, actualSlotLevel);
           }
           if (damageFormula.includes('~target.level') && characterData.level) {
             damageFormula = damageFormula.replace(/~target\.level/g, characterData.level);
@@ -4550,9 +4584,9 @@ function handleSpellOption(spell, spellIndex, option) {
     // Cast spell + roll damage/healing
     const afterCast = (spell, slot) => {
       let formula = option.formula;
-      // Replace slotLevel with actual slot level
+      // Replace slotLevel with actual slot level (case-insensitive)
       if (slot && slot.level) {
-        formula = formula.replace(/slotLevel/g, slot.level);
+        formula = formula.replace(/slotlevel/gi, slot.level);
       }
       // Resolve other DiceCloud variables
       formula = resolveVariablesInFormula(formula);

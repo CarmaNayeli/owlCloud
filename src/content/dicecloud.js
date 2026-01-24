@@ -1198,6 +1198,25 @@
           });
           damageRolls = uniqueDamageRolls;
 
+          // Fix temp HP spells that might not have the right damageType
+          const tempHPSpells = ['false life', 'heroism', 'inspiring leader'];
+          const isTempHPSpell = prop.name && tempHPSpells.some(name =>
+            prop.name.toLowerCase().includes(name)
+          );
+          if (isTempHPSpell && damageRolls.length > 0) {
+            // Check description for temp HP indication
+            const lowerDesc = fullDescription.toLowerCase();
+            if (lowerDesc.includes('temporary hit point') || lowerDesc.includes('temp hp') || lowerDesc.includes('temporary hp')) {
+              // Mark all damage rolls as temp HP
+              damageRolls.forEach(roll => {
+                if (roll.damageType === 'untyped' || !roll.damageType) {
+                  roll.damageType = 'temphp';
+                  debug.log(`  🛡️ Corrected ${prop.name} damage type to temphp`);
+                }
+              });
+            }
+          }
+
           // For backward compatibility, set single damage/damageType to first entry
           const damage = damageRolls.length > 0 ? damageRolls[0].damage : '';
           const damageType = damageRolls.length > 0 ? damageRolls[0].damageType : '';
@@ -1306,7 +1325,17 @@
 
           // Detect lifesteal mechanics (damage + healing where healing depends on damage dealt)
           let isLifesteal = false;
-          if (damageRolls.length >= 2) {
+
+          // Check by spell name first (known lifesteal spells)
+          const knownLifestealSpells = ['vampiric touch', 'life transference', 'absorb elements'];
+          const isKnownLifesteal = prop.name && knownLifestealSpells.some(name =>
+            prop.name.toLowerCase().includes(name)
+          );
+
+          if (isKnownLifesteal) {
+            isLifesteal = true;
+            debug.log(`💉 Detected lifesteal mechanic in "${prop.name}" (known lifesteal spell)`);
+          } else if (damageRolls.length >= 2) {
             const hasDamage = damageRolls.some(r => r.damageType && r.damageType.toLowerCase() !== 'healing');
             const hasHealing = damageRolls.some(r => r.damageType && r.damageType.toLowerCase() === 'healing');
 
@@ -1342,6 +1371,23 @@
                 debug.log(`    Description snippet: ${lowerDesc.substring(0, 200)}`);
               }
             }
+          }
+
+          // Final checks for specific spells
+          const isShieldSpell = prop.name && prop.name.toLowerCase() === 'shield';
+          if (isShieldSpell && attackRoll) {
+            debug.log(`  🛡️ Shield spell detected - removing attack roll (was: "${attackRoll}")`);
+            attackRoll = '';
+          }
+
+          // Force attack roll for known attack spells that might be missing it
+          const knownAttackSpells = ['guiding bolt', 'scorching ray', 'eldritch blast', 'fire bolt', 'ray of frost', 'chromatic orb'];
+          const isKnownAttackSpell = prop.name && knownAttackSpells.some(name =>
+            prop.name.toLowerCase().includes(name)
+          );
+          if (isKnownAttackSpell && !attackRoll) {
+            attackRoll = 'use_spell_attack_bonus';
+            debug.log(`  ⚔️ Known attack spell "${prop.name}" missing attack roll - adding it`);
           }
 
           // Log final attack/damage values before adding to spells array
