@@ -5187,8 +5187,10 @@ function announceSpellCast(spell, resourceUsed) {
     message += ` {{Components=${spell.components}}}`;
   }
 
-  // Don't add description here - it will be shown with attack/damage/healing rolls
-  // This keeps the initial cast announcement clean and concise
+  // Add description
+  if (spell.description) {
+    message += ` {{Description=${spell.description}}}`;
+  }
 
   // Send to Roll20 chat
   const messageData = {
