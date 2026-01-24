@@ -49,6 +49,16 @@
   },
   "web_accessible_resources": [
     "src/popup-sheet.html",
-    "src/popup-sheet.js"
+    "src/popup-sheet.js",
+    "src/common/debug.js",
+    "src/common/browser-polyfill.js",
+    "src/common/theme-manager.js",
+    "src/common/html-utils.js",
+    "src/modules/color-utils.js",
+    "src/modules/card-creator.js",
+    "src/modules/spell-edge-cases.js",
+    "src/modules/class-feature-edge-cases.js",
+    "src/modules/racial-feature-edge-cases.js",
+    "src/modules/combat-maneuver-edge-cases.js"
   ]
 }
