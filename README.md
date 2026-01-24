@@ -15,12 +15,6 @@ A browser extension that integrates Dice Cloud with Roll20. Import D&D character
 - Robust name normalization for punctuation/spacing variations
 - Enhanced edge case system for class features
 
-**Version 1.1.4**
-- Inventory management improvements with enhanced filtering and organization
-- Quality of life improvements to character sheet interface
-- Further refinement of experimental two-way sync functionality
-- Currency viewer temporarily disabled for performance optimization
-
 ## Features
 
 ### Character Import
