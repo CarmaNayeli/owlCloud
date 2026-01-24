@@ -1079,10 +1079,6 @@
             // Skip inactive or disabled properties
             if (p.inactive || p.disabled) return false;
 
-            // Only include if the property has actual roll/amount data
-            const hasRollData = p.roll || p.amount;
-            if (!hasRollData) return false;
-
             // Check if this spell is in the child property's ancestors
             if (p.ancestors && Array.isArray(p.ancestors)) {
               return p.ancestors.some(ancestor => {
