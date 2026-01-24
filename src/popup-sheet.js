@@ -4537,10 +4537,11 @@ function castSpell(spell, index, afterCast = null, selectedSlotLevel = null, sel
   );
 
   // Check if spell has resources field indicating it doesn't consume spell slots
-  // DiceCloud marks spells as "free/doesn't require spell slot" with empty attributesConsumed
+  // Only treat as free if resources.itemsConsumed is explicitly defined (magic items)
+  // Normal spells should NOT match this condition
   const isFreeSpell = spell.resources &&
-                       spell.resources.attributesConsumed &&
-                       spell.resources.attributesConsumed.length === 0;
+                       spell.resources.itemsConsumed &&
+                       spell.resources.itemsConsumed.length > 0;
 
   // Cantrips (level 0), magic item spells, free spells, or concentration recast don't need slots
   if (!spell.level || spell.level === 0 || spell.level === '0' || isMagicItemSpell || isFreeSpell || skipSlotConsumption) {
@@ -7015,8 +7016,127 @@ function resolveVariablesInFormula(formula) {
 }
 
 /**
+ * Safe math expression evaluator that doesn't use eval() or Function()
+ * CSP-compliant parser for basic arithmetic and Math functions
+ */
+function safeMathEval(expr) {
+  // Tokenize the expression
+  const tokens = [];
+  let i = 0;
+  expr = expr.replace(/\s+/g, ''); // Remove whitespace
+
+  while (i < expr.length) {
+    // Check for Math functions
+    if (expr.substr(i, 10) === 'Math.floor') {
+      tokens.push({ type: 'function', value: 'floor' });
+      i += 10;
+    } else if (expr.substr(i, 9) === 'Math.ceil') {
+      tokens.push({ type: 'function', value: 'ceil' });
+      i += 9;
+    } else if (expr.substr(i, 10) === 'Math.round') {
+      tokens.push({ type: 'function', value: 'round' });
+      i += 10;
+    } else if (expr[i] >= '0' && expr[i] <= '9' || expr[i] === '.') {
+      // Parse number
+      let num = '';
+      while (i < expr.length && (expr[i] >= '0' && expr[i] <= '9' || expr[i] === '.')) {
+        num += expr[i];
+        i++;
+      }
+      tokens.push({ type: 'number', value: parseFloat(num) });
+    } else if ('+-*/()'.includes(expr[i])) {
+      tokens.push({ type: 'operator', value: expr[i] });
+      i++;
+    } else {
+      throw new Error(`Unexpected character: ${expr[i]}`);
+    }
+  }
+
+  // Parse and evaluate using recursive descent
+  let pos = 0;
+
+  function parseExpression() {
+    let left = parseTerm();
+
+    while (pos < tokens.length && tokens[pos].type === 'operator' && (tokens[pos].value === '+' || tokens[pos].value === '-')) {
+      const op = tokens[pos].value;
+      pos++;
+      const right = parseTerm();
+      left = op === '+' ? left + right : left - right;
+    }
+
+    return left;
+  }
+
+  function parseTerm() {
+    let left = parseFactor();
+
+    while (pos < tokens.length && tokens[pos].type === 'operator' && (tokens[pos].value === '*' || tokens[pos].value === '/')) {
+      const op = tokens[pos].value;
+      pos++;
+      const right = parseFactor();
+      left = op === '*' ? left * right : left / right;
+    }
+
+    return left;
+  }
+
+  function parseFactor() {
+    const token = tokens[pos];
+
+    // Handle numbers
+    if (token.type === 'number') {
+      pos++;
+      return token.value;
+    }
+
+    // Handle Math functions
+    if (token.type === 'function') {
+      const funcName = token.value;
+      pos++;
+      if (pos >= tokens.length || tokens[pos].value !== '(') {
+        throw new Error('Expected ( after function name');
+      }
+      pos++; // Skip (
+      const arg = parseExpression();
+      if (pos >= tokens.length || tokens[pos].value !== ')') {
+        throw new Error('Expected ) after function argument');
+      }
+      pos++; // Skip )
+
+      if (funcName === 'floor') return Math.floor(arg);
+      if (funcName === 'ceil') return Math.ceil(arg);
+      if (funcName === 'round') return Math.round(arg);
+      throw new Error(`Unknown function: ${funcName}`);
+    }
+
+    // Handle parentheses
+    if (token.type === 'operator' && token.value === '(') {
+      pos++;
+      const result = parseExpression();
+      if (pos >= tokens.length || tokens[pos].value !== ')') {
+        throw new Error('Mismatched parentheses');
+      }
+      pos++;
+      return result;
+    }
+
+    // Handle unary minus
+    if (token.type === 'operator' && token.value === '-') {
+      pos++;
+      return -parseFactor();
+    }
+
+    throw new Error(`Unexpected token: ${JSON.stringify(token)}`);
+  }
+
+  return parseExpression();
+}
+
+/**
  * Evaluate simple mathematical expressions in formulas
  * Converts things like "5*5" to "25" before sending to Roll20
+ * CSP-compliant - does not use eval() or Function() constructor
  */
 function evaluateMathInFormula(formula) {
   if (!formula || typeof formula !== 'string') {
@@ -7033,7 +7153,7 @@ function evaluateMathInFormula(formula) {
     previousFormula = currentFormula;
     iterations++;
 
-    // Replace floor() with Math.floor() for JavaScript evaluation
+    // Replace floor() with Math.floor() for parsing
     let processedFormula = currentFormula.replace(/floor\(/g, 'Math.floor(');
     processedFormula = processedFormula.replace(/ceil\(/g, 'Math.ceil(');
     processedFormula = processedFormula.replace(/round\(/g, 'Math.round(');
@@ -7044,8 +7164,7 @@ function evaluateMathInFormula(formula) {
 
     if (simpleMathPattern.test(processedFormula)) {
       try {
-        // Use Function constructor to safely evaluate the expression
-        const result = Function(`'use strict'; return (${processedFormula})`)();
+        const result = safeMathEval(processedFormula);
         if (typeof result === 'number' && !isNaN(result)) {
           debug.log(`✅ Evaluated simple math: ${currentFormula} = ${result} (iteration ${iterations})`);
           currentFormula = String(result);
@@ -7069,7 +7188,7 @@ function evaluateMathInFormula(formula) {
       const mathOnlyPattern = /^[\d\s+\-*/().\w]+$/;
       if (mathOnlyPattern.test(mathPart)) {
         try {
-          const result = Function(`'use strict'; return (${mathPart})`)();
+          const result = safeMathEval(mathPart);
           if (typeof result === 'number' && !isNaN(result)) {
             debug.log(`✅ Evaluated dice formula math: ${mathPart} = ${result} (iteration ${iterations})`);
             currentFormula = String(result) + dicePart;
