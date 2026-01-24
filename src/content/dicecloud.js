@@ -1210,12 +1210,18 @@
             debug.log(`  🔍 Checking description for spell attack (attackRoll currently: "${attackRoll}")`);
             // Use specific patterns to avoid false positives (like Shield's "triggering attack")
             // Match: "spell attack" or "attack roll" with word boundaries
+            // Exception: Shield specifically should never have attack button
+            const isShield = prop.name && prop.name.toLowerCase() === 'shield';
             const hasAttackMention = /\b(spell attack|attack roll)\b/i.test(description);
-            if (!attackRoll && hasAttackMention) {
+            if (!attackRoll && hasAttackMention && !isShield) {
               attackRoll = 'use_spell_attack_bonus'; // Flag to use calculated spell attack bonus
               debug.log(`  💡 Found attack pattern in description, marking for spell attack bonus`);
             } else if (!attackRoll) {
               debug.log(`  ⚠️ No attack pattern found in description for "${prop.name}"`);
+            } else if (isShield && attackRoll) {
+              // Shield should never have attack roll
+              debug.log(`  🛡️ Shield spell detected - removing attack roll`);
+              attackRoll = '';
             } else {
               debug.log(`  ℹ️ Attack roll already set from child properties, skipping description check`);
             }
@@ -1318,11 +1324,15 @@
                 'equal to half the',
                 'equal to half of the',
                 'half the amount of',
-                'half of the'
+                'half of the',
+                // Vampiric Touch specific patterns
+                'you regain hit points',
+                'regain hp equal to',
+                'hp equal to half'
               ];
 
               isLifesteal = lifesteaIndicators.some(indicator =>
-                lowerDesc.includes(indicator) && (lowerDesc.includes('damage') || lowerDesc.includes('necrotic'))
+                lowerDesc.includes(indicator) && (lowerDesc.includes('damage') || lowerDesc.includes('necrotic') || lowerDesc.includes('dealt'))
               );
 
               if (isLifesteal) {
