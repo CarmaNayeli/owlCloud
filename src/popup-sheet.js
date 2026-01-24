@@ -4188,17 +4188,24 @@ function showSpellModal(spell, spellIndex, options) {
   options.forEach(option => {
     const btn = document.createElement('button');
     btn.className = `spell-option-btn-${option.type}`;
+
+    // Special styling for lifesteal buttons to make them more visually distinct
+    const isLifesteal = option.type === 'lifesteal';
+    const boxShadow = isLifesteal ? 'box-shadow: 0 4px 8px rgba(0,0,0,0.3), inset 0 -2px 4px rgba(0,0,0,0.2);' : '';
+    const border = isLifesteal ? 'border: 2px solid rgba(255,255,255,0.3);' : 'border: none;';
+
     btn.style.cssText = `
       padding: 12px 16px;
       background: ${option.color};
       color: white;
-      border: none;
+      ${border}
       border-radius: 6px;
       cursor: pointer;
       font-weight: bold;
       font-size: 16px;
       text-align: left;
-      transition: opacity 0.2s;
+      transition: opacity 0.2s, transform 0.2s;
+      ${boxShadow}
     `;
 
     // Set initial label (with default slot level)
@@ -4207,8 +4214,14 @@ function showSpellModal(spell, spellIndex, options) {
     btn.innerHTML = `${option.icon} ${resolvedLabel}`;
     btn.dataset.optionIndex = optionButtons.length; // Store index for later updates
 
-    btn.addEventListener('mouseenter', () => btn.style.opacity = '0.9');
-    btn.addEventListener('mouseleave', () => btn.style.opacity = '1');
+    btn.addEventListener('mouseenter', () => {
+      btn.style.opacity = '0.9';
+      if (isLifesteal) btn.style.transform = 'translateY(-2px)';
+    });
+    btn.addEventListener('mouseleave', () => {
+      btn.style.opacity = '1';
+      if (isLifesteal) btn.style.transform = 'translateY(0)';
+    });
 
     optionButtons.push({ button: btn, option: option });
 
@@ -6917,53 +6930,70 @@ function evaluateMathInFormula(formula) {
     return formula;
   }
 
-  // Replace floor() with Math.floor() for JavaScript evaluation
-  let processedFormula = formula.replace(/floor\(/g, 'Math.floor(');
-  processedFormula = processedFormula.replace(/ceil\(/g, 'Math.ceil(');
-  processedFormula = processedFormula.replace(/round\(/g, 'Math.round(');
+  let currentFormula = formula;
+  let previousFormula = null;
+  let iterations = 0;
+  const maxIterations = 10; // Prevent infinite loops
 
-  // Check if the formula is just a simple math expression (no dice)
-  // Pattern: numbers and operators only (e.g., "5*5", "10+5", "20/4")
-  const simpleMathPattern = /^[\d\s+\-*/().]+$/;
+  // Keep simplifying until formula doesn't change or max iterations reached
+  while (currentFormula !== previousFormula && iterations < maxIterations) {
+    previousFormula = currentFormula;
+    iterations++;
 
-  if (simpleMathPattern.test(processedFormula)) {
-    try {
-      // Use Function constructor to safely evaluate the expression
-      const result = Function(`'use strict'; return (${processedFormula})`)();
-      if (typeof result === 'number' && !isNaN(result)) {
-        debug.log(`✅ Evaluated simple math: ${formula} = ${result}`);
-        return String(result);
-      }
-    } catch (e) {
-      debug.log(`⚠️ Could not evaluate math expression: ${formula}`, e);
-    }
-  }
+    // Replace floor() with Math.floor() for JavaScript evaluation
+    let processedFormula = currentFormula.replace(/floor\(/g, 'Math.floor(');
+    processedFormula = processedFormula.replace(/ceil\(/g, 'Math.ceil(');
+    processedFormula = processedFormula.replace(/round\(/g, 'Math.round(');
 
-  // Handle formulas with dice notation like "(floor((9 + 1) / 6) + 1)d8"
-  // Extract math before the dice, evaluate it, then reconstruct
-  const dicePattern = /^(.+?)(d\d+.*)$/i;
-  const match = processedFormula.match(dicePattern);
+    // Check if the formula is just a simple math expression (no dice)
+    // Pattern: numbers and operators only (e.g., "5*5", "10+5", "20/4")
+    const simpleMathPattern = /^[\d\s+\-*/().]+$/;
 
-  if (match) {
-    const mathPart = match[1]; // e.g., "(Math.floor((9 + 1) / 6) + 1)"
-    const dicePart = match[2]; // e.g., "d8"
-
-    // Check if the math part is evaluable (allows numbers, operators, parens, and Math functions)
-    const mathOnlyPattern = /^[\d\s+\-*/().\w]+$/;
-    if (mathOnlyPattern.test(mathPart)) {
+    if (simpleMathPattern.test(processedFormula)) {
       try {
-        const result = Function(`'use strict'; return (${mathPart})`)();
+        // Use Function constructor to safely evaluate the expression
+        const result = Function(`'use strict'; return (${processedFormula})`)();
         if (typeof result === 'number' && !isNaN(result)) {
-          debug.log(`✅ Evaluated dice formula math: ${mathPart} = ${result}`);
-          return String(result) + dicePart;
+          debug.log(`✅ Evaluated simple math: ${currentFormula} = ${result} (iteration ${iterations})`);
+          currentFormula = String(result);
+          continue;
         }
       } catch (e) {
-        debug.log(`⚠️ Could not evaluate dice formula math: ${mathPart}`, e);
+        debug.log(`⚠️ Could not evaluate math expression: ${currentFormula}`, e);
+      }
+    }
+
+    // Handle formulas with dice notation like "(floor((9 + 1) / 6) + 1)d8" or "(3 * 1)d6"
+    // Extract math before the dice, evaluate it, then reconstruct
+    const dicePattern = /^(.+?)(d\d+.*)$/i;
+    const match = processedFormula.match(dicePattern);
+
+    if (match) {
+      const mathPart = match[1]; // e.g., "(Math.floor((9 + 1) / 6) + 1)" or "(3 * 1)"
+      const dicePart = match[2]; // e.g., "d8" or "d6"
+
+      // Check if the math part is evaluable (allows numbers, operators, parens, and Math functions)
+      const mathOnlyPattern = /^[\d\s+\-*/().\w]+$/;
+      if (mathOnlyPattern.test(mathPart)) {
+        try {
+          const result = Function(`'use strict'; return (${mathPart})`)();
+          if (typeof result === 'number' && !isNaN(result)) {
+            debug.log(`✅ Evaluated dice formula math: ${mathPart} = ${result} (iteration ${iterations})`);
+            currentFormula = String(result) + dicePart;
+            continue;
+          }
+        } catch (e) {
+          debug.log(`⚠️ Could not evaluate dice formula math: ${mathPart}`, e);
+        }
       }
     }
   }
 
-  return formula;
+  if (iterations > 1) {
+    debug.log(`🔄 Formula simplified in ${iterations} iterations: "${formula}" -> "${currentFormula}"`);
+  }
+
+  return currentFormula;
 }
 
 /**
