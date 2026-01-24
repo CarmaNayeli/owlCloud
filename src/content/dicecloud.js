@@ -438,7 +438,8 @@
     // Also check for slot level variable
     const slotLevelVarNames = [
       'slotLevel', // Generic slot level (commonly used in DiceCloud)
-      'pactMagicSlotLevel', 'pactSlotLevel', 'warlockSlotLevel',
+      'pactSlotLevelVisible', 'pactSlotLevel', // TLoE/common DiceCloud naming
+      'pactMagicSlotLevel', 'warlockSlotLevel',
       'pactMagicLevel', 'warlockSpellLevel', 'pactCasterLevel'
     ];
 

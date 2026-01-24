@@ -3614,10 +3614,24 @@ function buildSpellSlotsDisplay() {
   let totalMaxSlots = 0;
 
   // Check for Pact Magic (Warlock) - stored separately from regular slots
-  const pactMagicSlotLevel = characterData.spellSlots.pactMagicSlotLevel;
-  const pactMagicSlots = characterData.spellSlots.pactMagicSlots || 0;
-  const pactMagicSlotsMax = characterData.spellSlots.pactMagicSlotsMax || 0;
-  const hasPactMagic = pactMagicSlotLevel && pactMagicSlotsMax > 0;
+  // Check both spellSlots and otherVariables since data may come from either source
+  // DiceCloud uses various variable names: pactSlot, pactMagicSlots, pactSlotLevelVisible, etc.
+  const pactMagicSlotLevel = characterData.spellSlots?.pactMagicSlotLevel ||
+                             characterData.otherVariables?.pactMagicSlotLevel ||
+                             characterData.otherVariables?.pactSlotLevelVisible ||
+                             characterData.otherVariables?.pactSlotLevel ||
+                             characterData.otherVariables?.slotLevel;
+  const pactMagicSlots = characterData.spellSlots?.pactMagicSlots ??
+                         characterData.otherVariables?.pactMagicSlots ??
+                         characterData.otherVariables?.pactSlot ?? 0;
+  const pactMagicSlotsMax = characterData.spellSlots?.pactMagicSlotsMax ??
+                            characterData.otherVariables?.pactMagicSlotsMax ??
+                            characterData.otherVariables?.pactSlotMax ?? 0;
+  const hasPactMagic = pactMagicSlotsMax > 0;
+  // Default slot level to 5 (max pact level) if we have slots but couldn't detect level
+  const effectivePactLevel = pactMagicSlotLevel || (hasPactMagic ? 5 : 0);
+
+  debug.log(`🔮 Spell slots display - Pact Magic: level=${pactMagicSlotLevel} (effective=${effectivePactLevel}), slots=${pactMagicSlots}/${pactMagicSlotsMax}, hasPact=${hasPactMagic}`);
 
   // Add Pact Magic slots first if present
   if (hasPactMagic) {
@@ -3630,13 +3644,13 @@ function buildSpellSlotsDisplay() {
     slotCard.style.cssText = 'background: linear-gradient(135deg, #6b3fa0, #9b59b6); border: 2px solid #8e44ad;';
 
     slotCard.innerHTML = `
-      <div class="spell-slot-level">Pact (${pactMagicSlotLevel})</div>
+      <div class="spell-slot-level">Pact (${effectivePactLevel})</div>
       <div class="spell-slot-count">${pactMagicSlots}/${pactMagicSlotsMax}</div>
     `;
 
     // Add click to manually adjust Pact Magic slots
     slotCard.addEventListener('click', () => {
-      adjustSpellSlot(`pact:${pactMagicSlotLevel}`, pactMagicSlots, pactMagicSlotsMax, true);
+      adjustSpellSlot(`pact:${effectivePactLevel}`, pactMagicSlots, pactMagicSlotsMax, true);
     });
     slotCard.style.cursor = 'pointer';
     slotCard.title = 'Click to adjust Pact Magic slots (recharge on short rest)';
@@ -4806,28 +4820,42 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
     slotSelect.style.cssText = `width: 100%; padding: 8px; border: 2px solid ${colors.border}; border-radius: 4px; font-size: 14px; background: ${colors.background}; color: ${colors.text};`;
 
     // Check for Pact Magic slots (Warlock) - these are SEPARATE from regular spell slots
-    const pactMagicSlotLevel = characterData.spellSlots?.pactMagicSlotLevel;
-    const pactMagicSlots = characterData.spellSlots?.pactMagicSlots || 0;
-    const pactMagicSlotsMax = characterData.spellSlots?.pactMagicSlotsMax || 0;
-    const hasPactMagic = pactMagicSlotLevel && pactMagicSlotsMax > 0;
+    // Check both spellSlots and otherVariables since data may come from either source
+    // DiceCloud uses various variable names: pactSlot, pactMagicSlots, pactSlotLevelVisible, etc.
+    const pactMagicSlotLevel = characterData.spellSlots?.pactMagicSlotLevel ||
+                               characterData.otherVariables?.pactMagicSlotLevel ||
+                               characterData.otherVariables?.pactSlotLevelVisible ||
+                               characterData.otherVariables?.pactSlotLevel ||
+                               characterData.otherVariables?.slotLevel;
+    const pactMagicSlots = characterData.spellSlots?.pactMagicSlots ??
+                           characterData.otherVariables?.pactMagicSlots ??
+                           characterData.otherVariables?.pactSlot ?? 0;
+    const pactMagicSlotsMax = characterData.spellSlots?.pactMagicSlotsMax ??
+                              characterData.otherVariables?.pactMagicSlotsMax ??
+                              characterData.otherVariables?.pactSlotMax ?? 0;
+    const hasPactMagic = pactMagicSlotsMax > 0;
+    // Default slot level to 1 if we have slots but couldn't detect level
+    const effectivePactLevel = pactMagicSlotLevel || (hasPactMagic ? 5 : 0); // Default to max (5) if level unknown
+
+    debug.log(`🔮 Pact Magic check: level=${pactMagicSlotLevel} (effective=${effectivePactLevel}), slots=${pactMagicSlots}/${pactMagicSlotsMax}, hasPact=${hasPactMagic}`);
 
     // Add options for available spell slots (spell level and higher)
     let hasAnySlots = false;
     let firstValidOption = null;
 
     // First, add Pact Magic slots if available and spell level is compatible
-    // Pact Magic slots can cast any spell from level 1 up to pactMagicSlotLevel
-    if (hasPactMagic && spell.level <= pactMagicSlotLevel) {
+    // Pact Magic slots can cast any spell from level 1 up to the pact slot level
+    if (hasPactMagic && spell.level <= effectivePactLevel) {
       hasAnySlots = true;
       const option = document.createElement('option');
-      option.value = `pact:${pactMagicSlotLevel}`; // Special format to identify pact slots
-      option.textContent = `Level ${pactMagicSlotLevel} - Pact Magic (${pactMagicSlots}/${pactMagicSlotsMax})`;
+      option.value = `pact:${effectivePactLevel}`; // Special format to identify pact slots
+      option.textContent = `Level ${effectivePactLevel} - Pact Magic (${pactMagicSlots}/${pactMagicSlotsMax})`;
       option.disabled = pactMagicSlots === 0;
       slotSelect.appendChild(option);
       if (!option.disabled && !firstValidOption) {
         firstValidOption = option;
       }
-      debug.log(`🔮 Added Pact Magic slot option: Level ${pactMagicSlotLevel} (${pactMagicSlots}/${pactMagicSlotsMax})`);
+      debug.log(`🔮 Added Pact Magic slot option: Level ${effectivePactLevel} (${pactMagicSlots}/${pactMagicSlotsMax})`);
     }
 
     // Then add regular spell slots (excluding the pact magic level to avoid duplicates)
@@ -4838,7 +4866,7 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
       let max = characterData.spellSlots?.[maxSlotsProp] || characterData[maxSlotsProp] || 0;
 
       // If this level has Pact Magic, subtract pact slots from the total (they're counted separately)
-      if (hasPactMagic && level === pactMagicSlotLevel) {
+      if (hasPactMagic && level === effectivePactLevel) {
         available = Math.max(0, available - pactMagicSlots);
         max = Math.max(0, max - pactMagicSlotsMax);
       }
@@ -5732,9 +5760,10 @@ function castSpell(spell, index, afterCast = null, selectedSlotLevel = null, sel
       // Parse pact magic slot level
       actualLevel = parseInt(selectedSlotLevel.split(':')[1]);
       slotVar = 'pactMagicSlots';
-      currentSlots = slotsObject.pactMagicSlots || 0;
+      // Check both spellSlots and otherVariables for Pact Magic
+      currentSlots = slotsObject.pactMagicSlots ?? characterData.otherVariables?.pactMagicSlots ?? 0;
       slotLabel = `Pact Magic (level ${actualLevel})`;
-      debug.log(`🔮 Using Pact Magic slot at level ${actualLevel}`);
+      debug.log(`🔮 Using Pact Magic slot at level ${actualLevel}, current=${currentSlots}`);
     } else {
       // Regular spell slot
       actualLevel = parseInt(selectedSlotLevel);
@@ -5748,8 +5777,19 @@ function castSpell(spell, index, afterCast = null, selectedSlotLevel = null, sel
       return;
     }
 
-    // Consume the slot
-    slotsObject[slotVar] = currentSlots - 1;
+    // Consume the slot - update both spellSlots and otherVariables for Pact Magic
+    if (isPactMagicSlot) {
+      // Decrement pact magic in all locations where it might be stored
+      if (slotsObject.pactMagicSlots !== undefined) {
+        slotsObject.pactMagicSlots = currentSlots - 1;
+      }
+      if (characterData.otherVariables?.pactMagicSlots !== undefined) {
+        characterData.otherVariables.pactMagicSlots = currentSlots - 1;
+      }
+      debug.log(`🔮 Consumed Pact Magic slot: ${currentSlots} -> ${currentSlots - 1}`);
+    } else {
+      slotsObject[slotVar] = currentSlots - 1;
+    }
     saveCharacterData();
     buildSheet(characterData);
 
