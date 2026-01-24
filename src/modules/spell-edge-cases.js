@@ -380,35 +380,42 @@ export function applyEdgeCaseModifications(spell, options, characterData = null)
   // Detect ruleset from character data if not provided
   const ruleset = characterData ? detectRulesetFromCharacterData(characterData) : '2014';
   const edgeCase = getEdgeCase(spell.name, ruleset);
-  
-  if (!edgeCase) return options;
-  
+
+  if (!edgeCase) return { options, skipNormalButtons: false };
+
   debug.log(`🎯 Applying ${ruleset} edge case for spell: ${spell.name}`);
-  
+
+  let modifiedOptions = options;
+  let skipNormalButtons = false;
+
   // Apply edge case logic based on type
   switch (edgeCase.type) {
     case 'healing_announcement':
       // Healing spells should announce usage
-      return options.map(option => ({
+      modifiedOptions = options.map(option => ({
         ...option,
         edgeCaseNote: edgeCase.notes || 'Announces healing usage'
       }));
+      break;
 
     case 'too_complicated':
       // Too complicated spells get special handling
-      return [];
+      modifiedOptions = [];
+      skipNormalButtons = true;
+      break;
 
     case 'reusable':
       // Reusable spells get checkbox option
-      return options.map(option => ({
+      modifiedOptions = options.map(option => ({
         ...option,
         edgeCaseNote: edgeCase.notes || 'Can be recast without spell slot'
       }));
+      break;
 
     case 'conditional_damage':
       // Spells with conditional/situational damage get a "Cast" button
       if (options.length > 0) {
-        return [
+        modifiedOptions = [
           {
             type: 'cast',
             label: 'Cast Spell',
@@ -419,11 +426,13 @@ export function applyEdgeCaseModifications(spell, options, characterData = null)
           ...options
         ];
       }
-      return options;
+      break;
 
     default:
-      return options;
+      break;
   }
+
+  return { options: modifiedOptions, skipNormalButtons };
 }
 
 // Check if a spell is reusable
