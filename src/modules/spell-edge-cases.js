@@ -91,8 +91,16 @@ export const SPELL_EDGE_CASES = {
     description: 'Too complicated for normal casting - requires DM intervention'
   },
   'symbol': {
-    type: 'too_complicated',
-    description: 'Too complicated for normal casting - requires DM intervention'
+    type: 'conditional_damage',
+    description: 'Has conditional/situational damage - adds Cast button'
+  },
+  'meld into stone': {
+    type: 'conditional_damage',
+    description: 'Has conditional/situational damage - adds Cast button'
+  },
+  'geas': {
+    type: 'conditional_damage',
+    description: 'Has conditional/situational damage - adds Cast button'
   },
   'programmed illusion': {
     type: 'too_complicated',
@@ -385,18 +393,34 @@ export function applyEdgeCaseModifications(spell, options, characterData = null)
         ...option,
         edgeCaseNote: edgeCase.notes || 'Announces healing usage'
       }));
-      
+
     case 'too_complicated':
       // Too complicated spells get special handling
       return [];
-      
+
     case 'reusable':
       // Reusable spells get checkbox option
       return options.map(option => ({
         ...option,
         edgeCaseNote: edgeCase.notes || 'Can be recast without spell slot'
       }));
-      
+
+    case 'conditional_damage':
+      // Spells with conditional/situational damage get a "Cast" button
+      if (options.length > 0) {
+        return [
+          {
+            type: 'cast',
+            label: 'Cast Spell',
+            icon: '✨',
+            color: '#9b59b6',
+            edgeCaseNote: edgeCase.notes || 'Spell has conditional damage'
+          },
+          ...options
+        ];
+      }
+      return options;
+
     default:
       return options;
   }

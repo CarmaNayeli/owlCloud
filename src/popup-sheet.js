@@ -5524,9 +5524,8 @@ function castSpell(spell, index, afterCast = null, selectedSlotLevel = null, sel
     }
 
     // Track reuseable spells (Spiritual Weapon, Meld into Stone, etc.)
-    const reuseableSpells = ['spiritual weapon', 'meld into stone'];
-    const isReuseableSpell = spell.name && reuseableSpells.some(name => spell.name.toLowerCase().includes(name));
-    if (isReuseableSpell && !skipSlotConsumption) {
+    const shouldTrackAsReusable = isReuseableSpell(spell.name, characterData);
+    if (shouldTrackAsReusable && !skipSlotConsumption) {
       const castSpellsKey = `castSpells_${characterData.name}`;
       const castSpells = JSON.parse(localStorage.getItem(castSpellsKey) || '[]');
       if (!castSpells.includes(spell.name)) {
@@ -5586,9 +5585,8 @@ function castSpell(spell, index, afterCast = null, selectedSlotLevel = null, sel
     }
 
     // Track reuseable spells (Spiritual Weapon, Meld into Stone, etc.)
-    const reuseableSpells = ['spiritual weapon', 'meld into stone'];
-    const isReuseableSpell = spell.name && reuseableSpells.some(name => spell.name.toLowerCase().includes(name));
-    if (isReuseableSpell) {
+    const shouldTrackAsReusable = isReuseableSpell(spell.name, characterData);
+    if (shouldTrackAsReusable) {
       const castSpellsKey = `castSpells_${characterData.name}`;
       const castSpells = JSON.parse(localStorage.getItem(castSpellsKey) || '[]');
       if (!castSpells.includes(spell.name)) {
@@ -6035,9 +6033,8 @@ function castWithSlot(spell, slot, metamagicOptions = [], afterCast = null) {
   }
 
   // Track reuseable spells (Spiritual Weapon, Meld into Stone, etc.)
-  const reuseableSpells = ['spiritual weapon', 'meld into stone'];
-  const isReuseableSpell = spell.name && reuseableSpells.some(name => spell.name.toLowerCase().includes(name));
-  if (isReuseableSpell) {
+  const shouldTrackAsReusable = isReuseableSpell(spell.name, characterData);
+  if (shouldTrackAsReusable) {
     const castSpellsKey = `castSpells_${characterData.name}`;
     const castSpells = JSON.parse(localStorage.getItem(castSpellsKey) || '[]');
     if (!castSpells.includes(spell.name)) {
@@ -6079,9 +6076,8 @@ function useClassResource(resource, spell) {
   }
 
   // Track reuseable spells (Spiritual Weapon, Meld into Stone, etc.)
-  const reuseableSpells = ['spiritual weapon', 'meld into stone'];
-  const isReuseableSpell = spell.name && reuseableSpells.some(name => spell.name.toLowerCase().includes(name));
-  if (isReuseableSpell) {
+  const shouldTrackAsReusable = isReuseableSpell(spell.name, characterData);
+  if (shouldTrackAsReusable) {
     const castSpellsKey = `castSpells_${characterData.name}`;
     const castSpells = JSON.parse(localStorage.getItem(castSpellsKey) || '[]');
     if (!castSpells.includes(spell.name)) {
