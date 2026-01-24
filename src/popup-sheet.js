@@ -863,7 +863,7 @@ function buildSheet(data) {
     const score = data.attributes?.[ability] || 10;
     const mod = data.attributeMods?.[ability] || 0;
     const card = createCard(ability.substring(0, 3).toUpperCase(), score, `+${mod}`, () => {
-      roll(`${ability.charAt(0).toUpperCase() + ability.slice(1)}`, `1d20+${mod}`);
+      roll(`${ability.charAt(0).toUpperCase() + ability.slice(1)} Check`, `1d20+${mod}`);
     });
     abilitiesGrid.appendChild(card);
   });
@@ -1686,16 +1686,18 @@ function buildActionsDisplay(container, actions) {
         font-weight: bold;
       `;
       actionBtn.addEventListener('click', () => {
-        // Announce the action with description
-        announceAction(action);
-        
-        // Mark action as used if it has uses
-        if (action.uses) {
-          decrementActionUses(action);
+        // Check and decrement uses BEFORE announcing (so announcement shows correct count)
+        if (action.uses && !decrementActionUses(action)) {
+          return; // No uses remaining
         }
-        
+
         // Check and decrement other resources
-        decrementActionResources(action);
+        if (!decrementActionResources(action)) {
+          return; // Not enough resources
+        }
+
+        // Announce the action with description AFTER decrements
+        announceAction(action);
       });
       buttonsDiv.appendChild(actionBtn);
     } else {
@@ -1722,16 +1724,16 @@ function buildActionsDisplay(container, actions) {
         `;
         
         actionBtn.addEventListener('click', () => {
-          // Announce the action with description first if it has one
-          if (action.description) {
-            announceAction(action);
-          }
-
           // Handle different option types
           if (option.type === 'attack') {
             // Mark action as used for attacks
             markActionAsUsed('action');
-            
+
+            // Announce the action with description AFTER action tracking
+            if (action.description) {
+              announceAction(action);
+            }
+
             // Add Sneak Attack if toggle is enabled and this is a weapon attack
             let attackFormula = option.formula;
             if (sneakAttackEnabled && sneakAttackDamage && action.attackRoll) {
@@ -1795,12 +1797,17 @@ function buildActionsDisplay(container, actions) {
               return; // Not enough resources
             }
 
+            // Announce the action with description AFTER all decrements
+            if (action.description) {
+              announceAction(action);
+            }
+
             // Roll the damage/healing
             const rollType = option.type === 'healing' ? 'Healing' : (option.type === 'temphp' ? 'Temp HP' : 'Damage');
             roll(`${action.name} ${rollType}`, option.formula);
           }
         });
-        
+
         buttonsDiv.appendChild(actionBtn);
       });
     }
@@ -2556,9 +2563,8 @@ function buildActionsDisplay(container, actions) {
         }
 
         // Default handling for other actions
-        announceAction(action);
-        
-        // Check and decrement uses before using
+
+        // Check and decrement uses BEFORE announcing (so announcement shows correct count)
         if (action.uses && !decrementActionUses(action)) {
           return; // No uses remaining
         }
@@ -2605,6 +2611,9 @@ function buildActionsDisplay(container, actions) {
         if (!decrementActionResources(action)) {
           return; // Not enough resources
         }
+
+        // Announce the action AFTER all decrements (so announcement shows correct counts)
+        announceAction(action);
 
         // Mark action as used based on action type
         const actionType = action.actionType || 'action';
@@ -6971,7 +6980,8 @@ function announceAction(action) {
   if (action.uses) {
     const usesUsed = action.usesUsed || 0;
     const usesTotal = action.uses.total || action.uses.value || action.uses;
-    const usesRemaining = usesTotal - usesUsed;
+    // Prefer usesLeft from DiceCloud if available, otherwise calculate from usesUsed
+    const usesRemaining = action.usesLeft !== undefined ? action.usesLeft : (usesTotal - usesUsed);
     const usesText = `${usesRemaining} / ${usesTotal}`;
     message += ` {{Uses=${usesText}}}`;
   }
