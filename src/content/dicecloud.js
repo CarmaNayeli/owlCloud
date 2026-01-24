@@ -1303,15 +1303,22 @@
                 'heal for half the damage',
                 'regains hit points equal to',
                 'gain temporary hit points equal to',
-                'gain hit points equal to'
+                'gain hit points equal to',
+                'equal to half the',
+                'equal to half of the',
+                'half the amount of',
+                'half of the'
               ];
 
               isLifesteal = lifesteaIndicators.some(indicator =>
-                lowerDesc.includes(indicator) && lowerDesc.includes('damage')
+                lowerDesc.includes(indicator) && (lowerDesc.includes('damage') || lowerDesc.includes('necrotic'))
               );
 
               if (isLifesteal) {
                 debug.log(`💉 Detected lifesteal mechanic in "${prop.name}"`);
+              } else {
+                debug.log(`🔍 Not lifesteal: "${prop.name}" - has damage and healing but description doesn't match patterns`);
+                debug.log(`    Description snippet: ${lowerDesc.substring(0, 200)}`);
               }
             }
           }
