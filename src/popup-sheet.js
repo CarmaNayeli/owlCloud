@@ -6088,7 +6088,7 @@ function showUpcastChoice(spell, originalLevel, afterCast = null) {
 
   debug.log('🔮 Available slots for casting:', availableSlots);
 
-  // Handle case where no spell slots are available
+  // Handle case where no spell slots are available - allow casting anyway with warning
   if (availableSlots.length === 0) {
     const noSlotsModal = document.createElement('div');
     noSlotsModal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
@@ -6096,15 +6096,30 @@ function showUpcastChoice(spell, originalLevel, afterCast = null) {
     const noSlotsContent = document.createElement('div');
     noSlotsContent.style.cssText = 'background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); max-width: 400px; width: 90%; text-align: center;';
     noSlotsContent.innerHTML = `
-      <h3 style="margin: 0 0 20px 0; color: #c0392b;">No Spell Slots Available</h3>
+      <h3 style="margin: 0 0 20px 0; color: #e67e22;">No Spell Slots Available</h3>
       <p style="color: #7f8c8d; margin-bottom: 20px;">You don't have any spell slots of level ${originalLevel} or higher to cast ${spell.name}.</p>
-      <button id="no-slots-ok" style="padding: 12px 30px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 1em;">OK</button>
+      <p style="color: #95a5a6; font-size: 0.9em; margin-bottom: 20px;">You can still cast if your GM allows it - no slot will be decremented.</p>
+      <div style="display: flex; gap: 10px; justify-content: center;">
+        <button id="no-slots-cancel" style="padding: 12px 25px; background: #95a5a6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 1em;">Cancel</button>
+        <button id="no-slots-cast" style="padding: 12px 25px; background: #e67e22; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 1em;">Cast Anyway</button>
+      </div>
     `;
 
     noSlotsModal.appendChild(noSlotsContent);
     document.body.appendChild(noSlotsModal);
 
-    document.getElementById('no-slots-ok').onclick = () => noSlotsModal.remove();
+    document.getElementById('no-slots-cancel').onclick = () => noSlotsModal.remove();
+    document.getElementById('no-slots-cast').onclick = () => {
+      noSlotsModal.remove();
+      // Cast without decrementing a slot - pass a fake slot with noSlotUsed flag
+      castWithSlot(spell, {
+        level: originalLevel,
+        current: 0,
+        max: 0,
+        slotVar: null,
+        noSlotUsed: true
+      }, [], afterCast);
+    };
     noSlotsModal.onclick = (e) => { if (e.target === noSlotsModal) noSlotsModal.remove(); };
     return;
   }
@@ -6285,12 +6300,14 @@ function showUpcastChoice(spell, originalLevel, afterCast = null) {
 }
 
 function castWithSlot(spell, slot, metamagicOptions = [], afterCast = null) {
-  // Deduct spell slot
-  characterData.spellSlots[slot.slotVar] = slot.current - 1;
+  // Deduct spell slot (unless casting without a slot)
+  if (!slot.noSlotUsed && slot.slotVar) {
+    characterData.spellSlots[slot.slotVar] = slot.current - 1;
 
-  // Also update otherVariables for Pact Magic to keep in sync
-  if (slot.isPactMagic && characterData.otherVariables?.pactMagicSlots !== undefined) {
-    characterData.otherVariables.pactMagicSlots = slot.current - 1;
+    // Also update otherVariables for Pact Magic to keep in sync
+    if (slot.isPactMagic && characterData.otherVariables?.pactMagicSlots !== undefined) {
+      characterData.otherVariables.pactMagicSlots = slot.current - 1;
+    }
   }
 
   // Deduct sorcery points for metamagic
@@ -6316,22 +6333,31 @@ function castWithSlot(spell, slot, metamagicOptions = [], afterCast = null) {
   saveCharacterData();
 
   let resourceText;
-  if (slot.isPactMagic) {
+  let notificationText;
+
+  if (slot.noSlotUsed) {
+    // Casting without a spell slot (GM override)
+    resourceText = `Level ${slot.level} (NO SLOT USED - slot not decremented)`;
+    notificationText = `✨ Cast ${spell.name}! (no spell slot decremented)`;
+    debug.log(`⚠️ Cast without slot - no slot decremented`);
+  } else if (slot.isPactMagic) {
     resourceText = `Pact Magic (Level ${slot.level})`;
+    debug.log(`✅ Used Pact Magic slot. Remaining: ${characterData.spellSlots[slot.slotVar]}/${slot.max}`);
+    notificationText = `✨ Cast ${spell.name}! (${characterData.spellSlots[slot.slotVar]}/${slot.max} Pact slots left)`;
   } else if (slot.level > parseInt(spell.level)) {
     resourceText = `Level ${slot.level} slot (upcast from ${spell.level})`;
+    debug.log(`✅ Used spell slot. Remaining: ${characterData.spellSlots[slot.slotVar]}/${slot.max}`);
+    notificationText = `✨ Cast ${spell.name}! (${characterData.spellSlots[slot.slotVar]}/${slot.max} slots left)`;
   } else {
     resourceText = `Level ${slot.level} slot`;
+    debug.log(`✅ Used spell slot. Remaining: ${characterData.spellSlots[slot.slotVar]}/${slot.max}`);
+    notificationText = `✨ Cast ${spell.name}! (${characterData.spellSlots[slot.slotVar]}/${slot.max} slots left)`;
   }
 
   // Add metamagic to resource text
   if (metamagicNames.length > 0) {
     resourceText += ` + ${metamagicNames.join(', ')} (${totalMetamagicCost} SP)`;
   }
-
-  debug.log(`✅ Used spell slot. Remaining: ${characterData.spellSlots[slot.slotVar]}/${slot.max}`);
-
-  let notificationText = `✨ Cast ${spell.name}! (${characterData.spellSlots[slot.slotVar]}/${slot.max} slots left)`;
   if (metamagicNames.length > 0) {
     const sorceryPoints = getSorceryPointsResource();
     notificationText += ` with ${metamagicNames.join(', ')}! (${sorceryPoints.current}/${sorceryPoints.max} SP left)`;
