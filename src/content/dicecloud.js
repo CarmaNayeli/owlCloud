@@ -452,22 +452,30 @@
         // Try to find the slot level from various sources
         let slotLevel = 1;
 
+        // Helper to extract numeric value from a property that could be a number or object
+        const extractValue = (prop) => {
+          if (prop === null || prop === undefined) return null;
+          if (typeof prop === 'number') return prop;
+          if (typeof prop === 'object') {
+            // DiceCloud may nest values in .value, .total, or other properties
+            return prop.value ?? prop.total ?? prop.currentValue ?? null;
+          }
+          return parseInt(prop) || null;
+        };
+
         // First check if the pact slot variable itself has a spellSlotLevel property
         // DiceCloud stores this as a property of Spell Slot type attributes
-        if (variables[varName].spellSlotLevel) {
-          slotLevel = variables[varName].spellSlotLevel;
-          debug.log(`  📊 Found slot level ${slotLevel} from ${varName}.spellSlotLevel`);
-        } else if (variables[varName].slotLevel) {
-          slotLevel = variables[varName].slotLevel;
-          debug.log(`  📊 Found slot level ${slotLevel} from ${varName}.slotLevel`);
-        } else if (variables[varName].level) {
-          slotLevel = variables[varName].level;
-          debug.log(`  📊 Found slot level ${slotLevel} from ${varName}.level`);
+        const slotLevelFromProp = extractValue(variables[varName].spellSlotLevel) ??
+                                   extractValue(variables[varName].slotLevel) ??
+                                   extractValue(variables[varName].level);
+        if (slotLevelFromProp) {
+          slotLevel = slotLevelFromProp;
+          debug.log(`  📊 Found slot level ${slotLevel} from ${varName} property`);
         } else {
           // Try separate slot level variables
           for (const levelVarName of slotLevelVarNames) {
             if (variables[levelVarName]) {
-              slotLevel = variables[levelVarName].value || 1;
+              slotLevel = extractValue(variables[levelVarName]) || variables[levelVarName].value || 1;
               debug.log(`  📊 Found slot level ${slotLevel} from variable ${levelVarName}`);
               break;
             }
