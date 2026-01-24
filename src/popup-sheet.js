@@ -1,5 +1,14 @@
 debug.log('✅ Popup HTML loaded');
 
+// Import spell edge cases
+import { SPELL_EDGE_CASES, isEdgeCase, getEdgeCase, applyEdgeCaseModifications, isReuseableSpell, isTooComplicatedSpell } from './modules/spell-edge-cases.js';
+// Import class feature edge cases
+import { CLASS_FEATURE_EDGE_CASES, isClassFeatureEdgeCase, getClassFeatureEdgeCase, applyClassFeatureEdgeCaseModifications } from './modules/class-feature-edge-cases.js';
+// Import racial feature edge cases
+import { RACIAL_FEATURE_EDGE_CASES, isRacialFeatureEdgeCase, getRacialFeatureEdgeCase, applyRacialFeatureEdgeCaseModifications } from './modules/racial-feature-edge-cases.js';
+// Import combat maneuver edge cases
+import { COMBAT_MANEUVER_EDGE_CASES, isCombatManeuverEdgeCase, getCombatManeuverEdgeCase, applyCombatManeuverEdgeCaseModifications } from './modules/combat-maneuver-edge-cases.js';
+
 // Initialize theme manager
 if (typeof ThemeManager !== 'undefined') {
   ThemeManager.init().then(() => {
@@ -1298,6 +1307,82 @@ function rebuildInventory() {
   buildInventoryDisplay(container, characterData.inventory);
 }
 
+/**
+ * Get available action options (attack/damage rolls) with edge case modifications
+ */
+function getActionOptions(action) {
+  const options = [];
+
+  // Check for attack
+  if (action.attackRoll) {
+    // Convert to full formula if it's just a number (legacy data)
+    let formula = action.attackRoll;
+    if (typeof formula === 'number' || !formula.includes('d20')) {
+      const bonus = parseInt(formula);
+      formula = bonus >= 0 ? `1d20+${bonus}` : `1d20${bonus}`;
+    }
+
+    options.push({
+      type: 'attack',
+      label: '🎯 Attack',
+      formula: formula,
+      icon: '🎯',
+      color: '#e74c3c'
+    });
+  }
+
+  // Check for damage/healing rolls
+  const isValidDiceFormula = action.damage && (/\d*d\d+/.test(action.damage) || /\d*d\d+/.test(action.damage.replace(/\s*\+\s*/g, '+')));
+  if (isValidDiceFormula) {
+    const isHealing = action.damageType && action.damageType.toLowerCase().includes('heal');
+    const isTempHP = action.damageType && (
+      action.damageType.toLowerCase() === 'temphp' ||
+      action.damageType.toLowerCase() === 'temporary' ||
+      action.damageType.toLowerCase().includes('temp')
+    );
+
+    // Use different text for healing vs damage vs features
+    let btnText;
+    if (isHealing) {
+      btnText = '💚 Heal';
+    } else if (action.actionType === 'feature' || !action.attackRoll) {
+      btnText = '🎲 Roll';
+    } else {
+      btnText = '💥 Damage';
+    }
+
+    options.push({
+      type: isHealing ? 'healing' : (isTempHP ? 'temphp' : 'damage'),
+      label: btnText,
+      formula: action.damage,
+      icon: isTempHP ? '🛡️' : (isHealing ? '💚' : '💥'),
+      color: isTempHP ? '#3498db' : (isHealing ? '#27ae60' : '#e67e22')
+    });
+  }
+
+  // Apply edge case modifications
+  let edgeCaseResult;
+  
+  // Check class feature edge cases first
+  if (isClassFeatureEdgeCase(action.name)) {
+    edgeCaseResult = applyClassFeatureEdgeCaseModifications(action, options);
+  }
+  // Check racial feature edge cases
+  else if (isRacialFeatureEdgeCase(action.name)) {
+    edgeCaseResult = applyRacialFeatureEdgeCaseModifications(action, options);
+  }
+  // Check combat maneuver edge cases
+  else if (isCombatManeuverEdgeCase(action.name)) {
+    edgeCaseResult = applyCombatManeuverEdgeCaseModifications(action, options);
+  }
+  // Default - no edge cases
+  else {
+    edgeCaseResult = { options, skipNormalButtons: false };
+  }
+
+  return edgeCaseResult;
+}
+
 function buildActionsDisplay(container, actions) {
   // Clear container
   container.innerHTML = '';
@@ -1580,192 +1665,162 @@ function buildActionsDisplay(container, actions) {
     const buttonsDiv = document.createElement('div');
     buttonsDiv.className = 'action-buttons';
 
-    // Attack button (if attackRoll exists)
-    if (action.attackRoll) {
-      const attackBtn = document.createElement('button');
-      attackBtn.className = 'attack-btn';
-      attackBtn.textContent = '🎯 Attack';
-      attackBtn.addEventListener('click', () => {
-        // Announce the action with description first if it has one
-        if (action.description) {
-          announceAction(action);
+    // Get action options with edge case modifications
+    const actionOptionsResult = getActionOptions(action);
+    const actionOptions = actionOptionsResult.options;
+
+    // Check if this is a "utility only" action that should just announce
+    if (actionOptionsResult.skipNormalButtons) {
+      // Create simple action button for utility-only actions
+      const actionBtn = document.createElement('button');
+      actionBtn.className = 'action-btn';
+      actionBtn.textContent = '✨ Use Action';
+      actionBtn.style.cssText = `
+        background: #9b59b6;
+        color: white;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: bold;
+      `;
+      actionBtn.addEventListener('click', () => {
+        // Announce the action with description
+        announceAction(action);
+        
+        // Mark action as used if it has uses
+        if (action.uses) {
+          decrementActionUses(action);
         }
-
-        // Convert to full formula if it's just a number (legacy data)
-        let formula = action.attackRoll;
-        if (typeof formula === 'number' || !formula.includes('d20')) {
-          const bonus = parseInt(formula);
-          formula = bonus >= 0 ? `1d20+${bonus}` : `1d20${bonus}`;
-        }
-
-        // Mark action as used for attacks
-        markActionAsUsed('action');
-
-        roll(`${action.name} Attack`, formula);
+        
+        // Check and decrement other resources
+        decrementActionResources(action);
       });
-      buttonsDiv.appendChild(attackBtn);
-    }
-
-    // Damage button (if damage exists and is a valid dice formula)
-    // Match dice notation with optional leading digit: "d4" or "1d4" or "2d6+3", etc.
-    const isValidDiceFormula = action.damage && (/\d*d\d+/.test(action.damage) || /\d*d\d+/.test(action.damage.replace(/\s*\+\s*/g, '+'))); // Check for dice formula
-    if (isValidDiceFormula) {
-      const damageBtn = document.createElement('button');
-      damageBtn.className = 'damage-btn';
-      // Use different text for healing vs damage vs features
-      let btnText;
-      if (action.damageType && action.damageType.toLowerCase().includes('heal')) {
-        btnText = '💚 Heal';
-      } else if (action.actionType === 'feature' || !action.attackRoll) {
-        // If it's a feature OR there's no attack roll (like Deflect Missiles, defensive abilities, etc.)
-        // then it's just a roll, not damage
-        btnText = '🎲 Roll';
-      } else {
-        btnText = '💥 Damage';
-      }
-      damageBtn.textContent = btnText;
-      damageBtn.addEventListener('click', () => {
-        // Check and decrement uses before rolling
-        if (action.uses && !decrementActionUses(action)) {
-          return; // No uses remaining
-        }
-
-        // Check and decrement Ki points if action costs Ki
-        const kiCost = getKiCostFromAction(action);
-        if (kiCost > 0) {
-          const kiResource = getKiPointsResource();
-          if (!kiResource) {
-            showNotification(`❌ No Ki Points resource found`, 'error');
-            return;
-          }
-          if (kiResource.current < kiCost) {
-            showNotification(`❌ Not enough Ki Points! Need ${kiCost}, have ${kiResource.current}`, 'error');
-            return;
-          }
-          kiResource.current -= kiCost;
-          saveCharacterData();
-          debug.log(`✨ Used ${kiCost} Ki points for ${action.name}. Remaining: ${kiResource.current}/${kiResource.max}`);
-          showNotification(`✨ ${action.name}! (${kiResource.current}/${kiResource.max} Ki left)`);
-          buildSheet(characterData); // Refresh display
-        }
-
-        // Check and decrement Sorcery Points if action costs them
-        const sorceryCost = getSorceryPointCostFromAction(action);
-        if (sorceryCost > 0) {
-          const sorceryResource = getSorceryPointsResource();
-          if (!sorceryResource) {
-            showNotification(`❌ No Sorcery Points resource found`, 'error');
-            return;
-          }
-          if (sorceryResource.current < sorceryCost) {
-            showNotification(`❌ Not enough Sorcery Points! Need ${sorceryCost}, have ${sorceryResource.current}`, 'error');
-            return;
-          }
-          sorceryResource.current -= sorceryCost;
-          saveCharacterData();
-          debug.log(`✨ Used ${sorceryCost} Sorcery Points for ${action.name}. Remaining: ${sorceryResource.current}/${sorceryResource.max}`);
-          showNotification(`✨ ${action.name}! (${sorceryResource.current}/${sorceryResource.max} SP left)`);
-          buildSheet(characterData); // Refresh display
-        }
-
-        // Check and decrement other resources (Wild Shape, Breath Weapon, etc.)
-        if (!decrementActionResources(action)) {
-          return; // Not enough resources
-        }
-
-        let damageName = action.damageType ?
-          `${action.name} (${action.damageType})` :
-          action.name;
-        let damageFormula = action.damage;
-
-        // Normalize dice formulas: "d4" -> "1d4", "d6" -> "1d6", etc.
-        damageFormula = damageFormula.replace(/\bd(\d+)/g, '1d$1');
-
-        // If damage formula is a bare variable that doesn't exist, try to extract from description
-        const bareVarPattern = /^[a-zA-Z_][a-zA-Z0-9_.]*$/;
-        if (bareVarPattern.test(damageFormula.trim()) && !characterData.otherVariables.hasOwnProperty(damageFormula.trim())) {
-          debug.log(`⚠️ Damage variable "${damageFormula}" not found, attempting to extract from description`);
+      buttonsDiv.appendChild(actionBtn);
+    } else {
+      // Create buttons for each action option
+      actionOptions.forEach((option, optionIndex) => {
+        const actionBtn = document.createElement('button');
+        actionBtn.className = `${option.type}-btn`;
+        
+        // Add edge case note if present
+        const edgeCaseNote = option.edgeCaseNote ? `<div style="font-size: 0.7em; color: #666; margin-top: 1px;">${option.edgeCaseNote}</div>` : '';
+        actionBtn.innerHTML = `${option.label}${edgeCaseNote}`;
+        
+        actionBtn.style.cssText = `
+          background: ${option.color};
+          color: white;
+          border: none;
+          padding: 8px 12px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 12px;
+          font-weight: bold;
+          margin-right: 4px;
+          margin-bottom: 4px;
+        `;
+        
+        actionBtn.addEventListener('click', () => {
+          // Announce the action with description first if it has one
           if (action.description) {
-            const resolvedDesc = resolveVariablesInFormula(action.description);
-            // Extract dice formulas from description (e.g., "5d6", "2d8+3", etc.)
-            const dicePattern = /(\d+d\d+(?:[+\-]\d+)?)/gi;
-            const matches = resolvedDesc.match(dicePattern);
-            if (matches && matches.length > 0) {
-              damageFormula = matches[0];
-              debug.log(`✅ Extracted damage formula from description: ${damageFormula}`);
-            } else {
-              debug.log(`⚠️ Could not extract damage formula from description`);
-            }
+            announceAction(action);
           }
-        }
 
-        // Add Sneak Attack if toggle is enabled and this is a weapon attack
-        if (sneakAttackEnabled && sneakAttackDamage && action.attackRoll) {
-          damageFormula += `+${sneakAttackDamage}`;
-          damageName += ' + Sneak Attack';
-          debug.log(`🎯 Adding Sneak Attack to ${action.name}: ${damageFormula}`);
-        }
-
-        // Add Elemental Weapon if toggle is enabled and this is a weapon attack
-        if (elementalWeaponEnabled && elementalWeaponDamage && action.attackRoll) {
-          damageFormula += `+${elementalWeaponDamage}`;
-          damageName += ' + Elemental Weapon';
-          debug.log(`⚔️ Adding Elemental Weapon to ${action.name}: ${damageFormula}`);
-        }
-
-        // Mark action as used based on action type
-        const actionType = action.actionType || 'action';
-        debug.log(`🎯 Action type for "${action.name}": "${actionType}"`);
-
-        if (actionType === 'bonus action' || actionType === 'bonus' || actionType === 'Bonus Action' || actionType === 'Bonus') {
-          markActionAsUsed('bonus action');
-        } else if (actionType === 'reaction' || actionType === 'Reaction') {
-          markActionAsUsed('reaction');
-        } else {
-          markActionAsUsed('action');
-        }
-
-        // Announce description for healing actions (like Healer's Kit)
-        if (action.damageType && action.damageType.toLowerCase().includes('heal') && action.description) {
-          const colorBanner = getColoredBanner();
-          let message = `&{template:default} {{name=${colorBanner}${characterData.name} uses ${action.name}}}`;
-          message += ` {{Description=${action.description}}}`;
-
-          const messageData = {
-            action: 'announceSpell',
-            message: message,
-            color: characterData.notificationColor
-          };
-
-          if (window.opener && !window.opener.closed) {
-            try {
-              window.opener.postMessage(messageData, '*');
-            } catch (error) {
-              debug.warn('⚠️ Could not send description via window.opener:', error.message);
+          // Handle different option types
+          if (option.type === 'attack') {
+            // Mark action as used for attacks
+            markActionAsUsed('action');
+            
+            // Add Sneak Attack if toggle is enabled and this is a weapon attack
+            let attackFormula = option.formula;
+            if (sneakAttackEnabled && sneakAttackDamage && action.attackRoll) {
+              attackFormula += `+${sneakAttackDamage}`;
+              debug.log(`🎯 Adding Sneak Attack to ${action.name}: ${attackFormula}`);
             }
-          } else {
-            browserAPI.runtime.sendMessage({
-              action: 'relayRollToRoll20',
-              roll: messageData
-            });
-          }
-        }
 
-        roll(damageName, damageFormula);
+            // Add Elemental Weapon if toggle is enabled and this is a weapon attack
+            if (elementalWeaponEnabled && elementalWeaponDamage && action.attackRoll) {
+              attackFormula += `+${elementalWeaponDamage}`;
+              debug.log(`⚔️ Adding Elemental Weapon to ${action.name}: ${attackFormula}`);
+            }
+            
+            roll(`${action.name} Attack`, attackFormula);
+          } else if (option.type === 'healing' || option.type === 'temphp' || option.type === 'damage') {
+            // Check and decrement uses before rolling
+            if (action.uses && !decrementActionUses(action)) {
+              return; // No uses remaining
+            }
+
+            // Check and decrement Ki points if action costs Ki
+            const kiCost = getKiCostFromAction(action);
+            if (kiCost > 0) {
+              const kiResource = getKiPointsResource();
+              if (!kiResource) {
+                showNotification(`❌ No Ki Points resource found`, 'error');
+                return;
+              }
+              if (kiResource.current < kiCost) {
+                showNotification(`❌ Not enough Ki Points! Need ${kiCost}, have ${kiResource.current}`, 'error');
+                return;
+              }
+              kiResource.current -= kiCost;
+              saveCharacterData();
+              debug.log(`✨ Used ${kiCost} Ki points for ${action.name}. Remaining: ${kiResource.current}/${kiResource.max}`);
+              showNotification(`✨ ${action.name}! (${kiResource.current}/${kiResource.max} Ki left)`);
+              buildSheet(characterData); // Refresh display
+            }
+
+            // Check and decrement Sorcery Points if action costs them
+            const sorceryCost = getSorceryPointCostFromAction(action);
+            if (sorceryCost > 0) {
+              const sorceryResource = getSorceryPointsResource();
+              if (!sorceryResource) {
+                showNotification(`❌ No Sorcery Points resource found`, 'error');
+                return;
+              }
+              if (sorceryResource.current < sorceryCost) {
+                showNotification(`❌ Not enough Sorcery Points! Need ${sorceryCost}, have ${sorceryResource.current}`, 'error');
+                return;
+              }
+              sorceryResource.current -= sorceryCost;
+              saveCharacterData();
+              debug.log(`✨ Used ${sorceryCost} Sorcery Points for ${action.name}. Remaining: ${sorceryResource.current}/${sorceryResource.max}`);
+              showNotification(`✨ ${action.name}! (${sorceryResource.current}/${sorceryResource.max} SP left)`);
+              buildSheet(characterData); // Refresh display
+            }
+
+            // Check and decrement other resources (Wild Shape, Breath Weapon, etc.)
+            if (!decrementActionResources(action)) {
+              return; // Not enough resources
+            }
+
+            // Roll the damage/healing
+            const rollType = option.type === 'healing' ? 'Healing' : (option.type === 'temphp' ? 'Temp HP' : 'Damage');
+            roll(`${action.name} ${rollType}`, option.formula);
+          }
+        });
+        
+        buttonsDiv.appendChild(actionBtn);
       });
-      buttonsDiv.appendChild(damageBtn);
     }
 
-    // Use button for non-attack actions (bonus actions, reactions, etc.)
-    // Only show if there's no attack roll AND (no damage OR damage is invalid/descriptive text)
-    const hasValidDamage = action.damage && /\d*d\d+/.test(action.damage); // Check for dice formula (e.g., "d4", "1d6", "2d8")
-    if (!action.attackRoll && !hasValidDamage && action.description) {
+    // Add "Use" button for actions with no attack/damage but have descriptions
+    if (actionOptions.length === 0 && action.description && !action.attackRoll && !action.damage) {
       const useBtn = document.createElement('button');
       useBtn.className = 'use-btn';
       useBtn.textContent = '✨ Use';
-      useBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-
+      useBtn.style.cssText = `
+        background: #9b59b6;
+        color: white;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: bold;
+      `;
+      useBtn.addEventListener('click', () => {
         // Special handling for Divine Spark
         if (action.name === 'Divine Spark') {
           // Find Channel Divinity resource from the resources array
@@ -1811,61 +1866,699 @@ function buildActionsDisplay(container, actions) {
             return;
           }
 
-          // Calculate max spell slot level for restoration (ceil(proficiencyBonus/2))
-          const profBonus = characterData.proficiencyBonus || 2;
-          const maxSlotLevel = Math.ceil(profBonus / 2);
-
-          // Show the spell slot restoration modal
-          showSpellSlotRestorationModal(channelDivinityResource, maxSlotLevel);
+          // Show the Harness Divine Power choice modal
+          showHarnessDivinePowerModal(action, channelDivinityResource);
           return;
         }
 
-        // Special handling for Font of Magic conversions
-        if (action.name === 'Convert Spell Slot to Sorcery Points') {
-          showConvertSlotToPointsModal();
+        // Special handling for Elemental Weapon
+        if (action.name === 'Elemental Weapon') {
+          // Show the Elemental Weapon choice modal
+          showElementalWeaponModal(action);
           return;
         }
 
-        // Special handling for Lay on Hands
-        if (action.name.toLowerCase().includes('lay on hands')) {
-          handleLayOnHands(action);
+        // Special handling for Divine Intervention
+        if (action.name === 'Divine Intervention') {
+          // Show the Divine Intervention modal
+          showDivineInterventionModal(action);
           return;
         }
 
-        // Special handling for Feline Agility
-        if (action.name && action.name.toLowerCase().includes('feline agility')) {
-          // Check if Feline Agility has uses to consume
-          if (action.uses && !decrementActionUses(action)) {
-            return; // No uses remaining
-          }
-          
-          debug.log('🐱 Feline Agility used');
-          showNotification('🐱 Feline Agility activated!', 'success');
-          
-          // Announce the action properly
-          announceAction({
-            name: action.name,
-            description: `When you move on your turn, you can double your speed until the end of the turn. Once you use this ability, you can't use it again until you move 0 feet on one of your turns.`,
-            actionType: action.actionType || 'bonus'
-          });
-          
-          // Refresh the display to show updated uses
-          buildSheet(characterData);
+        // Special handling for Wild Shape
+        if (action.name === 'Wild Shape' || action.name === 'Combat Wild Shape') {
+          // Show the Wild Shape choice modal
+          showWildShapeModal(action);
           return;
         }
 
-        // Special handling for Recover Spell Slot
-        if (action.name && action.name.toLowerCase().includes('recover spell slot')) {
-          // Check and decrement uses before proceeding
-          if (action.uses && !decrementActionUses(action)) {
-            return; // No uses remaining
-          }
-          
-          handleRecoverSpellSlot(action);
+        // Special handling for Shapechange
+        if (action.name === 'Shapechange') {
+          // Show the Shapechange choice modal
+          showShapechangeModal(action);
           return;
         }
 
-        // Check and decrement uses before announcing
+        // Special handling for True Polymorph
+        if (action.name === 'True Polymorph') {
+          // Show the True Polymorph choice modal
+          showTruePolymorphModal(action);
+          return;
+        }
+
+        // Special handling for Conjure Animals/Elementals/Fey/Celestial
+        if (action.name && (
+          action.name.includes('Conjure Animals') ||
+          action.name.includes('Conjure Elemental') ||
+          action.name.includes('Conjure Fey') ||
+          action.name.includes('Conjure Celestial')
+        )) {
+          // Show the Conjure choice modal
+          showConjureModal(action);
+          return;
+        }
+
+        // Special handling for Planar Binding
+        if (action.name === 'Planar Binding') {
+          // Show the Planar Binding choice modal
+          showPlanarBindingModal(action);
+          return;
+        }
+
+        // Special handling for Teleport
+        if (action.name === 'Teleport') {
+          // Show the Teleport choice modal
+          showTeleportModal(action);
+          return;
+        }
+
+        // Special handling for Word of Recall
+        if (action.name === 'Word of Recall') {
+          // Show the Word of Recall choice modal
+          showWordOfRecallModal(action);
+          return;
+        }
+
+        // Special handling for Contingency
+        if (action.name === 'Contingency') {
+          // Show the Contingency choice modal
+          showContingencyModal(action);
+          return;
+        }
+
+        // Special handling for Glyph of Warding
+        if (action.name === 'Glyph of Warding') {
+          // Show the Glyph of Warding choice modal
+          showGlyphOfWardingModal(action);
+          return;
+        }
+
+        // Special handling for Symbol
+        if (action.name === 'Symbol') {
+          // Show the Symbol choice modal
+          showSymbolModal(action);
+          return;
+        }
+
+        // Special handling for Programmed Illusion
+        if (action.name === 'Programmed Illusion') {
+          // Show the Programmed Illusion choice modal
+          showProgrammedIllusionModal(action);
+          return;
+        }
+
+        // Special handling for Sequester
+        if (action.name === 'Sequester') {
+          // Show the Sequester choice modal
+          showSequesterModal(action);
+          return;
+        }
+
+        // Special handling for Clone
+        if (action.name === 'Clone') {
+          // Show the Clone choice modal
+          showCloneModal(action);
+          return;
+        }
+
+        // Special handling for Astral Projection
+        if (action.name === 'Astral Projection') {
+          // Show the Astral Projection choice modal
+          showAstralProjectionModal(action);
+          return;
+        }
+
+        // Special handling for Etherealness
+        if (action.name === 'Etherealness') {
+          // Show the Etherealness choice modal
+          showEtherealnessModal(action);
+          return;
+        }
+
+        // Special handling for Magic Jar
+        if (action.name === 'Magic Jar') {
+          // Show the Magic Jar choice modal
+          showMagicJarModal(action);
+          return;
+        }
+
+        // Special handling for Imprisonment
+        if (action.name === 'Imprisonment') {
+          // Show the Imprisonment choice modal
+          showImprisonmentModal(action);
+          return;
+        }
+
+        // Special handling for Time Stop
+        if (action.name === 'Time Stop') {
+          // Show the Time Stop choice modal
+          showTimeStopModal(action);
+          return;
+        }
+
+        // Special handling for Mirage Arcane
+        if (action.name === 'Mirage Arcane') {
+          // Show the Mirage Arcane choice modal
+          showMirageArcaneModal(action);
+          return;
+        }
+
+        // Special handling for Forcecage
+        if (action.name === 'Forcecage') {
+          // Show the Forcecage choice modal
+          showForcecageModal(action);
+          return;
+        }
+
+        // Special handling for Maze
+        if (action.name === 'Maze') {
+          // Show the Maze choice modal
+          showMazeModal(action);
+          return;
+        }
+
+        // Special handling for Wish
+        if (action.name === 'Wish') {
+          // Show the Wish choice modal
+          showWishModal(action);
+          return;
+        }
+
+        // Special handling for Simulacrum
+        if (action.name === 'Simulacrum') {
+          // Show the Simulacrum choice modal
+          showSimulacrumModal(action);
+          return;
+        }
+
+        // Special handling for Gate
+        if (action.name === 'Gate') {
+          // Show the Gate choice modal
+          showGateModal(action);
+          return;
+        }
+
+        // Special handling for Legend Lore
+        if (action.name === 'Legend Lore') {
+          // Show the Legend Lore choice modal
+          showLegendLoreModal(action);
+          return;
+        }
+
+        // Special handling for Commune
+        if (action.name === 'Commune') {
+          // Show the Commune choice modal
+          showCommuneModal(action);
+          return;
+        }
+
+        // Special handling for Augury
+        if (action.name === 'Augury') {
+          // Show the Augury choice modal
+          showAuguryModal(action);
+          return;
+        }
+
+        // Special handling for Divination
+        if (action.name === 'Divination') {
+          // Show the Divination choice modal
+          showDivinationModal(action);
+          return;
+        }
+
+        // Special handling for Contact Other Plane
+        if (action.name === 'Contact Other Plane') {
+          // Show the Contact Other Plane choice modal
+          showContactOtherPlaneModal(action);
+          return;
+        }
+
+        // Special handling for Find the Path
+        if (action.name === 'Find the Path') {
+          // Show the Find the Path choice modal
+          showFindThePathModal(action);
+          return;
+        }
+
+        // Special handling for Speak with Dead
+        if (action.name === 'Speak with Dead') {
+          // Show the Speak with Dead choice modal
+          showSpeakWithDeadModal(action);
+          return;
+        }
+
+        // Special handling for Speak with Animals
+        if (action.name === 'Speak with Animals') {
+          // Show the Speak with Animals choice modal
+          showSpeakWithAnimalsModal(action);
+          return;
+        }
+
+        // Special handling for Speak with Plants
+        if (action.name === 'Speak with Plants') {
+          // Show the Speak with Plants choice modal
+          showSpeakWithPlantsModal(action);
+          return;
+        }
+
+        // Special handling for Zone of Truth
+        if (action.name === 'Zone of Truth') {
+          // Show the Zone of Truth choice modal
+          showZoneOfTruthModal(action);
+          return;
+        }
+
+        // Special handling for Sending
+        if (action.name === 'Sending') {
+          // Show the Sending choice modal
+          showSendingModal(action);
+          return;
+        }
+
+        // Special handling for Dream
+        if (action.name === 'Dream') {
+          // Show the Dream choice modal
+          showDreamModal(action);
+          return;
+        }
+
+        // Special handling for Scrying
+        if (action.name === 'Scrying') {
+          // Show the Scrying choice modal
+          showScryingModal(action);
+          return;
+        }
+
+        // Special handling for Dispel Evil and Good
+        if (action.name === 'Dispel Evil and Good') {
+          // Show the Dispel Evil and Good choice modal
+          showDispelEvilAndGoodModal(action);
+          return;
+        }
+
+        // Special handling for Freedom of Movement
+        if (action.name === 'Freedom of Movement') {
+          // Show the Freedom of Movement choice modal
+          showFreedomOfMovementModal(action);
+          return;
+        }
+
+        // Special handling for Nondetection
+        if (action.name === 'Nondetection') {
+          // Show the Nondetection choice modal
+          showNondetectionModal(action);
+          return;
+        }
+
+        // Special handling for Protection from Energy
+        if (action.name === 'Protection from Energy') {
+          // Show the Protection from Energy choice modal
+          showProtectionFromEnergyModal(action);
+          return;
+        }
+
+        // Special handling for Protection from Evil and Good
+        if (action.name === 'Protection from Evil and Good') {
+          // Show the Protection from Evil and Good choice modal
+          showProtectionFromEvilAndGoodModal(action);
+          return;
+        }
+
+        // Special handling for Sanctuary
+        if (action.name === 'Sanctuary') {
+          // Show the Sanctuary choice modal
+          showSanctuaryModal(action);
+          return;
+        }
+
+        // Special handling for Silence
+        if (action.name === 'Silence') {
+          // Show the Silence choice modal
+          showSilenceModal(action);
+          return;
+        }
+
+        // Special handling for Magic Circle
+        if (action.name === 'Magic Circle') {
+          // Show the Magic Circle choice modal
+          showMagicCircleModal(action);
+          return;
+        }
+
+        // Special handling for Greater Restoration
+        if (action.name === 'Greater Restoration') {
+          // Show the Greater Restoration choice modal
+          showGreaterRestorationModal(action);
+          return;
+        }
+
+        // Special handling for Remove Curse
+        if (action.name === 'Remove Curse') {
+          // Show the Remove Curse choice modal
+          showRemoveCurseModal(action);
+          return;
+        }
+
+        // Special handling for Revivify
+        if (action.name === 'Revivify') {
+          // Show the Revivify choice modal
+          showRevivifyModal(action);
+          return;
+        }
+
+        // Special handling for Raise Dead
+        if (action.name === 'Raise Dead') {
+          // Show the Raise Dead choice modal
+          showRaiseDeadModal(action);
+          return;
+        }
+
+        // Special handling for Resurrection
+        if (action.name === 'Resurrection') {
+          // Show the Resurrection choice modal
+          showResurrectionModal(action);
+          return;
+        }
+
+        // Special handling for True Resurrection
+        if (action.name === 'True Resurrection') {
+          // Show the True Resurrection choice modal
+          showTrueResurrectionModal(action);
+          return;
+        }
+
+        // Special handling for Detect Magic
+        if (action.name === 'Detect Magic') {
+          // Show the Detect Magic choice modal
+          showDetectMagicModal(action);
+          return;
+        }
+
+        // Special handling for Identify
+        if (action.name === 'Identify') {
+          // Show the Identify choice modal
+          showIdentifyModal(action);
+          return;
+        }
+
+        // Special handling for Dispel Magic
+        if (action.name === 'Dispel Magic') {
+          // Show the Dispel Magic choice modal
+          showDispelMagicModal(action);
+          return;
+        }
+
+        // Special handling for Feather Fall
+        if (action.name === 'Feather Fall') {
+          // Show the Feather Fall choice modal
+          showFeatherFallModal(action);
+          return;
+        }
+
+        // Special handling for Hellish Rebuke
+        if (action.name === 'Hellish Rebuke') {
+          // Show the Hellish Rebuke choice modal
+          showHellishRebukeModal(action);
+          return;
+        }
+
+        // Special handling for Shield
+        if (action.name === 'Shield') {
+          // Show the Shield choice modal
+          showShieldModal(action);
+          return;
+        }
+
+        // Special handling for Absorb Elements
+        if (action.name === 'Absorb Elements') {
+          // Show the Absorb Elements choice modal
+          showAbsorbElementsModal(action);
+          return;
+        }
+
+        // Special handling for Counterspell
+        if (action.name === 'Counterspell') {
+          // Show the Counterspell choice modal
+          showCounterspellModal(action);
+          return;
+        }
+
+        // Special handling for Fire Shield
+        if (action.name === 'Fire Shield') {
+          // Show the Fire Shield choice modal
+          showFireShieldModal(action);
+          return;
+        }
+
+        // Special handling for Armor of Agathys
+        if (action.name === 'Armor of Agathys') {
+          // Show the Armor of Agathys choice modal
+          showArmorOfAgathysModal(action);
+          return;
+        }
+
+        // Special handling for Meld into Stone
+        if (action.name === 'Meld into Stone') {
+          // Show the Meld into Stone choice modal
+          showMeldIntoStoneModal(action);
+          return;
+        }
+
+        // Special handling for Vampiric Touch
+        if (action.name === 'Vampiric Touch') {
+          // Show the Vampiric Touch choice modal
+          showVampiricTouchModal(action);
+          return;
+        }
+
+        // Special handling for Life Transference
+        if (action.name === 'Life Transference') {
+          // Show the Life Transference choice modal
+          showLifeTransferenceModal(action);
+          return;
+        }
+
+        // Special handling for Geas
+        if (action.name === 'Geas') {
+          // Show the Geas choice modal
+          showGeasModal(action);
+          return;
+        }
+
+        // Special handling for Symbol
+        if (action.name === 'Symbol') {
+          // Show the Symbol choice modal
+          showSymbolModal(action);
+          return;
+        }
+
+        // Special handling for Spiritual Weapon
+        if (action.name === 'Spiritual Weapon') {
+          // Show the Spiritual Weapon choice modal
+          showSpiritualWeaponModal(action);
+          return;
+        }
+
+        // Special handling for Flaming Sphere
+        if (action.name === 'Flaming Sphere') {
+          // Show the Flaming Sphere choice modal
+          showFlamingSphereModal(action);
+          return;
+        }
+
+        // Special handling for Bigby's Hand
+        if (action.name === 'Bigby\'s Hand') {
+          // Show the Bigby's Hand choice modal
+          showBigbysHandModal(action);
+          return;
+        }
+
+        // Special handling for Animate Objects
+        if (action.name === 'Animate Objects') {
+          // Show the Animate Objects choice modal
+          showAnimateObjectsModal(action);
+          return;
+        }
+
+        // Special handling for Moonbeam
+        if (action.name === 'Moonbeam') {
+          // Show the Moonbeam choice modal
+          showMoonbeamModal(action);
+          return;
+        }
+
+        // Special handling for Healing Spirit
+        if (action.name === 'Healing Spirit') {
+          // Show the Healing Spirit choice modal
+          showHealingSpiritModal(action);
+          return;
+        }
+
+        // Special handling for Bless
+        if (action.name === 'Bless') {
+          // Show the Bless choice modal
+          showBlessModal(action);
+          return;
+        }
+
+        // Special handling for Bane
+        if (action.name === 'Bane') {
+          // Show the Bane choice modal
+          showBaneModal(action);
+          return;
+        }
+
+        // Special handling for Guidance
+        if (action.name === 'Guidance') {
+          // Show the Guidance choice modal
+          showGuidanceModal(action);
+          return;
+        }
+
+        // Special handling for Resistance
+        if (action.name === 'Resistance') {
+          // Show the Resistance choice modal
+          showResistanceModal(action);
+          return;
+        }
+
+        // Special handling for Hex
+        if (action.name === 'Hex') {
+          // Show the Hex choice modal
+          showHexModal(action);
+          return;
+        }
+
+        // Special handling for Hunter's Mark
+        if (action.name === 'Hunter\'s Mark') {
+          // Show the Hunter's Mark choice modal
+          showHuntersMarkModal(action);
+          return;
+        }
+
+        // Special handling for Magic Missile
+        if (action.name === 'Magic Missile') {
+          // Show the Magic Missile choice modal
+          showMagicMissileModal(action);
+          return;
+        }
+
+        // Special handling for Scorching Ray
+        if (action.name === 'Scorching Ray') {
+          // Show the Scorching Ray choice modal
+          showScorchingRayModal(action);
+          return;
+        }
+
+        // Special handling for Aid
+        if (action.name === 'Aid') {
+          // Show the Aid choice modal
+          showAidModal(action);
+          return;
+        }
+
+        // Special handling for Eldritch Blast
+        if (action.name === 'Eldritch Blast') {
+          // Show the Eldritch Blast choice modal
+          showEldritchBlastModal(action);
+          return;
+        }
+
+        // Special handling for Spirit Guardians
+        if (action.name === 'Spirit Guardians') {
+          // Show the Spirit Guardians choice modal
+          showSpiritGuardiansModal(action);
+          return;
+        }
+
+        // Special handling for Cloud of Daggers
+        if (action.name === 'Cloud of Daggers') {
+          // Show the Cloud of Daggers choice modal
+          showCloudOfDaggersModal(action);
+          return;
+        }
+
+        // Special handling for Spike Growth
+        if (action.name === 'Spike Growth') {
+          // Show the Spike Growth choice modal
+          showSpikeGrowthModal(action);
+          return;
+        }
+
+        // Special handling for Wall of Fire
+        if (action.name === 'Wall of Fire') {
+          // Show the Wall of Fire choice modal
+          showWallOfFireModal(action);
+          return;
+        }
+
+        // Special handling for Haste
+        if (action.name === 'Haste') {
+          // Show the Haste choice modal
+          showHasteModal(action);
+          return;
+        }
+
+        // Special handling for Booming Blade
+        if (action.name === 'Booming Blade') {
+          // Show the Booming Blade choice modal
+          showBoomingBladeModal(action);
+          return;
+        }
+
+        // Special handling for Green-Flame Blade
+        if (action.name === 'Green-Flame Blade') {
+          // Show the Green-Flame Blade choice modal
+          showGreenFlameBladeModal(action);
+          return;
+        }
+
+        // Special handling for Chromatic Orb
+        if (action.name === 'Chromatic Orb') {
+          // Show the Chromatic Orb choice modal
+          showChromaticOrbModal(action);
+          return;
+        }
+
+        // Special handling for Dragon's Breath
+        if (action.name === 'Dragon\'s Breath') {
+          // Show the Dragons Breath choice modal
+          showDragonsBreathModal(action);
+          return;
+        }
+
+        // Special handling for Chaos Bolt
+        if (action.name === 'Chaos Bolt') {
+          // Show the Chaos Bolt choice modal
+          showChaosBoltModal(action);
+          return;
+        }
+
+        // Special handling for Delayed Blast Fireball
+        if (action.name === 'Delayed Blast Fireball') {
+          // Show the Delayed Blast Fireball choice modal
+          showDelayedBlastFireballModal(action);
+          return;
+        }
+
+        // Special handling for Polymorph
+        if (action.name === 'Polymorph') {
+          // Show the Polymorph choice modal
+          showPolymorphModal(action);
+          return;
+        }
+
+        // Special handling for True Polymorph
+        if (action.name === 'True Polymorph') {
+          // Show the True Polymorph choice modal
+          showTruePolymorphModal(action);
+          return;
+        }
+
+        // Default handling for other actions
+        announceAction(action);
+        
+        // Check and decrement uses before using
         if (action.uses && !decrementActionUses(action)) {
           return; // No uses remaining
         }
@@ -1913,44 +2606,10 @@ function buildActionsDisplay(container, actions) {
           return; // Not enough resources
         }
 
-        // Check if description contains a dice formula to roll
-        if (action.description) {
-          const resolvedDesc = resolveVariablesInFormula(action.description);
-          // Match dice formulas like "1d4", "2d6+3", or standalone "d4", "d6", etc.
-          const dicePattern = /(\d*d\d+(?:[+\-]\d+)?)/gi;
-          const matches = resolvedDesc.match(dicePattern);
-          if (matches && matches.length > 0) {
-            // Find the first valid dice formula (must have at least "d" + number)
-            let diceFormula = matches[0];
-            // If it starts with "d" (like "d4"), assume it's "1d4"
-            if (diceFormula.startsWith('d')) {
-              diceFormula = '1' + diceFormula;
-            }
-            debug.log(`🎲 Found dice formula in description: ${diceFormula}`);
-            
-            // Mark action as used based on action type
-            const actionType = action.actionType || 'action';
-            debug.log(`🎯 Action type for "${action.name}" (use button): "${actionType}"`);
-            
-            if (actionType === 'bonus action' || actionType === 'bonus' || actionType === 'Bonus Action' || actionType === 'Bonus') {
-              markActionAsUsed('bonus action');
-            } else if (actionType === 'reaction' || actionType === 'Reaction') {
-              markActionAsUsed('reaction');
-            } else {
-              markActionAsUsed('action');
-            }
-            
-            // Announce the action first, then roll
-            announceAction(action);
-            roll(action.name, diceFormula);
-            return;
-          }
-        }
-
-        // Mark action as used even if no dice roll (for features that just announce)
+        // Mark action as used based on action type
         const actionType = action.actionType || 'action';
-        debug.log(`🎯 Action type for "${action.name}" (no dice): "${actionType}"`);
-        
+        debug.log(`🎯 Action type for "${action.name}": "${actionType}"`);
+
         if (actionType === 'bonus action' || actionType === 'bonus' || actionType === 'Bonus Action' || actionType === 'Bonus') {
           markActionAsUsed('bonus action');
         } else if (actionType === 'reaction' || actionType === 'Reaction') {
@@ -1958,118 +2617,11 @@ function buildActionsDisplay(container, actions) {
         } else {
           markActionAsUsed('action');
         }
-
-        announceAction(action);
-      });
-      buttonsDiv.appendChild(useBtn);
-
-      // Add refresh button for Feline Agility
-      if (action.name && action.name.toLowerCase().includes('feline agility')) {
-        const refreshBtn = document.createElement('button');
-        refreshBtn.className = 'use-btn';
-        refreshBtn.textContent = '🔄 Refresh';
-        refreshBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          
-          // Restore Feline Agility uses
-          if (action.uses) {
-            action.usesUsed = 0; // Reset uses used to 0
-            saveCharacterData(); // Save the updated data
-            debug.log('🔄 Feline Agility uses restored');
-            showNotification('🐱 Feline Agility refreshed!', 'success');
-            
-            // Refresh the display to show updated uses
-            buildSheet(characterData);
-          }
-          
-          // Announce to Roll20 chat
-          postToChatIfOpener(`🐱 ${characterData.name} refreshes Feline Agility!`);
-        });
-        buttonsDiv.appendChild(refreshBtn);
-      }
-    }
-
-    // Fallback: Add Use button for actions without attackRoll/damage/description
-    // This ensures actions like "Convert Sorcery Points to Spell Slot" get a button
-    if (!action.attackRoll && !action.damage && !action.description) {
-      const useBtn = document.createElement('button');
-      useBtn.className = 'use-btn';
-      useBtn.textContent = '✨ Use';
-      useBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-
-        // Special handling for Font of Magic conversions
-        if (action.name === 'Convert Sorcery Points to Spell Slot') {
-          showFontOfMagicModal();
-          return;
-        }
-
-        // Check and decrement uses before announcing
-        if (action.uses && !decrementActionUses(action)) {
-          return; // No uses remaining
-        }
-
-        // Check and decrement Ki points if action costs Ki
-        const kiCost = getKiCostFromAction(action);
-        if (kiCost > 0) {
-          const kiResource = getKiPointsResource();
-          if (!kiResource) {
-            showNotification(`❌ No Ki Points resource found`, 'error');
-            return;
-          }
-          if (kiResource.current < kiCost) {
-            showNotification(`❌ Not enough Ki Points! Need ${kiCost}, have ${kiResource.current}`, 'error');
-            return;
-          }
-          kiResource.current -= kiCost;
-          saveCharacterData();
-          debug.log(`✨ Used ${kiCost} Ki points for ${action.name}. Remaining: ${kiResource.current}/${kiResource.max}`);
-          showNotification(`✨ ${action.name}! (${kiResource.current}/${kiResource.max} Ki left)`);
-          buildSheet(characterData); // Refresh display
-        }
-
-        // Check and decrement Sorcery Points if action costs them
-        const sorceryCost = getSorceryPointCostFromAction(action);
-        if (sorceryCost > 0) {
-          const sorceryResource = getSorceryPointsResource();
-          if (!sorceryResource) {
-            showNotification(`❌ No Sorcery Points resource found`, 'error');
-            return;
-          }
-          if (sorceryResource.current < sorceryCost) {
-            showNotification(`❌ Not enough Sorcery Points! Need ${sorceryCost}, have ${sorceryResource.current}`, 'error');
-            return;
-          }
-          sorceryResource.current -= sorceryCost;
-          saveCharacterData();
-          debug.log(`✨ Used ${sorceryCost} Sorcery Points for ${action.name}. Remaining: ${sorceryResource.current}/${sorceryResource.max}`);
-          showNotification(`✨ ${action.name}! (${sorceryResource.current}/${sorceryResource.max} SP left)`);
-          buildSheet(characterData); // Refresh display
-        }
-
-        // Check and decrement other resources (Wild Shape, Breath Weapon, etc.)
-        if (!decrementActionResources(action)) {
-          return; // Not enough resources
-        }
-
-        announceAction(action);
       });
       buttonsDiv.appendChild(useBtn);
     }
 
-    // Add Details toggle button if description exists
-    if (action.description) {
-      const toggleBtn = document.createElement('button');
-      toggleBtn.className = 'toggle-btn';
-      toggleBtn.textContent = '▼ Details';
-      buttonsDiv.appendChild(toggleBtn);
-    }
-
-    actionHeader.appendChild(nameDiv);
-    actionHeader.appendChild(buttonsDiv);
-    actionCard.appendChild(actionHeader);
-
-    // Add collapsible description if available
+    // Add description if available
     if (action.description) {
       const descDiv = document.createElement('div');
       descDiv.className = 'action-description';
@@ -2078,20 +2630,6 @@ function buildActionsDisplay(container, actions) {
       descDiv.innerHTML = `
         <div style="margin-top: 10px;">${resolvedDescription}</div>
       `;
-
-      // Toggle functionality
-      const toggleBtn = buttonsDiv.querySelector('.toggle-btn');
-      actionHeader.addEventListener('click', (e) => {
-        // Don't toggle if clicking on action buttons
-        if (!e.target.classList.contains('attack-btn') &&
-            !e.target.classList.contains('damage-btn') &&
-            !e.target.classList.contains('use-btn')) {
-          descDiv.classList.toggle('expanded');
-          if (toggleBtn) {
-            toggleBtn.textContent = descDiv.classList.contains('expanded') ? '▲ Hide' : '▼ Details';
-          }
-        }
-      });
 
       actionCard.appendChild(descDiv);
     }
@@ -3815,7 +4353,15 @@ function createSpellCard(spell, index) {
   if (castModalBtn) {
     castModalBtn.addEventListener('click', (e) => {
       e.stopPropagation();
+      const edgeCaseResult = applyEdgeCaseModifications(spell, []);
       const options = getSpellOptions(spell);
+
+      // Check if this is a "too complicated" spell that should only announce
+      if (edgeCaseResult.skipNormalButtons) {
+        announceSpellDescription(spell);
+        castSpell(spell, index, null, null, [], false, true); // skipAnnouncement = true
+        return;
+      }
 
       if (options.length === 0) {
         // No rolls - announce description and cast immediately
@@ -4074,7 +4620,9 @@ function getSpellOptions(spell) {
     }
   }
 
-  return options;
+  // Apply edge case modifications
+  const edgeCaseResult = applyEdgeCaseModifications(spell, options);
+  return edgeCaseResult.options;
 }
 
 /**
@@ -4156,8 +4704,7 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
   const isConcentrationRecast = spell.concentration && concentratingSpell === spell.name;
 
   // Spells that allow repeated use without consuming slots (non-concentration)
-  const reuseableSpells = ['spiritual weapon', 'meld into stone'];
-  const isReuseableSpell = spell.name && reuseableSpells.some(name => spell.name.toLowerCase().includes(name));
+  const isReuseableSpellType = isReuseableSpell(spell.name);
 
   // Check if this spell was already cast (stored in localStorage or session)
   const castSpellsKey = `castSpells_${characterData.name}`;
@@ -4165,7 +4712,7 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
   const wasAlreadyCast = castSpells.includes(spell.name);
 
   // Show checkbox for concentration recasts OR for all reuseable spells (even on first cast)
-  if (isConcentrationRecast || isReuseableSpell) {
+  if (isConcentrationRecast || isReuseableSpellType) {
     const recastSection = document.createElement('div');
     recastSection.style.cssText = 'margin-bottom: 16px; padding: 12px; background: #fff3cd; border-radius: 6px; border: 2px solid #f39c12;';
 
@@ -4353,7 +4900,8 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
     // Set initial label (with default slot level)
     const initialSlotLevel = spell.level || null;
     const resolvedLabel = getResolvedLabel(option, initialSlotLevel);
-    btn.innerHTML = `${option.icon} ${resolvedLabel}`;
+    const edgeCaseNote = option.edgeCaseNote ? `<div style="font-size: 0.8em; color: #666; margin-top: 2px;">${option.edgeCaseNote}</div>` : '';
+    btn.innerHTML = `${option.icon} ${resolvedLabel}${edgeCaseNote}`;
     btn.dataset.optionIndex = optionButtons.length; // Store index for later updates
 
     btn.addEventListener('mouseenter', () => {
@@ -4505,7 +5053,8 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
       const selectedSlotLevel = parseInt(slotSelect.value);
       optionButtons.forEach(({ button, option }) => {
         const resolvedLabel = getResolvedLabel(option, selectedSlotLevel);
-        button.innerHTML = `${option.icon} ${resolvedLabel}`;
+        const edgeCaseNote = option.edgeCaseNote ? `<div style="font-size: 0.8em; color: #666; margin-top: 2px;">${option.edgeCaseNote}</div>` : '';
+        button.innerHTML = `${option.icon} ${resolvedLabel}${edgeCaseNote}`;
       });
     };
 
