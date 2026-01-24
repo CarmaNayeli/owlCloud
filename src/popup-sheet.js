@@ -2621,6 +2621,13 @@ function buildActionsDisplay(container, actions) {
       buttonsDiv.appendChild(useBtn);
     }
 
+    // Append nameDiv and buttonsDiv to actionHeader
+    actionHeader.appendChild(nameDiv);
+    actionHeader.appendChild(buttonsDiv);
+
+    // Append actionHeader to actionCard
+    actionCard.appendChild(actionHeader);
+
     // Add description if available
     if (action.description) {
       const descDiv = document.createElement('div');
