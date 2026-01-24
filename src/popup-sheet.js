@@ -4243,9 +4243,285 @@ function createSpellCard(spell, index) {
     });
   });
 
+  // Cast spell modal button
+  const castModalBtn = header.querySelector('.cast-spell-modal-btn');
+  if (castModalBtn) {
+    castModalBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const options = getSpellOptions(spell);
+
+      if (options.length === 0) {
+        // No rolls - just cast immediately
+        castSpell(spell, index);
+      } else {
+        // Has rolls - show modal with options
+        showSpellModal(spell, index, options);
+      }
+    });
+  }
+
   card.appendChild(header);
   card.appendChild(desc);
   return card;
+}
+
+/**
+ * Validate spell data and log any issues
+ * Cross-checks parsed data against spell description
+ */
+function validateSpellData(spell) {
+  const issues = [];
+  const warnings = [];
+
+  // Check if spell has children data
+  if (!spell.damageRolls && !spell.attackRoll) {
+    console.log(`ℹ️ Spell "${spell.name}" has no attack or damage data (utility spell)`);
+    return { valid: true, issues: [], warnings: [] };
+  }
+
+  // Validate attack roll
+  if (spell.attackRoll && spell.attackRoll !== '(none)') {
+    if (typeof spell.attackRoll !== 'string' || spell.attackRoll.trim() === '') {
+      issues.push(`Attack roll is invalid: ${spell.attackRoll}`);
+    }
+  }
+
+  // Validate damage rolls
+  if (spell.damageRolls && Array.isArray(spell.damageRolls)) {
+    spell.damageRolls.forEach((roll, index) => {
+      if (!roll.damage) {
+        issues.push(`Damage roll ${index} missing formula`);
+      } else if (typeof roll.damage !== 'string' || roll.damage.trim() === '') {
+        issues.push(`Damage roll ${index} has invalid formula: ${roll.damage}`);
+      }
+
+      if (!roll.damageType) {
+        warnings.push(`Damage roll ${index} missing damage type (will show as "untyped")`);
+      }
+
+      // Check for dice notation
+      const hasDice = /d\d+/i.test(roll.damage);
+      if (!hasDice) {
+        warnings.push(`Damage roll "${roll.damage}" doesn't contain dice notation - might be a variable reference`);
+      }
+    });
+  }
+
+  // Cross-check against description
+  const description = (spell.description || '').toLowerCase();
+  const summary = (spell.summary || '').toLowerCase();
+  const fullText = `${summary} ${description}`;
+
+  if (fullText) {
+    // Check for attack mention
+    const hasAttackMention = /spell attack|attack roll|make.*attack/i.test(fullText);
+    const hasAttackData = spell.attackRoll && spell.attackRoll !== '(none)';
+
+    if (hasAttackMention && !hasAttackData) {
+      warnings.push(`Description mentions attack but no attack roll found`);
+    } else if (!hasAttackMention && hasAttackData) {
+      warnings.push(`Has attack roll but description doesn't mention attack`);
+    }
+
+    // Check for damage mention
+    const damageMentions = fullText.match(/(\d+d\d+)/g);
+    const hasDamageMention = damageMentions && damageMentions.length > 0;
+    const hasDamageData = spell.damageRolls && spell.damageRolls.length > 0;
+
+    if (hasDamageMention && !hasDamageData) {
+      warnings.push(`Description mentions ${damageMentions.join(', ')} but no damage rolls found`);
+    } else if (hasDamageData && !hasDamageMention) {
+      // This is fine - description might use variables like "spell level" instead of exact dice
+      console.log(`ℹ️ "${spell.name}" has ${spell.damageRolls.length} damage rolls but description doesn't show explicit dice`);
+    }
+  }
+
+  if (issues.length > 0) {
+    console.warn(`❌ Validation issues for spell "${spell.name}":`, issues);
+  }
+
+  if (warnings.length > 0) {
+    console.warn(`⚠️ Validation warnings for spell "${spell.name}":`, warnings);
+  }
+
+  if (issues.length === 0 && warnings.length === 0) {
+    console.log(`✅ Spell "${spell.name}" validated successfully`);
+  }
+
+  return { valid: issues.length === 0, issues, warnings };
+}
+
+/**
+ * Get available spell options (attack/damage rolls)
+ */
+function getSpellOptions(spell) {
+  // Validate spell data first
+  const validation = validateSpellData(spell);
+
+  const options = [];
+
+  // Check for attack
+  if (spell.attackRoll && spell.attackRoll !== '(none)') {
+    options.push({
+      type: 'attack',
+      label: '⚔️ Spell Attack',
+      formula: spell.attackRoll,
+      icon: '⚔️',
+      color: '#e74c3c'
+    });
+  }
+
+  // Check for damage/healing rolls
+  if (spell.damageRolls && spell.damageRolls.length > 0) {
+    spell.damageRolls.forEach((roll, index) => {
+      const isHealing = roll.damageType === 'healing';
+      options.push({
+        type: isHealing ? 'healing' : 'damage',
+        label: `${roll.damage} ${roll.damageType || 'damage'}`,
+        formula: roll.damage,
+        damageType: roll.damageType,
+        index: index,
+        icon: isHealing ? '💚' : '💥',
+        color: isHealing ? '#27ae60' : '#e67e22',
+        orChoices: roll.orChoices
+      });
+    });
+  }
+
+  return options;
+}
+
+/**
+ * Show spell casting modal with options
+ */
+function showSpellModal(spell, spellIndex, options) {
+  // Create modal overlay
+  const overlay = document.createElement('div');
+  overlay.className = 'spell-modal-overlay';
+  overlay.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+
+  // Create modal content
+  const modal = document.createElement('div');
+  modal.className = 'spell-modal';
+  modal.style.cssText = 'background: white; padding: 24px; border-radius: 8px; max-width: 500px; width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.3);';
+
+  // Modal header
+  const header = document.createElement('div');
+  header.style.cssText = 'margin-bottom: 16px; padding-bottom: 12px; border-bottom: 2px solid #eee;';
+  header.innerHTML = `
+    <h2 style="margin: 0 0 8px 0; color: #333;">Cast ${spell.name}</h2>
+    ${spell.level ? `<div style="color: #666; font-size: 14px;">Level ${spell.level} Spell</div>` : ''}
+  `;
+
+  // Options container
+  const optionsContainer = document.createElement('div');
+  optionsContainer.style.cssText = 'display: flex; flex-direction: column; gap: 12px; margin-top: 16px;';
+
+  // Add buttons for each option
+  options.forEach(option => {
+    const btn = document.createElement('button');
+    btn.style.cssText = `
+      padding: 12px 16px;
+      background: ${option.color};
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 16px;
+      text-align: left;
+      transition: opacity 0.2s;
+    `;
+    btn.innerHTML = `${option.icon} ${option.label}`;
+
+    btn.addEventListener('mouseenter', () => btn.style.opacity = '0.9');
+    btn.addEventListener('mouseleave', () => btn.style.opacity = '1');
+
+    btn.addEventListener('click', () => {
+      // Close modal
+      document.body.removeChild(overlay);
+
+      // Handle the option
+      handleSpellOption(spell, spellIndex, option);
+    });
+
+    optionsContainer.appendChild(btn);
+  });
+
+  // Cancel button
+  const cancelBtn = document.createElement('button');
+  cancelBtn.style.cssText = 'margin-top: 16px; padding: 10px; background: #95a5a6; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%;';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', () => {
+    document.body.removeChild(overlay);
+  });
+
+  // Assemble modal
+  modal.appendChild(header);
+  modal.appendChild(optionsContainer);
+  modal.appendChild(cancelBtn);
+  overlay.appendChild(modal);
+
+  // Close on overlay click
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      document.body.removeChild(overlay);
+    }
+  });
+
+  // Add to DOM
+  document.body.appendChild(overlay);
+}
+
+/**
+ * Handle spell option click (attack or damage)
+ */
+function handleSpellOption(spell, spellIndex, option) {
+  if (option.type === 'attack') {
+    // Cast spell + roll attack
+    const afterCast = (spell, slot) => {
+      const attackBonus = getSpellAttackBonus();
+      const attackFormula = attackBonus >= 0 ? `1d20+${attackBonus}` : `1d20${attackBonus}`;
+      roll(`${spell.name} - Spell Attack`, attackFormula);
+    };
+    castSpell(spell, spellIndex, afterCast);
+  } else if (option.type === 'damage' || option.type === 'healing') {
+    // Handle OR choices if present
+    let damageType = option.damageType;
+    if (option.orChoices && option.orChoices.length > 1) {
+      const choiceText = option.orChoices.map((c, i) => `${i + 1}. ${c.damageType}`).join('\n');
+      const choice = prompt(`Choose damage type for ${spell.name}:\n${choiceText}\n\nEnter number (1-${option.orChoices.length}):`);
+
+      if (choice === null) return; // User cancelled
+
+      const choiceIndex = parseInt(choice) - 1;
+      if (choiceIndex >= 0 && choiceIndex < option.orChoices.length) {
+        damageType = option.orChoices[choiceIndex].damageType;
+      } else {
+        alert(`Invalid choice. Please try again.`);
+        return;
+      }
+    }
+
+    // Cast spell + roll damage/healing
+    const afterCast = (spell, slot) => {
+      let formula = option.formula;
+      // Replace slotLevel with actual slot level
+      if (slot && slot.level) {
+        formula = formula.replace(/slotLevel/g, slot.level);
+      }
+      // Resolve other DiceCloud variables
+      formula = resolveVariablesInFormula(formula);
+      // Evaluate simple math expressions
+      formula = evaluateMathInFormula(formula);
+
+      const label = option.type === 'healing' ?
+        `${spell.name} - Healing` :
+        (damageType ? `${spell.name} - Damage (${damageType})` : `${spell.name} - Damage`);
+      roll(label, formula);
+    };
+    castSpell(spell, spellIndex, afterCast);
+  }
 }
 
 function castSpell(spell, index, afterCast = null) {
