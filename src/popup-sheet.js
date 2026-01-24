@@ -989,6 +989,18 @@ function buildSpellsBySource(container, spells) {
   debug.log(`📚 buildSpellsBySource called with ${spells.length} spells`);
   debug.log(`📚 Spell names: ${spells.map(s => s.name).join(', ')}`);
 
+  // Debug: Check for Eldritch Blast damageRolls
+  const eldritchBlast = spells.find(s => s.name && s.name.toLowerCase().includes('eldritch blast'));
+  if (eldritchBlast) {
+    console.log('⚡ ELDRITCH BLAST DATA IN POPUP:', {
+      name: eldritchBlast.name,
+      attackRoll: eldritchBlast.attackRoll,
+      damageRolls: eldritchBlast.damageRolls,
+      damageRollsLength: eldritchBlast.damageRolls ? eldritchBlast.damageRolls.length : 'undefined',
+      damageRollsJSON: JSON.stringify(eldritchBlast.damageRolls)
+    });
+  }
+
   // Apply filters first
   let filteredSpells = spells.filter(spell => {
     // Filter by spell level
@@ -4514,9 +4526,12 @@ function getSpellOptions(spell) {
   // Validate spell data first
   const validation = validateSpellData(spell);
 
-  debug.log(`🔮 getSpellOptions for "${spell.name}":`, {
+  // Detailed debug logging to trace damage data
+  console.log(`🔮 getSpellOptions for "${spell.name}":`, {
     attackRoll: spell.attackRoll,
     damageRolls: spell.damageRolls,
+    damageRollsLength: spell.damageRolls ? spell.damageRolls.length : 'undefined',
+    damageRollsContent: JSON.stringify(spell.damageRolls),
     concentration: spell.concentration
   });
 
@@ -4658,8 +4673,13 @@ function getSpellOptions(spell) {
     }
   }
 
+  // Log options before edge case modifications
+  console.log(`📋 getSpellOptions "${spell.name}" - options before edge cases:`, options.map(o => `${o.type}: ${o.label}`));
+
   // Apply edge case modifications
-  return applyEdgeCaseModifications(spell, options);
+  const result = applyEdgeCaseModifications(spell, options);
+  console.log(`📋 getSpellOptions "${spell.name}" - final options:`, result.options?.map(o => `${o.type}: ${o.label}`), 'skipNormalButtons:', result.skipNormalButtons);
+  return result;
 }
 
 /**

@@ -428,13 +428,37 @@
     }
 
     // Extract Pact Magic slots (Warlock)
-    // DiceCloud uses pactMagicSlot or similar for Warlock spell slots
-    const pactMagicVarNames = ['pactMagicSlot', 'pactMagicSlots', 'pactSlot', 'pactSlots', 'warlockSlot', 'warlockSlots'];
+    // DiceCloud V2 uses various variable names for Warlock spell slots
+    const pactMagicVarNames = [
+      'pactMagicSlot', 'pactMagicSlots', 'pactSlot', 'pactSlots',
+      'warlockSlot', 'warlockSlots', 'warlockSpellSlots',
+      'pactMagic', 'pactMagicUses', 'spellSlotsPact'
+    ];
+
+    // Also check for slot level variable
+    const slotLevelVarNames = [
+      'pactMagicSlotLevel', 'pactSlotLevel', 'warlockSlotLevel',
+      'pactMagicLevel', 'warlockSpellLevel'
+    ];
+
+    let foundPactMagic = false;
     for (const varName of pactMagicVarNames) {
       if (variables[varName]) {
         const currentSlots = variables[varName].value || 0;
         const maxSlots = variables[varName].total || variables[varName].value || 0;
-        const slotLevel = variables[varName].slotLevel || variables.pactMagicSlotLevel?.value || 1;
+
+        // Try to find the slot level from various sources
+        let slotLevel = 1;
+        for (const levelVarName of slotLevelVarNames) {
+          if (variables[levelVarName]) {
+            slotLevel = variables[levelVarName].value || 1;
+            break;
+          }
+        }
+        // Fallback: calculate from warlock level (slots are at ceil(warlockLevel/2) up to 5)
+        if (slotLevel === 1 && variables.warlockLevel) {
+          slotLevel = Math.min(5, Math.ceil(variables.warlockLevel.value / 2));
+        }
 
         // Store pact magic slots at the appropriate level
         const currentKey = `level${slotLevel}SpellSlots`;
@@ -450,16 +474,22 @@
         characterData.spellSlots.pactMagicSlotLevel = slotLevel;
 
         debug.log(`  ✅ Pact Magic: ${currentSlots}/${maxSlots} at level ${slotLevel} (from ${varName})`);
-        break; // Found pact magic slots, no need to check other variable names
+        foundPactMagic = true;
+        break;
       }
     }
 
-    // Debug: log all variables that contain "slot" or "pact" to help identify the correct variable names
-    const slotRelatedVars = Object.keys(variables).filter(k =>
-      k.toLowerCase().includes('slot') || k.toLowerCase().includes('pact')
-    );
+    // Debug: log all variables that contain "slot", "pact", "warlock", or "spell" to help identify the correct variable names
+    const slotRelatedVars = Object.keys(variables).filter(k => {
+      const lower = k.toLowerCase();
+      return lower.includes('slot') || lower.includes('pact') ||
+             lower.includes('warlock') || (lower.includes('spell') && !lower.includes('attack'));
+    });
+    debug.log('🔍 All slot/pact/warlock/spell related variables:', slotRelatedVars);
     if (slotRelatedVars.length > 0) {
-      debug.log('🔍 All slot/pact related variables:', slotRelatedVars);
+      slotRelatedVars.forEach(varName => {
+        debug.log(`   ${varName}:`, variables[varName]);
+      });
     }
 
     debug.log('📊 Final spell slots object:', characterData.spellSlots);
@@ -941,6 +971,12 @@
           break;
 
         case 'spell':
+          // Skip inactive or disabled spells (handles spells that require higher level)
+          if (prop.inactive || prop.disabled) {
+            debug.log(`⏭️ Skipping inactive/disabled spell: ${prop.name}`);
+            break;
+          }
+
           // Extract summary from object or string
           // Prioritize 'value' over 'text' because 'value' has inline calculations pre-computed
           let summary = '';
