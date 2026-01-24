@@ -4216,20 +4216,24 @@ function showSpellModal(spell, spellIndex, options) {
 
     // Get the formula for this option
     let formula = option.type === 'lifesteal' ? option.damageFormula : option.formula;
+    debug.log(`🏷️ getResolvedLabel called with formula: "${formula}", slotLevel: ${selectedSlotLevel}`);
 
     // Replace slotLevel with actual slot level (check for null/undefined, but allow 0)
-    if (selectedSlotLevel != null && formula.includes('slotLevel')) {
-      formula = formula.replace(/slotLevel/g, selectedSlotLevel);
+    if (selectedSlotLevel != null && formula && formula.includes('slotLevel')) {
+      const originalFormula = formula;
+      formula = formula.split('slotLevel').join(String(selectedSlotLevel));
+      debug.log(`  ✅ Replaced slotLevel: "${originalFormula}" -> "${formula}"`);
     }
 
     // Replace ~target.level with character level
-    if (formula.includes('~target.level') && characterData.level) {
+    if (formula && formula.includes('~target.level') && characterData.level) {
       formula = formula.replace(/~target\.level/g, characterData.level);
     }
 
     // Resolve variables and evaluate math
     formula = resolveVariablesInFormula(formula);
     formula = evaluateMathInFormula(formula);
+    debug.log(`  📊 Final resolved formula: "${formula}"`);
 
     // Build label based on option type
     if (option.type === 'lifesteal') {
@@ -5182,10 +5186,8 @@ function announceSpellCast(spell, resourceUsed) {
     message += ` {{Components=${spell.components}}}`;
   }
 
-  // Add description
-  if (spell.description) {
-    message += ` {{Description=${spell.description}}}`;
-  }
+  // Don't add description here - it will be shown with attack/damage/healing rolls
+  // This keeps the initial cast announcement clean and concise
 
   // Send to Roll20 chat
   const messageData = {
