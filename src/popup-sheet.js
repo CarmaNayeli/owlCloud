@@ -1129,39 +1129,51 @@ let inventoryFilters = {
 // Helper function to categorize an action
 function categorizeAction(action) {
   const name = (action.name || '').toLowerCase();
-  const desc = (action.description || '').toLowerCase();
   const damageType = (action.damageType || '').toLowerCase();
-  
-  // Check for healing
-  if (damageType.includes('heal') || name.includes('heal') || desc.includes('healing') || desc.includes('hit points')) {
+
+  // Check for healing based on damage type or name
+  if (damageType.includes('heal') || name.includes('heal') || name.includes('cure')) {
     return 'healing';
   }
-  
-  // Check for damage
+
+  // Check for damage based on actual damage formula
   if (action.damage && action.damage.includes('d')) {
     return 'damage';
   }
-  
+
   // Everything else is utility
   return 'utility';
 }
 
 // Helper function to categorize a spell
 function categorizeSpell(spell) {
-  const name = (spell.name || '').toLowerCase();
-  const desc = (spell.description || '').toLowerCase();
-  
-  // Check for healing
-  if (name.includes('heal') || name.includes('cure') || desc.includes('healing') || desc.includes('hit points')) {
-    return 'healing';
+  // Use actual spell data instead of string matching in description
+  // Check damageRolls array to determine if it's damage or healing
+  if (spell.damageRolls && Array.isArray(spell.damageRolls) && spell.damageRolls.length > 0) {
+    // Check if any damage roll is healing
+    const hasHealing = spell.damageRolls.some(roll =>
+      roll.damageType && roll.damageType.toLowerCase() === 'healing'
+    );
+
+    // Check if any damage roll is actual damage (not healing)
+    const hasDamage = spell.damageRolls.some(roll =>
+      !roll.damageType || roll.damageType.toLowerCase() !== 'healing'
+    );
+
+    // Categorize based on what the spell actually does
+    if (hasHealing && !hasDamage) {
+      return 'healing';
+    } else if (hasDamage) {
+      return 'damage';
+    }
   }
-  
-  // Check for damage
-  if (desc.includes('damage') || desc.includes('d6') || desc.includes('d8') || desc.includes('d10') || desc.includes('d12')) {
+
+  // Check for attack roll (attack spells are damage)
+  if (spell.attackRoll && spell.attackRoll !== '(none)') {
     return 'damage';
   }
-  
-  // Everything else is utility
+
+  // Everything else is utility (no damage rolls, no attack roll)
   return 'utility';
 }
 
@@ -4151,8 +4163,8 @@ function showSpellModal(spell, spellIndex, options) {
     // Get the formula for this option
     let formula = option.type === 'lifesteal' ? option.damageFormula : option.formula;
 
-    // Replace slotLevel with actual slot level
-    if (selectedSlotLevel && formula.includes('slotLevel')) {
+    // Replace slotLevel with actual slot level (check for null/undefined, but allow 0)
+    if (selectedSlotLevel != null && formula.includes('slotLevel')) {
       formula = formula.replace(/slotLevel/g, selectedSlotLevel);
     }
 
@@ -4260,8 +4272,8 @@ function showSpellModal(spell, spellIndex, options) {
           const afterCast = (spell, slot) => {
             usedSlot = slot;
             let formula = option.formula;
-            const actualSlotLevel = selectedSlotLevel || (slot && slot.level);
-            if (actualSlotLevel) {
+            const actualSlotLevel = selectedSlotLevel != null ? selectedSlotLevel : (slot && slot.level);
+            if (actualSlotLevel != null) {
               formula = formula.replace(/slotLevel/g, actualSlotLevel);
             }
             // Replace ~target.level with character level (for cantrips)
@@ -4280,8 +4292,8 @@ function showSpellModal(spell, spellIndex, options) {
         } else {
           // Spell already cast (via attack), just roll damage
           let formula = option.formula;
-          const actualSlotLevel = selectedSlotLevel || (usedSlot && usedSlot.level);
-          if (actualSlotLevel) {
+          const actualSlotLevel = selectedSlotLevel != null ? selectedSlotLevel : (usedSlot && usedSlot.level);
+          if (actualSlotLevel != null) {
             formula = formula.replace(/slotLevel/g, actualSlotLevel);
           }
           // Replace ~target.level with character level (for cantrips)
@@ -4304,8 +4316,8 @@ function showSpellModal(spell, spellIndex, options) {
         // Lifesteal: Cast spell, roll damage, calculate and apply healing
         const afterCast = (spell, slot) => {
           let damageFormula = option.damageFormula;
-          const actualSlotLevel = selectedSlotLevel || (slot && slot.level);
-          if (actualSlotLevel) {
+          const actualSlotLevel = selectedSlotLevel != null ? selectedSlotLevel : (slot && slot.level);
+          if (actualSlotLevel != null) {
             damageFormula = damageFormula.replace(/slotLevel/g, actualSlotLevel);
           }
           if (damageFormula.includes('~target.level') && characterData.level) {
