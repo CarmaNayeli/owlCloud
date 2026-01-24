@@ -6016,18 +6016,33 @@ function showUpcastChoice(spell, originalLevel, afterCast = null) {
   // Get all available spell slots at this level or higher
   const availableSlots = [];
 
+  // Helper to extract numeric value from DiceCloud objects
+  const extractNum = (val) => {
+    if (val === null || val === undefined) return 0;
+    if (typeof val === 'number') return val;
+    if (typeof val === 'object') {
+      return val.value ?? val.total ?? val.currentValue ?? 0;
+    }
+    return parseInt(val) || 0;
+  };
+
   // Check for Pact Magic slots (Warlock) - these are SEPARATE from regular spell slots
-  const pactMagicSlotLevel = characterData.spellSlots?.pactMagicSlotLevel ||
-                             characterData.otherVariables?.pactMagicSlotLevel ||
-                             characterData.otherVariables?.pactSlotLevelVisible ||
-                             characterData.otherVariables?.pactSlotLevel;
-  const pactMagicSlots = characterData.spellSlots?.pactMagicSlots ??
-                         characterData.otherVariables?.pactMagicSlots ??
-                         characterData.otherVariables?.pactSlot ?? 0;
-  const pactMagicSlotsMax = characterData.spellSlots?.pactMagicSlotsMax ??
-                            characterData.otherVariables?.pactMagicSlotsMax ?? 0;
-  const effectivePactLevel = typeof pactMagicSlotLevel === 'number' ? pactMagicSlotLevel :
-                             (pactMagicSlotLevel?.value || (pactMagicSlotsMax > 0 ? 5 : 0));
+  const rawPactLevel = characterData.spellSlots?.pactMagicSlotLevel ||
+                       characterData.otherVariables?.pactMagicSlotLevel ||
+                       characterData.otherVariables?.pactSlotLevelVisible ||
+                       characterData.otherVariables?.pactSlotLevel;
+  const rawPactSlots = characterData.spellSlots?.pactMagicSlots ??
+                       characterData.otherVariables?.pactMagicSlots ??
+                       characterData.otherVariables?.pactSlot;
+  const rawPactSlotsMax = characterData.spellSlots?.pactMagicSlotsMax ??
+                          characterData.otherVariables?.pactMagicSlotsMax;
+
+  // Extract numeric values (DiceCloud stores these as objects like {value: 2})
+  const pactMagicSlots = extractNum(rawPactSlots);
+  const pactMagicSlotsMax = extractNum(rawPactSlotsMax);
+  const effectivePactLevel = extractNum(rawPactLevel) || (pactMagicSlotsMax > 0 ? 5 : 0);
+
+  debug.log('🔮 Pact Magic detection:', { rawPactLevel, rawPactSlots, rawPactSlotsMax, pactMagicSlots, pactMagicSlotsMax, effectivePactLevel });
 
   // Add Pact Magic slots first if available and spell level is compatible
   if (pactMagicSlotsMax > 0 && originalLevel <= effectivePactLevel && pactMagicSlots > 0) {
@@ -6071,9 +6086,26 @@ function showUpcastChoice(spell, originalLevel, afterCast = null) {
   });
   const hasMetamagic = metamagicOptions.length > 0 && sorceryPoints && sorceryPoints.current > 0;
 
-  // If only the original level is available and no metamagic, just cast it
-  if (availableSlots.length === 1 && !hasMetamagic) {
-    castWithSlot(spell, availableSlots[0], [], afterCast);
+  debug.log('🔮 Available slots for casting:', availableSlots);
+
+  // Handle case where no spell slots are available
+  if (availableSlots.length === 0) {
+    const noSlotsModal = document.createElement('div');
+    noSlotsModal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+
+    const noSlotsContent = document.createElement('div');
+    noSlotsContent.style.cssText = 'background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); max-width: 400px; width: 90%; text-align: center;';
+    noSlotsContent.innerHTML = `
+      <h3 style="margin: 0 0 20px 0; color: #c0392b;">No Spell Slots Available</h3>
+      <p style="color: #7f8c8d; margin-bottom: 20px;">You don't have any spell slots of level ${originalLevel} or higher to cast ${spell.name}.</p>
+      <button id="no-slots-ok" style="padding: 12px 30px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 1em;">OK</button>
+    `;
+
+    noSlotsModal.appendChild(noSlotsContent);
+    document.body.appendChild(noSlotsModal);
+
+    document.getElementById('no-slots-ok').onclick = () => noSlotsModal.remove();
+    noSlotsModal.onclick = (e) => { if (e.target === noSlotsModal) noSlotsModal.remove(); };
     return;
   }
 
