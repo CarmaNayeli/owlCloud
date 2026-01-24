@@ -2811,6 +2811,24 @@ function buildInventoryDisplay(container, inventory) {
 
   // Apply filters
   let filteredInventory = inventory.filter(item => {
+    // Filter out coins (currency) - they're tracked separately
+    const lowerName = (item.name || '').toLowerCase();
+    const coinPatterns = ['platinum piece', 'gold piece', 'silver piece', 'copper piece', 'electrum piece',
+                          'platinum coin', 'gold coin', 'silver coin', 'copper coin', 'electrum coin',
+                          'pp', 'gp', 'sp', 'cp', 'ep'];
+    // Check for exact matches or plurals
+    const isCoin = coinPatterns.some(pattern => {
+      if (pattern.length <= 2) {
+        // Short patterns (pp, gp, etc.) - match exactly or with quantity prefix
+        return lowerName === pattern || lowerName === pattern + 's' || lowerName.match(new RegExp(`^\\d+\\s*${pattern}s?$`));
+      }
+      // Longer patterns - match if name contains it
+      return lowerName.includes(pattern);
+    });
+    if (isCoin) {
+      return false;
+    }
+
     // Filter by type
     if (inventoryFilters.filter === 'equipped' && !item.equipped) {
       return false;
