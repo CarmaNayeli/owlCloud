@@ -3760,6 +3760,9 @@ function createSpellCard(spell, index) {
   // All spells get a single Cast button that opens a modal with options
   const castButtonHTML = `<button class="cast-spell-modal-btn" data-spell-index="${index}" style="padding: 6px 12px; background: #9b59b6; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">✨ Cast</button>`;
 
+  // Custom macro override button (for magic items and custom spells)
+  const overrideButtonHTML = `<button class="custom-macro-btn" data-spell-index="${index}" style="padding: 6px 12px; background: #34495e; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;" title="Configure custom macros for this spell">⚙️</button>`;
+
   header.innerHTML = `
     <div>
       <span style="font-weight: bold;">${spell.name}</span>
@@ -3768,6 +3771,7 @@ function createSpellCard(spell, index) {
     </div>
     <div style="display: flex; gap: 8px;">
       ${castButtonHTML}
+      ${overrideButtonHTML}
       <button class="toggle-btn">▼ Details</button>
     </div>
   `;
@@ -3835,6 +3839,15 @@ function createSpellCard(spell, index) {
           showSpellModal(spell, index, options, false); // descriptionAnnounced = false
         }
       }
+    });
+  }
+
+  // Custom macro override button
+  const customMacroBtn = header.querySelector('.custom-macro-btn');
+  if (customMacroBtn) {
+    customMacroBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      showCustomMacroModal(spell, index);
     });
   }
 
@@ -4082,6 +4095,10 @@ function getSpellOptions(spell) {
  * @param {boolean} descriptionAnnounced - Whether spell description was already announced
  */
 function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false) {
+  // Check for custom macros
+  const customMacros = getCustomMacros(spell.name);
+  const hasCustomMacros = customMacros && customMacros.buttons && customMacros.buttons.length > 0;
+
   // Create modal overlay
   const overlay = document.createElement('div');
   overlay.className = 'spell-modal-overlay';
@@ -4327,6 +4344,76 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
 
   // Add buttons for each option
   const optionButtons = []; // Store buttons so we can update them when slot changes
+
+  // Add custom macro buttons if configured
+  if (hasCustomMacros) {
+    customMacros.buttons.forEach((customBtn, index) => {
+      const btn = document.createElement('button');
+      btn.className = 'spell-custom-macro-btn';
+      btn.style.cssText = `
+        padding: 12px 16px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: bold;
+        font-size: 16px;
+        text-align: left;
+        transition: opacity 0.2s, transform 0.2s;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+      `;
+      btn.innerHTML = customBtn.label;
+
+      btn.addEventListener('mouseenter', () => {
+        btn.style.opacity = '0.9';
+        btn.style.transform = 'translateY(-2px)';
+      });
+      btn.addEventListener('mouseleave', () => {
+        btn.style.opacity = '1';
+        btn.style.transform = 'translateY(0)';
+      });
+
+      btn.addEventListener('click', () => {
+        // Send custom macro to chat
+        const colorBanner = getColoredBanner();
+        const message = customBtn.macro;
+
+        const messageData = {
+          action: 'announceSpell',
+          message: message,
+          color: characterData.notificationColor
+        };
+
+        if (window.opener && !window.opener.closed) {
+          try {
+            window.opener.postMessage(messageData, '*');
+            debug.log('✅ Custom macro sent via window.opener');
+          } catch (error) {
+            debug.warn('⚠️ Could not send via window.opener:', error.message);
+          }
+        } else {
+          browserAPI.runtime.sendMessage({
+            action: 'relayRollToRoll20',
+            roll: messageData
+          });
+        }
+
+        showNotification(`✨ ${spell.name} - Custom Macro Sent!`, 'success');
+        document.body.removeChild(overlay);
+      });
+
+      optionsContainer.appendChild(btn);
+    });
+
+    // If skipNormalButtons is true, don't add normal spell option buttons
+    if (customMacros.skipNormalButtons) {
+      debug.log(`⚙️ Skipping normal spell buttons for "${spell.name}" (custom macros only)`);
+      // Skip the normal options.forEach below
+      options = [];
+    }
+  }
+
   options.forEach(option => {
     const btn = document.createElement('button');
     btn.className = `spell-option-btn-${option.type}`;
@@ -4601,6 +4688,175 @@ function handleSpellOption(spell, spellIndex, option) {
     castSpell(spell, spellIndex, afterCast);
   }
 }
+
+// ===== CUSTOM MACRO SYSTEM =====
+
+/**
+ * Get custom macros for a spell
+ */
+function getCustomMacros(spellName) {
+  const key = `customMacros_${characterData.name}`;
+  const allMacros = JSON.parse(localStorage.getItem(key) || '{}');
+  return allMacros[spellName] || null;
+}
+
+/**
+ * Save custom macros for a spell
+ */
+function saveCustomMacros(spellName, macros) {
+  const key = `customMacros_${characterData.name}`;
+  const allMacros = JSON.parse(localStorage.getItem(key) || '{}');
+
+  if (macros && macros.buttons && macros.buttons.length > 0) {
+    allMacros[spellName] = macros;
+  } else {
+    delete allMacros[spellName]; // Remove if no macros defined
+  }
+
+  localStorage.setItem(key, JSON.stringify(allMacros));
+  debug.log(`💾 Saved custom macros for "${spellName}":`, macros);
+}
+
+/**
+ * Show custom macro configuration modal
+ */
+function showCustomMacroModal(spell, spellIndex) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+
+  const modal = document.createElement('div');
+  modal.style.cssText = 'background: white; padding: 24px; border-radius: 8px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);';
+
+  const existingMacros = getCustomMacros(spell.name);
+  const skipNormalButtons = existingMacros?.skipNormalButtons || false;
+
+  modal.innerHTML = `
+    <h2 style="margin: 0 0 16px 0; color: #333;">Custom Macros: ${spell.name}</h2>
+    <p style="margin: 0 0 16px 0; color: #666; font-size: 14px;">
+      Configure custom macro buttons for this spell. Use this for magic item spells or custom variants that don't work with the default buttons.
+    </p>
+
+    <div style="margin-bottom: 16px;">
+      <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+        <input type="checkbox" id="skipNormalButtons" ${skipNormalButtons ? 'checked' : ''} style="width: 18px; height: 18px;">
+        <span style="font-weight: bold;">Replace default buttons (hide attack/damage buttons)</span>
+      </label>
+      <p style="margin: 4px 0 0 26px; color: #666; font-size: 13px;">
+        Check this to only show your custom macros, hiding the default spell buttons
+      </p>
+    </div>
+
+    <div id="macro-buttons-container" style="margin-bottom: 16px;">
+      <!-- Macro buttons will be added here -->
+    </div>
+
+    <button id="add-macro-btn" style="padding: 8px 16px; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-bottom: 16px;">
+      ➕ Add Macro Button
+    </button>
+
+    <div style="margin-top: 24px; padding-top: 16px; border-top: 2px solid #eee; display: flex; gap: 12px; justify-content: flex-end;">
+      <button id="clear-macros-btn" style="padding: 10px 20px; background: #e74c3c; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
+        🗑️ Clear All
+      </button>
+      <button id="cancel-macros-btn" style="padding: 10px 20px; background: #95a5a6; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
+        Cancel
+      </button>
+      <button id="save-macros-btn" style="padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
+        💾 Save
+      </button>
+    </div>
+  `;
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  const container = modal.querySelector('#macro-buttons-container');
+  const addBtn = modal.querySelector('#add-macro-btn');
+  const clearBtn = modal.querySelector('#clear-macros-btn');
+  const cancelBtn = modal.querySelector('#cancel-macros-btn');
+  const saveBtn = modal.querySelector('#save-macros-btn');
+
+  let macroCounter = 0;
+
+  function addMacroButton(label = '', macro = '') {
+    const macroDiv = document.createElement('div');
+    macroDiv.className = 'macro-button-config';
+    macroDiv.style.cssText = 'padding: 12px; background: #f8f9fa; border-radius: 6px; margin-bottom: 12px; border: 2px solid #dee2e6;';
+    macroDiv.dataset.macroId = macroCounter++;
+
+    macroDiv.innerHTML = `
+      <div style="margin-bottom: 8px;">
+        <label style="display: block; font-weight: bold; margin-bottom: 4px; color: #333;">Button Label:</label>
+        <input type="text" class="macro-label" value="${label}" placeholder="e.g., ⚔️ Attack, 💥 Damage, ✨ Cast" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 4px; font-size: 14px;">
+      </div>
+      <div style="margin-bottom: 8px;">
+        <label style="display: block; font-weight: bold; margin-bottom: 4px; color: #333;">Macro Text:</label>
+        <textarea class="macro-text" placeholder="&{template:default} {{name=My Spell}} {{effect=Custom effect}}" style="width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 4px; font-size: 13px; font-family: monospace; min-height: 80px;">${macro}</textarea>
+      </div>
+      <button class="remove-macro-btn" style="padding: 6px 12px; background: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+        ❌ Remove
+      </button>
+    `;
+
+    const removeBtn = macroDiv.querySelector('.remove-macro-btn');
+    removeBtn.addEventListener('click', () => {
+      macroDiv.remove();
+    });
+
+    container.appendChild(macroDiv);
+  }
+
+  // Add existing macros or one empty macro
+  if (existingMacros && existingMacros.buttons && existingMacros.buttons.length > 0) {
+    existingMacros.buttons.forEach(btn => {
+      addMacroButton(btn.label, btn.macro);
+    });
+  } else {
+    addMacroButton();
+  }
+
+  addBtn.addEventListener('click', () => addMacroButton());
+
+  clearBtn.addEventListener('click', () => {
+    if (confirm(`Clear all custom macros for "${spell.name}"?`)) {
+      saveCustomMacros(spell.name, null);
+      document.body.removeChild(overlay);
+      showNotification(`🗑️ Cleared custom macros for ${spell.name}`, 'success');
+    }
+  });
+
+  cancelBtn.addEventListener('click', () => {
+    document.body.removeChild(overlay);
+  });
+
+  saveBtn.addEventListener('click', () => {
+    const macroConfigs = Array.from(container.querySelectorAll('.macro-button-config'));
+    const buttons = macroConfigs.map(config => {
+      const label = config.querySelector('.macro-label').value.trim();
+      const macro = config.querySelector('.macro-text').value.trim();
+      return { label, macro };
+    }).filter(btn => btn.label && btn.macro); // Only save if both label and macro are provided
+
+    const skipNormalButtons = modal.querySelector('#skipNormalButtons').checked;
+
+    saveCustomMacros(spell.name, {
+      buttons,
+      skipNormalButtons
+    });
+
+    document.body.removeChild(overlay);
+    showNotification(`💾 Saved custom macros for ${spell.name}`, 'success');
+  });
+
+  // Close on overlay click
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      document.body.removeChild(overlay);
+    }
+  });
+}
+
+// ===== SPELL CASTING =====
 
 function castSpell(spell, index, afterCast = null, selectedSlotLevel = null, selectedMetamagic = [], skipSlotConsumption = false, skipAnnouncement = false) {
   debug.log('✨ Attempting to cast:', spell.name, spell, 'at level:', selectedSlotLevel, 'with metamagic:', selectedMetamagic, 'skipSlot:', skipSlotConsumption, 'skipAnnouncement:', skipAnnouncement);
