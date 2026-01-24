@@ -1157,7 +1157,8 @@
                 // - Variable references without dice (e.g., "spiritGuardiansDamage", "~target.tollTheDeadDamage")
                 // - Half-damage calculations (e.g., "floor(X / 2)")
                 // - Formulas that don't contain actual dice notation
-                const hasDiceNotation = /\d+d\d+/i.test(damageFormula);
+                // Match dice notation: "d" followed by digits (e.g., "2d6", "(slotLevel)d8", "(floor(x)+1)d12")
+                const hasDiceNotation = /d\d+/i.test(damageFormula);
                 const isHalfDamage = damageFormula.includes('/ 2');
                 const isVariableReference = !hasDiceNotation && /^[~\w.]+$/.test(damageFormula.trim());
 
