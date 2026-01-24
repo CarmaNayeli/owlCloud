@@ -49,6 +49,9 @@ let currentSlotId = null;
 // Track Feline Agility usage
 let felineAgilityUsed = false;
 
+// Setting: Show custom macro gear buttons on spells (disabled by default)
+let showCustomMacroButtons = false;
+
 // Track if DOM is ready
 let domReady = false;
 
@@ -941,8 +944,11 @@ function buildSheet(data) {
   const spellsContainer = document.getElementById('spells-container');
   if (data.spells && data.spells.length > 0) {
     buildSpellsBySource(spellsContainer, data.spells);
+    expandSectionByContainerId('spells-container');
   } else {
     spellsContainer.innerHTML = '<p style="text-align: center; color: #666;">No spells available</p>';
+    // Collapse the section when empty
+    collapseSectionByContainerId('spells-container');
   }
 
   // Restore active effects from character data
@@ -3140,8 +3146,13 @@ function buildResourcesDisplay() {
   if (!characterData || !characterData.resources || characterData.resources.length === 0) {
     container.innerHTML = '<p style="text-align: center; color: #666;">No class resources available</p>';
     debug.log('⚠️ No resources in character data');
+    // Collapse the section when empty
+    collapseSectionByContainerId('resources-container');
     return;
   }
+
+  // Expand the section when it has content
+  expandSectionByContainerId('resources-container');
 
   debug.log(`📊 Building resources display with ${characterData.resources.length} resources:`, 
     characterData.resources.map(r => `${r.name} (${r.current}/${r.max})`));
@@ -3572,6 +3583,8 @@ function buildSpellSlotsDisplay() {
   if (!characterData || !characterData.spellSlots) {
     container.innerHTML = '<p style="text-align: center; color: #666;">No spell slots available</p>';
     debug.log('⚠️ No spell slots in character data');
+    // Collapse the section when empty
+    collapseSectionByContainerId('spell-slots-container');
     return;
   }
 
@@ -3659,9 +3672,13 @@ function buildSpellSlotsDisplay() {
     container.appendChild(note);
     
     debug.log(`✨ Spell slots display: ${totalCurrentSlots}/${totalMaxSlots} total slots across ${Math.max(...Array.from({length: 9}, (_, i) => i + 1).filter(level => characterData.spellSlots[`level${level}SpellSlotsMax`] > 0))} levels`);
+    // Expand the section when it has content
+    expandSectionByContainerId('spell-slots-container');
   } else {
     container.innerHTML = '<p style="text-align: center; color: #666;">No spell slots available</p>';
     debug.log('⚠️ Character has 0 max slots for all levels');
+    // Collapse the section when empty
+    collapseSectionByContainerId('spell-slots-container');
   }
 }
 
@@ -4329,8 +4346,10 @@ function createSpellCard(spell, index) {
   // All spells get a single Cast button that opens a modal with options
   const castButtonHTML = `<button class="cast-spell-modal-btn" data-spell-index="${index}" style="padding: 6px 12px; background: #9b59b6; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">✨ Cast</button>`;
 
-  // Custom macro override button (for magic items and custom spells)
-  const overrideButtonHTML = `<button class="custom-macro-btn" data-spell-index="${index}" style="padding: 6px 12px; background: #34495e; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;" title="Configure custom macros for this spell">⚙️</button>`;
+  // Custom macro override button (for magic items and custom spells) - only shown if setting is enabled
+  const overrideButtonHTML = showCustomMacroButtons
+    ? `<button class="custom-macro-btn" data-spell-index="${index}" style="padding: 6px 12px; background: #34495e; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;" title="Configure custom macros for this spell">⚙️</button>`
+    : '';
 
   header.innerHTML = `
     <div>
@@ -9217,6 +9236,40 @@ function initCollapsibleSections() {
   });
 }
 
+// Helper function to collapse a section by its container ID
+function collapseSectionByContainerId(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  const section = container.closest('.section');
+  if (!section) return;
+
+  const header = section.querySelector('h3');
+  const content = section.querySelector('.section-content');
+
+  if (header && content) {
+    header.classList.add('collapsed');
+    content.classList.add('collapsed');
+  }
+}
+
+// Helper function to expand a section by its container ID
+function expandSectionByContainerId(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  const section = container.closest('.section');
+  if (!section) return;
+
+  const header = section.querySelector('h3');
+  const content = section.querySelector('.section-content');
+
+  if (header && content) {
+    header.classList.remove('collapsed');
+    content.classList.remove('collapsed');
+  }
+}
+
 // Call collapsible initialization when DOM is ready
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initCollapsibleSections);
@@ -12763,6 +12816,17 @@ function showSettingsModal() {
         
         <!-- Macros Tab -->
         <div id="macros-tab-content" class="settings-tab-content" style="display: none;">
+          <!-- Setting: Show gear buttons on spells -->
+          <div style="background: var(--bg-tertiary); padding: 12px; border-radius: 8px; margin-bottom: 15px;">
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+              <input type="checkbox" id="show-macro-buttons-setting" style="width: 18px; height: 18px;" ${showCustomMacroButtons ? 'checked' : ''}>
+              <span style="color: var(--text-primary); font-weight: bold;">Show ⚙️ macro buttons on spells</span>
+            </label>
+            <p style="margin: 8px 0 0 28px; color: var(--text-secondary); font-size: 0.85em;">
+              When enabled, shows a gear button on each spell to configure custom Roll20 macros.
+            </p>
+          </div>
+
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
             <h4 style="margin: 0; color: var(--text-primary);">Your Custom Macros</h4>
             <button id="add-macro-btn-settings" style="
@@ -12910,7 +12974,19 @@ function showSettingsModal() {
   modal.querySelector('#add-macro-btn-settings').addEventListener('click', () => {
     showAddMacroModal();
   });
-  
+
+  // Set up show macro buttons checkbox
+  const macroButtonsCheckbox = modal.querySelector('#show-macro-buttons-setting');
+  if (macroButtonsCheckbox) {
+    macroButtonsCheckbox.addEventListener('change', (e) => {
+      showCustomMacroButtons = e.target.checked;
+      localStorage.setItem('showCustomMacroButtons', showCustomMacroButtons ? 'true' : 'false');
+      debug.log(`⚙️ Custom macro buttons ${showCustomMacroButtons ? 'enabled' : 'disabled'}`);
+      // Rebuild spells to show/hide gear buttons
+      rebuildSpells();
+    });
+  }
+
   // Close button
   modal.querySelector('#settings-close-btn').addEventListener('click', () => {
     document.body.removeChild(modal);
@@ -13154,6 +13230,12 @@ function updateMacrosDisplayInSettings() {
  */
 function initCustomMacros() {
   loadCustomMacros();
+
+  // Load custom macro button setting (default: disabled)
+  const savedSetting = localStorage.getItem('showCustomMacroButtons');
+  showCustomMacroButtons = savedSetting === 'true';
+  debug.log(`⚙️ Custom macro buttons setting: ${showCustomMacroButtons ? 'enabled' : 'disabled'}`);
+
   debug.log('🎲 Custom macros system initialized');
 }
 
