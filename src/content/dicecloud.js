@@ -427,6 +427,41 @@
       }
     }
 
+    // Extract Pact Magic slots (Warlock)
+    // DiceCloud uses pactMagicSlot or similar for Warlock spell slots
+    const pactMagicVarNames = ['pactMagicSlot', 'pactMagicSlots', 'pactSlot', 'pactSlots', 'warlockSlot', 'warlockSlots'];
+    for (const varName of pactMagicVarNames) {
+      if (variables[varName]) {
+        const currentSlots = variables[varName].value || 0;
+        const maxSlots = variables[varName].total || variables[varName].value || 0;
+        const slotLevel = variables[varName].slotLevel || variables.pactMagicSlotLevel?.value || 1;
+
+        // Store pact magic slots at the appropriate level
+        const currentKey = `level${slotLevel}SpellSlots`;
+        const maxKey = `level${slotLevel}SpellSlotsMax`;
+
+        // Add to existing slots (in case of multiclass)
+        characterData.spellSlots[currentKey] = (characterData.spellSlots[currentKey] || 0) + currentSlots;
+        characterData.spellSlots[maxKey] = (characterData.spellSlots[maxKey] || 0) + maxSlots;
+
+        // Also store pact-specific info
+        characterData.spellSlots.pactMagicSlots = currentSlots;
+        characterData.spellSlots.pactMagicSlotsMax = maxSlots;
+        characterData.spellSlots.pactMagicSlotLevel = slotLevel;
+
+        debug.log(`  ✅ Pact Magic: ${currentSlots}/${maxSlots} at level ${slotLevel} (from ${varName})`);
+        break; // Found pact magic slots, no need to check other variable names
+      }
+    }
+
+    // Debug: log all variables that contain "slot" or "pact" to help identify the correct variable names
+    const slotRelatedVars = Object.keys(variables).filter(k =>
+      k.toLowerCase().includes('slot') || k.toLowerCase().includes('pact')
+    );
+    if (slotRelatedVars.length > 0) {
+      debug.log('🔍 All slot/pact related variables:', slotRelatedVars);
+    }
+
     debug.log('📊 Final spell slots object:', characterData.spellSlots);
 
     // Extract ALL kingdom attributes (Pathfinder Kingmaker / Kingdom Builder)
@@ -1443,6 +1478,44 @@
           if (isKnownAttackSpell && !attackRoll) {
             attackRoll = 'use_spell_attack_bonus';
             debug.log(`  ⚔️ Known attack spell "${prop.name}" missing attack roll - adding it`);
+          }
+
+          // Add default damage for known cantrips if damage is missing
+          // These cantrips have standard damage that scales with character level
+          const knownCantripDamage = {
+            'eldritch blast': { damage: '1d10', damageType: 'force' },
+            'fire bolt': { damage: '1d10', damageType: 'fire' },
+            'ray of frost': { damage: '1d8', damageType: 'cold' },
+            'chill touch': { damage: '1d8', damageType: 'necrotic' },
+            'sacred flame': { damage: '1d8', damageType: 'radiant' },
+            'toll the dead': { damage: '1d8', damageType: 'necrotic' },
+            'produce flame': { damage: '1d8', damageType: 'fire' },
+            'thorn whip': { damage: '1d6', damageType: 'piercing' },
+            'shocking grasp': { damage: '1d8', damageType: 'lightning' },
+            'acid splash': { damage: '1d6', damageType: 'acid' },
+            'poison spray': { damage: '1d12', damageType: 'poison' },
+            'frostbite': { damage: '1d6', damageType: 'cold' },
+            'infestation': { damage: '1d6', damageType: 'poison' },
+            'mind sliver': { damage: '1d6', damageType: 'psychic' },
+            'word of radiance': { damage: '1d6', damageType: 'radiant' },
+            'create bonfire': { damage: '1d8', damageType: 'fire' },
+            'thunderclap': { damage: '1d6', damageType: 'thunder' },
+            'primal savagery': { damage: '1d10', damageType: 'acid' },
+            'sapping sting': { damage: '1d4', damageType: 'necrotic' },
+          };
+
+          if (damageRolls.length === 0 && prop.name) {
+            const lowerName = prop.name.toLowerCase();
+            for (const [cantripName, damageInfo] of Object.entries(knownCantripDamage)) {
+              if (lowerName.includes(cantripName)) {
+                damageRolls.push({
+                  damage: damageInfo.damage,
+                  damageType: damageInfo.damageType
+                });
+                debug.log(`  ✅ Added default cantrip damage for "${prop.name}": ${damageInfo.damage} ${damageInfo.damageType}`);
+                break;
+              }
+            }
           }
 
           // Meld into Stone: Extract conditional damage from description

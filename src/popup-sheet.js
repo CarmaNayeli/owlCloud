@@ -4733,11 +4733,14 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
 
   // Concentration spell recast option OR special spells that allow reuse without slots
   // (if already concentrating on this spell, or for spells like Spiritual Weapon, Meld into Stone)
+  // NOTE: Cantrips (level 0) never use slots, so don't show this checkbox for them
   let skipSlotCheckbox = null;
+  const isCantrip = spell.level === 0;
   const isConcentrationRecast = spell.concentration && concentratingSpell === spell.name;
 
   // Spells that allow repeated use without consuming slots (non-concentration)
-  const isReuseableSpellType = isReuseableSpell(spell.name, characterData);
+  // Exclude cantrips since they never use slots anyway
+  const isReuseableSpellType = !isCantrip && isReuseableSpell(spell.name, characterData);
 
   // Check if this spell was already cast (stored in localStorage or session)
   const castSpellsKey = `castSpells_${characterData.name}`;
@@ -4745,7 +4748,8 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
   const wasAlreadyCast = castSpells.includes(spell.name);
 
   // Show checkbox for concentration recasts OR for all reuseable spells (even on first cast)
-  if (isConcentrationRecast || isReuseableSpellType) {
+  // But NOT for cantrips since they never consume slots
+  if (!isCantrip && (isConcentrationRecast || isReuseableSpellType)) {
     const recastSection = document.createElement('div');
     recastSection.style.cssText = 'margin-bottom: 16px; padding: 12px; background: #fff3cd; border-radius: 6px; border: 2px solid #f39c12;';
 
