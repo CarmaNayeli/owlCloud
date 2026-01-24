@@ -1208,8 +1208,9 @@
             // Check this even if damage is already found, since many spells have both
             const lowerDesc = description.toLowerCase();
             debug.log(`  🔍 Checking description for spell attack (attackRoll currently: "${attackRoll}")`);
-            // Use comprehensive pattern matching like validation does
-            const hasAttackMention = /spell attack|attack roll|make.*attack/i.test(description);
+            // Use specific patterns to avoid false positives (like Shield's "triggering attack")
+            // Match: "spell attack" or "attack roll" with word boundaries
+            const hasAttackMention = /\b(spell attack|attack roll)\b/i.test(description);
             if (!attackRoll && hasAttackMention) {
               attackRoll = 'use_spell_attack_bonus'; // Flag to use calculated spell attack bonus
               debug.log(`  💡 Found attack pattern in description, marking for spell attack bonus`);
