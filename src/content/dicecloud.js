@@ -971,6 +971,12 @@
           break;
 
         case 'spell':
+          // Skip inactive or disabled spells (handles spells that require higher level)
+          if (prop.inactive || prop.disabled) {
+            debug.log(`⏭️ Skipping inactive/disabled spell: ${prop.name}`);
+            break;
+          }
+
           // Extract summary from object or string
           // Prioritize 'value' over 'text' because 'value' has inline calculations pre-computed
           let summary = '';
