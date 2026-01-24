@@ -1333,6 +1333,11 @@ function getActionOptions(action) {
 
   // Check for damage/healing rolls
   const isValidDiceFormula = action.damage && (/\d*d\d+/.test(action.damage) || /\d*d\d+/.test(action.damage.replace(/\s*\+\s*/g, '+')));
+  debug.log(`🎲 Action "${action.name}" damage check:`, {
+    damage: action.damage,
+    isValid: isValidDiceFormula,
+    attackRoll: action.attackRoll
+  });
   if (isValidDiceFormula) {
     const isHealing = action.damageType && action.damageType.toLowerCase().includes('heal');
     const isTempHP = action.damageType && (
@@ -1797,8 +1802,8 @@ function buildActionsDisplay(container, actions) {
               return; // Not enough resources
             }
 
-            // Announce the action with description AFTER all decrements
-            if (action.description) {
+            // Only announce if this action has no attack roll (description was already announced on attack)
+            if (action.description && !action.attackRoll) {
               announceAction(action);
             }
 
@@ -2464,12 +2469,7 @@ function buildActionsDisplay(container, actions) {
           return;
         }
 
-        // Special handling for Eldritch Blast
-        if (action.name === 'Eldritch Blast') {
-          // Show the Eldritch Blast choice modal
-          showEldritchBlastModal(action);
-          return;
-        }
+        // Note: Eldritch Blast uses standard attack/damage buttons, no special modal needed
 
         // Special handling for Spirit Guardians
         if (action.name === 'Spirit Guardians') {
@@ -8598,14 +8598,26 @@ function roll(name, formula, prerolledResult = null) {
       // Apply the chosen effect and then roll
       const { modifiedFormula, effectNotes } = applyEffectModifiers(name, resolvedFormula);
       let finalFormula = modifiedFormula;
-      
+
+      debug.log(`🎯 Applying chosen effect: ${chosenEffect.name}`, {
+        modifier: chosenEffect.modifier,
+        rollLower: rollLower,
+        hasSkillMod: !!chosenEffect.modifier?.skill,
+        includesCheck: rollLower.includes('check'),
+        formulaBefore: finalFormula
+      });
+
       // Add the chosen effect's modifier
-      if (chosenEffect.modifier.skill && rollLower.includes('check')) {
+      if (chosenEffect.modifier?.skill && rollLower.includes('check')) {
         finalFormula += ` + ${chosenEffect.modifier.skill}`;
         effectNotes.push(`[${chosenEffect.icon} ${chosenEffect.name}: ${chosenEffect.modifier.skill}]`);
-      } else if (chosenEffect.modifier.attack && rollLower.includes('attack')) {
+        debug.log(`✅ Added skill modifier: ${chosenEffect.modifier.skill}, formula now: ${finalFormula}`);
+      } else if (chosenEffect.modifier?.attack && rollLower.includes('attack')) {
         finalFormula += ` + ${chosenEffect.modifier.attack}`;
         effectNotes.push(`[${chosenEffect.icon} ${chosenEffect.name}: ${chosenEffect.modifier.attack}]`);
+        debug.log(`✅ Added attack modifier: ${chosenEffect.modifier.attack}, formula now: ${finalFormula}`);
+      } else {
+        debug.log(`⚠️ No modifier applied - skill: ${chosenEffect.modifier?.skill}, check: ${rollLower.includes('check')}, attack: ${chosenEffect.modifier?.attack}`);
       }
       
       // Remove the chosen effect from active effects since it's been used
