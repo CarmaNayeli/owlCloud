@@ -6015,11 +6015,46 @@ function showResourceChoice(spell, spellLevel, spellSlots, maxSlots, classResour
 function showUpcastChoice(spell, originalLevel, afterCast = null) {
   // Get all available spell slots at this level or higher
   const availableSlots = [];
+
+  // Check for Pact Magic slots (Warlock) - these are SEPARATE from regular spell slots
+  const pactMagicSlotLevel = characterData.spellSlots?.pactMagicSlotLevel ||
+                             characterData.otherVariables?.pactMagicSlotLevel ||
+                             characterData.otherVariables?.pactSlotLevelVisible ||
+                             characterData.otherVariables?.pactSlotLevel;
+  const pactMagicSlots = characterData.spellSlots?.pactMagicSlots ??
+                         characterData.otherVariables?.pactMagicSlots ??
+                         characterData.otherVariables?.pactSlot ?? 0;
+  const pactMagicSlotsMax = characterData.spellSlots?.pactMagicSlotsMax ??
+                            characterData.otherVariables?.pactMagicSlotsMax ?? 0;
+  const effectivePactLevel = typeof pactMagicSlotLevel === 'number' ? pactMagicSlotLevel :
+                             (pactMagicSlotLevel?.value || (pactMagicSlotsMax > 0 ? 5 : 0));
+
+  // Add Pact Magic slots first if available and spell level is compatible
+  if (pactMagicSlotsMax > 0 && originalLevel <= effectivePactLevel && pactMagicSlots > 0) {
+    availableSlots.push({
+      level: effectivePactLevel,
+      current: pactMagicSlots,
+      max: pactMagicSlotsMax,
+      slotVar: 'pactMagicSlots',
+      slotMaxVar: 'pactMagicSlotsMax',
+      isPactMagic: true,
+      label: `Level ${effectivePactLevel} - Pact Magic`
+    });
+    debug.log(`🔮 Added Pact Magic to upcast options: Level ${effectivePactLevel} (${pactMagicSlots}/${pactMagicSlotsMax})`);
+  }
+
+  // Then check regular spell slots
   for (let level = originalLevel; level <= 9; level++) {
     const slotVar = `level${level}SpellSlots`;
     const slotMaxVar = `level${level}SpellSlotsMax`;
-    const current = characterData.spellSlots?.[slotVar] || 0;
-    const max = characterData.spellSlots?.[slotMaxVar] || 0;
+    let current = characterData.spellSlots?.[slotVar] || 0;
+    let max = characterData.spellSlots?.[slotMaxVar] || 0;
+
+    // Skip if this level's slots are actually Pact Magic slots (avoid duplicates)
+    if (pactMagicSlotsMax > 0 && level === effectivePactLevel) {
+      // Pact Magic is already added separately above
+      continue;
+    }
 
     if (current > 0) {
       availableSlots.push({ level, current, max, slotVar, slotMaxVar });
@@ -6058,11 +6093,17 @@ function showUpcastChoice(spell, originalLevel, afterCast = null) {
       <select id="upcast-slot-select" style="width: 100%; padding: 12px; font-size: 1.1em; border: 2px solid #bdc3c7; border-radius: 6px; box-sizing: border-box; background: white;">
   `;
 
-  availableSlots.forEach(slot => {
-    const label = slot.level === originalLevel
-      ? `Level ${slot.level} (Normal) - ${slot.current}/${slot.max} remaining`
-      : `Level ${slot.level} (Upcast) - ${slot.current}/${slot.max} remaining`;
-    dropdownHTML += `<option value="${slot.level}">${label}</option>`;
+  availableSlots.forEach((slot, index) => {
+    let label;
+    if (slot.isPactMagic) {
+      label = `${slot.label} - ${slot.current}/${slot.max} remaining`;
+    } else if (slot.level === originalLevel) {
+      label = `Level ${slot.level} (Normal) - ${slot.current}/${slot.max} remaining`;
+    } else {
+      label = `Level ${slot.level} (Upcast) - ${slot.current}/${slot.max} remaining`;
+    }
+    // Store index so we can identify Pact Magic vs regular slots
+    dropdownHTML += `<option value="${index}" data-level="${slot.level}" data-pact="${slot.isPactMagic || false}">${label}</option>`;
   });
 
   dropdownHTML += `
@@ -6130,7 +6171,8 @@ function showUpcastChoice(spell, originalLevel, afterCast = null) {
 
     // Update selected spell level when it changes (affects Twinned Spell cost)
     selectElement.addEventListener('change', () => {
-      const selectedLevel = parseInt(selectElement.value);
+      const selectedIndex = parseInt(selectElement.value);
+      const selectedLevel = availableSlots[selectedIndex]?.level || originalLevel;
 
       // Recalculate costs for variable-cost metamagic
       metamagicCheckboxes.forEach(checkbox => {
@@ -6191,8 +6233,9 @@ function showUpcastChoice(spell, originalLevel, afterCast = null) {
   }
 
   confirmBtn.addEventListener('click', () => {
-    const selectedLevel = parseInt(selectElement.value);
-    const selectedSlot = availableSlots.find(s => s.level === selectedLevel);
+    const selectedIndex = parseInt(selectElement.value);
+    const selectedSlot = availableSlots[selectedIndex];
+    debug.log(`🔮 Selected slot from upcast modal:`, selectedSlot);
     modal.remove();
     castWithSlot(spell, selectedSlot, selectedMetamagic, afterCast);
   });
@@ -6212,6 +6255,11 @@ function showUpcastChoice(spell, originalLevel, afterCast = null) {
 function castWithSlot(spell, slot, metamagicOptions = [], afterCast = null) {
   // Deduct spell slot
   characterData.spellSlots[slot.slotVar] = slot.current - 1;
+
+  // Also update otherVariables for Pact Magic to keep in sync
+  if (slot.isPactMagic && characterData.otherVariables?.pactMagicSlots !== undefined) {
+    characterData.otherVariables.pactMagicSlots = slot.current - 1;
+  }
 
   // Deduct sorcery points for metamagic
   let totalMetamagicCost = 0;
@@ -6235,9 +6283,14 @@ function castWithSlot(spell, slot, metamagicOptions = [], afterCast = null) {
 
   saveCharacterData();
 
-  let resourceText = slot.level > parseInt(spell.level)
-    ? `Level ${slot.level} slot (upcast from ${spell.level})`
-    : `Level ${slot.level} slot`;
+  let resourceText;
+  if (slot.isPactMagic) {
+    resourceText = `Pact Magic (Level ${slot.level})`;
+  } else if (slot.level > parseInt(spell.level)) {
+    resourceText = `Level ${slot.level} slot (upcast from ${spell.level})`;
+  } else {
+    resourceText = `Level ${slot.level} slot`;
+  }
 
   // Add metamagic to resource text
   if (metamagicNames.length > 0) {
