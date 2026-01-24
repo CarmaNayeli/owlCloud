@@ -6045,7 +6045,8 @@ function showUpcastChoice(spell, originalLevel, afterCast = null) {
   debug.log('🔮 Pact Magic detection:', { rawPactLevel, rawPactSlots, rawPactSlotsMax, pactMagicSlots, pactMagicSlotsMax, effectivePactLevel });
 
   // Add Pact Magic slots first if available and spell level is compatible
-  if (pactMagicSlotsMax > 0 && originalLevel <= effectivePactLevel && pactMagicSlots > 0) {
+  // Show even if depleted (current = 0) - user can still cast with GM permission
+  if (pactMagicSlotsMax > 0 && originalLevel <= effectivePactLevel) {
     availableSlots.push({
       level: effectivePactLevel,
       current: pactMagicSlots,
@@ -6058,7 +6059,7 @@ function showUpcastChoice(spell, originalLevel, afterCast = null) {
     debug.log(`🔮 Added Pact Magic to upcast options: Level ${effectivePactLevel} (${pactMagicSlots}/${pactMagicSlotsMax})`);
   }
 
-  // Then check regular spell slots
+  // Then check regular spell slots - show all levels with max > 0 (even if depleted)
   for (let level = originalLevel; level <= 9; level++) {
     const slotVar = `level${level}SpellSlots`;
     const slotMaxVar = `level${level}SpellSlotsMax`;
@@ -6071,7 +6072,8 @@ function showUpcastChoice(spell, originalLevel, afterCast = null) {
       continue;
     }
 
-    if (current > 0) {
+    // Show slot level if character has access to it (max > 0), even if depleted
+    if (max > 0) {
       availableSlots.push({ level, current, max, slotVar, slotMaxVar });
     }
   }
@@ -6142,15 +6144,18 @@ function showUpcastChoice(spell, originalLevel, afterCast = null) {
 
   availableSlots.forEach((slot, index) => {
     let label;
+    const depleted = slot.current <= 0;
+    const depletedMarker = depleted ? ' [EMPTY]' : '';
+
     if (slot.isPactMagic) {
-      label = `${slot.label} - ${slot.current}/${slot.max} remaining`;
+      label = `${slot.label} - ${slot.current}/${slot.max} remaining${depletedMarker}`;
     } else if (slot.level === originalLevel) {
-      label = `Level ${slot.level} (Normal) - ${slot.current}/${slot.max} remaining`;
+      label = `Level ${slot.level} (Normal) - ${slot.current}/${slot.max} remaining${depletedMarker}`;
     } else {
-      label = `Level ${slot.level} (Upcast) - ${slot.current}/${slot.max} remaining`;
+      label = `Level ${slot.level} (Upcast) - ${slot.current}/${slot.max} remaining${depletedMarker}`;
     }
     // Store index so we can identify Pact Magic vs regular slots
-    dropdownHTML += `<option value="${index}" data-level="${slot.level}" data-pact="${slot.isPactMagic || false}">${label}</option>`;
+    dropdownHTML += `<option value="${index}" data-level="${slot.level}" data-pact="${slot.isPactMagic || false}" data-current="${slot.current}">${label}</option>`;
   });
 
   dropdownHTML += `
@@ -6283,6 +6288,40 @@ function showUpcastChoice(spell, originalLevel, afterCast = null) {
     const selectedIndex = parseInt(selectElement.value);
     const selectedSlot = availableSlots[selectedIndex];
     debug.log(`🔮 Selected slot from upcast modal:`, selectedSlot);
+
+    // Check if slot is depleted
+    if (selectedSlot.current <= 0) {
+      // Show warning modal
+      modal.remove();
+
+      const warnModal = document.createElement('div');
+      warnModal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10001;';
+
+      const warnContent = document.createElement('div');
+      warnContent.style.cssText = 'background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); max-width: 400px; width: 90%; text-align: center;';
+      warnContent.innerHTML = `
+        <h3 style="margin: 0 0 20px 0; color: #e67e22;">No Slots Remaining</h3>
+        <p style="color: #7f8c8d; margin-bottom: 20px;">You have no ${selectedSlot.isPactMagic ? 'Pact Magic' : `Level ${selectedSlot.level}`} spell slots remaining.</p>
+        <p style="color: #95a5a6; font-size: 0.9em; margin-bottom: 20px;">You can still cast if your GM allows it - no slot will be decremented.</p>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+          <button id="warn-cancel" style="padding: 12px 25px; background: #95a5a6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 1em;">Cancel</button>
+          <button id="warn-cast" style="padding: 12px 25px; background: #e67e22; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 1em;">Cast Anyway</button>
+        </div>
+      `;
+
+      warnModal.appendChild(warnContent);
+      document.body.appendChild(warnModal);
+
+      document.getElementById('warn-cancel').onclick = () => warnModal.remove();
+      document.getElementById('warn-cast').onclick = () => {
+        warnModal.remove();
+        // Cast with noSlotUsed flag
+        castWithSlot(spell, { ...selectedSlot, noSlotUsed: true }, selectedMetamagic, afterCast);
+      };
+      warnModal.onclick = (e) => { if (e.target === warnModal) warnModal.remove(); };
+      return;
+    }
+
     modal.remove();
     castWithSlot(spell, selectedSlot, selectedMetamagic, afterCast);
   });
