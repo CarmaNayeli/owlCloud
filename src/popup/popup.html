@@ -130,6 +130,45 @@
             <p><strong>🔄 Workflow:</strong> Extract from DiceCloud → Roll in Roll20</p>
           </div>
           
+          <!-- Discord Integration -->
+          <details id="discordSettings" style="margin-top: 15px;">
+            <summary style="cursor: pointer; padding: 10px; background: #5865F2; color: white; border-radius: 5px; font-weight: bold;">
+              🎮 Discord Integration
+            </summary>
+            <div style="margin-top: 10px; padding: 12px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px;">
+              <p style="margin-top: 0; font-size: 0.9em; color: #666;">
+                Send turn notifications and action economy status to Discord!
+              </p>
+
+              <div class="form-group" style="margin-bottom: 10px;">
+                <label for="discordWebhookUrl" style="font-weight: bold; font-size: 0.9em;">Webhook URL</label>
+                <input type="url" id="discordWebhookUrl"
+                       placeholder="https://discord.com/api/webhooks/..."
+                       style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.85em; box-sizing: border-box;">
+              </div>
+
+              <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 10px;">
+                <input type="checkbox" id="discordWebhookEnabled" style="width: 16px; height: 16px; cursor: pointer;">
+                <span style="font-size: 0.9em;">Enable Discord notifications</span>
+              </label>
+
+              <div style="display: flex; gap: 8px;">
+                <button type="button" id="testDiscordWebhook" class="btn btn-secondary" style="flex: 1; padding: 8px; font-size: 0.85em;">
+                  🧪 Test
+                </button>
+                <button type="button" id="saveDiscordWebhook" class="btn btn-primary" style="flex: 1; padding: 8px; font-size: 0.85em;">
+                  💾 Save
+                </button>
+              </div>
+
+              <div id="discordStatus" style="margin-top: 8px; font-size: 0.85em; display: none;"></div>
+
+              <p style="margin-top: 10px; margin-bottom: 0; font-size: 0.8em; color: #666;">
+                <strong>How to get a webhook:</strong> Discord Server Settings → Integrations → Webhooks → New Webhook
+              </p>
+            </div>
+          </details>
+
           <!-- Experimental Build Instructions (hidden by default) -->
           <div id="experimentalInstructions" class="experimental-instructions hidden" style="margin-top: 15px; padding: 12px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px;">
             <h4 style="margin-top: 0; color: #856404;">🧪 Experimental Features</h4>

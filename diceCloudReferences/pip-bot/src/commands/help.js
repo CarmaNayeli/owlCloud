@@ -38,6 +38,14 @@ export default {
           inline: false
         },
         {
+          name: '🎮 RollCloud Integration (Admin)',
+          value:
+            '`/rollcloud setup` - Create webhook for turn notifications\n' +
+            '`/rollcloud info` - Show current webhook URL\n' +
+            '`/rollcloud remove` - Remove webhook',
+          inline: false
+        },
+        {
           name: '⚙️ Utility Commands',
           value: '`/ping` - Check bot responsiveness',
           inline: false

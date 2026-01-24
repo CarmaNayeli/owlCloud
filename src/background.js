@@ -156,7 +156,7 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 'Content-Type': 'application/json'
               }
             });
-            
+
             if (apiResponse.ok) {
               const data = await apiResponse.json();
               response = { success: true, data };
@@ -173,6 +173,31 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
             debug.error('❌ Error fetching DiceCloud API:', error);
           }
           break;
+
+        // Discord Webhook Integration
+        case 'setDiscordWebhook': {
+          await setDiscordWebhookSettings(request.webhookUrl, request.enabled);
+          response = { success: true };
+          break;
+        }
+
+        case 'getDiscordWebhook': {
+          const webhookSettings = await getDiscordWebhookSettings();
+          response = { success: true, ...webhookSettings };
+          break;
+        }
+
+        case 'testDiscordWebhook': {
+          const testResult = await testDiscordWebhook(request.webhookUrl);
+          response = testResult;
+          break;
+        }
+
+        case 'postToDiscord': {
+          const postResult = await postToDiscordWebhook(request.payload);
+          response = postResult;
+          break;
+        }
 
         default:
           debug.warn('Unknown action:', request.action);
@@ -677,3 +702,252 @@ browserAPI.runtime.onInstalled.addListener((details) => {
     debug.log('Extension updated to version', browserAPI.runtime.getManifest().version);
   }
 });
+
+// ============================================================================
+// Discord Webhook Integration
+// ============================================================================
+
+/**
+ * Stores Discord webhook settings
+ */
+async function setDiscordWebhookSettings(webhookUrl, enabled = true) {
+  try {
+    await browserAPI.storage.local.set({
+      discordWebhookUrl: webhookUrl || '',
+      discordWebhookEnabled: enabled
+    });
+    debug.log('Discord webhook settings saved:', { enabled, hasUrl: !!webhookUrl });
+  } catch (error) {
+    debug.error('Failed to save Discord webhook settings:', error);
+    throw error;
+  }
+}
+
+/**
+ * Gets Discord webhook settings
+ */
+async function getDiscordWebhookSettings() {
+  try {
+    const result = await browserAPI.storage.local.get(['discordWebhookUrl', 'discordWebhookEnabled']);
+    return {
+      webhookUrl: result.discordWebhookUrl || '',
+      enabled: result.discordWebhookEnabled !== false // Default to true if URL exists
+    };
+  } catch (error) {
+    debug.error('Failed to get Discord webhook settings:', error);
+    return { webhookUrl: '', enabled: false };
+  }
+}
+
+/**
+ * Tests a Discord webhook by sending a test message
+ */
+async function testDiscordWebhook(webhookUrl) {
+  try {
+    if (!webhookUrl || !webhookUrl.includes('discord.com/api/webhooks')) {
+      return { success: false, error: 'Invalid Discord webhook URL' };
+    }
+
+    const testEmbed = {
+      embeds: [{
+        title: '🎲 RollCloud Connected!',
+        description: 'Discord webhook integration is working correctly.',
+        color: 0x4ECDC4, // Teal color matching the extension theme
+        footer: {
+          text: 'RollCloud - Dice Cloud → Roll20 Bridge'
+        },
+        timestamp: new Date().toISOString()
+      }]
+    };
+
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(testEmbed)
+    });
+
+    if (response.ok || response.status === 204) {
+      debug.log('✅ Discord webhook test successful');
+      return { success: true };
+    } else {
+      const errorText = await response.text();
+      debug.warn('❌ Discord webhook test failed:', response.status, errorText);
+      return { success: false, error: `HTTP ${response.status}: ${errorText}` };
+    }
+  } catch (error) {
+    debug.error('❌ Discord webhook test error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Posts a message to Discord via webhook
+ * Rate limited to prevent spam (max 1 message per second)
+ */
+let lastDiscordPost = 0;
+const DISCORD_RATE_LIMIT_MS = 1000;
+
+async function postToDiscordWebhook(payload) {
+  try {
+    // Get webhook settings
+    const settings = await getDiscordWebhookSettings();
+
+    if (!settings.enabled || !settings.webhookUrl) {
+      debug.log('Discord webhook disabled or not configured');
+      return { success: false, error: 'Webhook not configured' };
+    }
+
+    // Rate limiting
+    const now = Date.now();
+    if (now - lastDiscordPost < DISCORD_RATE_LIMIT_MS) {
+      debug.log('Discord rate limit - skipping post');
+      return { success: false, error: 'Rate limited' };
+    }
+    lastDiscordPost = now;
+
+    // Build the Discord message
+    const message = buildDiscordMessage(payload);
+
+    const response = await fetch(settings.webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(message)
+    });
+
+    if (response.ok || response.status === 204) {
+      debug.log('✅ Posted to Discord:', payload.type);
+      return { success: true };
+    } else {
+      const errorText = await response.text();
+      debug.warn('❌ Discord post failed:', response.status);
+      return { success: false, error: `HTTP ${response.status}` };
+    }
+  } catch (error) {
+    debug.error('❌ Discord post error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Builds a Discord embed message from the payload
+ * Messages are structured for both human readability and Pip Bot parsing
+ *
+ * Pip Bot can parse these fields:
+ * - embed.title: Contains character name and event type
+ * - embed.fields: Structured data (character, round, actions)
+ * - embed.footer.text: Contains parseable metadata like "TURN_START|Chepi|Round:3"
+ */
+function buildDiscordMessage(payload) {
+  const { type, characterName, combatant, round, actions, initiative } = payload;
+
+  // Action economy status icons
+  const getIcon = (used) => used ? '❌' : '✅';
+
+  // Build action status string
+  const buildActionStatus = (acts) => {
+    if (!acts) return null;
+    return [
+      `Action: ${getIcon(acts.action)}`,
+      `Bonus: ${getIcon(acts.bonus)}`,
+      `Move: ${getIcon(acts.movement)}`,
+      `React: ${getIcon(acts.reaction)}`
+    ].join(' | ');
+  };
+
+  // Build parseable footer for Pip Bot
+  const buildFooter = (eventType, charName, roundNum, acts) => {
+    const parts = [eventType, charName];
+    if (roundNum) parts.push(`Round:${roundNum}`);
+    if (acts) {
+      const actionBits = [
+        acts.action ? '0' : '1',
+        acts.bonus ? '0' : '1',
+        acts.movement ? '0' : '1',
+        acts.reaction ? '0' : '1'
+      ].join('');
+      parts.push(`Actions:${actionBits}`); // e.g., "Actions:1111" = all available
+    }
+    return parts.join('|');
+  };
+
+  if (type === 'turnStart') {
+    const actionStatus = buildActionStatus(actions);
+
+    return {
+      embeds: [{
+        title: `🎲 ${characterName}'s Turn`,
+        description: actionStatus || 'Combat turn started!',
+        color: 0x4ECDC4, // Teal - active turn
+        fields: [
+          { name: 'Character', value: characterName, inline: true },
+          ...(round ? [{ name: 'Round', value: String(round), inline: true }] : []),
+          ...(initiative ? [{ name: 'Initiative', value: String(initiative), inline: true }] : [])
+        ],
+        footer: { text: buildFooter('TURN_START', characterName, round, actions) },
+        timestamp: new Date().toISOString()
+      }]
+    };
+  }
+
+  if (type === 'turnEnd') {
+    return {
+      embeds: [{
+        title: `⏸️ ${characterName}'s Turn Ended`,
+        color: 0x95A5A6, // Gray - inactive
+        fields: [
+          { name: 'Character', value: characterName, inline: true }
+        ],
+        footer: { text: buildFooter('TURN_END', characterName, round) },
+        timestamp: new Date().toISOString()
+      }]
+    };
+  }
+
+  if (type === 'actionUpdate') {
+    const actionStatus = buildActionStatus(actions);
+    const hasUsedActions = actions && (actions.action || actions.bonus);
+
+    return {
+      embeds: [{
+        title: `⚔️ ${characterName}`,
+        description: actionStatus,
+        color: hasUsedActions ? 0xF39C12 : 0x4ECDC4, // Orange if actions used, teal if available
+        fields: [
+          { name: 'Character', value: characterName, inline: true },
+          { name: 'Status', value: hasUsedActions ? 'Actions Used' : 'Actions Available', inline: true }
+        ],
+        footer: { text: buildFooter('ACTION_UPDATE', characterName, round, actions) },
+        timestamp: new Date().toISOString()
+      }]
+    };
+  }
+
+  if (type === 'combatStart') {
+    return {
+      embeds: [{
+        title: '⚔️ Combat Started!',
+        description: combatant ? `First up: **${combatant}**` : 'Roll for initiative!',
+        color: 0xE74C3C, // Red - combat
+        footer: { text: 'COMBAT_START' },
+        timestamp: new Date().toISOString()
+      }]
+    };
+  }
+
+  if (type === 'roundChange') {
+    return {
+      embeds: [{
+        title: `🔄 Round ${round}`,
+        description: combatant ? `Current turn: **${combatant}**` : 'New round begins!',
+        color: 0x9B59B6, // Purple - round change
+        footer: { text: `ROUND_CHANGE|Round:${round}` },
+        timestamp: new Date().toISOString()
+      }]
+    };
+  }
+
+  // Default simple message
+  return {
+    content: payload.message || `🎲 ${characterName || 'Unknown'}: ${type}`
+  };
+}

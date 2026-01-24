@@ -24,6 +24,12 @@ Discord bot for the Dice Cat community server - a lightweight utility bot focuse
 - `/ping` - Check bot responsiveness
 - `/help` - Show help information
 
+### 🎮 RollCloud Integration
+- `/rollcloud setup` - Create a webhook for RollCloud turn notifications
+- `/rollcloud info` - Show the webhook URL for your server
+- `/rollcloud remove` - Remove the RollCloud webhook
+- Receive real-time turn and action economy updates from Roll20 combat
+
 ### 🛡️ Moderation & Welcome
 - Automatic welcome messages for new members
 - Ready for custom moderation commands
@@ -168,6 +174,25 @@ Key settings:
 /reactionrole delete message_id:123456789
 ```
 
+### RollCloud Integration
+```
+# Set up RollCloud turn notifications (creates a webhook)
+/rollcloud setup
+/rollcloud setup channel:#combat-log
+
+# View the webhook URL (to paste in RollCloud extension)
+/rollcloud info
+
+# Remove the webhook
+/rollcloud remove
+```
+
+**Setup Flow:**
+1. Run `/rollcloud setup` in your desired channel
+2. Copy the webhook URL that appears
+3. Open RollCloud extension → Discord Integration → Paste URL → Save
+4. Start combat in Roll20 - turns will appear in Discord!
+
 ## Development
 
 ### Adding New Commands
@@ -208,7 +233,8 @@ pip-bot/
 │   │   ├── help.js          # Help system
 │   │   ├── ping.js          # Status check
 │   │   ├── reactionrole.js  # Reaction role management
-│   │   └── roll.js          # Dice rolling
+│   │   ├── roll.js          # Dice rolling
+│   │   └── rollcloud.js     # RollCloud webhook integration
 │   ├── events/              # Discord event handlers
 │   │   ├── ready.js         # Bot startup
 │   │   ├── guildMemberAdd.js        # Welcome messages
@@ -227,7 +253,8 @@ pip-bot/
 │   ├── package.json
 │   └── README.md            # Dashboard docs
 ├── data/                    # Bot data storage (gitignored)
-│   └── reaction-roles.json  # Reaction role configurations
+│   ├── reaction-roles.json  # Reaction role configurations
+│   └── rollcloud-webhooks.json  # RollCloud webhook URLs per server
 ├── .env                     # Environment variables (gitignored)
 ├── .env.example             # Example environment variables
 ├── vercel.json              # Vercel deployment config

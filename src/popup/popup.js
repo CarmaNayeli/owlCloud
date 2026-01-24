@@ -118,6 +118,20 @@ function initializePopup() {
     autoBackwardsSyncToggle.addEventListener('change', handleAutoBackwardsSyncToggle);
   }
 
+  // Discord webhook event listeners
+  const discordWebhookUrl = document.getElementById('discordWebhookUrl');
+  const discordWebhookEnabled = document.getElementById('discordWebhookEnabled');
+  const testDiscordWebhookBtn = document.getElementById('testDiscordWebhook');
+  const saveDiscordWebhookBtn = document.getElementById('saveDiscordWebhook');
+
+  if (discordWebhookUrl && discordWebhookEnabled && testDiscordWebhookBtn && saveDiscordWebhookBtn) {
+    // Load initial Discord settings
+    loadDiscordWebhookSettings();
+    // Add event listeners
+    testDiscordWebhookBtn.addEventListener('click', handleTestDiscordWebhook);
+    saveDiscordWebhookBtn.addEventListener('click', handleSaveDiscordWebhook);
+  }
+
   /**
    * Checks if the user is logged in and shows appropriate section
    */
@@ -706,6 +720,131 @@ function initializePopup() {
     } catch (error) {
       debug.error('Error toggling auto backwards sync:', error);
       showError('Failed to toggle auto backwards sync');
+    }
+  }
+
+  /**
+   * Loads Discord webhook settings from storage
+   */
+  async function loadDiscordWebhookSettings() {
+    try {
+      const response = await browserAPI.runtime.sendMessage({ action: 'getDiscordWebhook' });
+      if (response.success) {
+        const webhookUrlInput = document.getElementById('discordWebhookUrl');
+        const webhookEnabledCheckbox = document.getElementById('discordWebhookEnabled');
+
+        if (webhookUrlInput) {
+          webhookUrlInput.value = response.webhookUrl || '';
+        }
+        if (webhookEnabledCheckbox) {
+          webhookEnabledCheckbox.checked = response.enabled && !!response.webhookUrl;
+        }
+
+        debug.log('Discord webhook settings loaded:', { hasUrl: !!response.webhookUrl, enabled: response.enabled });
+      }
+    } catch (error) {
+      debug.error('Error loading Discord webhook settings:', error);
+    }
+  }
+
+  /**
+   * Handles testing the Discord webhook
+   */
+  async function handleTestDiscordWebhook() {
+    const webhookUrl = document.getElementById('discordWebhookUrl').value.trim();
+    const statusDiv = document.getElementById('discordStatus');
+    const testBtn = document.getElementById('testDiscordWebhook');
+
+    if (!webhookUrl) {
+      showDiscordStatus('Please enter a webhook URL first', 'error');
+      return;
+    }
+
+    if (!webhookUrl.includes('discord.com/api/webhooks')) {
+      showDiscordStatus('Invalid Discord webhook URL', 'error');
+      return;
+    }
+
+    try {
+      testBtn.disabled = true;
+      testBtn.textContent = '⏳ Testing...';
+
+      const response = await browserAPI.runtime.sendMessage({
+        action: 'testDiscordWebhook',
+        webhookUrl: webhookUrl
+      });
+
+      if (response.success) {
+        showDiscordStatus('Webhook test successful! Check Discord.', 'success');
+      } else {
+        showDiscordStatus(`Test failed: ${response.error}`, 'error');
+      }
+    } catch (error) {
+      debug.error('Discord webhook test error:', error);
+      showDiscordStatus(`Error: ${error.message}`, 'error');
+    } finally {
+      testBtn.disabled = false;
+      testBtn.textContent = '🧪 Test';
+    }
+  }
+
+  /**
+   * Handles saving Discord webhook settings
+   */
+  async function handleSaveDiscordWebhook() {
+    const webhookUrl = document.getElementById('discordWebhookUrl').value.trim();
+    const enabled = document.getElementById('discordWebhookEnabled').checked;
+    const saveBtn = document.getElementById('saveDiscordWebhook');
+
+    try {
+      saveBtn.disabled = true;
+      saveBtn.textContent = '⏳ Saving...';
+
+      await browserAPI.runtime.sendMessage({
+        action: 'setDiscordWebhook',
+        webhookUrl: webhookUrl,
+        enabled: enabled
+      });
+
+      showDiscordStatus('Settings saved!', 'success');
+
+      // Notify Roll20 tabs about the setting change
+      const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
+      for (const tab of tabs) {
+        try {
+          await browserAPI.tabs.sendMessage(tab.id, {
+            action: 'discordWebhookUpdated',
+            enabled: enabled && !!webhookUrl
+          });
+        } catch (err) {
+          // Tab might not have content script loaded
+        }
+      }
+
+      debug.log('Discord webhook settings saved');
+    } catch (error) {
+      debug.error('Error saving Discord webhook settings:', error);
+      showDiscordStatus(`Error: ${error.message}`, 'error');
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = '💾 Save';
+    }
+  }
+
+  /**
+   * Shows Discord status message
+   */
+  function showDiscordStatus(message, type) {
+    const statusDiv = document.getElementById('discordStatus');
+    if (statusDiv) {
+      statusDiv.style.display = 'block';
+      statusDiv.textContent = message;
+      statusDiv.style.color = type === 'success' ? '#27ae60' : '#e74c3c';
+
+      // Hide after 3 seconds
+      setTimeout(() => {
+        statusDiv.style.display = 'none';
+      }, 3000);
     }
   }
 
