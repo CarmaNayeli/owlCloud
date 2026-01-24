@@ -1,7 +1,5 @@
-// Import debug utility
-import { debug } from '../common/debug.js';
-
 // Spell Edge Cases Configuration
+// Note: debug utility is available globally via window.debug from debug.js
 // Handles special spell mechanics that need custom behavior
 
 export const SPELL_EDGE_CASES = {
