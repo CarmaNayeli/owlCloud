@@ -1009,6 +1009,19 @@ function buildSpellsBySource(container, spells) {
 
   // Apply filters first
   let filteredSpells = spells.filter(spell => {
+    // Filter out duplicate Divine Smite entries - keep only the main one
+    const spellName = (spell.name || '').toLowerCase();
+    if (spellName.includes('divine smite')) {
+      // Skip variants like "Divine Smite Level 1", "Divine Smite (Against Fiends, Critical) Level 1", etc.
+      // Keep only the base "Divine Smite" entry
+      if (spellName !== 'divine smite' && !spellName.match(/^divine smite$/)) {
+        debug.log(`⏭️ Filtering out duplicate Divine Smite spell: ${spell.name}`);
+        return false;
+      } else {
+        debug.log(`✅ Keeping main Divine Smite spell: ${spell.name}`);
+      }
+    }
+    
     // Filter by spell level
     if (spellFilters.level !== 'all') {
       const spellLevel = parseInt(spell.level) || 0;
@@ -1389,18 +1402,22 @@ function getActionOptions(action) {
   // Check class feature edge cases first
   if (isClassFeatureEdgeCase(action.name)) {
     edgeCaseResult = applyClassFeatureEdgeCaseModifications(action, options);
+    debug.log(`🔍 Edge case applied for "${action.name}": skipNormalButtons = ${edgeCaseResult.skipNormalButtons}`);
   }
   // Check racial feature edge cases
   else if (isRacialFeatureEdgeCase(action.name)) {
     edgeCaseResult = applyRacialFeatureEdgeCaseModifications(action, options);
+    debug.log(`🔍 Edge case applied for "${action.name}": skipNormalButtons = ${edgeCaseResult.skipNormalButtons}`);
   }
   // Check combat maneuver edge cases
   else if (isCombatManeuverEdgeCase(action.name)) {
     edgeCaseResult = applyCombatManeuverEdgeCaseModifications(action, options);
+    debug.log(`🔍 Edge case applied for "${action.name}": skipNormalButtons = ${edgeCaseResult.skipNormalButtons}`);
   }
   // Default - no edge cases
   else {
     edgeCaseResult = { options, skipNormalButtons: false };
+    debug.log(`🔍 No edge case for "${action.name}": skipNormalButtons = false`);
   }
 
   return edgeCaseResult;
@@ -1477,6 +1494,35 @@ function buildActionsDisplay(container, actions) {
 
   // Apply filters
   let filteredActions = deduplicatedActions.filter(action => {
+    const actionName = (action.name || '').toLowerCase();
+    
+    // Filter out duplicate Divine Smite entries - keep only the main one
+    if (actionName.includes('divine smite')) {
+      // Skip variants like "Divine Smite Level 1", "Divine Smite (Against Fiends, Critical) Level 1", etc.
+      // Keep only the base "Divine Smite" entry
+      if (actionName !== 'divine smite' && !actionName.match(/^divine smite$/)) {
+        debug.log(`⏭️ Filtering out duplicate Divine Smite entry: ${action.name}`);
+        return false;
+      } else {
+        debug.log(`✅ Keeping main Divine Smite entry: ${action.name}`);
+      }
+    }
+    
+    // Debug: Log all Lay on Hands related actions
+    if (actionName.includes('lay on hands')) {
+      const normalizedActionName = action.name.toLowerCase()
+        .replace(/[^a-z0-9\s:]/g, '') // Remove special chars except colon and space
+        .replace(/\s+/g, ' ') // Normalize spaces
+        .trim();
+      const normalizedSearch = 'lay on hands: heal';
+      
+      debug.log(`🔍 Found Lay on Hands action: "${action.name}"`);
+      debug.log(`🔍 Normalized action name: "${normalizedActionName}"`);
+      debug.log(`🔍 Normalized search term: "${normalizedSearch}"`);
+      debug.log(`🔍 Do they match? ${normalizedActionName === normalizedSearch}`);
+      debug.log(`🔍 Action object:`, action);
+    }
+    
     // Filter by action type
     if (actionFilters.actionType !== 'all') {
       const actionType = (action.actionType || '').toLowerCase();
@@ -1697,7 +1743,7 @@ function buildActionsDisplay(container, actions) {
       // Create simple action button for utility-only actions
       const actionBtn = document.createElement('button');
       actionBtn.className = 'action-btn';
-      actionBtn.textContent = '✨ Use Action';
+      actionBtn.textContent = '✨ Use';
       actionBtn.style.cssText = `
         background: #9b59b6;
         color: white;
@@ -1709,6 +1755,45 @@ function buildActionsDisplay(container, actions) {
         font-weight: bold;
       `;
       actionBtn.addEventListener('click', () => {
+        // Check for Divine Smite special handling
+        if (action.name.toLowerCase().includes('divine smite')) {
+          showDivineSmiteModal(action);
+          return;
+        }
+        
+        // Check for Lay on Hands: Heal special handling
+        const normalizedActionName = action.name.toLowerCase()
+          .replace(/[^a-z0-9\s:]/g, '') // Remove special chars except colon and space
+          .replace(/\s+/g, ' ') // Normalize spaces
+          .trim();
+        const normalizedSearch = 'lay on hands: heal';
+        
+        if (normalizedActionName === normalizedSearch) {
+          debug.log(`💚 Lay on Hands: Heal action clicked: ${action.name}, showing custom modal`);
+          debug.log(`💚 Normalized match: "${normalizedActionName}" === "${normalizedSearch}"`);
+          const layOnHandsPool = getLayOnHandsResource();
+          if (layOnHandsPool) {
+            showLayOnHandsModal(layOnHandsPool);
+          } else {
+            showNotification('❌ No Lay on Hands pool resource found', 'error');
+          }
+          return;
+        }
+        
+        // Fallback: Catch ANY Lay on Hands action for debugging
+        if (action.name.toLowerCase().includes('lay on hands')) {
+          debug.log(`🚨 FALLBACK: Caught Lay on Hands action: "${action.name}"`);
+          debug.log(`🚨 This action didn't match 'lay on hands: heal' but contains 'lay on hands'`);
+          debug.log(`🚨 Showing modal anyway for debugging`);
+          const layOnHandsPool = getLayOnHandsResource();
+          if (layOnHandsPool) {
+            showLayOnHandsModal(layOnHandsPool);
+          } else {
+            showNotification('❌ No Lay on Hands pool resource found', 'error');
+          }
+          return;
+        }
+        
         // Check and decrement uses BEFORE announcing (so announcement shows correct count)
         if (action.uses && !decrementActionUses(action)) {
           return; // No uses remaining
@@ -1747,6 +1832,45 @@ function buildActionsDisplay(container, actions) {
         `;
 
         actionBtn.addEventListener('click', () => {
+          // Check for Divine Smite special handling
+          if (action.name.toLowerCase().includes('divine smite')) {
+            showDivineSmiteModal(action);
+            return;
+          }
+          
+          // Check for Lay on Hands: Heal special handling
+          const normalizedActionName = action.name.toLowerCase()
+            .replace(/[^a-z0-9\s:]/g, '') // Remove special chars except colon and space
+            .replace(/\s+/g, ' ') // Normalize spaces
+            .trim();
+          const normalizedSearch = 'lay on hands: heal';
+          
+          if (normalizedActionName === normalizedSearch) {
+            debug.log(`💚 Lay on Hands: Heal action clicked: ${action.name}, showing custom modal`);
+            debug.log(`💚 Normalized match: "${normalizedActionName}" === "${normalizedSearch}"`);
+            const layOnHandsPool = getLayOnHandsResource();
+            if (layOnHandsPool) {
+              showLayOnHandsModal(layOnHandsPool);
+            } else {
+              showNotification('❌ No Lay on Hands pool resource found', 'error');
+            }
+            return;
+          }
+          
+          // Fallback: Catch ANY Lay on Hands action for debugging
+          if (action.name.toLowerCase().includes('lay on hands')) {
+            debug.log(`🚨 FALLBACK: Caught Lay on Hands action: "${action.name}"`);
+            debug.log(`🚨 This action didn't match 'lay on hands: heal' but contains 'lay on hands'`);
+            debug.log(`🚨 Showing modal anyway for debugging`);
+            const layOnHandsPool = getLayOnHandsResource();
+            if (layOnHandsPool) {
+              showLayOnHandsModal(layOnHandsPool);
+            } else {
+              showNotification('❌ No Lay on Hands pool resource found', 'error');
+            }
+            return;
+          }
+          
           // Handle different option types
           if (option.type === 'attack') {
             // Mark action as used for attacks
@@ -3208,6 +3332,12 @@ function buildResourcesDisplay() {
   resourcesGrid.className = 'spell-slots-grid'; // Reuse spell slot styling
 
   characterData.resources.forEach(resource => {
+    // Skip resources with MAX = 0 (useless paladin amount resources)
+    if (resource.max === 0) {
+      debug.log(`⏭️ Skipping resource with MAX = 0: ${resource.name}`);
+      return;
+    }
+    
     // Skip Lucky resources since they have their own action button
     const lowerName = resource.name.toLowerCase().trim();
     if (lowerName.includes('lucky point') || lowerName.includes('luck point') || lowerName === 'lucky points' || lowerName === 'lucky') {
@@ -4500,6 +4630,50 @@ function createSpellCard(spell, index) {
   if (castModalBtn) {
     castModalBtn.addEventListener('click', (e) => {
       e.stopPropagation();
+      
+      // Check for Divine Smite special handling
+      if (spell.name.toLowerCase().includes('divine smite')) {
+        debug.log(`⚡ Divine Smite cast button clicked: ${spell.name}, showing custom modal`);
+        announceSpellDescription(spell);
+        showDivineSmiteModal(spell);
+        return;
+      }
+      
+      // Check for Lay on Hands: Heal special handling
+      const normalizedSpellName = spell.name.toLowerCase()
+        .replace(/[^a-z0-9\s:]/g, '') // Remove special chars except colon and space
+        .replace(/\s+/g, ' ') // Normalize spaces
+        .trim();
+      const normalizedSearch = 'lay on hands: heal';
+      
+      if (normalizedSpellName === normalizedSearch) {
+        debug.log(`💚 Lay on Hands: Heal cast button clicked: ${spell.name}, showing custom modal`);
+        debug.log(`💚 Normalized match: "${normalizedSpellName}" === "${normalizedSearch}"`);
+        announceSpellDescription(spell);
+        const layOnHandsPool = getLayOnHandsResource();
+        if (layOnHandsPool) {
+          showLayOnHandsModal(layOnHandsPool);
+        } else {
+          showNotification('❌ No Lay on Hands pool resource found', 'error');
+        }
+        return;
+      }
+      
+      // Fallback: Catch ANY Lay on Hands action for debugging
+      if (spell.name.toLowerCase().includes('lay on hands')) {
+        debug.log(`🚨 FALLBACK: Caught Lay on Hands spell: "${spell.name}"`);
+        debug.log(`🚨 This spell didn't match 'lay on hands: heal' but contains 'lay on hands'`);
+        debug.log(`🚨 Showing modal anyway for debugging`);
+        announceSpellDescription(spell);
+        const layOnHandsPool = getLayOnHandsResource();
+        if (layOnHandsPool) {
+          showLayOnHandsModal(layOnHandsPool);
+        } else {
+          showNotification('❌ No Lay on Hands pool resource found', 'error');
+        }
+        return;
+      }
+      
       const spellOptionsResult = getSpellOptions(spell);
       const options = spellOptionsResult.options;
 
@@ -5863,6 +6037,13 @@ function castSpell(spell, index, afterCast = null, selectedSlotLevel = null, sel
   }
 
   // No slot level selected - show upcast choice (legacy behavior)
+  // Check for Divine Smite special handling
+  if (spell.name.toLowerCase().includes('divine smite')) {
+    debug.log(`⚡ Divine Smite spell detected, showing custom modal instead of upcast`);
+    showDivineSmiteModal(spell);
+    return;
+  }
+  
   showUpcastChoice(spell, spellLevel, afterCast);
 }
 
@@ -6808,6 +6989,366 @@ function getLayOnHandsResource() {
   return layOnHandsResource || null;
 }
 
+// Theme-aware modal helper
+function createThemedModal() {
+  const modal = document.createElement('div');
+  modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
+  
+  const modalContent = document.createElement('div');
+  modalContent.className = 'rollcloud-modal-content';
+  
+  // Check for system theme preference
+  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const isDarkTheme = document.body.classList.contains('dark-theme') || 
+                      document.body.classList.contains('theme-dark') || 
+                      prefersDark;
+  
+  // Apply theme class
+  if (isDarkTheme) {
+    modalContent.classList.add('theme-dark');
+  } else {
+    modalContent.classList.add('theme-light');
+  }
+  
+  // Base styling (theme-specific colors will be in CSS)
+  modalContent.style.cssText = 'padding: 30px; border-radius: 12px; max-width: 500px; width: 90%; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.3); border: 1px solid #e1e8ed;';
+  
+  return { modal, modalContent, isDarkTheme };
+}
+
+function showDivineSmiteModal(spell) {
+  // Get all available spell slots (like upcast modal)
+  const availableSlots = [];
+
+  // Helper to extract numeric value from DiceCloud objects
+  const extractNum = (val) => {
+    if (val === null || val === undefined) return 0;
+    if (typeof val === 'number') return val;
+    if (typeof val === 'object') {
+      return val.value ?? val.total ?? val.currentValue ?? 0;
+    }
+    return parseInt(val) || 0;
+  };
+
+  // Check for Pact Magic slots (Warlock) - these are SEPARATE from regular spell slots
+  const rawPactLevel = characterData.spellSlots?.pactMagicSlotLevel ||
+                       characterData.otherVariables?.pactMagicSlotLevel ||
+                       characterData.otherVariables?.pactSlotLevelVisible ||
+                       characterData.otherVariables?.pactSlotLevel;
+  const rawPactSlots = characterData.spellSlots?.pactMagicSlots ??
+                       characterData.otherVariables?.pactMagicSlots ??
+                       characterData.otherVariables?.pactSlot;
+  const rawPactSlotsMax = characterData.spellSlots?.pactMagicSlotsMax ??
+                          characterData.otherVariables?.pactMagicSlotsMax;
+
+  // Extract numeric values (DiceCloud stores these as objects like {value: 2})
+  const pactMagicSlots = extractNum(rawPactSlots);
+  const pactMagicSlotsMax = extractNum(rawPactSlotsMax);
+  const effectivePactLevel = extractNum(rawPactLevel) || (pactMagicSlotsMax > 0 ? 5 : 0);
+
+  debug.log('🔮 Pact Magic detection for Divine Smite:', { rawPactLevel, rawPactSlots, rawPactSlotsMax, pactMagicSlots, pactMagicSlotsMax, effectivePactLevel });
+
+  // Add Pact Magic slots first if available
+  // Show even if depleted (current = 0) - user can still cast with GM permission
+  if (pactMagicSlotsMax > 0) {
+    availableSlots.push({
+      level: effectivePactLevel,
+      current: pactMagicSlots,
+      max: pactMagicSlotsMax,
+      slotVar: 'pactMagicSlots',
+      slotMaxVar: 'pactMagicSlotsMax',
+      isPactMagic: true,
+      label: `Level ${effectivePactLevel} - Pact Magic (${pactMagicSlots}/${pactMagicSlotsMax})`
+    });
+    debug.log(`🔮 Added Pact Magic to Divine Smite options: Level ${effectivePactLevel} (${pactMagicSlots}/${pactMagicSlotsMax})`);
+  }
+
+  // Then check regular spell slots - show all levels with max > 0 (even if depleted)
+  for (let level = 1; level <= 5; level++) { // Divine Smite only works up to 5th level
+    const slotVar = `level${level}SpellSlots`;
+    const slotMaxVar = `level${level}SpellSlotsMax`;
+    let current = characterData.spellSlots?.[slotVar] || 0;
+    let max = characterData.spellSlots?.[slotMaxVar] || 0;
+
+    // Skip if this level's slots are actually Pact Magic slots (avoid duplicates)
+    if (pactMagicSlotsMax > 0 && level === effectivePactLevel) {
+      // Pact Magic is already added separately above
+      continue;
+    }
+
+    // Show slot level if character has access to it (max > 0), even if depleted
+    if (max > 0) {
+      availableSlots.push({ 
+        level, 
+        current, 
+        max, 
+        slotVar, 
+        slotMaxVar,
+        isPactMagic: false,
+        label: `Level ${level} (${current}/${max})`
+      });
+      debug.log(`🔮 Added Level ${level} to Divine Smite options: ${current}/${max}`);
+    }
+  }
+
+  debug.log('🔮 Available slots for Divine Smite:', availableSlots);
+  
+  // Sort by level (lowest first)
+  availableSlots.sort((a, b) => a.level - b.level);
+  
+  // Create theme-aware modal
+  const { modal, modalContent, isDarkTheme } = createThemedModal();
+  
+  // Generate slot options
+  const slotOptions = availableSlots.map((slot, index) => 
+    `<option value="${index}" ${slot.current <= 0 ? 'disabled' : ''}>
+      ${slot.label} ${slot.current <= 0 ? '(No slots remaining)' : ''}
+    </option>`
+  ).join('');
+  
+  modalContent.innerHTML = `
+    <h2 style="margin: 0 0 20px 0; font-size: 1.5em;">⚡ Divine Smite</h2>
+    <p style="margin: 0 0 20px 0; font-size: 0.95em;">
+      Expend a spell slot to deal extra radiant damage on a melee weapon hit
+    </p>
+    
+    <div style="margin: 20px 0;">
+      <label style="display: block; margin-bottom: 8px; font-size: 0.95em;">Choose Spell Slot:</label>
+      <select id="spellSlotSelect" style="width: 100%; padding: 8px; font-size: 1em; border: 2px solid var(--accent-info); border-radius: 6px;">
+        ${slotOptions}
+      </select>
+    </div>
+    
+    <div style="margin: 20px 0; text-align: left;">
+      <h3 style="margin: 0 0 15px 0; font-size: 1.1em;">Damage Options:</h3>
+      
+      <label style="display: flex; align-items: center; margin: 10px 0; cursor: pointer;">
+        <input type="checkbox" id="critCheckbox" style="margin-right: 10px; width: 18px; height: 18px;">
+        <span>Critical Hit (double damage dice)</span>
+      </label>
+      
+      <label style="display: flex; align-items: center; margin: 10px 0; cursor: pointer;">
+        <input type="checkbox" id="fiendCheckbox" style="margin-right: 10px; width: 18px; height: 18px;">
+        <span>Against Fiend or Undead (+1d8)</span>
+      </label>
+    </div>
+    
+    <div id="damagePreview" style="margin: 15px 0; padding: 10px; border-radius: 6px; font-weight: bold; display: none;">
+      <!-- Hidden - damage shown only on button -->
+    </div>
+    
+    <div style="margin-top: 25px; display: flex; gap: 10px; justify-content: center;">
+      <button id="confirmDivineSmite" style="padding: 12px 24px; font-size: 1em; font-weight: bold; background: var(--accent-warning); color: white; border: none; border-radius: 6px; cursor: pointer;" disabled>
+        Select Slot
+      </button>
+      <button id="cancelDivineSmite" style="padding: 12px 24px; font-size: 1em; font-weight: bold; background: var(--accent-danger); color: white; border: none; border-radius: 6px; cursor: pointer;">
+        Cancel
+      </button>
+    </div>
+  `;
+  
+  modal.appendChild(modalContent);
+  document.body.appendChild(modal);
+  
+  // Get elements
+  const critCheckbox = document.getElementById('critCheckbox');
+  const fiendCheckbox = document.getElementById('fiendCheckbox');
+  const slotSelect = document.getElementById('spellSlotSelect');
+  const damagePreview = document.getElementById('damagePreview');
+  const confirmBtn = document.getElementById('confirmDivineSmite');
+  const cancelBtn = document.getElementById('cancelDivineSmite');
+  
+  // Update damage preview when options change
+  function updateDamagePreview() {
+    const selectedIndex = parseInt(slotSelect.value);
+    if (isNaN(selectedIndex) || !availableSlots[selectedIndex]) {
+      damagePreview.textContent = 'Select a spell slot';
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Select Slot';
+      return;
+    }
+    
+    const slot = availableSlots[selectedIndex];
+    if (slot.current <= 0) {
+      damagePreview.textContent = 'No slots remaining';
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'No Slots';
+      return;
+    }
+    
+    const level = slot.level;
+    const baseDice = 1 + level; // 2d8 at level 1, +1d8 per level above
+    let damageFormula = `${baseDice}d8`;
+    
+    // Add +1d8 for fiends/undead FIRST (before crit doubling)
+    if (fiendCheckbox.checked) {
+      damageFormula += ` + 1d8`;
+    }
+    
+    // Apply critical hit doubling LAST (doubles the entire formula including +1d8)
+    if (critCheckbox.checked) {
+      damageFormula = `(${damageFormula}) * 2`;
+    }
+    
+    damagePreview.textContent = `Damage: ${damageFormula} radiant`;
+    
+    // Update the confirm button with parsed damage formula
+    updateConfirmButton(damageFormula, slot);
+  }
+  
+  function updateConfirmButton(damageFormula, slot) {
+    let buttonText = '⚡ ';
+    let modifiers = [];
+    
+    // Parse the damage formula for readable display
+    if (damageFormula.includes('* 2')) {
+      // Critical hit - extract base formula and double it
+      const baseMatch = damageFormula.match(/\(([^)]+)\) \* 2/);
+      if (baseMatch) {
+        const baseFormula = baseMatch[1];
+        // Extract just the base dice (without +1d8)
+        const baseParts = baseFormula.split(' + ').map(part => part.trim());
+        const mainDice = baseParts.find(part => part.includes('d8') && !part.includes('1d8'));
+        if (mainDice) {
+          buttonText += parseDamageFormula(mainDice);
+        } else {
+          buttonText += parseDamageFormula(baseFormula);
+        }
+        modifiers.push('(CRIT)');
+      }
+    } else {
+      // Extract just the base dice (without +1d8)
+      const baseParts = damageFormula.split(' + ').map(part => part.trim());
+      const mainDice = baseParts.find(part => part.includes('d8') && !part.includes('1d8'));
+      if (mainDice) {
+        buttonText += parseDamageFormula(mainDice);
+      } else {
+        buttonText += parseDamageFormula(damageFormula);
+      }
+    }
+    
+    // Check if +1d8 is included (fiend/undead bonus)
+    if (damageFormula.includes('+ 1d8')) {
+      modifiers.unshift('+1d8'); // Add +1d8 first
+    }
+    
+    // Add modifiers to button text
+    if (modifiers.length > 0) {
+      buttonText += ' ' + modifiers.join(' ');
+    }
+    
+    buttonText += ` Damage (Lvl ${slot.level})`;
+    
+    confirmBtn.innerHTML = buttonText;
+    confirmBtn.disabled = false;
+  }
+  
+  function parseDamageFormula(formula) {
+    // Parse formulas like "2d8", "3d8 + 1d8", "4d8 + 1d8" etc.
+    const parts = formula.split(' + ').map(part => part.trim());
+    let result = '';
+    
+    parts.forEach((part, index) => {
+      if (part.includes('d8')) {
+        const diceMatch = part.match(/(\d+)d8/);
+        if (diceMatch) {
+          const numDice = parseInt(diceMatch[1]);
+          if (numDice === 1) {
+            result += '1d8';
+          } else {
+            result += `${numDice}d8`;
+          }
+        }
+      }
+      
+      if (index < parts.length - 1) {
+        result += ' + ';
+      }
+    });
+    
+    return result;
+  }
+  
+  critCheckbox.addEventListener('change', updateDamagePreview);
+  fiendCheckbox.addEventListener('change', updateDamagePreview);
+  slotSelect.addEventListener('change', updateDamagePreview);
+  
+  // Handle confirm
+  confirmBtn.addEventListener('click', () => {
+    const selectedIndex = parseInt(slotSelect.value);
+    const slot = availableSlots[selectedIndex];
+    
+    if (slot.current <= 0) {
+      showNotification(`❌ No Level ${slot.level} spell slot available!`, 'error');
+      return;
+    }
+    
+    // Calculate damage
+    const level = slot.level;
+    const baseDice = 1 + level;
+    let damageFormula = `${baseDice}d8`;
+    
+    // Add +1d8 for fiends/undead FIRST (before crit doubling)
+    if (fiendCheckbox.checked) {
+      damageFormula += ` + 1d8`;
+    }
+    
+    // Apply critical hit doubling LAST (doubles the entire formula including +1d8)
+    if (critCheckbox.checked) {
+      damageFormula = `(${damageFormula}) * 2`;
+    }
+    
+    // Consume the spell slot
+    if (slot.isPactMagic) {
+      characterData.spellSlots[slot.slotVar] = Math.max(0, characterData.spellSlots[slot.slotVar] - 1);
+    } else {
+      characterData.spellSlots[slot.slotVar] = Math.max(0, characterData.spellSlots[slot.slotVar] - 1);
+    }
+    saveCharacterData();
+    
+    // Build description
+    let description = `Divine Smite (Level ${level}`;
+    if (critCheckbox.checked) description += ', Critical';
+    if (fiendCheckbox.checked) description += ', vs Fiend/Undead';
+    description += ')';
+    
+    // Announce and roll the damage
+    announceAction({
+      name: 'Divine Smite',
+      description: description
+    });
+    
+    roll('Divine Smite', damageFormula);
+    
+    // Show notification
+    const remaining = slot.isPactMagic ? 
+      characterData.spellSlots[slot.slotVar] : 
+      characterData.spellSlots[slot.slotVar];
+    showNotification(`⚡ Divine Smite! Used Level ${slot.level} slot (${remaining}/${slot.max} left)`);
+    
+    // Remove modal and refresh display
+    document.body.removeChild(modal);
+    buildSheet(characterData);
+  });
+  
+  // Handle cancel
+  cancelBtn.addEventListener('click', () => {
+    document.body.removeChild(modal);
+  });
+  
+  // Handle escape key
+  const handleEscape = (e) => {
+    if (e.key === 'Escape') {
+      document.body.removeChild(modal);
+      document.removeEventListener('keydown', handleEscape);
+    }
+  };
+  document.addEventListener('keydown', handleEscape);
+  
+  // Initialize the damage preview
+  updateDamagePreview();
+}
+
 function handleLayOnHands(action) {
   const layOnHandsPool = getLayOnHandsResource();
 
@@ -6821,52 +7362,107 @@ function handleLayOnHands(action) {
     return;
   }
 
-  // Prompt user for how many points to spend
-  const maxPoints = layOnHandsPool.current;
-  const amountStr = prompt(
-    `Lay on Hands\n\n` +
-    `Available Points: ${layOnHandsPool.current}/${layOnHandsPool.max}\n\n` +
-    `How many hit points do you want to restore?\n` +
-    `(Enter 1-${maxPoints}, or 5 to cure disease/poison)`
-  );
+  // Show modal for Lay on Hands
+  showLayOnHandsModal(layOnHandsPool);
+}
 
-  if (amountStr === null) return; // Cancelled
-
-  const amount = parseInt(amountStr);
-  if (isNaN(amount) || amount < 1) {
-    showNotification(`❌ Please enter a valid number`, 'error');
-    return;
+function showLayOnHandsModal(layOnHandsPool) {
+  // Create theme-aware modal
+  const { modal, modalContent, isDarkTheme } = createThemedModal();
+  
+  modalContent.innerHTML = `
+    <h2 style="margin: 0 0 20px 0; font-size: 1.5em;">💚 Lay on Hands</h2>
+    <p style="margin: 0 0 15px 0; font-size: 1.1em;">
+      Available Points: <strong>${layOnHandsPool.current}/${layOnHandsPool.max}</strong>
+    </p>
+    <p style="margin: 0 0 20px 0; font-size: 0.95em;">
+      How many points do you want to spend?
+    </p>
+    <div style="margin: 20px 0;">
+      <input type="number" id="layOnHandsAmount" min="1" max="${layOnHandsPool.current}" value="1" 
+             style="width: 80px; padding: 8px; font-size: 1.1em; text-align: center; border: 2px solid var(--accent-info); border-radius: 6px;">
+      <span style="margin-left: 10px; font-weight: bold;" id="healingDisplay">1 HP healed</span>
+    </div>
+    <div style="margin-top: 25px; display: flex; gap: 10px; justify-content: center;">
+      <button id="confirmLayOnHands" style="padding: 12px 24px; font-size: 1em; font-weight: bold; background: var(--accent-success); color: white; border: none; border-radius: 6px; cursor: pointer;">
+        Heal
+      </button>
+      <button id="cancelLayOnHands" style="padding: 12px 24px; font-size: 1em; font-weight: bold; background: var(--accent-danger); color: white; border: none; border-radius: 6px; cursor: pointer;">
+        Cancel
+      </button>
+    </div>
+  `;
+  
+  modal.appendChild(modalContent);
+  document.body.appendChild(modal);
+  
+  // Get elements
+  const amountInput = document.getElementById('layOnHandsAmount');
+  const healingDisplay = document.getElementById('healingDisplay');
+  const confirmBtn = document.getElementById('confirmLayOnHands');
+  const cancelBtn = document.getElementById('cancelLayOnHands');
+  
+  // Update healing display when amount changes
+  function updateHealingDisplay() {
+    const amount = parseInt(amountInput.value) || 0;
+    healingDisplay.textContent = `${amount} HP healed`;
+    healingDisplay.style.color = '#3498db';
   }
-
-  if (amount > maxPoints) {
-    showNotification(`❌ Not enough points! You have ${maxPoints} remaining`, 'error');
-    return;
-  }
-
-  // Deduct points
-  layOnHandsPool.current -= amount;
-  saveCharacterData();
-
-  // Announce the healing
-  debug.log(`💚 Used ${amount} Lay on Hands points. Remaining: ${layOnHandsPool.current}/${layOnHandsPool.max}`);
-
-  if (amount === 5) {
-    // Might be curing disease/poison
-    announceAction({
-      name: 'Lay on Hands',
-      description: `Restored ${amount} HP (or cured disease/poison)`
-    });
-    showNotification(`💚 Lay on Hands: ${amount} HP (${layOnHandsPool.current}/${layOnHandsPool.max} points left)`);
-  } else {
-    announceAction({
-      name: 'Lay on Hands',
-      description: `Restored ${amount} HP`
-    });
-    showNotification(`💚 Lay on Hands: Restored ${amount} HP (${layOnHandsPool.current}/${layOnHandsPool.max} points left)`);
-  }
-
-  // Refresh display to show updated pool
-  buildSheet(characterData);
+  
+  amountInput.addEventListener('input', updateHealingDisplay);
+  
+  // Handle confirm
+  confirmBtn.addEventListener('click', () => {
+    const amount = parseInt(amountInput.value);
+    
+    if (isNaN(amount) || amount < 1 || amount > layOnHandsPool.current) {
+      showNotification(`❌ Please enter a number between 1 and ${layOnHandsPool.current}`, 'error');
+      return;
+    }
+    
+    // Deduct points
+    layOnHandsPool.current -= amount;
+    saveCharacterData();
+    
+    // Announce the healing
+    debug.log(`💚 Used ${amount} Lay on Hands points. Remaining: ${layOnHandsPool.current}/${layOnHandsPool.max}`);
+    
+    if (amount === 5) {
+      announceAction({
+        name: 'Lay on Hands',
+        description: `Cured disease/poison`
+      });
+      showNotification(`💚 Lay on Hands: Cured disease/poison (${layOnHandsPool.current}/${layOnHandsPool.max} points left)`);
+    } else {
+      announceAction({
+        name: 'Lay on Hands',
+        description: `Restored ${amount} HP`
+      });
+      showNotification(`💚 Lay on Hands: Restored ${amount} HP (${layOnHandsPool.current}/${layOnHandsPool.max} points left)`);
+    }
+    
+    // Remove modal and refresh display
+    document.body.removeChild(modal);
+    buildSheet(characterData);
+  });
+  
+  // Handle cancel
+  cancelBtn.addEventListener('click', () => {
+    document.body.removeChild(modal);
+  });
+  
+  // Handle escape key
+  const handleEscape = (e) => {
+    if (e.key === 'Escape') {
+      document.body.removeChild(modal);
+      document.removeEventListener('keydown', handleEscape);
+    }
+  };
+  document.addEventListener('keydown', handleEscape);
+  
+  // Focus input
+  amountInput.focus();
+  amountInput.select();
 }
 
 function handleRecoverSpellSlot(action) {

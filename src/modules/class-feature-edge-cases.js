@@ -339,7 +339,7 @@ export const CLASS_FEATURE_EDGE_CASES = {
 
   // ===== PALADIN FEATURES =====
   'divine smite': {
-    type: 'resource_damage',
+    type: 'divine_smite_modal',
     trigger: 'melee_weapon_attack_hit',
     resource: 'spell_slot',
     damageFormula: '2d8 + 1d8_per_spell_level_above_1st',
@@ -979,8 +979,22 @@ export const CLASS_FEATURE_EDGE_CASES = {
  */
 export function isClassFeatureEdgeCase(featureName) {
   if (!featureName) return false;
-  const lowerName = featureName.toLowerCase().trim();
-  return CLASS_FEATURE_EDGE_CASES.hasOwnProperty(lowerName);
+  const normalizedLowerName = featureName.toLowerCase()
+    .replace(/[^a-z0-9\s:]/g, '') // Remove special chars except colon and space
+    .replace(/\s+/g, ' ') // Normalize spaces
+    .trim();
+  
+  // Exact match first
+  if (CLASS_FEATURE_EDGE_CASES.hasOwnProperty(normalizedLowerName)) {
+    return true;
+  }
+  
+  // Special handling for Lay on Hands: Heal ONLY (not Restore or other variants)
+  if (normalizedLowerName === 'lay on hands: heal') {
+    return true;
+  }
+  
+  return false;
 }
 
 /**
@@ -988,8 +1002,22 @@ export function isClassFeatureEdgeCase(featureName) {
  */
 export function getClassFeatureEdgeCase(featureName) {
   if (!featureName) return null;
-  const lowerName = featureName.toLowerCase().trim();
-  return CLASS_FEATURE_EDGE_CASES[lowerName] || null;
+  const normalizedLowerName = featureName.toLowerCase()
+    .replace(/[^a-z0-9\s:]/g, '') // Remove special chars except colon and space
+    .replace(/\s+/g, ' ') // Normalize spaces
+    .trim();
+  
+  // Exact match first
+  if (CLASS_FEATURE_EDGE_CASES.hasOwnProperty(normalizedLowerName)) {
+    return CLASS_FEATURE_EDGE_CASES[normalizedLowerName];
+  }
+  
+  // Special handling for Lay on Hands: Heal ONLY - return the base "lay on hands" config
+  if (normalizedLowerName === 'lay on hands: heal') {
+    return CLASS_FEATURE_EDGE_CASES['lay on hands'] || null;
+  }
+  
+  return null;
 }
 
 /**
@@ -1072,11 +1100,21 @@ export function applyClassFeatureEdgeCaseModifications(feature, options) {
       });
       break;
 
+    case 'divine_smite_modal':
+      // Skip normal buttons and show custom modal
+      skipNormalButtons = true;
+      break;
+
     case 'resource_damage':
       // Add resource cost info
       modifiedOptions.forEach(opt => {
         opt.edgeCaseNote = `💰 Cost: ${edgeCase.resource}`;
       });
+      break;
+
+    case 'healing_pool':
+      // Skip normal buttons and show custom modal for healing pool actions
+      skipNormalButtons = true;
       break;
 
     default:
