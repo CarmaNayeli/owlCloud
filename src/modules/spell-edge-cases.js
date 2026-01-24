@@ -468,18 +468,18 @@ export function detectRulesetFromCharacterData(characterData) {
     )),
     
     // 2024-specific feature wording (more specific)
-    () => features.some(f => f.description && (
+    () => features.some(f => f.description && typeof f.description === 'string' && (
       f.description.includes('uses = proficiency bonus') ||
       f.description.includes('proficiency bonus uses')
     )),
-    
+
     // 2024-specific class feature patterns
-    () => features.some(f => f.description && (
+    () => features.some(f => f.description && typeof f.description === 'string' && (
       f.description.includes('bonus action') && f.description.includes('reaction')
     )),
-    
+
     // 2024-specific spell patterns
-    () => spells.some(s => s.description && (
+    () => spells.some(s => s.description && typeof s.description === 'string' && (
       s.description.includes('ritual') && s.level > 0
     ))
   ];
