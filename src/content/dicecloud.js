@@ -1930,6 +1930,12 @@
             // Use variableName or name as unique key (variableName is more reliable in DiceCloud)
             const resourceKey = (prop.variableName || prop.name).toLowerCase();
 
+            // Skip resources with max of 0 (utility variables, not real resources)
+            if (resource.max <= 0) {
+              debug.log(`  ⏭️  Skipping utility resource (max=0): ${resource.name}`);
+              break;
+            }
+
             // Only add if we haven't seen this resource before
             if (!uniqueResources.has(resourceKey)) {
               uniqueResources.add(resourceKey);
