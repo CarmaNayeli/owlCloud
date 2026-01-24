@@ -3912,8 +3912,9 @@ function getSpellOptions(spell) {
 
   const options = [];
 
-  // Check for attack
-  if (spell.attackRoll && spell.attackRoll !== '(none)') {
+  // Check for attack (exclude Shield spell which should never have attack button)
+  const isShield = spell.name && spell.name.toLowerCase() === 'shield';
+  if (spell.attackRoll && spell.attackRoll !== '(none)' && !isShield) {
     // Handle special flag from dicecloud.js that indicates we should use spell attack bonus
     let attackFormula = spell.attackRoll;
     if (attackFormula === 'use_spell_attack_bonus') {
@@ -3979,6 +3980,8 @@ function getSpellOptions(spell) {
         }
 
         const isHealing = roll.damageType === 'healing';
+        const isTempHP = roll.damageType === 'temphp' || roll.damageType === 'temporary' ||
+                         (roll.damageType && roll.damageType.toLowerCase().includes('temp'));
 
         // Resolve non-slot-dependent variables for display (character level, ability mods, etc.)
         // Keep slotLevel as-is since we don't know what slot will be used yet
@@ -4003,14 +4006,17 @@ function getSpellOptions(spell) {
 
             const label = damageTypeLabel ? `${displayFormula} ${damageTypeLabel}` : displayFormula;
 
+            const choiceIsTempHP = choice.damageType === 'temphp' || choice.damageType === 'temporary' ||
+                                    (choice.damageType && choice.damageType.toLowerCase().includes('temp'));
+
             options.push({
-              type: isHealing ? 'healing' : 'damage',
+              type: choiceIsTempHP ? 'temphp' : (isHealing ? 'healing' : 'damage'),
               label: label,
               formula: roll.damage,
               damageType: choice.damageType,
               index: index,
-              icon: isHealing ? '💚' : '💥',
-              color: isHealing ? '#27ae60' : '#e67e22'
+              icon: choiceIsTempHP ? '🛡️' : (isHealing ? '💚' : '💥'),
+              color: choiceIsTempHP ? '#3498db' : (isHealing ? '#27ae60' : '#e67e22')
             });
           });
         } else {
@@ -4026,13 +4032,13 @@ function getSpellOptions(spell) {
           const label = damageTypeLabel ? `${displayFormula} ${damageTypeLabel}` : displayFormula;
 
           options.push({
-            type: isHealing ? 'healing' : 'damage',
+            type: isTempHP ? 'temphp' : (isHealing ? 'healing' : 'damage'),
             label: label,
             formula: roll.damage, // Keep original formula for actual rolling
             damageType: roll.damageType,
             index: index,
-            icon: isHealing ? '💚' : '💥',
-            color: isHealing ? '#27ae60' : '#e67e22'
+            icon: isTempHP ? '🛡️' : (isHealing ? '💚' : '💥'),
+            color: isTempHP ? '#3498db' : (isHealing ? '#27ae60' : '#e67e22')
           });
         }
       });
@@ -4115,9 +4121,21 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
     slotSelect.updateButtonLabels = null;
   }
 
-  // Concentration spell recast option (if already concentrating on this spell)
+  // Concentration spell recast option OR special spells that allow reuse without slots
+  // (if already concentrating on this spell, or for spells like Spiritual Weapon, Meld into Stone)
   let skipSlotCheckbox = null;
-  if (spell.concentration && concentratingSpell === spell.name) {
+  const isConcentrationRecast = spell.concentration && concentratingSpell === spell.name;
+
+  // Spells that allow repeated use without consuming slots (non-concentration)
+  const reuseableSpells = ['spiritual weapon', 'meld into stone'];
+  const isReuseableSpell = spell.name && reuseableSpells.some(name => spell.name.toLowerCase().includes(name));
+
+  // Check if this spell was already cast (stored in localStorage or session)
+  const castSpellsKey = `castSpells_${characterData.name}`;
+  const castSpells = JSON.parse(localStorage.getItem(castSpellsKey) || '[]');
+  const wasAlreadyCast = castSpells.includes(spell.name);
+
+  if (isConcentrationRecast || (isReuseableSpell && wasAlreadyCast)) {
     const recastSection = document.createElement('div');
     recastSection.style.cssText = 'margin-bottom: 16px; padding: 12px; background: #fff3cd; border-radius: 6px; border: 2px solid #f39c12;';
 
@@ -4131,7 +4149,11 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
 
     const checkboxLabel = document.createElement('span');
     checkboxLabel.style.cssText = 'font-weight: bold; color: #856404;';
-    checkboxLabel.textContent = '🧠 Already concentrating - don\'t consume spell slot';
+    if (isConcentrationRecast) {
+      checkboxLabel.textContent = '🧠 Already concentrating - don\'t consume spell slot';
+    } else {
+      checkboxLabel.textContent = '⚔️ Spell already active - don\'t consume spell slot';
+    }
 
     checkboxContainer.appendChild(skipSlotCheckbox);
     checkboxContainer.appendChild(checkboxLabel);
@@ -4139,7 +4161,11 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
 
     const helpText = document.createElement('div');
     helpText.style.cssText = 'font-size: 0.85em; color: #856404; margin-top: 6px; margin-left: 28px;';
-    helpText.textContent = 'You can use this spell\'s effect again while concentrating on it without recasting.';
+    if (isConcentrationRecast) {
+      helpText.textContent = 'You can use this spell\'s effect again while concentrating on it without recasting.';
+    } else {
+      helpText.textContent = 'You can use this spell\'s effect again while it\'s active without recasting.';
+    }
     recastSection.appendChild(helpText);
 
     modal.appendChild(recastSection);
@@ -4254,7 +4280,7 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
         damageTypeLabel = option.damageType.charAt(0).toUpperCase() + option.damageType.slice(1);
       }
       return `${formula} ${damageTypeLabel} + Heal (${option.healingRatio})`;
-    } else if (option.type === 'damage' || option.type === 'healing') {
+    } else if (option.type === 'damage' || option.type === 'healing' || option.type === 'temphp') {
       let damageTypeLabel = '';
       if (option.damageType && option.damageType !== 'untyped') {
         damageTypeLabel = option.damageType.charAt(0).toUpperCase() + option.damageType.slice(1);
@@ -4345,7 +4371,7 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
         btn.style.opacity = '0.5';
         btn.style.cursor = 'not-allowed';
 
-      } else if (option.type === 'damage' || option.type === 'healing') {
+      } else if (option.type === 'damage' || option.type === 'healing' || option.type === 'temphp') {
         // If spell not cast yet (no attack roll), cast it first
         if (!spellCast) {
           // Announce description only if not already announced AND not using concentration recast
@@ -4369,7 +4395,9 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
 
             const label = option.type === 'healing' ?
               `${spell.name} - Healing` :
-              `${spell.name} - Damage (${option.damageType || ''})`;
+              (option.type === 'temphp' ?
+                `${spell.name} - Temp HP` :
+                `${spell.name} - Damage (${option.damageType || ''})`);
             roll(label, formula);
           };
           // Description announced (if needed), don't announce again in castSpell
@@ -4390,7 +4418,9 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
 
           const label = option.type === 'healing' ?
             `${spell.name} - Healing` :
-            `${spell.name} - Damage (${option.damageType || ''})`;
+            (option.type === 'temphp' ?
+              `${spell.name} - Temp HP` :
+              `${spell.name} - Damage (${option.damageType || ''})`);
           roll(label, formula);
         }
 
@@ -4587,6 +4617,19 @@ function castSpell(spell, index, afterCast = null, selectedSlotLevel = null, sel
       setConcentration(spell.name);
     }
 
+    // Track reuseable spells (Spiritual Weapon, Meld into Stone, etc.)
+    const reuseableSpells = ['spiritual weapon', 'meld into stone'];
+    const isReuseableSpell = spell.name && reuseableSpells.some(name => spell.name.toLowerCase().includes(name));
+    if (isReuseableSpell && !skipSlotConsumption) {
+      const castSpellsKey = `castSpells_${characterData.name}`;
+      const castSpells = JSON.parse(localStorage.getItem(castSpellsKey) || '[]');
+      if (!castSpells.includes(spell.name)) {
+        castSpells.push(spell.name);
+        localStorage.setItem(castSpellsKey, JSON.stringify(castSpells));
+        debug.log(`✅ Tracked reuseable spell: ${spell.name}`);
+      }
+    }
+
     // Execute afterCast with a fake slot for magic items and free spells to allow formulas to work
     if (afterCast && typeof afterCast === 'function') {
       setTimeout(() => {
@@ -4634,6 +4677,19 @@ function castSpell(spell, index, afterCast = null, selectedSlotLevel = null, sel
     // Handle concentration
     if (spell.concentration) {
       setConcentration(spell.name);
+    }
+
+    // Track reuseable spells (Spiritual Weapon, Meld into Stone, etc.)
+    const reuseableSpells = ['spiritual weapon', 'meld into stone'];
+    const isReuseableSpell = spell.name && reuseableSpells.some(name => spell.name.toLowerCase().includes(name));
+    if (isReuseableSpell) {
+      const castSpellsKey = `castSpells_${characterData.name}`;
+      const castSpells = JSON.parse(localStorage.getItem(castSpellsKey) || '[]');
+      if (!castSpells.includes(spell.name)) {
+        castSpells.push(spell.name);
+        localStorage.setItem(castSpellsKey, JSON.stringify(castSpells));
+        debug.log(`✅ Tracked reuseable spell: ${spell.name}`);
+      }
     }
 
     // Execute afterCast
@@ -5072,6 +5128,19 @@ function castWithSlot(spell, slot, metamagicOptions = [], afterCast = null) {
     setConcentration(spell.name);
   }
 
+  // Track reuseable spells (Spiritual Weapon, Meld into Stone, etc.)
+  const reuseableSpells = ['spiritual weapon', 'meld into stone'];
+  const isReuseableSpell = spell.name && reuseableSpells.some(name => spell.name.toLowerCase().includes(name));
+  if (isReuseableSpell) {
+    const castSpellsKey = `castSpells_${characterData.name}`;
+    const castSpells = JSON.parse(localStorage.getItem(castSpellsKey) || '[]');
+    if (!castSpells.includes(spell.name)) {
+      castSpells.push(spell.name);
+      localStorage.setItem(castSpellsKey, JSON.stringify(castSpells));
+      debug.log(`✅ Tracked reuseable spell: ${spell.name}`);
+    }
+  }
+
   // Update the display
   buildSheet(characterData);
 
@@ -5101,6 +5170,19 @@ function useClassResource(resource, spell) {
   // Handle concentration
   if (spell.concentration) {
     setConcentration(spell.name);
+  }
+
+  // Track reuseable spells (Spiritual Weapon, Meld into Stone, etc.)
+  const reuseableSpells = ['spiritual weapon', 'meld into stone'];
+  const isReuseableSpell = spell.name && reuseableSpells.some(name => spell.name.toLowerCase().includes(name));
+  if (isReuseableSpell) {
+    const castSpellsKey = `castSpells_${characterData.name}`;
+    const castSpells = JSON.parse(localStorage.getItem(castSpellsKey) || '[]');
+    if (!castSpells.includes(spell.name)) {
+      castSpells.push(spell.name);
+      localStorage.setItem(castSpellsKey, JSON.stringify(castSpells));
+      debug.log(`✅ Tracked reuseable spell: ${spell.name}`);
+    }
   }
 
   buildSheet(characterData);
