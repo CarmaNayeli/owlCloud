@@ -3892,42 +3892,83 @@ function getSpellOptions(spell) {
 
   // Check for damage/healing rolls
   if (spell.damageRolls && spell.damageRolls.length > 0) {
-    spell.damageRolls.forEach((roll, index) => {
-      const isHealing = roll.damageType === 'healing';
+    // Handle lifesteal spells specially (damage + healing based on damage dealt)
+    if (spell.isLifesteal) {
+      const damageRoll = spell.damageRolls.find(r => r.damageType && r.damageType.toLowerCase() !== 'healing');
+      const healingRoll = spell.damageRolls.find(r => r.damageType && r.damageType.toLowerCase() === 'healing');
 
-      // Resolve non-slot-dependent variables for display (character level, ability mods, etc.)
-      // Keep slotLevel as-is since we don't know what slot will be used yet
-      let displayFormula = roll.damage;
+      if (damageRoll && healingRoll) {
+        // Resolve formula for display
+        let displayFormula = damageRoll.damage;
+        if (displayFormula.includes('~target.level') && characterData.level) {
+          displayFormula = displayFormula.replace(/~target\.level/g, characterData.level);
+        }
+        displayFormula = resolveVariablesInFormula(displayFormula);
+        displayFormula = evaluateMathInFormula(displayFormula);
 
-      // Replace ~target.level with character level (for cantrips like Toll the Dead)
-      if (displayFormula.includes('~target.level') && characterData.level) {
-        displayFormula = displayFormula.replace(/~target\.level/g, characterData.level);
+        // Format damage type
+        let damageTypeLabel = '';
+        if (damageRoll.damageType && damageRoll.damageType !== 'untyped') {
+          damageTypeLabel = damageRoll.damageType.charAt(0).toUpperCase() + damageRoll.damageType.slice(1);
+        }
+
+        // Check healing formula to determine healing ratio
+        const healingFormula = healingRoll.damage.toLowerCase();
+        let healingRatio = 'full';
+        if (healingFormula.includes('/ 2') || healingFormula.includes('*0.5') || healingFormula.includes('half')) {
+          healingRatio = 'half';
+        }
+
+        options.push({
+          type: 'lifesteal',
+          label: `${displayFormula} ${damageTypeLabel} + Heal (${healingRatio})`,
+          damageFormula: damageRoll.damage,
+          healingFormula: healingRoll.damage,
+          damageType: damageRoll.damageType,
+          healingRatio: healingRatio,
+          icon: '💉',
+          color: 'linear-gradient(135deg, #c0392b 0%, #27ae60 100%)'
+        });
       }
+    } else {
+      // Normal spells - show separate buttons for each damage/healing type
+      spell.damageRolls.forEach((roll, index) => {
+        const isHealing = roll.damageType === 'healing';
 
-      displayFormula = resolveVariablesInFormula(displayFormula);
-      displayFormula = evaluateMathInFormula(displayFormula);
+        // Resolve non-slot-dependent variables for display (character level, ability mods, etc.)
+        // Keep slotLevel as-is since we don't know what slot will be used yet
+        let displayFormula = roll.damage;
 
-      // Format damage type nicely
-      let damageTypeLabel = '';
-      if (roll.damageType && roll.damageType !== 'untyped') {
-        // Capitalize first letter
-        damageTypeLabel = roll.damageType.charAt(0).toUpperCase() + roll.damageType.slice(1);
-      }
+        // Replace ~target.level with character level (for cantrips like Toll the Dead)
+        if (displayFormula.includes('~target.level') && characterData.level) {
+          displayFormula = displayFormula.replace(/~target\.level/g, characterData.level);
+        }
 
-      // Build label: formula + damage type
-      const label = damageTypeLabel ? `${displayFormula} ${damageTypeLabel}` : displayFormula;
+        displayFormula = resolveVariablesInFormula(displayFormula);
+        displayFormula = evaluateMathInFormula(displayFormula);
 
-      options.push({
-        type: isHealing ? 'healing' : 'damage',
-        label: label,
-        formula: roll.damage, // Keep original formula for actual rolling
-        damageType: roll.damageType,
-        index: index,
-        icon: isHealing ? '💚' : '💥',
-        color: isHealing ? '#27ae60' : '#e67e22',
-        orChoices: roll.orChoices
+        // Format damage type nicely
+        let damageTypeLabel = '';
+        if (roll.damageType && roll.damageType !== 'untyped') {
+          // Capitalize first letter
+          damageTypeLabel = roll.damageType.charAt(0).toUpperCase() + roll.damageType.slice(1);
+        }
+
+        // Build label: formula + damage type
+        const label = damageTypeLabel ? `${displayFormula} ${damageTypeLabel}` : displayFormula;
+
+        options.push({
+          type: isHealing ? 'healing' : 'damage',
+          label: label,
+          formula: roll.damage, // Keep original formula for actual rolling
+          damageType: roll.damageType,
+          index: index,
+          icon: isHealing ? '💚' : '💥',
+          color: isHealing ? '#27ae60' : '#e67e22',
+          orChoices: roll.orChoices
+        });
       });
-    });
+    }
   }
 
   return options;
@@ -4156,6 +4197,33 @@ function showSpellModal(spell, spellIndex, options) {
         }
 
         // Close modal after rolling damage
+        document.body.removeChild(overlay);
+
+      } else if (option.type === 'lifesteal') {
+        // Lifesteal: Cast spell, roll damage, calculate and apply healing
+        const afterCast = (spell, slot) => {
+          let damageFormula = option.damageFormula;
+          const actualSlotLevel = selectedSlotLevel || (slot && slot.level);
+          if (actualSlotLevel) {
+            damageFormula = damageFormula.replace(/slotLevel/g, actualSlotLevel);
+          }
+          if (damageFormula.includes('~target.level') && characterData.level) {
+            damageFormula = damageFormula.replace(/~target\.level/g, characterData.level);
+          }
+          damageFormula = resolveVariablesInFormula(damageFormula);
+          damageFormula = evaluateMathInFormula(damageFormula);
+
+          // Roll damage
+          roll(`${spell.name} - Lifesteal Damage (${option.damageType})`, damageFormula);
+
+          // Calculate healing (half or full of damage)
+          // For now, show notification - actual healing calculation needs dice roll result
+          const healingText = option.healingRatio === 'half' ? 'half the damage dealt' : 'the damage dealt';
+          showNotification(`💉 Lifesteal! You regain HP equal to ${healingText}`, 'success');
+        };
+        castSpell(spell, spellIndex, afterCast, selectedSlotLevel, selectedMetamagic);
+
+        // Close modal after rolling
         document.body.removeChild(overlay);
       }
     });
@@ -6744,20 +6812,49 @@ function evaluateMathInFormula(formula) {
     return formula;
   }
 
+  // Replace floor() with Math.floor() for JavaScript evaluation
+  let processedFormula = formula.replace(/floor\(/g, 'Math.floor(');
+  processedFormula = processedFormula.replace(/ceil\(/g, 'Math.ceil(');
+  processedFormula = processedFormula.replace(/round\(/g, 'Math.round(');
+
   // Check if the formula is just a simple math expression (no dice)
   // Pattern: numbers and operators only (e.g., "5*5", "10+5", "20/4")
   const simpleMathPattern = /^[\d\s+\-*/().]+$/;
 
-  if (simpleMathPattern.test(formula)) {
+  if (simpleMathPattern.test(processedFormula)) {
     try {
       // Use Function constructor to safely evaluate the expression
-      const result = Function(`'use strict'; return (${formula})`)();
+      const result = Function(`'use strict'; return (${processedFormula})`)();
       if (typeof result === 'number' && !isNaN(result)) {
         debug.log(`✅ Evaluated simple math: ${formula} = ${result}`);
         return String(result);
       }
     } catch (e) {
       debug.log(`⚠️ Could not evaluate math expression: ${formula}`, e);
+    }
+  }
+
+  // Handle formulas with dice notation like "(floor((9 + 1) / 6) + 1)d8"
+  // Extract math before the dice, evaluate it, then reconstruct
+  const dicePattern = /^(.+?)(d\d+.*)$/i;
+  const match = processedFormula.match(dicePattern);
+
+  if (match) {
+    const mathPart = match[1]; // e.g., "(floor((9 + 1) / 6) + 1)"
+    const dicePart = match[2]; // e.g., "d8"
+
+    // Check if the math part is evaluable
+    const mathOnlyPattern = /^[\d\s+\-*/().Math]+$/;
+    if (mathOnlyPattern.test(mathPart)) {
+      try {
+        const result = Function(`'use strict'; return (${mathPart})`)();
+        if (typeof result === 'number' && !isNaN(result)) {
+          debug.log(`✅ Evaluated dice formula math: ${mathPart} = ${result}`);
+          return String(result) + dicePart;
+        }
+      } catch (e) {
+        debug.log(`⚠️ Could not evaluate dice formula math: ${mathPart}`, e);
+      }
     }
   }
 
