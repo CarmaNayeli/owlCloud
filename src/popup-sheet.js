@@ -3570,6 +3570,10 @@ function buildSpellSlotsDisplay() {
   let totalCurrentSlots = 0;
   let totalMaxSlots = 0;
 
+  // Check for Pact Magic (Warlock)
+  const pactMagicSlotLevel = characterData.spellSlots.pactMagicSlotLevel;
+  const hasPactMagic = pactMagicSlotLevel && characterData.spellSlots.pactMagicSlotsMax > 0;
+
   // Check each level (1-9)
   for (let level = 1; level <= 9; level++) {
     const slotVar = `level${level}SpellSlots`;
@@ -3581,7 +3585,7 @@ function buildSpellSlotsDisplay() {
     if (maxSlots > 0) {
       hasAnySlots = true;
       const currentSlots = characterData.spellSlots[slotVar] || 0;
-      
+
       // Track totals
       totalCurrentSlots += currentSlots;
       totalMaxSlots += maxSlots;
@@ -3589,8 +3593,12 @@ function buildSpellSlotsDisplay() {
       const slotCard = document.createElement('div');
       slotCard.className = currentSlots > 0 ? 'spell-slot-card' : 'spell-slot-card empty';
 
+      // Check if this is a Pact Magic slot
+      const isPactSlot = hasPactMagic && level === pactMagicSlotLevel;
+      const levelLabel = isPactSlot ? `Pact (${level})` : `Level ${level}`;
+
       slotCard.innerHTML = `
-        <div class="spell-slot-level">Level ${level}</div>
+        <div class="spell-slot-level">${levelLabel}</div>
         <div class="spell-slot-count">${currentSlots}/${maxSlots}</div>
       `;
 
@@ -4705,7 +4713,12 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
     slotSelect = document.createElement('select');
     slotSelect.style.cssText = 'width: 100%; padding: 8px; border: 2px solid #ddd; border-radius: 4px; font-size: 14px;';
 
+    // Check for Pact Magic slots (Warlock)
+    const pactMagicSlotLevel = characterData.spellSlots?.pactMagicSlotLevel;
+    const hasPactMagic = pactMagicSlotLevel && characterData.spellSlots?.pactMagicSlotsMax > 0;
+
     // Add options for available spell slots (spell level and higher)
+    let hasAnySlots = false;
     for (let level = spell.level; level <= 9; level++) {
       const slotsProp = `level${level}SpellSlots`;
       const maxSlotsProp = `level${level}SpellSlotsMax`;
@@ -4713,13 +4726,28 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
       const max = characterData.spellSlots?.[maxSlotsProp] || characterData[maxSlotsProp] || 0;
 
       if (max > 0) {
+        hasAnySlots = true;
         const option = document.createElement('option');
         option.value = level;
-        option.textContent = `Level ${level} (${available}/${max} slots)`;
+
+        // Mark Pact Magic slots distinctly
+        const isPactSlot = hasPactMagic && level === pactMagicSlotLevel;
+        const slotLabel = isPactSlot ? `Level ${level} - Pact Magic (${available}/${max})` : `Level ${level} (${available}/${max} slots)`;
+        option.textContent = slotLabel;
         option.disabled = available === 0;
         if (level === spell.level) option.selected = true;
         slotSelect.appendChild(option);
       }
+    }
+
+    // If no slots available at all, show a message
+    if (!hasAnySlots) {
+      const noSlotsOption = document.createElement('option');
+      noSlotsOption.value = spell.level;
+      noSlotsOption.textContent = 'No spell slots available';
+      noSlotsOption.disabled = true;
+      noSlotsOption.selected = true;
+      slotSelect.appendChild(noSlotsOption);
     }
 
     slotSection.appendChild(slotLabel);
@@ -8604,16 +8632,31 @@ function roll(name, formula, prerolledResult = null) {
       const { modifiedFormula, effectNotes } = applyEffectModifiers(name, resolvedFormula);
       let finalFormula = modifiedFormula;
 
+      // Check if this is a skill/ability check (same logic as popup detection)
+      const isSkillOrAbilityCheck = rollLower.includes('check') ||
+                        rollLower.includes('acrobatics') || rollLower.includes('animal') ||
+                        rollLower.includes('arcana') || rollLower.includes('athletics') ||
+                        rollLower.includes('deception') || rollLower.includes('history') ||
+                        rollLower.includes('insight') || rollLower.includes('intimidation') ||
+                        rollLower.includes('investigation') || rollLower.includes('medicine') ||
+                        rollLower.includes('nature') || rollLower.includes('perception') ||
+                        rollLower.includes('performance') || rollLower.includes('persuasion') ||
+                        rollLower.includes('religion') || rollLower.includes('sleight') ||
+                        rollLower.includes('stealth') || rollLower.includes('survival') ||
+                        rollLower.includes('strength') || rollLower.includes('dexterity') ||
+                        rollLower.includes('constitution') || rollLower.includes('intelligence') ||
+                        rollLower.includes('wisdom') || rollLower.includes('charisma');
+
       debug.log(`🎯 Applying chosen effect: ${chosenEffect.name}`, {
         modifier: chosenEffect.modifier,
         rollLower: rollLower,
         hasSkillMod: !!chosenEffect.modifier?.skill,
-        includesCheck: rollLower.includes('check'),
+        isSkillOrAbilityCheck: isSkillOrAbilityCheck,
         formulaBefore: finalFormula
       });
 
       // Add the chosen effect's modifier
-      if (chosenEffect.modifier?.skill && rollLower.includes('check')) {
+      if (chosenEffect.modifier?.skill && isSkillOrAbilityCheck) {
         finalFormula += ` + ${chosenEffect.modifier.skill}`;
         effectNotes.push(`[${chosenEffect.icon} ${chosenEffect.name}: ${chosenEffect.modifier.skill}]`);
         debug.log(`✅ Added skill modifier: ${chosenEffect.modifier.skill}, formula now: ${finalFormula}`);
