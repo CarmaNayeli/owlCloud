@@ -1155,21 +1155,22 @@
               if (damageFormula) {
                 // Filter out non-roll formulas:
                 // - Variable references without dice (e.g., "spiritGuardiansDamage", "~target.tollTheDeadDamage")
-                // - Half-damage calculations (e.g., "floor(X / 2)")
+                // - Half-damage save formulas (e.g., "floor(spiritGuardiansDamage / 2)" but NOT "(floor(slotLevel / 2))d8")
                 // - Formulas that don't contain actual dice notation
                 // Match dice notation: "d" followed by digits (e.g., "2d6", "(slotLevel)d8", "(floor(x)+1)d12")
                 const hasDiceNotation = /d\d+/i.test(damageFormula);
-                const isHalfDamage = damageFormula.includes('/ 2');
+                // Only consider it half-damage if it's dividing a damage variable (no dice in the formula)
+                const isHalfDamageSave = !hasDiceNotation && /\w+Damage\s*\/\s*2|~target\.\w+\s*\/\s*2|floor\([^d)]+\/\s*2\)/i.test(damageFormula);
                 const isVariableReference = !hasDiceNotation && /^[~\w.]+$/.test(damageFormula.trim());
 
-                if (hasDiceNotation && !isHalfDamage) {
+                if (hasDiceNotation || (!isHalfDamageSave && !isVariableReference)) {
                   damageRolls.push({
                     damage: damageFormula,
                     damageType: child.damageType || 'untyped'
                   });
                   console.log(`    ✅ Added damage roll: ${damageFormula} (${child.damageType || 'untyped'})`);
                 } else {
-                  console.log(`    ⏭️ Skipping non-roll formula: ${damageFormula} (hasDice: ${hasDiceNotation}, isHalf: ${isHalfDamage}, isVar: ${isVariableReference})`);
+                  console.log(`    ⏭️ Skipping non-roll formula: ${damageFormula} (hasDice: ${hasDiceNotation}, isHalfSave: ${isHalfDamageSave}, isVar: ${isVariableReference})`);
                 }
               }
             }
