@@ -176,7 +176,7 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
         // Discord Webhook Integration
         case 'setDiscordWebhook': {
-          await setDiscordWebhookSettings(request.webhookUrl, request.enabled);
+          await setDiscordWebhookSettings(request.webhookUrl, request.enabled, request.serverName);
           response = { success: true };
           break;
         }
@@ -722,14 +722,21 @@ browserAPI.runtime.onInstalled.addListener((details) => {
 
 /**
  * Stores Discord webhook settings
+ * @param {string} webhookUrl - The Discord webhook URL
+ * @param {boolean} enabled - Whether notifications are enabled
+ * @param {string} serverName - Optional Discord server name for display
  */
-async function setDiscordWebhookSettings(webhookUrl, enabled = true) {
+async function setDiscordWebhookSettings(webhookUrl, enabled = true, serverName = null) {
   try {
-    await browserAPI.storage.local.set({
+    const settings = {
       discordWebhookUrl: webhookUrl || '',
       discordWebhookEnabled: enabled
-    });
-    debug.log('Discord webhook settings saved:', { enabled, hasUrl: !!webhookUrl });
+    };
+    if (serverName) {
+      settings.discordServerName = serverName;
+    }
+    await browserAPI.storage.local.set(settings);
+    debug.log('Discord webhook settings saved:', { enabled, hasUrl: !!webhookUrl, serverName });
   } catch (error) {
     debug.error('Failed to save Discord webhook settings:', error);
     throw error;
@@ -741,14 +748,19 @@ async function setDiscordWebhookSettings(webhookUrl, enabled = true) {
  */
 async function getDiscordWebhookSettings() {
   try {
-    const result = await browserAPI.storage.local.get(['discordWebhookUrl', 'discordWebhookEnabled']);
+    const result = await browserAPI.storage.local.get([
+      'discordWebhookUrl',
+      'discordWebhookEnabled',
+      'discordServerName'
+    ]);
     return {
       webhookUrl: result.discordWebhookUrl || '',
-      enabled: result.discordWebhookEnabled !== false // Default to true if URL exists
+      enabled: result.discordWebhookEnabled !== false, // Default to true if URL exists
+      serverName: result.discordServerName || null
     };
   } catch (error) {
     debug.error('Failed to get Discord webhook settings:', error);
-    return { webhookUrl: '', enabled: false };
+    return { webhookUrl: '', enabled: false, serverName: null };
   }
 }
 
@@ -969,13 +981,35 @@ function buildDiscordMessage(payload) {
 // Discord Pairing via Supabase
 // ============================================================================
 
+// Supabase configuration - set these to enable automatic pairing
+// If not configured, users can still use manual webhook URL entry
 const SUPABASE_URL = 'https://your-project.supabase.co'; // TODO: Replace with actual URL
 const SUPABASE_ANON_KEY = 'your-anon-key'; // TODO: Replace with actual key
+
+/**
+ * Check if Supabase is configured
+ */
+function isSupabaseConfigured() {
+  return SUPABASE_URL &&
+         !SUPABASE_URL.includes('your-project') &&
+         SUPABASE_ANON_KEY &&
+         SUPABASE_ANON_KEY !== 'your-anon-key';
+}
 
 /**
  * Create a Discord pairing code in Supabase
  */
 async function createDiscordPairing(code, diceCloudUsername) {
+  // Check if Supabase is configured
+  if (!isSupabaseConfigured()) {
+    debug.warn('Supabase not configured - pairing unavailable');
+    return {
+      success: false,
+      error: 'Automatic pairing not available. Please use manual webhook setup.',
+      supabaseNotConfigured: true
+    };
+  }
+
   try {
     const response = await fetch(`${SUPABASE_URL}/rest/v1/rollcloud_pairings`, {
       method: 'POST',
@@ -1010,6 +1044,11 @@ async function createDiscordPairing(code, diceCloudUsername) {
  * Check if a Discord pairing has been completed (webhook URL filled in)
  */
 async function checkDiscordPairing(code) {
+  // Check if Supabase is configured
+  if (!isSupabaseConfigured()) {
+    return { success: false, error: 'Supabase not configured', supabaseNotConfigured: true };
+  }
+
   try {
     const response = await fetch(
       `${SUPABASE_URL}/rest/v1/rollcloud_pairings?pairing_code=eq.${code}&select=*`,
