@@ -4087,6 +4087,23 @@ function getSpellOptions(spell) {
     }
   }
 
+  // Add "Cast" button for spells with conditional damage (like Meld into Stone)
+  // These spells have damage rolls but the damage is situational, so they need a separate cast button
+  const conditionalDamageSpells = ['meld into stone', 'geas', 'symbol'];
+  const isConditionalDamage = spell.name && conditionalDamageSpells.some(name =>
+    spell.name.toLowerCase().includes(name)
+  );
+
+  if (isConditionalDamage && options.length > 0) {
+    // Add a "Cast" button at the beginning
+    options.unshift({
+      type: 'cast',
+      label: 'Cast Spell',
+      icon: '✨',
+      color: '#9b59b6'
+    });
+  }
+
   return options;
 }
 
@@ -4466,7 +4483,29 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
       // Check if we should skip slot consumption (concentration recast)
       const skipSlot = skipSlotCheckbox ? skipSlotCheckbox.checked : false;
 
-      if (option.type === 'attack') {
+      if (option.type === 'cast') {
+        // Cast spell only (for spells with conditional damage like Meld into Stone)
+        // Announce description only if not already announced AND not using concentration recast
+        if (!descriptionAnnounced && !skipSlot) {
+          announceSpellDescription(spell);
+        }
+
+        const afterCast = (spell, slot) => {
+          usedSlot = slot;
+          showNotification(`✨ ${spell.name} cast successfully!`, 'success');
+        };
+        // Description announced (if needed), don't announce again in castSpell
+        castSpell(spell, spellIndex, afterCast, selectedSlotLevel, selectedMetamagic, skipSlot, true);
+        spellCast = true;
+
+        // Disable cast button after casting
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+        btn.style.cursor = 'not-allowed';
+
+        // Don't close modal - allow rolling damage if needed
+
+      } else if (option.type === 'attack') {
         // Cast spell + roll attack, but keep modal open
         // Announce description only if not already announced AND not using concentration recast
         if (!descriptionAnnounced && !skipSlot) {
@@ -4570,10 +4609,56 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
           // Roll damage
           roll(`${spell.name} - Lifesteal Damage (${option.damageType})`, damageFormula);
 
-          // Calculate healing (half or full of damage)
-          // For now, show notification - actual healing calculation needs dice roll result
-          const healingText = option.healingRatio === 'half' ? 'half the damage dealt' : 'the damage dealt';
-          showNotification(`💉 Lifesteal! You regain HP equal to ${healingText}`, 'success');
+          // After a short delay, prompt for damage dealt to calculate healing
+          setTimeout(() => {
+            const healingText = option.healingRatio === 'half' ? 'half' : 'the full amount';
+            const damageDealt = prompt(`💉 Lifesteal: Enter the damage dealt\n\nYou regain HP equal to ${healingText} of the damage.`);
+
+            if (damageDealt && !isNaN(damageDealt)) {
+              const damage = parseInt(damageDealt);
+              const healing = option.healingRatio === 'half' ? Math.floor(damage / 2) : damage;
+
+              // Apply healing
+              const oldHP = characterData.hitPoints.current;
+              const maxHP = characterData.hitPoints.max;
+              characterData.hitPoints.current = Math.min(oldHP + healing, maxHP);
+              const actualHealing = characterData.hitPoints.current - oldHP;
+
+              // Reset death saves if healing from 0 HP
+              if (oldHP === 0 && actualHealing > 0) {
+                characterData.deathSaves = { successes: 0, failures: 0 };
+                debug.log('♻️ Death saves reset due to healing');
+              }
+
+              saveCharacterData();
+              buildSheet(characterData);
+
+              // Announce healing
+              const colorBanner = getColoredBanner();
+              const message = `&{template:default} {{name=${colorBanner}${characterData.name} - Lifesteal}} {{💉 Damage Dealt=${damage}}} {{💚 HP Regained=${actualHealing}}} {{Current HP=${characterData.hitPoints.current}/${maxHP}}}`;
+
+              const messageData = {
+                action: 'announceSpell',
+                message: message,
+                color: characterData.notificationColor
+              };
+
+              if (window.opener && !window.opener.closed) {
+                try {
+                  window.opener.postMessage(messageData, '*');
+                } catch (error) {
+                  debug.warn('⚠️ Could not send via window.opener:', error.message);
+                }
+              } else {
+                browserAPI.runtime.sendMessage({
+                  action: 'relayRollToRoll20',
+                  roll: messageData
+                });
+              }
+
+              showNotification(`💉 Lifesteal! Dealt ${damage} damage, regained ${actualHealing} HP`, 'success');
+            }
+          }, 500);
         };
         // Description announced (if needed), don't announce again in castSpell
         castSpell(spell, spellIndex, afterCast, selectedSlotLevel, selectedMetamagic, skipSlot, true);
