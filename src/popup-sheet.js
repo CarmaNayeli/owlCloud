@@ -4357,11 +4357,11 @@ function createSpellCard(spell, index) {
   if (castModalBtn) {
     castModalBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const edgeCaseResult = applyEdgeCaseModifications(spell, []);
-      const options = getSpellOptions(spell);
+      const spellOptionsResult = getSpellOptions(spell);
+      const options = spellOptionsResult.options;
 
       // Check if this is a "too complicated" spell that should only announce
-      if (edgeCaseResult.skipNormalButtons) {
+      if (spellOptionsResult.skipNormalButtons) {
         announceSpellDescription(spell);
         castSpell(spell, index, null, null, [], false, true); // skipAnnouncement = true
         return;
@@ -4720,7 +4720,7 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
   const isConcentrationRecast = spell.concentration && concentratingSpell === spell.name;
 
   // Spells that allow repeated use without consuming slots (non-concentration)
-  const isReuseableSpellType = isReuseableSpell(spell.name);
+  const isReuseableSpellType = isReuseableSpell(spell.name, characterData);
 
   // Check if this spell was already cast (stored in localStorage or session)
   const castSpellsKey = `castSpells_${characterData.name}`;
