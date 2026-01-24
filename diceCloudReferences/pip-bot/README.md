@@ -25,10 +25,9 @@ Discord bot for the Dice Cat community server - a lightweight utility bot focuse
 - `/help` - Show help information
 
 ### 🎮 RollCloud Integration
-- `/rollcloud setup` - Create a webhook for RollCloud turn notifications
-- `/rollcloud info` - Show the webhook URL for your server
-- `/rollcloud remove` - Remove the RollCloud webhook
+- `/rollcloud [code]` - Connect RollCloud extension to Discord
 - Receive real-time turn and action economy updates from Roll20 combat
+- One-click setup: extension generates code, type it in Discord, done!
 
 ### 🛡️ Moderation & Welcome
 - Automatic welcome messages for new members
@@ -176,22 +175,16 @@ Key settings:
 
 ### RollCloud Integration
 ```
-# Set up RollCloud turn notifications (creates a webhook)
-/rollcloud setup
-/rollcloud setup channel:#combat-log
-
-# View the webhook URL (to paste in RollCloud extension)
-/rollcloud info
-
-# Remove the webhook
-/rollcloud remove
+# Connect RollCloud extension (use code from extension)
+/rollcloud ABC123
 ```
 
 **Setup Flow:**
-1. Run `/rollcloud setup` in your desired channel
-2. Copy the webhook URL that appears
-3. Open RollCloud extension → Discord Integration → Paste URL → Save
-4. Start combat in Roll20 - turns will appear in Discord!
+1. Open RollCloud extension → Discord Integration → Click "Setup Discord"
+2. Extension shows a 6-character code (e.g., `ABC123`) and opens Discord
+3. Add Pip Bot to your server (if not already added)
+4. In Discord, type `/rollcloud ABC123` (your code)
+5. Done! Extension auto-connects, turns appear in Discord!
 
 ## Development
 

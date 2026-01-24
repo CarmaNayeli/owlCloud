@@ -118,18 +118,22 @@ function initializePopup() {
     autoBackwardsSyncToggle.addEventListener('change', handleAutoBackwardsSyncToggle);
   }
 
-  // Discord webhook event listeners
-  const discordWebhookUrl = document.getElementById('discordWebhookUrl');
-  const discordWebhookEnabled = document.getElementById('discordWebhookEnabled');
+  // Discord integration event listeners
+  const setupDiscordBtn = document.getElementById('setupDiscordBtn');
+  const cancelPairingBtn = document.getElementById('cancelPairingBtn');
+  const disconnectDiscordBtn = document.getElementById('disconnectDiscordBtn');
   const testDiscordWebhookBtn = document.getElementById('testDiscordWebhook');
   const saveDiscordWebhookBtn = document.getElementById('saveDiscordWebhook');
 
-  if (discordWebhookUrl && discordWebhookEnabled && testDiscordWebhookBtn && saveDiscordWebhookBtn) {
-    // Load initial Discord settings
-    loadDiscordWebhookSettings();
+  if (setupDiscordBtn) {
+    // Load initial Discord state
+    loadDiscordConnectionState();
     // Add event listeners
-    testDiscordWebhookBtn.addEventListener('click', handleTestDiscordWebhook);
-    saveDiscordWebhookBtn.addEventListener('click', handleSaveDiscordWebhook);
+    setupDiscordBtn.addEventListener('click', handleSetupDiscord);
+    if (cancelPairingBtn) cancelPairingBtn.addEventListener('click', handleCancelPairing);
+    if (disconnectDiscordBtn) disconnectDiscordBtn.addEventListener('click', handleDisconnectDiscord);
+    if (testDiscordWebhookBtn) testDiscordWebhookBtn.addEventListener('click', handleTestDiscordWebhook);
+    if (saveDiscordWebhookBtn) saveDiscordWebhookBtn.addEventListener('click', handleSaveDiscordWebhook);
   }
 
   /**
@@ -723,27 +727,206 @@ function initializePopup() {
     }
   }
 
+  // ============================================================================
+  // Discord Integration (Pip Bot Pairing)
+  // ============================================================================
+
+  const SUPABASE_URL = 'https://your-project.supabase.co'; // TODO: Replace with actual URL
+  const SUPABASE_ANON_KEY = 'your-anon-key'; // TODO: Replace with actual key
+  const PIP_BOT_INVITE_URL = 'https://discord.com/api/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=536870912&scope=bot%20applications.commands';
+
+  let pairingPollInterval = null;
+  let pairingExpiresAt = null;
+
   /**
-   * Loads Discord webhook settings from storage
+   * Load Discord connection state on popup open
    */
-  async function loadDiscordWebhookSettings() {
+  async function loadDiscordConnectionState() {
     try {
       const response = await browserAPI.runtime.sendMessage({ action: 'getDiscordWebhook' });
-      if (response.success) {
-        const webhookUrlInput = document.getElementById('discordWebhookUrl');
-        const webhookEnabledCheckbox = document.getElementById('discordWebhookEnabled');
-
-        if (webhookUrlInput) {
-          webhookUrlInput.value = response.webhookUrl || '';
-        }
-        if (webhookEnabledCheckbox) {
-          webhookEnabledCheckbox.checked = response.enabled && !!response.webhookUrl;
-        }
-
-        debug.log('Discord webhook settings loaded:', { hasUrl: !!response.webhookUrl, enabled: response.enabled });
+      if (response.success && response.webhookUrl) {
+        // Already connected
+        showDiscordConnected(response.serverName || 'Discord Server');
+      } else {
+        // Not connected
+        showDiscordNotConnected();
       }
     } catch (error) {
-      debug.error('Error loading Discord webhook settings:', error);
+      debug.error('Error loading Discord state:', error);
+      showDiscordNotConnected();
+    }
+  }
+
+  /**
+   * Show the "not connected" state
+   */
+  function showDiscordNotConnected() {
+    document.getElementById('discordNotConnected').style.display = 'block';
+    document.getElementById('discordPairing').style.display = 'none';
+    document.getElementById('discordConnected').style.display = 'none';
+  }
+
+  /**
+   * Show the "pairing in progress" state
+   */
+  function showDiscordPairing(code) {
+    document.getElementById('discordNotConnected').style.display = 'none';
+    document.getElementById('discordPairing').style.display = 'block';
+    document.getElementById('discordConnected').style.display = 'none';
+    document.getElementById('pairingCode').textContent = code;
+  }
+
+  /**
+   * Show the "connected" state
+   */
+  function showDiscordConnected(serverName) {
+    document.getElementById('discordNotConnected').style.display = 'none';
+    document.getElementById('discordPairing').style.display = 'none';
+    document.getElementById('discordConnected').style.display = 'block';
+    document.getElementById('discordServerName').textContent = serverName || 'Discord Server';
+  }
+
+  /**
+   * Generate a random 6-character pairing code
+   */
+  function generatePairingCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No I, O, 0, 1
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  }
+
+  /**
+   * Handle "Setup Discord" button click
+   */
+  async function handleSetupDiscord() {
+    try {
+      const setupBtn = document.getElementById('setupDiscordBtn');
+      setupBtn.disabled = true;
+      setupBtn.textContent = '⏳ Setting up...';
+
+      // Generate pairing code
+      const code = generatePairingCode();
+
+      // Get DiceCloud user info
+      const loginStatus = await browserAPI.runtime.sendMessage({ action: 'checkLoginStatus' });
+      const diceCloudUsername = loginStatus.username || 'Unknown';
+
+      // Store in Supabase
+      const storeResult = await browserAPI.runtime.sendMessage({
+        action: 'createDiscordPairing',
+        code: code,
+        username: diceCloudUsername
+      });
+
+      if (!storeResult.success) {
+        throw new Error(storeResult.error || 'Failed to create pairing');
+      }
+
+      // Show pairing state
+      showDiscordPairing(code);
+
+      // Open Pip Bot invite in new tab
+      await browserAPI.tabs.create({ url: PIP_BOT_INVITE_URL, active: true });
+
+      // Start polling for connection
+      pairingExpiresAt = Date.now() + 30 * 60 * 1000; // 30 minutes
+      startPairingPoll(code);
+
+    } catch (error) {
+      debug.error('Discord setup error:', error);
+      showDiscordStatus(`Setup failed: ${error.message}`, 'error');
+      showDiscordNotConnected();
+    } finally {
+      const setupBtn = document.getElementById('setupDiscordBtn');
+      if (setupBtn) {
+        setupBtn.disabled = false;
+        setupBtn.textContent = '🎮 Setup Discord';
+      }
+    }
+  }
+
+  /**
+   * Start polling Supabase for pairing completion
+   */
+  function startPairingPoll(code) {
+    // Update countdown display
+    const updateCountdown = () => {
+      const remaining = Math.max(0, Math.floor((pairingExpiresAt - Date.now()) / 1000));
+      const mins = Math.floor(remaining / 60);
+      const secs = remaining % 60;
+      const countdownEl = document.getElementById('pairingCountdown');
+      if (countdownEl) {
+        countdownEl.textContent = `(${mins}:${secs.toString().padStart(2, '0')})`;
+      }
+      if (remaining <= 0) {
+        handleCancelPairing();
+        showDiscordStatus('Pairing expired. Please try again.', 'error');
+      }
+    };
+
+    // Poll every 3 seconds
+    pairingPollInterval = setInterval(async () => {
+      updateCountdown();
+
+      try {
+        const result = await browserAPI.runtime.sendMessage({
+          action: 'checkDiscordPairing',
+          code: code
+        });
+
+        if (result.success && result.connected && result.webhookUrl) {
+          // Connected! Save webhook and update UI
+          clearInterval(pairingPollInterval);
+          pairingPollInterval = null;
+
+          await browserAPI.runtime.sendMessage({
+            action: 'setDiscordWebhook',
+            webhookUrl: result.webhookUrl,
+            enabled: true,
+            serverName: result.serverName
+          });
+
+          showDiscordConnected(result.serverName);
+          showDiscordStatus('Connected to Discord!', 'success');
+        }
+      } catch (error) {
+        debug.error('Pairing poll error:', error);
+      }
+    }, 3000);
+
+    // Initial countdown update
+    updateCountdown();
+  }
+
+  /**
+   * Handle cancel pairing button
+   */
+  function handleCancelPairing() {
+    if (pairingPollInterval) {
+      clearInterval(pairingPollInterval);
+      pairingPollInterval = null;
+    }
+    showDiscordNotConnected();
+  }
+
+  /**
+   * Handle disconnect Discord button
+   */
+  async function handleDisconnectDiscord() {
+    try {
+      await browserAPI.runtime.sendMessage({
+        action: 'setDiscordWebhook',
+        webhookUrl: '',
+        enabled: false
+      });
+      showDiscordNotConnected();
+      showDiscordStatus('Disconnected from Discord', 'success');
+    } catch (error) {
+      debug.error('Disconnect error:', error);
+      showDiscordStatus(`Error: ${error.message}`, 'error');
     }
   }
 
@@ -751,36 +934,23 @@ function initializePopup() {
    * Handles testing the Discord webhook
    */
   async function handleTestDiscordWebhook() {
-    const webhookUrl = document.getElementById('discordWebhookUrl').value.trim();
-    const statusDiv = document.getElementById('discordStatus');
     const testBtn = document.getElementById('testDiscordWebhook');
-
-    if (!webhookUrl) {
-      showDiscordStatus('Please enter a webhook URL first', 'error');
-      return;
-    }
-
-    if (!webhookUrl.includes('discord.com/api/webhooks')) {
-      showDiscordStatus('Invalid Discord webhook URL', 'error');
-      return;
-    }
 
     try {
       testBtn.disabled = true;
       testBtn.textContent = '⏳ Testing...';
 
       const response = await browserAPI.runtime.sendMessage({
-        action: 'testDiscordWebhook',
-        webhookUrl: webhookUrl
+        action: 'testDiscordWebhook'
       });
 
       if (response.success) {
-        showDiscordStatus('Webhook test successful! Check Discord.', 'success');
+        showDiscordStatus('Test sent! Check Discord.', 'success');
       } else {
         showDiscordStatus(`Test failed: ${response.error}`, 'error');
       }
     } catch (error) {
-      debug.error('Discord webhook test error:', error);
+      debug.error('Discord test error:', error);
       showDiscordStatus(`Error: ${error.message}`, 'error');
     } finally {
       testBtn.disabled = false;
@@ -789,12 +959,16 @@ function initializePopup() {
   }
 
   /**
-   * Handles saving Discord webhook settings
+   * Handles saving manual webhook URL
    */
   async function handleSaveDiscordWebhook() {
     const webhookUrl = document.getElementById('discordWebhookUrl').value.trim();
-    const enabled = document.getElementById('discordWebhookEnabled').checked;
     const saveBtn = document.getElementById('saveDiscordWebhook');
+
+    if (!webhookUrl) {
+      showDiscordStatus('Please enter a webhook URL', 'error');
+      return;
+    }
 
     try {
       saveBtn.disabled = true;
@@ -803,31 +977,17 @@ function initializePopup() {
       await browserAPI.runtime.sendMessage({
         action: 'setDiscordWebhook',
         webhookUrl: webhookUrl,
-        enabled: enabled
+        enabled: true
       });
 
-      showDiscordStatus('Settings saved!', 'success');
-
-      // Notify Roll20 tabs about the setting change
-      const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
-      for (const tab of tabs) {
-        try {
-          await browserAPI.tabs.sendMessage(tab.id, {
-            action: 'discordWebhookUpdated',
-            enabled: enabled && !!webhookUrl
-          });
-        } catch (err) {
-          // Tab might not have content script loaded
-        }
-      }
-
-      debug.log('Discord webhook settings saved');
+      showDiscordConnected('Manual Webhook');
+      showDiscordStatus('Webhook saved!', 'success');
     } catch (error) {
-      debug.error('Error saving Discord webhook settings:', error);
+      debug.error('Save webhook error:', error);
       showDiscordStatus(`Error: ${error.message}`, 'error');
     } finally {
       saveBtn.disabled = false;
-      saveBtn.textContent = '💾 Save';
+      saveBtn.textContent = '💾 Save Webhook URL';
     }
   }
 
@@ -841,7 +1001,6 @@ function initializePopup() {
       statusDiv.textContent = message;
       statusDiv.style.color = type === 'success' ? '#27ae60' : '#e74c3c';
 
-      // Hide after 3 seconds
       setTimeout(() => {
         statusDiv.style.display = 'none';
       }, 3000);

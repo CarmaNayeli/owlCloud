@@ -38,11 +38,10 @@ export default {
           inline: false
         },
         {
-          name: '🎮 RollCloud Integration (Admin)',
+          name: '🎮 RollCloud Integration',
           value:
-            '`/rollcloud setup` - Create webhook for turn notifications\n' +
-            '`/rollcloud info` - Show current webhook URL\n' +
-            '`/rollcloud remove` - Remove webhook',
+            '`/rollcloud [code]` - Connect RollCloud extension\n' +
+            '*Get the code from your RollCloud extension*',
           inline: false
         },
         {

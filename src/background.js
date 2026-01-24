@@ -199,6 +199,19 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
           break;
         }
 
+        // Discord Pairing (Supabase)
+        case 'createDiscordPairing': {
+          const pairingResult = await createDiscordPairing(request.code, request.username);
+          response = pairingResult;
+          break;
+        }
+
+        case 'checkDiscordPairing': {
+          const checkResult = await checkDiscordPairing(request.code);
+          response = checkResult;
+          break;
+        }
+
         default:
           debug.warn('Unknown action:', request.action);
           response = { success: false, error: 'Unknown action' };
@@ -950,4 +963,87 @@ function buildDiscordMessage(payload) {
   return {
     content: payload.message || `🎲 ${characterName || 'Unknown'}: ${type}`
   };
+}
+
+// ============================================================================
+// Discord Pairing via Supabase
+// ============================================================================
+
+const SUPABASE_URL = 'https://your-project.supabase.co'; // TODO: Replace with actual URL
+const SUPABASE_ANON_KEY = 'your-anon-key'; // TODO: Replace with actual key
+
+/**
+ * Create a Discord pairing code in Supabase
+ */
+async function createDiscordPairing(code, diceCloudUsername) {
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/rollcloud_pairings`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Prefer': 'return=representation'
+      },
+      body: JSON.stringify({
+        pairing_code: code,
+        dicecloud_username: diceCloudUsername,
+        status: 'pending'
+      })
+    });
+
+    if (response.ok) {
+      debug.log('✅ Discord pairing created:', code);
+      return { success: true, code };
+    } else {
+      const error = await response.text();
+      debug.error('❌ Failed to create pairing:', error);
+      return { success: false, error: 'Failed to create pairing code' };
+    }
+  } catch (error) {
+    debug.error('❌ Supabase error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Check if a Discord pairing has been completed (webhook URL filled in)
+ */
+async function checkDiscordPairing(code) {
+  try {
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/rollcloud_pairings?pairing_code=eq.${code}&select=*`,
+      {
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+        }
+      }
+    );
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.length > 0) {
+        const pairing = data[0];
+        if (pairing.status === 'connected' && pairing.webhook_url) {
+          debug.log('✅ Discord pairing connected!');
+          return {
+            success: true,
+            connected: true,
+            webhookUrl: pairing.webhook_url,
+            serverName: pairing.discord_guild_name
+          };
+        } else {
+          return { success: true, connected: false };
+        }
+      } else {
+        return { success: false, error: 'Pairing code not found' };
+      }
+    } else {
+      return { success: false, error: 'Failed to check pairing' };
+    }
+  } catch (error) {
+    debug.error('❌ Supabase check error:', error);
+    return { success: false, error: error.message };
+  }
 }
