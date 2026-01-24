@@ -1098,6 +1098,8 @@
 
             if (child.type === 'attack' || (child.type === 'roll' && child.name && child.name.toLowerCase().includes('attack'))) {
               // This is a spell attack roll
+              debug.log(`    🎯 Attack child found:`, { name: child.name, roll: child.roll, type: child.type });
+
               if (child.roll) {
                 if (typeof child.roll === 'string') {
                   attackRoll = child.roll;
@@ -1106,9 +1108,15 @@
                   attackRoll = bonus >= 0 ? `1d20+${bonus}` : `1d20${bonus}`;
                 } else if (typeof child.roll === 'object' && child.roll.calculation) {
                   attackRoll = child.roll.calculation;
+                } else {
+                  debug.log(`    ⚠️ Attack child has unexpected roll structure:`, child.roll);
+                  attackRoll = 'use_spell_attack_bonus'; // Fallback
                 }
+              } else {
+                debug.log(`    ⚠️ Attack child has no roll property, using spell attack bonus`);
+                attackRoll = 'use_spell_attack_bonus'; // Fallback
               }
-              debug.log(`    ✅ Found attack roll: ${attackRoll}`);
+              debug.log(`    ✅ Attack roll set to: ${attackRoll}`);
             }
 
             if (child.type === 'damage' || (child.type === 'roll' && child.name && child.name.toLowerCase().includes('damage'))) {
