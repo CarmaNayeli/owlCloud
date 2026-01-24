@@ -658,6 +658,16 @@ function buildSheet(data) {
     return;
   }
 
+  // Initialize concentration from saved data
+  if (data.concentration) {
+    concentratingSpell = data.concentration;
+    updateConcentrationDisplay();
+    debug.log(`🧠 Restored concentration: ${concentratingSpell}`);
+  } else {
+    concentratingSpell = null;
+    updateConcentrationDisplay();
+  }
+
   // Character name
   charNameEl.textContent = data.name || 'Character';
 
@@ -4095,7 +4105,7 @@ function showSpellModal(spell, spellIndex, options) {
 
   // Concentration spell recast option (if already concentrating on this spell)
   let skipSlotCheckbox = null;
-  if (spell.concentration && characterData.concentration === spell.name) {
+  if (spell.concentration && concentratingSpell === spell.name) {
     const recastSection = document.createElement('div');
     recastSection.style.cssText = 'margin-bottom: 16px; padding: 12px; background: #fff3cd; border-radius: 6px; border: 2px solid #f39c12;';
 
@@ -4534,6 +4544,12 @@ function castSpell(spell, index, afterCast = null, selectedSlotLevel = null, sel
     debug.log(`✨ Casting ${reason} (no spell slot needed)`);
     announceSpellCast(spell, skipSlotConsumption ? 'concentration recast (no slot)' : ((isMagicItemSpell || isFreeSpell) ? `${spell.source} (no slot)` : null));
     showNotification(`✨ ${skipSlotConsumption ? 'Using' : 'Cast'} ${spell.name}!`);
+
+    // Handle concentration
+    if (spell.concentration && !skipSlotConsumption) {
+      setConcentration(spell.name);
+    }
+
     // Execute afterCast with a fake slot for magic items and free spells to allow formulas to work
     if (afterCast && typeof afterCast === 'function') {
       setTimeout(() => {
@@ -4575,6 +4591,11 @@ function castSpell(spell, index, afterCast = null, selectedSlotLevel = null, sel
 
     announceSpellCast(spell, `level ${selectedSlotLevel} slot`);
     showNotification(`✨ Cast ${spell.name} (Level ${selectedSlotLevel})!`);
+
+    // Handle concentration
+    if (spell.concentration) {
+      setConcentration(spell.name);
+    }
 
     // Execute afterCast
     if (afterCast && typeof afterCast === 'function') {
@@ -5007,6 +5028,11 @@ function castWithSlot(spell, slot, metamagicOptions = [], afterCast = null) {
   announceSpellCast(spell, resourceText);
   showNotification(notificationText);
 
+  // Handle concentration
+  if (spell.concentration) {
+    setConcentration(spell.name);
+  }
+
   // Update the display
   buildSheet(characterData);
 
@@ -5032,6 +5058,11 @@ function useClassResource(resource, spell) {
 
   debug.log(`✅ Used ${resource.name}. Remaining: ${characterData.otherVariables[resource.varName]}/${resource.max}`);
   showNotification(`✨ Cast ${spell.name}! (${characterData.otherVariables[resource.varName]}/${resource.max} ${resource.name} left)`);
+
+  // Handle concentration
+  if (spell.concentration) {
+    setConcentration(spell.name);
+  }
 
   buildSheet(characterData);
   return true;
@@ -8838,6 +8869,10 @@ function initConcentrationTracker() {
 
 function setConcentration(spellName) {
   concentratingSpell = spellName;
+  if (characterData) {
+    characterData.concentration = spellName;
+    saveCharacterData();
+  }
   updateConcentrationDisplay();
   showNotification(`🧠 Concentrating on: ${spellName}`);
   debug.log(`🧠 Concentration set: ${spellName}`);
@@ -8848,6 +8883,10 @@ function dropConcentration() {
 
   const spellName = concentratingSpell;
   concentratingSpell = null;
+  if (characterData) {
+    characterData.concentration = null;
+    saveCharacterData();
+  }
   updateConcentrationDisplay();
   showNotification(`✅ Dropped concentration on ${spellName}`);
   debug.log(`🗑️ Concentration dropped: ${spellName}`);
