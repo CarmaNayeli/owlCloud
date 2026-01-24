@@ -3791,11 +3791,15 @@ function createSpellCard(spell, index) {
       e.stopPropagation();
       const options = getSpellOptions(spell);
 
+      // Always announce spell description immediately when Cast is clicked
+      announceSpellDescription(spell);
+
       if (options.length === 0) {
-        // No rolls - just cast immediately
-        castSpell(spell, index);
+        // No rolls - just cast immediately (will consume resource and handle concentration)
+        castSpell(spell, index, null, null, [], false, true); // skipAnnouncement = true
       } else {
         // Has rolls - show modal with options
+        // Description already announced, modal will handle resource consumption and rolls
         showSpellModal(spell, index, options);
       }
     });
@@ -4315,7 +4319,8 @@ function showSpellModal(spell, spellIndex, options) {
           const attackFormula = attackBonus >= 0 ? `1d20+${attackBonus}` : `1d20${attackBonus}`;
           roll(`${spell.name} - Spell Attack`, attackFormula);
         };
-        castSpell(spell, spellIndex, afterCast, selectedSlotLevel, selectedMetamagic, skipSlot);
+        // Description already announced before modal opened
+        castSpell(spell, spellIndex, afterCast, selectedSlotLevel, selectedMetamagic, skipSlot, true);
         spellCast = true;
 
         // Disable slot selection and metamagic after casting
@@ -4349,7 +4354,8 @@ function showSpellModal(spell, spellIndex, options) {
               `${spell.name} - Damage (${option.damageType || ''})`;
             roll(label, formula);
           };
-          castSpell(spell, spellIndex, afterCast, selectedSlotLevel, selectedMetamagic, skipSlot);
+          // Description already announced before modal opened
+          castSpell(spell, spellIndex, afterCast, selectedSlotLevel, selectedMetamagic, skipSlot, true);
         } else {
           // Spell already cast (via attack), just roll damage
           let formula = option.formula;
@@ -4395,7 +4401,8 @@ function showSpellModal(spell, spellIndex, options) {
           const healingText = option.healingRatio === 'half' ? 'half the damage dealt' : 'the damage dealt';
           showNotification(`💉 Lifesteal! You regain HP equal to ${healingText}`, 'success');
         };
-        castSpell(spell, spellIndex, afterCast, selectedSlotLevel, selectedMetamagic, skipSlot);
+        // Description already announced before modal opened
+        castSpell(spell, spellIndex, afterCast, selectedSlotLevel, selectedMetamagic, skipSlot, true);
 
         // Close modal after rolling
         document.body.removeChild(overlay);
@@ -4508,8 +4515,8 @@ function handleSpellOption(spell, spellIndex, option) {
   }
 }
 
-function castSpell(spell, index, afterCast = null, selectedSlotLevel = null, selectedMetamagic = [], skipSlotConsumption = false) {
-  debug.log('✨ Attempting to cast:', spell.name, spell, 'at level:', selectedSlotLevel, 'with metamagic:', selectedMetamagic, 'skipSlot:', skipSlotConsumption);
+function castSpell(spell, index, afterCast = null, selectedSlotLevel = null, selectedMetamagic = [], skipSlotConsumption = false, skipAnnouncement = false) {
+  debug.log('✨ Attempting to cast:', spell.name, spell, 'at level:', selectedSlotLevel, 'with metamagic:', selectedMetamagic, 'skipSlot:', skipSlotConsumption, 'skipAnnouncement:', skipAnnouncement);
 
   if (!characterData) {
     showNotification('❌ Character data not available', 'error');
@@ -4547,7 +4554,9 @@ function castSpell(spell, index, afterCast = null, selectedSlotLevel = null, sel
   if (!spell.level || spell.level === 0 || spell.level === '0' || isMagicItemSpell || isFreeSpell || skipSlotConsumption) {
     const reason = skipSlotConsumption ? 'concentration recast' : (isMagicItemSpell ? 'magic item' : (isFreeSpell ? 'free spell' : 'cantrip'));
     debug.log(`✨ Casting ${reason} (no spell slot needed)`);
-    announceSpellCast(spell, skipSlotConsumption ? 'concentration recast (no slot)' : ((isMagicItemSpell || isFreeSpell) ? `${spell.source} (no slot)` : null));
+    if (!skipAnnouncement) {
+      announceSpellCast(spell, skipSlotConsumption ? 'concentration recast (no slot)' : ((isMagicItemSpell || isFreeSpell) ? `${spell.source} (no slot)` : null));
+    }
     showNotification(`✨ ${skipSlotConsumption ? 'Using' : 'Cast'} ${spell.name}!`);
 
     // Handle concentration
@@ -4594,7 +4603,9 @@ function castSpell(spell, index, afterCast = null, selectedSlotLevel = null, sel
       debug.log('Metamagic selected:', selectedMetamagic);
     }
 
-    announceSpellCast(spell, `level ${selectedSlotLevel} slot`);
+    if (!skipAnnouncement) {
+      announceSpellCast(spell, `level ${selectedSlotLevel} slot`);
+    }
     showNotification(`✨ Cast ${spell.name} (Level ${selectedSlotLevel})!`);
 
     // Handle concentration
@@ -5150,15 +5161,14 @@ function calculateTotalAC() {
   return totalAC;
 }
 
-function announceSpellCast(spell, resourceUsed) {
+/**
+ * Announce spell description to chat
+ * Called immediately when Cast button is clicked, before any modal
+ */
+function announceSpellDescription(spell) {
   // Build a fancy formatted message using Roll20 template syntax with custom color
   const colorBanner = getColoredBanner();
   let message = `&{template:default} {{name=${colorBanner}${characterData.name} casts ${spell.name}!}}`;
-
-  // Add resource usage if applicable
-  if (resourceUsed) {
-    message += ` {{Resource=${resourceUsed}}}`;
-  }
 
   // Add spell level and school
   if (spell.level && spell.level > 0) {
@@ -5205,7 +5215,7 @@ function announceSpellCast(spell, resourceUsed) {
   if (window.opener && !window.opener.closed) {
     try {
       window.opener.postMessage(messageData, '*');
-      debug.log('✅ Spell announcement sent via window.opener');
+      debug.log('✅ Spell description announced via window.opener');
     } catch (error) {
       debug.warn('⚠️ Could not send via window.opener:', error.message);
       // Fall through to background script relay
@@ -5220,12 +5230,53 @@ function announceSpellCast(spell, resourceUsed) {
       if (browserAPI.runtime.lastError) {
         debug.error('❌ Error relaying spell announcement:', browserAPI.runtime.lastError);
       } else if (response && response.success) {
-        debug.log('✅ Spell announcement relayed to Roll20');
+        debug.log('✅ Spell description announced to Roll20');
       }
     });
   }
+}
 
-  // Also roll if there's a formula
+/**
+ * Legacy function kept for backward compatibility with utility spells
+ * For attack/damage spells, use announceSpellDescription() instead
+ */
+function announceSpellCast(spell, resourceUsed) {
+  // For spells with attack/damage, description was already announced
+  // This just announces resource usage
+  if (resourceUsed) {
+    const colorBanner = getColoredBanner();
+    let message = `&{template:default} {{name=${colorBanner}${spell.name}}}`;
+    message += ` {{Resource Used=${resourceUsed}}}`;
+
+    const messageData = {
+      action: 'announceSpell',
+      spellName: spell.name,
+      characterName: characterData.name,
+      message: message,
+      color: characterData.notificationColor
+    };
+
+    // Try window.opener first (Chrome)
+    if (window.opener && !window.opener.closed) {
+      try {
+        window.opener.postMessage(messageData, '*');
+        debug.log('✅ Spell resource usage sent via window.opener');
+      } catch (error) {
+        debug.warn('⚠️ Could not send via window.opener:', error.message);
+      }
+    } else {
+      browserAPI.runtime.sendMessage({
+        action: 'relayRollToRoll20',
+        roll: messageData
+      }, (response) => {
+        if (browserAPI.runtime.lastError) {
+          debug.error('❌ Error relaying spell announcement:', browserAPI.runtime.lastError);
+        }
+      });
+    }
+  }
+
+  // Also roll if there's a formula (utility spells)
   if (spell.formula) {
     setTimeout(() => {
       roll(spell.name, spell.formula);
