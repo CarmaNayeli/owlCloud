@@ -4040,6 +4040,10 @@ function showSpellModal(spell, spellIndex, options) {
     slotSection.appendChild(slotLabel);
     slotSection.appendChild(slotSelect);
     modal.appendChild(slotSection);
+
+    // Store reference to update button labels later
+    // (will be set after buttons are created)
+    slotSelect.updateButtonLabels = null;
   }
 
   // Metamagic options (if character has metamagic features)
@@ -4103,7 +4107,49 @@ function showSpellModal(spell, spellIndex, options) {
   const optionsContainer = document.createElement('div');
   optionsContainer.style.cssText = 'display: flex; flex-direction: column; gap: 12px;';
 
+  // Helper function to get resolved label for an option based on slot level
+  function getResolvedLabel(option, selectedSlotLevel) {
+    if (option.type === 'attack') {
+      return option.label; // Attack doesn't change with slot level
+    }
+
+    // Get the formula for this option
+    let formula = option.type === 'lifesteal' ? option.damageFormula : option.formula;
+
+    // Replace slotLevel with actual slot level
+    if (selectedSlotLevel && formula.includes('slotLevel')) {
+      formula = formula.replace(/slotLevel/g, selectedSlotLevel);
+    }
+
+    // Replace ~target.level with character level
+    if (formula.includes('~target.level') && characterData.level) {
+      formula = formula.replace(/~target\.level/g, characterData.level);
+    }
+
+    // Resolve variables and evaluate math
+    formula = resolveVariablesInFormula(formula);
+    formula = evaluateMathInFormula(formula);
+
+    // Build label based on option type
+    if (option.type === 'lifesteal') {
+      let damageTypeLabel = '';
+      if (option.damageType && option.damageType !== 'untyped') {
+        damageTypeLabel = option.damageType.charAt(0).toUpperCase() + option.damageType.slice(1);
+      }
+      return `${formula} ${damageTypeLabel} + Heal (${option.healingRatio})`;
+    } else if (option.type === 'damage' || option.type === 'healing') {
+      let damageTypeLabel = '';
+      if (option.damageType && option.damageType !== 'untyped') {
+        damageTypeLabel = option.damageType.charAt(0).toUpperCase() + option.damageType.slice(1);
+      }
+      return damageTypeLabel ? `${formula} ${damageTypeLabel}` : formula;
+    }
+
+    return option.label;
+  }
+
   // Add buttons for each option
+  const optionButtons = []; // Store buttons so we can update them when slot changes
   options.forEach(option => {
     const btn = document.createElement('button');
     btn.className = `spell-option-btn-${option.type}`;
@@ -4119,10 +4165,17 @@ function showSpellModal(spell, spellIndex, options) {
       text-align: left;
       transition: opacity 0.2s;
     `;
-    btn.innerHTML = `${option.icon} ${option.label}`;
+
+    // Set initial label (with default slot level)
+    const initialSlotLevel = spell.level || null;
+    const resolvedLabel = getResolvedLabel(option, initialSlotLevel);
+    btn.innerHTML = `${option.icon} ${resolvedLabel}`;
+    btn.dataset.optionIndex = optionButtons.length; // Store index for later updates
 
     btn.addEventListener('mouseenter', () => btn.style.opacity = '0.9');
     btn.addEventListener('mouseleave', () => btn.style.opacity = '1');
+
+    optionButtons.push({ button: btn, option: option });
 
     btn.addEventListener('click', () => {
       // Get selected slot level
@@ -4230,6 +4283,23 @@ function showSpellModal(spell, spellIndex, options) {
 
     optionsContainer.appendChild(btn);
   });
+
+  // Set up slot selection change handler to update button labels
+  if (slotSelect) {
+    const updateButtonLabels = () => {
+      const selectedSlotLevel = parseInt(slotSelect.value);
+      optionButtons.forEach(({ button, option }) => {
+        const resolvedLabel = getResolvedLabel(option, selectedSlotLevel);
+        button.innerHTML = `${option.icon} ${resolvedLabel}`;
+      });
+    };
+
+    // Add change event listener
+    slotSelect.addEventListener('change', updateButtonLabels);
+
+    // Call initially to set correct labels for default selection
+    updateButtonLabels();
+  }
 
   // Add "Done" button if spell has attack (to close modal after attacking without rolling damage)
   if (hasAttack && hasDamage) {
