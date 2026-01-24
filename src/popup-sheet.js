@@ -3898,6 +3898,12 @@ function getSpellOptions(spell) {
       // Resolve non-slot-dependent variables for display (character level, ability mods, etc.)
       // Keep slotLevel as-is since we don't know what slot will be used yet
       let displayFormula = roll.damage;
+
+      // Replace ~target.level with character level (for cantrips like Toll the Dead)
+      if (displayFormula.includes('~target.level') && characterData.level) {
+        displayFormula = displayFormula.replace(/~target\.level/g, characterData.level);
+      }
+
       displayFormula = resolveVariablesInFormula(displayFormula);
       displayFormula = evaluateMathInFormula(displayFormula);
 
@@ -3977,8 +3983,8 @@ function showSpellModal(spell, spellIndex, options) {
     for (let level = spell.level; level <= 9; level++) {
       const slotsProp = `level${level}SpellSlots`;
       const maxSlotsProp = `level${level}SpellSlotsMax`;
-      const available = characterData[slotsProp] || 0;
-      const max = characterData[maxSlotsProp] || 0;
+      const available = characterData.spellSlots?.[slotsProp] || characterData[slotsProp] || 0;
+      const max = characterData.spellSlots?.[maxSlotsProp] || characterData[maxSlotsProp] || 0;
 
       if (max > 0) {
         const option = document.createElement('option');
@@ -3996,12 +4002,20 @@ function showSpellModal(spell, spellIndex, options) {
   }
 
   // Metamagic options (if character has metamagic features)
+  // Only the 8 official Sorcerer metamagic options from PHB
   const metamagicCheckboxes = [];
+  const validMetamagicNames = [
+    'Careful Spell',
+    'Distant Spell',
+    'Empowered Spell',
+    'Extended Spell',
+    'Heightened Spell',
+    'Quickened Spell',
+    'Subtle Spell',
+    'Twinned Spell'
+  ];
   const metamagicFeatures = characterData.features ? characterData.features.filter(f =>
-    f.name && (f.name.includes('Spell') || f.name.includes('Twinned') || f.name.includes('Quickened') ||
-               f.name.includes('Heightened') || f.name.includes('Empowered') ||
-               f.name.includes('Extended') || f.name.includes('Distant') || f.name.includes('Subtle') ||
-               f.name.includes('Careful'))
+    f.name && validMetamagicNames.includes(f.name)
   ) : [];
 
   if (metamagicFeatures.length > 0) {
@@ -4108,6 +4122,10 @@ function showSpellModal(spell, spellIndex, options) {
             if (actualSlotLevel) {
               formula = formula.replace(/slotLevel/g, actualSlotLevel);
             }
+            // Replace ~target.level with character level (for cantrips)
+            if (formula.includes('~target.level') && characterData.level) {
+              formula = formula.replace(/~target\.level/g, characterData.level);
+            }
             formula = resolveVariablesInFormula(formula);
             formula = evaluateMathInFormula(formula);
 
@@ -4123,6 +4141,10 @@ function showSpellModal(spell, spellIndex, options) {
           const actualSlotLevel = selectedSlotLevel || (usedSlot && usedSlot.level);
           if (actualSlotLevel) {
             formula = formula.replace(/slotLevel/g, actualSlotLevel);
+          }
+          // Replace ~target.level with character level (for cantrips)
+          if (formula.includes('~target.level') && characterData.level) {
+            formula = formula.replace(/~target\.level/g, characterData.level);
           }
           formula = resolveVariablesInFormula(formula);
           formula = evaluateMathInFormula(formula);
@@ -4285,7 +4307,9 @@ function castSpell(spell, index, afterCast = null, selectedSlotLevel = null, sel
     const slotVar = `level${selectedSlotLevel}SpellSlots`;
     const slotMaxVar = `level${selectedSlotLevel}SpellSlotsMax`;
 
-    const currentSlots = characterData[slotVar] || 0;
+    // Check if slots are nested in spellSlots object or at top level
+    const slotsObject = characterData.spellSlots || characterData;
+    const currentSlots = slotsObject[slotVar] || 0;
 
     if (currentSlots <= 0) {
       showNotification(`❌ No level ${selectedSlotLevel} spell slots remaining!`, 'error');
@@ -4293,7 +4317,7 @@ function castSpell(spell, index, afterCast = null, selectedSlotLevel = null, sel
     }
 
     // Consume the slot
-    characterData[slotVar] = currentSlots - 1;
+    slotsObject[slotVar] = currentSlots - 1;
     saveCharacterData();
     buildSheet(characterData);
 
