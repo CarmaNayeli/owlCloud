@@ -1072,12 +1072,36 @@
           let attackRoll = '';
           const damageRolls = []; // Array to store multiple damage/healing rolls
 
+          // Helper function to check if a property has extractable roll/amount value
+          const hasExtractableValue = (p) => {
+            // Check if amount has extractable value
+            if (p.amount) {
+              if (typeof p.amount === 'string' && p.amount.trim()) return true;
+              if (typeof p.amount === 'object') {
+                if (p.amount.value !== undefined && p.amount.value !== null && String(p.amount.value).trim()) return true;
+                if (p.amount.calculation && String(p.amount.calculation).trim()) return true;
+              }
+            }
+            // Check if roll has extractable value
+            if (p.roll) {
+              if (typeof p.roll === 'string' && p.roll.trim()) return true;
+              if (typeof p.roll === 'object') {
+                if (p.roll.value !== undefined && p.roll.value !== null) return true;
+                if (p.roll.calculation && String(p.roll.calculation).trim()) return true;
+              }
+            }
+            return false;
+          };
+
           // Look for child rolls/damage that are descendants of this spell
           const spellChildren = properties.filter(p => {
             if (p.type !== 'roll' && p.type !== 'damage' && p.type !== 'attack') return false;
 
             // Skip inactive or disabled properties
             if (p.inactive || p.disabled) return false;
+
+            // Only include if this child has an extractable value
+            if (!hasExtractableValue(p)) return false;
 
             // Check if this spell is in the child property's ancestors
             if (p.ancestors && Array.isArray(p.ancestors)) {
