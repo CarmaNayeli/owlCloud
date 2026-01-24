@@ -12368,9 +12368,9 @@ async function loadCustomMacros() {
 }
 
 /**
- * Save custom macros to storage
+ * Save all custom macros to storage
  */
-function saveCustomMacros() {
+function saveAllCustomMacros() {
   browserAPI.storage.local.set({ customMacros });
   debug.log(`💾 Saved ${customMacros.length} custom macros`);
 }
@@ -12388,7 +12388,7 @@ function addCustomMacro(name, formula, description = '') {
   };
   
   customMacros.push(macro);
-  saveCustomMacros();
+  saveAllCustomMacros();
   updateMacrosDisplay();
   
   debug.log(`✅ Added custom macro: ${name} (${formula})`);
@@ -12400,7 +12400,7 @@ function addCustomMacro(name, formula, description = '') {
  */
 function deleteCustomMacro(macroId) {
   customMacros = customMacros.filter(m => m.id !== macroId);
-  saveCustomMacros();
+  saveAllCustomMacros();
   updateMacrosDisplay();
   debug.log(`🗑️ Deleted macro: ${macroId}`);
 }
@@ -12498,145 +12498,6 @@ function updateMacrosDisplay() {
         deleteCustomMacro(macroId);
       }
     });
-  });
-}
-
-/**
- * Show the add macro modal
- */
-function showAddMacroModal() {
-  const modal = document.createElement('div');
-  modal.id = 'add-macro-modal';
-  modal.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.7);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 10000;
-  `;
-  
-  modal.innerHTML = `
-    <div style="
-      background: var(--bg-secondary);
-      border: 2px solid var(--border-color);
-      border-radius: 12px;
-      padding: 24px;
-      max-width: 500px;
-      width: 90%;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-    ">
-      <h3 style="margin: 0 0 20px 0; color: var(--text-primary);">🎲 Add Custom Macro</h3>
-      
-      <div style="margin-bottom: 16px;">
-        <label style="display: block; margin-bottom: 6px; font-weight: bold; color: var(--text-primary);">
-          Macro Name
-        </label>
-        <input type="text" id="macro-name-input" placeholder="e.g., Sneak Attack" style="
-          width: 100%;
-          padding: 10px;
-          border: 2px solid var(--border-color);
-          border-radius: 6px;
-          font-size: 14px;
-          background: var(--bg-primary);
-          color: var(--text-primary);
-        ">
-      </div>
-      
-      <div style="margin-bottom: 16px;">
-        <label style="display: block; margin-bottom: 6px; font-weight: bold; color: var(--text-primary);">
-          Roll Formula
-        </label>
-        <input type="text" id="macro-formula-input" placeholder="e.g., 3d6" style="
-          width: 100%;
-          padding: 10px;
-          border: 2px solid var(--border-color);
-          border-radius: 6px;
-          font-size: 14px;
-          font-family: monospace;
-          background: var(--bg-primary);
-          color: var(--text-primary);
-        ">
-        <small style="color: var(--text-secondary); font-size: 0.85em;">
-          Examples: 1d20+5, 2d6+3, 8d6, 1d20+dexterity.modifier
-        </small>
-      </div>
-      
-      <div style="margin-bottom: 20px;">
-        <label style="display: block; margin-bottom: 6px; font-weight: bold; color: var(--text-primary);">
-          Description (optional)
-        </label>
-        <input type="text" id="macro-description-input" placeholder="e.g., Extra damage on hit" style="
-          width: 100%;
-          padding: 10px;
-          border: 2px solid var(--border-color);
-          border-radius: 6px;
-          font-size: 14px;
-          background: var(--bg-primary);
-          color: var(--text-primary);
-        ">
-      </div>
-      
-      <div style="display: flex; gap: 10px; justify-content: flex-end;">
-        <button id="macro-cancel-btn" style="
-          padding: 10px 20px;
-          background: var(--bg-tertiary);
-          color: var(--text-primary);
-          border: 2px solid var(--border-color);
-          border-radius: 6px;
-          cursor: pointer;
-          font-weight: bold;
-        ">
-          Cancel
-        </button>
-        <button id="macro-save-btn" style="
-          padding: 10px 20px;
-          background: var(--accent-primary);
-          color: white;
-          border: none;
-          border-radius: 6px;
-          cursor: pointer;
-          font-weight: bold;
-        ">
-          Save Macro
-        </button>
-      </div>
-    </div>
-  `;
-  
-  document.body.appendChild(modal);
-  
-  // Focus the name input
-  document.getElementById('macro-name-input').focus();
-  
-  // Event listeners
-  document.getElementById('macro-cancel-btn').addEventListener('click', () => {
-    document.body.removeChild(modal);
-  });
-  
-  document.getElementById('macro-save-btn').addEventListener('click', () => {
-    const name = document.getElementById('macro-name-input').value.trim();
-    const formula = document.getElementById('macro-formula-input').value.trim();
-    const description = document.getElementById('macro-description-input').value.trim();
-    
-    if (!name || !formula) {
-      alert('Please enter both a name and formula for the macro.');
-      return;
-    }
-    
-    addCustomMacro(name, formula, description);
-    document.body.removeChild(modal);
-  });
-  
-  // Close on background click
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) {
-      document.body.removeChild(modal);
-    }
   });
 }
 
