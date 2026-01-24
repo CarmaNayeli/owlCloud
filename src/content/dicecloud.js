@@ -1096,6 +1096,13 @@
           spellChildren.forEach(child => {
             debug.log(`  📋 Processing child: ${child.name} (${child.type})`);
 
+            // Shield spell should NEVER have attack rolls - skip attack children
+            const isShieldSpell = prop.name && prop.name.toLowerCase().trim() === 'shield';
+            if (isShieldSpell && (child.type === 'attack' || (child.type === 'roll' && child.name && child.name.toLowerCase().includes('attack')))) {
+              debug.log(`    🛡️ Shield spell - skipping attack child: ${child.name}`);
+              return; // Skip this child
+            }
+
             if (child.type === 'attack' || (child.type === 'roll' && child.name && child.name.toLowerCase().includes('attack'))) {
               // This is a spell attack roll
               debug.log(`    🎯 Attack child found:`, { name: child.name, roll: child.roll, type: child.type });
@@ -1198,18 +1205,45 @@
           });
           damageRolls = uniqueDamageRolls;
 
-          // Fix temp HP spells that might not have the right damageType
-          const tempHPSpells = ['false life', 'heroism', 'inspiring leader'];
-          const isTempHPSpell = prop.name && tempHPSpells.some(name =>
-            prop.name.toLowerCase().includes(name)
-          );
-          if (isTempHPSpell && damageRolls.length > 0) {
-            // Check description for temp HP indication
-            const lowerDesc = fullDescription.toLowerCase();
-            if (lowerDesc.includes('temporary hit point') || lowerDesc.includes('temp hp') || lowerDesc.includes('temporary hp')) {
+          // Extract temp HP from any spell that mentions temporary hit points
+          const lowerDesc = fullDescription.toLowerCase();
+          const hasTempHPKeyword = lowerDesc.includes('temporary hit point') || lowerDesc.includes('temp hp') || lowerDesc.includes('temporary hp');
+
+          if (hasTempHPKeyword) {
+            debug.log(`  🛡️ Spell "${prop.name}" mentions temporary hit points`);
+
+            // If no damage rolls found, try to extract from description
+            if (damageRolls.length === 0) {
+              debug.log(`  🛡️ No damage children found, extracting temp HP from description`);
+              // Look for patterns like "1d4+4", "2d6", "gain 5", etc. right before "temporary"
+              // Try to find dice formulas first
+              const beforeTempHP = fullDescription.substring(0, fullDescription.toLowerCase().indexOf('temporary'));
+              const dicePattern = /(\d+d\d+(?:\s*[+\-]\s*\d+)?)/i;
+              const match = beforeTempHP.match(dicePattern);
+              if (match) {
+                const formula = match[1].replace(/\s/g, ''); // Remove whitespace
+                damageRolls.push({
+                  damage: formula,
+                  damageType: 'temphp'
+                });
+                debug.log(`  ✅ Extracted temp HP dice formula from description: ${formula}`);
+              } else {
+                // Try to find plain numbers like "gain 5 temporary" or "5 additional temporary"
+                const numberPattern = /(?:gain|additional)\s+(\d+)(?:\s+(?:additional))?\s+temporary/i;
+                const numberMatch = fullDescription.match(numberPattern);
+                if (numberMatch) {
+                  const amount = numberMatch[1];
+                  damageRolls.push({
+                    damage: amount,
+                    damageType: 'temphp'
+                  });
+                  debug.log(`  ✅ Extracted temp HP fixed amount from description: ${amount}`);
+                }
+              }
+            } else {
               // Mark all damage rolls as temp HP
               damageRolls.forEach(roll => {
-                if (roll.damageType === 'untyped' || !roll.damageType) {
+                if (roll.damageType === 'untyped' || !roll.damageType || roll.damageType === 'healing') {
                   roll.damageType = 'temphp';
                   debug.log(`  🛡️ Corrected ${prop.name} damage type to temphp`);
                 }
@@ -1335,6 +1369,27 @@
           if (isKnownLifesteal) {
             isLifesteal = true;
             debug.log(`💉 Detected lifesteal mechanic in "${prop.name}" (known lifesteal spell)`);
+
+            // Ensure lifesteal spells have both damage and healing rolls
+            const hasDamage = damageRolls.some(r => r.damageType && r.damageType.toLowerCase() !== 'healing' && r.damageType.toLowerCase() !== 'temphp');
+            const hasHealing = damageRolls.some(r => r.damageType && r.damageType.toLowerCase() === 'healing');
+
+            // If missing healing roll, add a synthetic one based on description
+            if (hasDamage && !hasHealing) {
+              debug.log(`  💉 Adding synthetic healing roll for lifesteal spell "${prop.name}"`);
+              const damageRoll = damageRolls.find(r => r.damageType && r.damageType.toLowerCase() !== 'healing' && r.damageType.toLowerCase() !== 'temphp');
+              if (damageRoll) {
+                // Check if description says "half" for healing
+                const lowerDesc = fullDescription.toLowerCase();
+                const isHalfHealing = lowerDesc.includes('half') && (lowerDesc.includes('regain') || lowerDesc.includes('heal'));
+                const healingFormula = isHalfHealing ? `(${damageRoll.damage}) / 2` : damageRoll.damage;
+                damageRolls.push({
+                  damage: healingFormula,
+                  damageType: 'healing'
+                });
+                debug.log(`  ✅ Added healing roll: ${healingFormula}`);
+              }
+            }
           } else if (damageRolls.length >= 2) {
             const hasDamage = damageRolls.some(r => r.damageType && r.damageType.toLowerCase() !== 'healing');
             const hasHealing = damageRolls.some(r => r.damageType && r.damageType.toLowerCase() === 'healing');
@@ -1388,6 +1443,23 @@
           if (isKnownAttackSpell && !attackRoll) {
             attackRoll = 'use_spell_attack_bonus';
             debug.log(`  ⚔️ Known attack spell "${prop.name}" missing attack roll - adding it`);
+          }
+
+          // Meld into Stone: Extract conditional damage from description
+          const isMeldIntoStone = prop.name && prop.name.toLowerCase().includes('meld into stone');
+          if (isMeldIntoStone && damageRolls.length === 0) {
+            debug.log(`  🪨 Meld into Stone detected - extracting conditional damage from description`);
+            // Look for "6d6" or similar in description
+            const damagePattern = /(\d+d\d+)(?:\s+\w+)?\s+damage/i;
+            const match = fullDescription.match(damagePattern);
+            if (match) {
+              const formula = match[1];
+              damageRolls.push({
+                damage: formula,
+                damageType: 'bludgeoning'
+              });
+              debug.log(`  ✅ Added conditional damage for Meld into Stone: ${formula} bludgeoning`);
+            }
           }
 
           // Log final attack/damage values before adding to spells array
