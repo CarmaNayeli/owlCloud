@@ -1647,17 +1647,28 @@
           try {
             activePopupWindow.close();
           } catch (error) {
-            debug.warn('⚠️ Could not close existing popup:', error.message);
+            debug.warn(' Could not close existing popup:', error.message);
           }
         }
 
         // Now open the popup window
-        popupWindow = window.open(popupURL, 'rollcloud-character-sheet', 'width=900,height=700,scrollbars=yes,resizable=yes,menubar=no,toolbar=no,location=no,status=no');
+        try {
+          popupWindow = window.open(popupURL, 'rollcloud-character-sheet', 'width=900,height=700,scrollbars=yes,resizable=yes,menubar=no,toolbar=no,location=no,status=no');
+        } catch (error) {
+          debug.error(' Error opening popup window:', error);
+          popupWindow = null;
+        }
 
         if (!popupWindow) {
-          debug.error('❌ Failed to open popup window. Please allow popups for this site.');
-          showNotification('Failed to open popup window. Please allow popups for this site.', 'error');
+          debug.error(' Failed to open popup window. Please allow popups for this site.');
+          showNotification('Popup blocked. Please allow popups for this site. Retrying...', 'error');
           window.removeEventListener('message', messageHandler);
+          
+          // Retry after a short delay
+          setTimeout(() => {
+            debug.log(' Retrying popup window open...');
+            showOverlay();
+          }, 1000);
           return;
         }
 
