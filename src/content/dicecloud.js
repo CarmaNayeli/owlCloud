@@ -1204,15 +1204,17 @@
 
           // Check description for additional patterns
           if (description) {
-            // Look for spell attack patterns like "ranged spell attack" or "melee spell attack"
+            // Look for spell attack patterns like "ranged spell attack", "melee spell attack", "attack roll", etc.
             // Check this even if damage is already found, since many spells have both
             const lowerDesc = description.toLowerCase();
             debug.log(`  🔍 Checking description for spell attack (attackRoll currently: "${attackRoll}")`);
-            if (!attackRoll && lowerDesc.includes('spell attack')) {
+            // Use comprehensive pattern matching like validation does
+            const hasAttackMention = /spell attack|attack roll|make.*attack/i.test(description);
+            if (!attackRoll && hasAttackMention) {
               attackRoll = 'use_spell_attack_bonus'; // Flag to use calculated spell attack bonus
-              debug.log(`  💡 Found "spell attack" in description, marking for spell attack bonus`);
+              debug.log(`  💡 Found attack pattern in description, marking for spell attack bonus`);
             } else if (!attackRoll) {
-              debug.log(`  ⚠️ No "spell attack" found in description for "${prop.name}"`);
+              debug.log(`  ⚠️ No attack pattern found in description for "${prop.name}"`);
             } else {
               debug.log(`  ℹ️ Attack roll already set from child properties, skipping description check`);
             }
