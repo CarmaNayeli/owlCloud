@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const { installExtension, uninstallExtension, isExtensionInstalled } = require('./extension-installer');
+const { installExtensions } = require('./local-installer');
 const { generatePairingCode, createPairing, checkPairing } = require('./pairing');
 
 // Extension and bot configuration
@@ -71,11 +72,18 @@ ipcMain.handle('check-extension-installed', async (event, browser) => {
   return await isExtensionInstalled(browser);
 });
 
-// Install extension via enterprise policy
+// Install extension via local ZIP extraction
 ipcMain.handle('install-extension', async (event, browser) => {
   try {
-    const result = await installExtension(browser, CONFIG);
-    return { success: true, ...result };
+    const results = await installExtensions();
+    
+    if (browser === 'chrome') {
+      return results.chrome;
+    } else if (browser === 'firefox') {
+      return results.firefox;
+    } else {
+      return { success: false, error: 'Unsupported browser' };
+    }
   } catch (error) {
     return { success: false, error: error.message };
   }
