@@ -94,12 +94,19 @@ function createSignedCRX(zipPath, crxPath, privateKey, publicKey, publicKeyPath)
       sign.update(zipData);
       const signature = sign.sign(privateKey);
       
+      console.log(`   ZIP size: ${zipData.length} bytes`);
+      console.log(`   Public key size: ${publicKey.length} bytes`);
+      console.log(`   Signature size: ${signature.length} bytes`);
+      
       // Create CRX header
       const header = Buffer.alloc(16);
       header.write('Cr24', 0); // Magic number
       header.writeUInt32LE(2, 4); // Version
       header.writeUInt32LE(publicKey.length, 8); // Public key length
       header.writeUInt32LE(signature.length, 12); // Signature length
+      
+      // Verify header
+      console.log(`   Header: ${header.toString('hex')}`);
       
       // Combine header, public key, signature, and zip data
       const crxData = Buffer.concat([header, publicKey, signature, zipData]);
@@ -117,6 +124,7 @@ function createSignedCRX(zipPath, crxPath, privateKey, publicKey, publicKeyPath)
       
       resolve({ extensionId, publicKeyPath });
     } catch (error) {
+      console.error('CRX creation error:', error);
       reject(error);
     }
   });
