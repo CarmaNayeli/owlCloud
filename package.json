@@ -8,6 +8,7 @@
     "build:signed": "node scripts/build-signed.js",
     "build:signed:chrome": "node scripts/build-signed-crx.js",
     "build:signed:firefox": "node scripts/build-signed-xpi.js",
+    "build:enterprise": "node scripts/build-enterprise-installer.js",
     "build:installer": "cd installer && npm run build",
     "build:installer:win": "cd installer && npm run build:win",
     "build:installer:mac": "cd installer && npm run build:mac",
@@ -17,7 +18,7 @@
     "build": "npm run build:extension",
     "build:production": "node scripts/build-production.js",
     "build:release": "npm run build:production && node scripts/create-release.js",
-    "clean": "node -e \"const fs=require('fs'); if(fs.existsSync('dist'))fs.rmSync('dist',{recursive:true});\"",
+    "clean": "node -e \"const fs=require('fs'); if(fs.existsSync('dist'))fs.rmSync('dist',{recursive:true});\";",
     "install:deps": "cd installer && npm install",
     "dev:installer": "cd installer && npm run dev"
   },

@@ -1,7 +1,7 @@
 {
   "name": "rollcloud-setup",
   "version": "1.2.0",
-  "description": "RollCloud Setup Wizard - Installs browser extension and connects to Discord",
+  "description": "RollCloud Enterprise Extension Installer",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
@@ -25,12 +25,12 @@
     ],
     "extraResources": [
       {
-        "from": "../dist/rollcloud-chrome.zip",
-        "to": "extension/rollcloud-chrome.zip"
+        "from": "../dist/rollcloud-chrome-signed.crx",
+        "to": "extension/rollcloud-chrome.crx"
       },
       {
-        "from": "../dist/rollcloud-firefox.zip",
-        "to": "extension/rollcloud-firefox.zip"
+        "from": "../dist/rollcloud-firefox-signed.xpi",
+        "to": "extension/rollcloud-firefox.xpi"
       }
     ],
     "win": {
@@ -97,5 +97,6 @@
   },
   "dependencies": {
     "sudo-prompt": "^9.2.1"
-  }
+  },
+  "productName": "RollCloud Enterprise Setup"
 }
