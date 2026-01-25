@@ -2,6 +2,7 @@
 
 /**
  * Build properly signed extensions for distribution
+ * Uses crx3 package for proper CRX3 format with signed proofs
  */
 
 const fs = require('fs');
@@ -9,43 +10,28 @@ const path = require('path');
 const crypto = require('crypto');
 const { execSync } = require('child_process');
 const extract = require('extract-zip');
+const crx3 = require('crx3');
 
 const ROOT_DIR = path.join(__dirname, '..');
 const DIST_DIR = path.join(ROOT_DIR, 'dist');
 const KEYS_DIR = path.join(ROOT_DIR, 'keys');
 
 /**
- * Build signed Chrome extension using crx library
+ * Build signed Chrome extension using crx3 library (proper CRX3 format)
  */
 async function buildSignedChrome() {
-  console.log('🔐 Building Signed Chrome Extension');
-  console.log('===================================');
+  console.log('🔐 Building Signed Chrome Extension (CRX3)');
+  console.log('==========================================');
 
-  const ChromeExtension = require('crx');
-
-  // Ensure keys directory exists
+  // Ensure directories exist
   if (!fs.existsSync(KEYS_DIR)) {
     fs.mkdirSync(KEYS_DIR, { recursive: true });
   }
-
-  // Get or create private key
-  const privateKeyPath = path.join(KEYS_DIR, 'private.pem');
-  let privateKey;
-
-  if (fs.existsSync(privateKeyPath)) {
-    console.log('🔑 Using existing private key');
-    privateKey = fs.readFileSync(privateKeyPath);
-  } else {
-    console.log('🔑 Generating new key pair...');
-    const keyPair = crypto.generateKeyPairSync('rsa', {
-      modulusLength: 2048,
-      publicKeyEncoding: { type: 'spki', format: 'pem' },
-      privateKeyEncoding: { type: 'pkcs8', format: 'pem' }
-    });
-    privateKey = keyPair.privateKey;
-    fs.writeFileSync(privateKeyPath, privateKey);
-    fs.writeFileSync(path.join(KEYS_DIR, 'public.pem'), keyPair.publicKey);
+  if (!fs.existsSync(DIST_DIR)) {
+    fs.mkdirSync(DIST_DIR, { recursive: true });
   }
+
+  const privateKeyPath = path.join(KEYS_DIR, 'private.pem');
 
   // Build extension ZIP first
   console.log('\n📦 Building extension...');
@@ -64,21 +50,30 @@ async function buildSignedChrome() {
   fs.mkdirSync(tempDir, { recursive: true });
   await extract(zipPath, { dir: tempDir });
 
-  // Create CRX using crx library
-  const crx = new ChromeExtension({ privateKey });
-  await crx.load(tempDir);
-  const crxBuffer = await crx.pack();
+  console.log('🔑 Creating CRX3 with proper signed proofs...');
 
-  // Save as rollcloud-chrome-signed.crx (for enterprise build compatibility)
-  const crxPath = path.join(DIST_DIR, 'rollcloud-chrome-signed.crx');
-  fs.writeFileSync(crxPath, crxBuffer);
+  // Use crx3 to create properly signed CRX3 file
+  const crxPath = path.join(DIST_DIR, 'rollcloud-chrome.crx');
+  const manifestPath = path.join(tempDir, 'manifest.json');
 
-  // Also save as rollcloud-chrome.crx
-  fs.writeFileSync(path.join(DIST_DIR, 'rollcloud-chrome.crx'), crxBuffer);
+  await crx3([manifestPath], {
+    keyPath: privateKeyPath,
+    crxPath: crxPath
+  });
 
-  // Generate extension ID
-  const publicKey = crx.publicKey;
-  const hash = crypto.createHash('sha256').update(publicKey).digest();
+  // Also copy to signed name for compatibility
+  fs.copyFileSync(crxPath, path.join(DIST_DIR, 'rollcloud-chrome-signed.crx'));
+
+  // Read the private key to generate extension ID
+  const privateKeyPem = fs.readFileSync(privateKeyPath, 'utf8');
+
+  // Generate public key from private key
+  const privateKeyObj = crypto.createPrivateKey(privateKeyPem);
+  const publicKeyObj = crypto.createPublicKey(privateKeyObj);
+  const publicKeyDer = publicKeyObj.export({ type: 'spki', format: 'der' });
+
+  // Generate extension ID from public key
+  const hash = crypto.createHash('sha256').update(publicKeyDer).digest();
   let extensionId = '';
   for (let i = 0; i < 16; i++) {
     extensionId += String.fromCharCode(97 + ((hash[i] >> 4) & 0x0F));
@@ -89,18 +84,20 @@ async function buildSignedChrome() {
   fs.writeFileSync(path.join(DIST_DIR, 'rollcloud-chrome-signed.id'), extensionId);
   fs.writeFileSync(path.join(DIST_DIR, 'rollcloud-chrome.id'), extensionId);
 
-  // Update manifest with key
-  const manifestPath = path.join(ROOT_DIR, 'manifest.json');
-  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-  manifest.key = publicKey.toString('base64');
-  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+  // Update manifest with key (base64 DER)
+  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'manifest.json'), 'utf8'));
+  manifest.key = publicKeyDer.toString('base64');
+  fs.writeFileSync(path.join(ROOT_DIR, 'manifest.json'), JSON.stringify(manifest, null, 2));
 
   // Cleanup
   fs.rmSync(tempDir, { recursive: true });
 
-  console.log(`\n✅ Chrome CRX created: ${crxPath}`);
+  // Get file size
+  const crxSize = fs.statSync(crxPath).size;
+
+  console.log(`\n✅ Chrome CRX3 created: ${crxPath}`);
   console.log(`   Extension ID: ${extensionId}`);
-  console.log(`   Size: ${(crxBuffer.length / 1024).toFixed(1)} KB`);
+  console.log(`   Size: ${(crxSize / 1024).toFixed(1)} KB`);
 
   return { extensionId };
 }
