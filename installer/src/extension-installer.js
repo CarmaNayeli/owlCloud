@@ -317,7 +317,7 @@ async function installFirefoxExtension(config) {
 }
 
 /**
- * Check if extension is actually installed and enabled in the browser
+ * Check if extension is installed via enterprise policies only
  */
 async function isExtensionInstalled(browser) {
   const platform = process.platform;
@@ -331,42 +331,16 @@ async function isExtensionInstalled(browser) {
     switch (platform) {
       case 'win32':
         if (browser === 'firefox') {
-          // Check Firefox distribution folder for local installation
+          // Check Firefox enterprise policy
           const programFiles = process.env['ProgramFiles'] || 'C:\\Program Files';
-          const extensionDir = path.join(programFiles, 'Mozilla Firefox', 'distribution', 'extensions');
-          
-          // Look for RollCloud extension directory
-          if (fs.existsSync(extensionDir)) {
-            const extensions = fs.readdirSync(extensionDir);
-            const rollcloudExt = extensions.find(ext => 
-              ext.includes('rollcloud') || ext.includes('mkckngoemfjdkhcpaomdndlecolckgdj')
-            );
-            
-            if (rollcloudExt) {
-              // Check if extension is enabled by looking for manifest.json
-              const manifestPath = path.join(extensionDir, rollcloudExt, 'manifest.json');
-              if (fs.existsSync(manifestPath)) {
-                try {
-                  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-                  // Check if extension is disabled
-                  return !manifest.disabled;
-                } catch {
-                  // Manifest is corrupted, consider it not installed
-                  return false;
-                }
-              }
-            }
-            
-          }
-          
-          // Also check policies
           const policiesPath = path.join(programFiles, 'Mozilla Firefox', 'distribution', 'policies.json');
+          
           if (fs.existsSync(policiesPath)) {
             try {
-              const policies = JSON.parse(fs.readFileSync(policies.path.join(policiesPath, 'policies.json'), 'utf8'));
+              const policies = JSON.parse(fs.readFileSync(policiesPath, 'utf8'));
               if (policies.extensions && policies.extensions.length > 0) {
                 const rollcloudPolicy = policies.extensions.find(ext => 
-                  ext.id === 'rollcloud@dicecat.dev' || ext.id === 'mkckngoemfjdkhcpaomdndlecolckgdj'
+                  ext.id === 'rollcloud@dicecat.dev'
                 );
                 return rollcloudPolicy && !rollcloudPolicy.disabled;
               }
@@ -378,115 +352,29 @@ async function isExtensionInstalled(browser) {
           return false;
         }
         
-        // For Chrome/Edge, check both local directories and registry
-        const localAppData = process.env['LOCALAPPDATA'] || path.join(os.homedir(), 'AppData', 'Local');
-        
-        // Check Chrome local installation
-        if (browser === 'chrome') {
-          const chromeExtDir = path.join(localAppData, 'Google', 'Chrome', 'User Data', 'Default', 'Extensions');
-          if (fs.existsSync(chromeExtDir)) {
-            const extensions = fs.readdirSync(chromeExtDir);
-            const rollcloudExt = extensions.find(ext => 
-              ext.includes('rollcloud') || ext.includes('mkckngoemfjdkhcpaomdndlecolckgdj')
-            );
-            
-            if (rollcloudExt) {
-              // Check if extension is enabled by looking for manifest.json
-              const manifestPath = path.join(chromeExtDir, rollcloudExt, 'manifest.json');
-              if (fs.existsSync(manifestPath)) {
-                try {
-                  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-                  // Check if extension is disabled
-                  return !manifest.disabled;
-                } catch {
-                  // Manifest is corrupted, consider it not installed
-                  return false;
-                }
-              }
-            }
+        // Check Chrome/Edge enterprise policies in registry
+        try {
+          const result = execSync(`reg query "${browserConfig.windows.registryPath}" 2>nul`, { encoding: 'utf8' });
+          if (result.includes('rollcloud')) {
+            // Check if the policy is disabled
+            return !result.includes('"disabled":true');
           }
-          
-          // Check Edge local installation  
-          if (browser === 'edge') {
-            const edgeExtDir = path.join(localAppData, 'Microsoft', 'Edge', 'User Data', 'Default', 'Extensions');
-            if (fs.existsSync(edgeExtDir)) {
-              const extensions = fs.readdirSync(edgeExtDir);
-              const rollcloudExt = extensions.find(ext => 
-                ext.includes('rollcloud') || ext.includes('mkckngoemfjdkhcpaomdndlecolckgdj')
-              );
-              
-              if (rollcloudExt) {
-                // Check if extension is enabled
-                const manifestPath = path.join(edgeExtDir, rollcloudExt, 'manifest.json');
-                if (fs.existsSync(manifestPath)) {
-                  try {
-                    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-                    return !manifest.disabled;
-                  } catch {
-                    return false;
-                  }
-                }
-              }
-            }
-          }
-          
-          // Check registry for enterprise policies
-          try {
-            const result = execSync(`reg query "${browserConfig.windows.registryPath}" 2>nul`, { encoding: 'utf8' });
-            if (result.includes('rollcloud')) {
-              // Check if the policy is disabled
-              return !result.includes('"disabled":true');
-            }
-            return false;
-          } catch {
-            // Registry access failed, but local check already done
-          }
+          return false;
+        } catch {
+          // Registry access failed
           return false;
         }
         
       case 'darwin':
         if (browser === 'firefox') {
-          // Check Firefox local installation
-          const homeDir = os.homedir();
-          const firefoxProfileDir = path.join(homeDir, 'Library', 'Application Support', 'Firefox', 'Profiles');
-          
-          if (fs.existsSync(firefoxProfileDir)) {
-            const profiles = fs.readdirSync(firefoxProfileDir);
-            for (const profile of profiles) {
-              const profilePath = path.join(firefoxProfileDir, profile);
-              if (fs.statSync(profilePath).isDirectory()) {
-                const extensionsPath = path.join(profilePath, 'extensions');
-                if (fs.existsSync(extensionsPath)) {
-                  const extensions = fs.readdirSync(extensionsPath);
-                  const rollcloudExt = extensions.find(ext => 
-                    ext.includes('rollcloud') || ext.includes('rollcloud@dicecat.dev')
-                  );
-                  
-                  if (rollcloudExt) {
-                    // Check if extension is enabled
-                    const manifestPath = path.join(extensionsPath, rollcloudExt, 'manifest.json');
-                    if (fs.existsSync(manifestPath)) {
-                      try {
-                        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-                        return !manifest.disabled;
-                      } catch {
-                        return false;
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-          
-          // Also check policies
+          // Check Firefox enterprise policy
           const policiesPath = path.join(browserConfig.mac.distributionPath, 'policies.json');
           if (fs.existsSync(policiesPath)) {
             try {
-              const policies = JSON.parse(fs.readFileSync(policies.path.join(policiesPath, 'policies.json'), 'utf8'));
+              const policies = JSON.parse(fs.readFileSync(policiesPath, 'utf8'));
               if (policies.extensions && policies.extensions.length > 0) {
                 const rollcloudPolicy = policies.extensions.find(ext => 
-                  ext.id === 'rollcloud@dicecat.dev' || ext.id === 'mkckngoemfjdkhcpaomdndlecolckgdj'
+                  ext.id === 'rollcloud@dicecat.dev'
                 );
                 return rollcloudPolicy && !rollcloudPolicy.disabled;
               }
@@ -497,35 +385,7 @@ async function isExtensionInstalled(browser) {
           return false;
         }
         
-        // Check Chrome/Edge local installation
-        const chromeProfileExtDir = path.join(os.homedir(), 'Library', 'Application Support', 'Google', 'Chrome', 'Profile', 'Extensions');
-        if (fs.existsSync(chromeProfileExtDir)) {
-          const profiles = fs.readdirSync(chromeProfileExtDir);
-          for (const profile of profiles) {
-            const profilePath = path.join(chromeProfileExtDir, profile);
-            if (fs.statSync(profilePath).isDirectory()) {
-              const extensions = fs.readdirSync(profilePath);
-              const rollcloudExt = extensions.find(ext => 
-                ext.includes('rollcloud') || ext.includes('mkckngoemfjdkhcpaomdndlecolckgdj')
-              );
-              
-              if (rollcloudExt) {
-                // Check if extension is enabled
-                const manifestPath = path.join(profilePath, rollcloudExt, 'manifest.json');
-                if (fs.existsSync(manifestPath)) {
-                  try {
-                    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-                    return !manifest.disabled;
-                  } catch {
-                    return false;
-                  }
-                }
-              }
-            }
-          }
-        }
-        
-        // Check policies
+        // Check Chrome enterprise policy
         const plistPath = path.join(os.homedir(), 'Library', 'Managed Preferences', 'com.google.Chrome.plist');
         if (fs.existsSync(plistPath)) {
           try {
@@ -543,37 +403,14 @@ async function isExtensionInstalled(browser) {
         
       case 'linux':
         if (browser === 'firefox') {
-          // Check Firefox local installation
-          const homeDir = os.homedir();
-          const firefoxExtDir = path.join(homeDir, '.mozilla', 'firefox', 'extensions');
-          if (fs.existsSync(firefoxExtDir)) {
-            const extensions = fs.readdirSync(firefoxExtDir);
-            const rollcloudExt = extensions.find(ext => 
-              ext.includes('rollcloud') || ext.includes('rollcloud@dicecat.dev')
-            );
-            
-            if (rollcloudExt) {
-              // Check if extension is enabled
-              const manifestPath = path.join(firefoxExtDir, rollcloudExt, 'manifest.json');
-              if (fs.existsSync(manifestPath)) {
-                try {
-                  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-                  return !manifest.disabled;
-                } catch {
-                  return false;
-                }
-              }
-            }
-          }
-          
-          // Also check policies
+          // Check Firefox enterprise policy
           const policiesPath = path.join(browserConfig.linux.distributionPath, 'policies.json');
           if (fs.existsSync(policiesPath)) {
             try {
               const policies = JSON.parse(fs.readFileSync(policiesPath, 'utf8'));
               if (policies.extensions && policies.extensions.length > 0) {
                 const rollcloudPolicy = policies.extensions.find(ext => 
-                  ext.id === 'rollcloud@dicecat.dev' || ext.id === 'mkckngoemfjdkhcpaomdndlecolckgdj'
+                  ext.id === 'rollcloud@dicecat.dev'
                 );
                 return rollcloudPolicy && !rollcloudPolicy.disabled;
               }
@@ -584,29 +421,7 @@ async function isExtensionInstalled(browser) {
           return false;
         }
         
-        // Check Chrome local installation
-        const chromeExtDir = path.join(os.homedir(), '.config', 'google-chrome', 'Default', 'Extensions');
-        if (fs.existsSync(chromeExtDir)) {
-          const extensions = fs.readdirSync(chromeExtDir);
-          const rollcloudExt = extensions.find(ext => 
-            ext.includes('rollcloud') || ext.includes('mkckngoemfjdkhcpaomdndlecolckgdj')
-          );
-          
-          if (rollcloudExt) {
-            // Check if extension is enabled
-            const manifestPath = path.join(chromeExtDir, rollcloudExt, 'manifest.json');
-            if (fs.existsSync(manifestPath)) {
-              try {
-                const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-                return !manifest.disabled;
-              } catch {
-                return false;
-              }
-            }
-          }
-        }
-        
-        // Check policies
+        // Check Chrome enterprise policy
         const jsonPath = path.join('/etc/opt/chrome/policies/managed', 'rollcloud.json');
         if (fs.existsSync(jsonPath)) {
           try {
