@@ -3,12 +3,12 @@
   "version": "1.2.2",
   "description": "RollCloud: DiceCloud + Roll20 + Discord Integration",
   "scripts": {
-    "build": "npm run build:extension",
+    "build": "node scripts/build-all.js",
+    "build:quick": "node scripts/build-all.js --skip-installer",
     "build:extension": "node scripts/build-extension-clean.js",
     "build:signed": "node scripts/build-signed.js",
     "build:installer": "cd installer && npm run build",
-    "build:enterprise": "node scripts/build-enterprise-installer.js",
-    "build:all": "npm run build:extension && npm run build:installer"
+    "build:enterprise": "node scripts/build-enterprise-installer.js"
   },
   "keywords": [
     "rollcloud",
