@@ -62,7 +62,6 @@
       <!-- Main Interface (shown when authenticated) -->
       <div id="mainSection" class="hidden">
         <div class="user-info">
-          <span>Logged in as: <strong id="usernameDisplay">-</strong></span>
           <button id="logoutBtn" class="btn-link">Logout</button>
         </div>
 
@@ -110,6 +109,13 @@
           <button id="showSheetBtn" class="btn btn-secondary">
             📋 Show Character Sheet
           </button>
+          <button id="exportBtn" class="btn btn-secondary">
+            📤 Export Characters
+          </button>
+          <button id="importBtn" class="btn btn-secondary">
+            📥 Import Characters
+          </button>
+          <input type="file" id="importFile" accept=".json" style="display: none;">
           <button id="clearBtn" class="btn btn-danger">
             🗑️ Clear Data
           </button>
