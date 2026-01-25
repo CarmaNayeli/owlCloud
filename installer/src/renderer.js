@@ -140,13 +140,17 @@ async function installExtension() {
     
     console.log('🔧 Install result:', result);
 
-    if ((result.message && result.message.includes('Extension policy installed')) || 
-        (result.message && result.message.includes('manual installation'))) {
+    // Check for success or manual action required
+    const isSuccess = (result.message && result.message.includes('Extension policy installed')) ||
+                      (result.message && result.message.includes('manual installation')) ||
+                      result.requiresManualAction === true;
+
+    if (isSuccess) {
       progress.classList.add('hidden');
       complete.classList.remove('hidden');
-      
+
       // Check if manual action is required
-      if (result.requiresManualAction) {
+      if (result.requiresManualAction && result.manualInstructions) {
         const noteElement = document.querySelector('#installComplete .note');
         
         if (result.manualInstructions.type === 'firefox_addon') {
@@ -162,12 +166,17 @@ async function installExtension() {
           `;
         } else if (result.manualInstructions.type === 'firefox_download') {
           noteElement.innerHTML = `
-            <strong>Firefox Developer Edition recommended:</strong><br>
-            Firefox Developer Edition has relaxed signing requirements for unsigned extensions.<br><br>
+            <strong>Firefox Developer Edition required:</strong><br>
+            Firefox Developer Edition is needed for unsigned extensions.<br><br>
             ${result.manualInstructions.steps.map(step => `<div style="margin: 5px 0;">${step}</div>`).join('')}
             <div style="margin-top: 15px;">
               <button onclick="installFirefoxDevEdition()" style="background: #ff9500; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
                 Install Firefox Developer Edition
+              </button>
+            </div>
+            <div style="margin-top: 10px;">
+              <button onclick="window.api.openExternal('${result.manualInstructions.downloadUrl || 'https://www.mozilla.org/firefox/developer/'}')" style="background: #0060df; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+                Download Manually
               </button>
             </div>
             <div style="margin-top: 10px;">
@@ -176,15 +185,29 @@ async function installExtension() {
               </button>
             </div>
           `;
+        } else if (result.manualInstructions.type === 'firefox_addon_manual') {
+          // Firefox couldn't be launched automatically
+          noteElement.innerHTML = `
+            <strong>Manual Firefox installation:</strong><br>
+            Please follow these steps to install the extension:<br>
+            ${result.manualInstructions.steps.map(step => `<div style="margin: 5px 0;">${step}</div>`).join('')}
+            ${result.manualInstructions.xpiPath ? `<div style="margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 4px; word-break: break-all;"><strong>XPI Location:</strong><br>${result.manualInstructions.xpiPath}</div>` : ''}
+            <div style="margin-top: 15px;">
+              <button onclick="window.location.reload()" style="background: #28a745; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+                Retry Installation
+              </button>
+            </div>
+          `;
         } else {
-          // Handle manual policy installation (fallback)
+          // Handle other manual installation types (fallback)
+          const steps = result.manualInstructions.steps || [];
           noteElement.innerHTML = `
             <strong>Manual installation required:</strong><br>
             Please follow these steps:<br>
-            1. Create the file: <code>${result.manualInstructions.file}</code><br>
-            2. Copy this content into the file:<br>
-            <pre style="background: #f5f5f5; padding: 10px; margin: 10px 0; font-size: 12px; overflow-x: auto;">${JSON.stringify(result.manualInstructions.content, null, 2)}</pre>
-            3. Restart Firefox
+            ${steps.map(step => `<div style="margin: 5px 0;">${step}</div>`).join('')}
+            ${result.manualInstructions.xpiPath ? `<div style="margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 4px; word-break: break-all;"><strong>File Location:</strong><br>${result.manualInstructions.xpiPath}</div>` : ''}
+            ${result.manualInstructions.file ? `<div style="margin: 10px 0;">Create file: <code>${result.manualInstructions.file}</code></div>` : ''}
+            ${result.manualInstructions.content ? `<pre style="background: #f5f5f5; padding: 10px; margin: 10px 0; font-size: 12px; overflow-x: auto;">${JSON.stringify(result.manualInstructions.content, null, 2)}</pre>` : ''}
           `;
         }
       }
