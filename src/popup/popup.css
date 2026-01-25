@@ -23,12 +23,37 @@ header {
   color: white;
   padding: 20px;
   text-align: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #eee;
 }
 
-h1 {
-  font-size: 24px;
-  margin-bottom: 5px;
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
   font-weight: 700;
+}
+
+.header-title {
+  flex: 1;
+  text-align: center;
+}
+
+.header-title h1 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.header-title .subtitle {
+  margin: 5px 0 0 0;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.header-settings {
+  position: relative;
 }
 
 .subtitle {
@@ -461,13 +486,26 @@ footer {
 }
 
 .modal-header {
+  text-align: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #eee;
+}
+
+.header-content {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px;
-  border-bottom: 1px solid #e0e0e0;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  width: 100%;
+}
+
+.header-title {
+  flex: 1;
+  text-align: center;
+}
+
+.header-settings {
+  position: relative;
 }
 
 .modal-header h3 {
@@ -725,6 +763,7 @@ footer {
   z-index: 1000;
   min-width: 180px;
   overflow: hidden;
+  margin-top: 8px;
 }
 
 .settings-item {

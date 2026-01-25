@@ -83,6 +83,7 @@ function initializePopup() {
   const syncBtn = document.getElementById('syncBtn');
   const showSheetBtn = document.getElementById('showSheetBtn');
   const clearBtn = document.getElementById('clearBtn');
+  const syncCharacterToCloudBtn = document.getElementById('syncCharacterToCloudBtn');
   const howToBtn = document.getElementById('howToBtn');
   const settingsBtn = document.getElementById('settingsBtn');
   const settingsMenu = document.getElementById('settingsMenu');
@@ -160,6 +161,10 @@ function initializePopup() {
 
   if (howToBtn) {
     howToBtn.addEventListener('click', handleHowTo);
+  }
+
+  if (syncCharacterToCloudBtn) {
+    syncCharacterToCloudBtn.addEventListener('click', handleSyncCharacterToCloud);
   }
 
   clearBtn.addEventListener('click', handleClear);
@@ -589,9 +594,17 @@ function initializePopup() {
 
         // Always show character selector when characters exist
         characterSelector.classList.remove('hidden');
+        
+        // Show sync character button if there's an active character
+        if (activeCharacter) {
+          syncCharacterToCloudBtn.classList.remove('hidden');
+        } else {
+          syncCharacterToCloudBtn.classList.add('hidden');
+        }
       } else {
         characterSelect.innerHTML = '<option value="">No characters synced</option>';
         characterSelector.classList.add('hidden');
+        syncCharacterToCloudBtn.classList.add('hidden');
       }
 
       // Display active character data
@@ -612,7 +625,14 @@ function initializePopup() {
   async function handleCharacterChange() {
     try {
       const selectedId = characterSelect.value;
-      if (!selectedId) return;
+      if (!selectedId) {
+        // Hide sync character button when no character is selected
+        syncCharacterToCloudBtn.classList.add('hidden');
+        return;
+      }
+
+      // Show sync character button when a character is selected
+      syncCharacterToCloudBtn.classList.remove('hidden');
 
       // Set this character as active
       await browserAPI.runtime.sendMessage({
@@ -661,24 +681,128 @@ function initializePopup() {
   }
 
   /**
-   * Handles sync button click - opens slot selection modal
+   * Handles refresh characters button click - pulls data from local storage and database
    */
   async function handleSync() {
     try {
-      // Get current tab
-      const [tab] = await browserAPI.tabs.query({ active: true, currentWindow: true });
+      syncBtn.disabled = true;
+      syncBtn.textContent = '⏳ Refreshing...';
+      statusIcon.textContent = '⏳';
+      statusText.textContent = 'Refreshing characters...';
 
-      // Check if we're on Dice Cloud
-      if (!tab.url || !(tab.url.includes('dicecloud.com'))) {
-        showError('Please navigate to a Dice Cloud character sheet first');
+      // First, refresh from local storage
+      await refreshFromLocalStorage();
+      
+      // Then, refresh from database/cloud
+      await refreshFromDatabase();
+      
+      // Finally, reload character data to update UI
+      await loadCharacterData();
+      
+      showSuccess('Characters refreshed successfully!');
+    } catch (error) {
+      debug.error('Error refreshing characters:', error);
+      showError('Error: ' + error.message);
+    } finally {
+      syncBtn.disabled = false;
+      syncBtn.textContent = '🔄 Refresh Characters';
+    }
+  }
+
+  /**
+   * Refreshes character data from local storage
+   */
+  async function refreshFromLocalStorage() {
+    try {
+      // Get all character profiles from local storage
+      const profilesResponse = await browserAPI.runtime.sendMessage({ action: 'getAllCharacterProfiles' });
+      const profiles = profilesResponse.success ? profilesResponse.profiles : {};
+      
+      const characterCount = Object.keys(profiles).filter(id => 
+        profiles[id].type !== 'rollcloudPlayer'
+      ).length;
+      
+      console.log(`Found ${characterCount} characters in local storage`);
+      return profiles;
+    } catch (error) {
+      console.error('Error refreshing from local storage:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Refreshes character data from database/cloud
+   */
+  async function refreshFromDatabase() {
+    try {
+      // Check if Supabase is available
+      if (typeof SupabaseTokenManager === 'undefined') {
+        console.log('Cloud sync not available, skipping database refresh');
         return;
       }
 
-      // Open slot selection modal
-      await showSlotSelectionModal(tab);
+      const supabaseManager = new SupabaseTokenManager();
+      
+      // Get current token from storage
+      const result = await browserAPI.storage.local.get(['diceCloudToken', 'username', 'tokenExpires', 'diceCloudUserId', 'authId']);
+      
+      if (!result.diceCloudToken) {
+        console.log('No token found, skipping database refresh');
+        return;
+      }
+
+      // Refresh token in cloud
+      const supabaseResult = await supabaseManager.storeToken({
+        token: result.diceCloudToken,
+        userId: result.diceCloudUserId,
+        tokenExpires: result.tokenExpires,
+        username: result.username || 'DiceCloud User',
+        authId: result.authId || result.diceCloudUserId
+      });
+
+      if (supabaseResult.success) {
+        console.log('Account data refreshed to cloud');
+        
+        // Try to pull character data from cloud
+        const characterData = await supabaseManager.getCharacterData(result.diceCloudUserId);
+        if (characterData.success && characterData.characters) {
+          console.log(`Pulled ${Object.keys(characterData.characters).length} characters from cloud`);
+          
+          // Merge cloud data with local storage
+          await mergeCloudDataToLocal(characterData.characters);
+        }
+      } else {
+        console.error('Failed to refresh account to cloud:', supabaseResult.error);
+      }
     } catch (error) {
-      debug.error('Error opening slot selection:', error);
-      showError('Error: ' + error.message);
+      console.error('Error refreshing from database:', error);
+      // Don't throw error here, allow local storage refresh to succeed
+    }
+  }
+
+  /**
+   * Merges cloud character data with local storage
+   */
+  async function mergeCloudDataToLocal(cloudCharacters) {
+    try {
+      // Get current local profiles
+      const localResponse = await browserAPI.runtime.sendMessage({ action: 'getAllCharacterProfiles' });
+      const localProfiles = localResponse.success ? localResponse.profiles : {};
+      
+      // Merge cloud data with local data (local takes precedence)
+      for (const [characterId, cloudData] of Object.entries(cloudCharacters)) {
+        if (!localProfiles[characterId]) {
+          // Only add cloud data if it doesn't exist locally
+          await browserAPI.runtime.sendMessage({
+            action: 'storeCharacterData',
+            data: cloudData.characterData,
+            slotId: characterId
+          });
+          console.log(`Added cloud character ${characterId} to local storage`);
+        }
+      }
+    } catch (error) {
+      console.error('Error merging cloud data:', error);
     }
   }
 
@@ -864,6 +988,62 @@ function initializePopup() {
       // Fallback: try to open the welcome screen directly
       const welcomeUrl = browserAPI.runtime.getURL('src/options/welcome.html');
       browserAPI.tabs.create({ url: welcomeUrl });
+    }
+  }
+
+  /**
+   * Handles sync character to cloud button click
+   */
+  async function handleSyncCharacterToCloud() {
+    try {
+      syncCharacterToCloudBtn.disabled = true;
+      syncCharacterToCloudBtn.textContent = '⏳ Syncing...';
+
+      // Get currently selected character ID
+      const selectedId = characterSelect.value;
+
+      if (!selectedId) {
+        showError('No character selected');
+        return;
+      }
+
+      // Get character data
+      const profilesResponse = await browserAPI.runtime.sendMessage({ action: 'getAllCharacterProfiles' });
+      const profiles = profilesResponse.success ? profilesResponse.profiles : {};
+      const characterData = profiles[selectedId];
+
+      if (!characterData) {
+        showError('Character data not found');
+        return;
+      }
+
+      // Check if Supabase is available
+      if (typeof SupabaseTokenManager === 'undefined') {
+        showError('Cloud sync not available');
+        return;
+      }
+
+      const supabaseManager = new SupabaseTokenManager();
+      
+      // Sync character data to cloud
+      const result = await supabaseManager.storeCharacterData({
+        characterId: selectedId,
+        characterData: characterData,
+        discordUserId: characterData.discordUserId,
+        timestamp: new Date().toISOString()
+      });
+
+      if (result.success) {
+        showSuccess('Character synced to cloud!');
+      } else {
+        showError('Cloud sync failed: ' + (result.error || 'Unknown error'));
+      }
+    } catch (error) {
+      debug.error('Error syncing character to cloud:', error);
+      showError('Cloud sync error: ' + error.message);
+    } finally {
+      syncCharacterToCloudBtn.disabled = false;
+      syncCharacterToCloudBtn.textContent = '☁️ Sync Character to Cloud';
     }
   }
 

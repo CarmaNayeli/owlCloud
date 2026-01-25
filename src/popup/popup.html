@@ -9,8 +9,39 @@
 <body>
   <div class="container">
     <header>
-      <h1>🎲 RollCloud</h1>
-      <p class="subtitle">Dice Cloud → Roll20 Bridge</p>
+      <div class="header-content">
+        <div class="header-title">
+          <h1>🎲 RollCloud</h1>
+          <p class="subtitle">Dice Cloud → Roll20 Bridge</p>
+        </div>
+        <div class="header-settings">
+          <button id="settingsBtn" class="btn btn-secondary settings-btn" title="Settings">
+            ⚙️
+          </button>
+          <div id="settingsMenu" class="settings-menu hidden">
+            <button id="howToBtn" class="settings-item">
+              📖 How to Use
+            </button>
+            <button id="exportBtn" class="settings-item">
+              📤 Export Characters
+            </button>
+            <button id="importBtn" class="settings-item">
+              📥 Import Characters
+            </button>
+            <input type="file" id="importFile" accept=".json" style="display: none;">
+            <button id="cloudSyncBtn" class="settings-item">
+              ☁️ Sync Account to Cloud
+            </button>
+            <div class="settings-divider"></div>
+            <button id="logoutBtn" class="settings-item">
+              🚪 Logout
+            </button>
+            <button id="clearBtn" class="settings-item danger">
+              🗑️ Clear Data
+            </button>
+          </div>
+        </div>
+      </div>
     </header>
 
     <main>
@@ -100,38 +131,14 @@
 
         <div class="actions">
           <button id="syncBtn" class="btn btn-primary">
-            🔄 Sync from Dice Cloud
+            🔄 Refresh Characters
           </button>
           <button id="showSheetBtn" class="btn btn-secondary">
             📋 Show Character Sheet
           </button>
-          <button id="howToBtn" class="btn btn-secondary">
-            📖 How to Use
+          <button id="syncCharacterToCloudBtn" class="btn btn-secondary hidden">
+            ☁️ Sync Character to Cloud
           </button>
-          <div class="settings-dropdown">
-            <button id="settingsBtn" class="btn btn-secondary settings-btn" title="Settings">
-              ⚙️
-            </button>
-            <div id="settingsMenu" class="settings-menu hidden">
-              <button id="exportBtn" class="settings-item">
-                📤 Export Characters
-              </button>
-              <button id="importBtn" class="settings-item">
-                📥 Import Characters
-              </button>
-              <input type="file" id="importFile" accept=".json" style="display: none;">
-              <button id="cloudSyncBtn" class="settings-item">
-                ☁️ Sync to Cloud
-              </button>
-              <div class="settings-divider"></div>
-              <button id="logoutBtn" class="settings-item">
-                🚪 Logout
-              </button>
-              <button id="clearBtn" class="settings-item danger">
-                🗑️ Clear Data
-              </button>
-            </div>
-          </div>
         </div>
 
         <!-- Discord Integration -->
