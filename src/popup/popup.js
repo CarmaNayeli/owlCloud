@@ -261,19 +261,26 @@ function initializePopup() {
                   await browserAPI.storage.local.set({
                     diceCloudToken: supabaseResult.token,
                     username: supabaseResult.username,
-                    tokenExpires: supabaseResult.tokenExpires
+                    tokenExpires: supabaseResult.tokenExpires,
+                    diceCloudUserId: supabaseResult.userId,
+                    authId: supabaseResult.authId || supabaseResult.userId
                   });
+                  // Restore character data from local storage
+                  const localProfiles = await browserAPI.storage.local.get(['profiles']);
+                  if (localProfiles.profiles) {
+                    await browserAPI.storage.local.set({
+                      profiles: localProfiles.profiles
+                    });
+                  }
+                  debug.log('✅ Token and data restored from Supabase to local storage');
                   showMainSection();
                 } else {
-                  debug.log('❌ No token found in Supabase, showing login. Error:', supabaseResult.error);
+                  debug.log('ℹ️ No token found in Supabase');
                   showLoginSection();
                 }
-              } else {
-                debug.log('❌ Supabase not available, showing login');
-                showLoginSection();
               }
-            } catch (supabaseError) {
-              debug.error('❌ Supabase check failed:', supabaseError);
+            } catch (error) {
+              debug.error('❌ Error retrieving from Supabase:', error);
               showLoginSection();
             }
           }
