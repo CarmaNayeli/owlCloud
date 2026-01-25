@@ -3,10 +3,12 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+}
 
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -20,6 +22,8 @@ export async function GET(request: NextRequest) {
   if (!discordId) {
     return NextResponse.json({ error: 'Discord ID not found' }, { status: 400 });
   }
+
+  const supabase = getSupabaseClient();
 
   const { data: instances, error } = await supabase
     .from('pip2_instances')
@@ -55,6 +59,8 @@ export async function POST(request: NextRequest) {
     if (!guild_id || !channel_id) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
+
+    const supabase = getSupabaseClient();
 
     const { data: instance, error } = await supabase
       .from('pip2_instances')

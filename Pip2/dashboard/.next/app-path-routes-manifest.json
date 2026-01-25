@@ -1,0 +1,21 @@
+{
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/api/auth/[...nextauth]/route": "/api/auth/[...nextauth]",
+  "/api/changelog/route": "/api/changelog",
+  "/api/discord/bot-in-server/[serverId]/route": "/api/discord/bot-in-server/[serverId]",
+  "/api/discord/servers/route": "/api/discord/servers",
+  "/api/health/route": "/api/health",
+  "/api/instances/[id]/route": "/api/instances/[id]",
+  "/api/instances/route": "/api/instances",
+  "/api/reaction-roles/route": "/api/reaction-roles",
+  "/changelog/page": "/changelog",
+  "/configure-pip/page": "/configure-pip",
+  "/icon.png/route": "/icon.png",
+  "/login/page": "/login",
+  "/my-instances/page": "/my-instances",
+  "/page": "/",
+  "/pip-settings/page": "/pip-settings",
+  "/reaction-roles/page": "/reaction-roles",
+  "/setup/page": "/setup"
+}

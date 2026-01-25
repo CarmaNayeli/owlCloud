@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/pip-settings/layout,_N_T_/pip-settings/page,_N_T_/pip-settings"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/pip-settings/__PAGE__",
+    "/pip-settings",
+    "/_index",
+    "/_head"
+  ]
+}

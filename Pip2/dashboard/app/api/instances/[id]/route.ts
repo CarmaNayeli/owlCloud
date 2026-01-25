@@ -3,10 +3,12 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+function getSupabaseClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+}
 
 export async function PATCH(
   request: NextRequest,
@@ -27,6 +29,7 @@ export async function PATCH(
 
   try {
     const body = await request.json();
+    const supabase = getSupabaseClient();
 
     // First verify the instance belongs to this user
     const { data: existing } = await supabase
@@ -76,6 +79,8 @@ export async function DELETE(
   if (!discordId) {
     return NextResponse.json({ error: 'Discord ID not found' }, { status: 400 });
   }
+
+  const supabase = getSupabaseClient();
 
   // First verify the instance belongs to this user
   const { data: existing } = await supabase

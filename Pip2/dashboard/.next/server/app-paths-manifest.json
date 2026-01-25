@@ -1,0 +1,21 @@
+{
+  "/_global-error/page": "app/_global-error/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
+  "/api/changelog/route": "app/api/changelog/route.js",
+  "/api/discord/bot-in-server/[serverId]/route": "app/api/discord/bot-in-server/[serverId]/route.js",
+  "/api/discord/servers/route": "app/api/discord/servers/route.js",
+  "/api/health/route": "app/api/health/route.js",
+  "/api/instances/[id]/route": "app/api/instances/[id]/route.js",
+  "/api/instances/route": "app/api/instances/route.js",
+  "/api/reaction-roles/route": "app/api/reaction-roles/route.js",
+  "/changelog/page": "app/changelog/page.js",
+  "/configure-pip/page": "app/configure-pip/page.js",
+  "/icon.png/route": "app/icon.png/route.js",
+  "/login/page": "app/login/page.js",
+  "/my-instances/page": "app/my-instances/page.js",
+  "/page": "app/page.js",
+  "/pip-settings/page": "app/pip-settings/page.js",
+  "/reaction-roles/page": "app/reaction-roles/page.js",
+  "/setup/page": "app/setup/page.js"
+}

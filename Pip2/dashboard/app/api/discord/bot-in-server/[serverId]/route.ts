@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { serverId: string } }
+  context: { params: Promise<{ serverId: string }> }
 ) {
   try {
-    const { serverId } = params;
+    const { serverId } = await context.params;
 
     // Check if the bot is in the server by trying to fetch bot's guilds
     // This requires the bot token to be available

@@ -1,0 +1,15 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/reaction-roles/layout,_N_T_/reaction-roles/page,_N_T_/reaction-roles"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/reaction-roles/__PAGE__",
+    "/reaction-roles",
+    "/_index",
+    "/_head"
+  ]
+}
