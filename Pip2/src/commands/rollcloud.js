@@ -29,11 +29,16 @@ export default {
 
     const code = interaction.options.getString('code').toUpperCase();
 
+    // Defer immediately to avoid timeout
     await interaction.deferReply();
 
     try {
+      console.log(`Looking up pairing code: ${code}`);
+      
       // 1. Look up pairing code in Supabase
       const pairing = await lookupPairingCode(code);
+      
+      console.log(`Pairing result:`, pairing);
 
       if (!pairing) {
         await interaction.editReply({
@@ -140,25 +145,40 @@ export default {
  * Look up a pairing code in Supabase
  */
 async function lookupPairingCode(code) {
+  console.log('Supabase config check:', {
+    hasUrl: !!SUPABASE_URL,
+    hasKey: !!SUPABASE_SERVICE_KEY,
+    url: SUPABASE_URL ? SUPABASE_URL.substring(0, 20) + '...' : 'missing'
+  });
+
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
     throw new Error('Supabase not configured');
   }
 
-  const response = await fetch(
-    `${SUPABASE_URL}/rest/v1/rollcloud_pairings?pairing_code=eq.${code}&select=*`,
-    {
-      headers: {
-        'apikey': SUPABASE_SERVICE_KEY,
-        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
-      }
+  const startTime = Date.now();
+  const url = `${SUPABASE_URL}/rest/v1/rollcloud_pairings?pairing_code=eq.${code}&select=*`;
+  
+  console.log(`Fetching from: ${url}`);
+
+  const response = await fetch(url, {
+    headers: {
+      'apikey': SUPABASE_SERVICE_KEY,
+      'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
     }
-  );
+  });
+
+  const endTime = Date.now();
+  console.log(`Supabase query took ${endTime - startTime}ms`);
 
   if (!response.ok) {
-    throw new Error('Failed to lookup pairing code');
+    const errorText = await response.text();
+    console.error('Supabase error:', response.status, errorText);
+    throw new Error(`Failed to lookup pairing code: ${response.status}`);
   }
 
   const data = await response.json();
+  console.log(`Supabase response data:`, data);
+  
   return data.length > 0 ? data[0] : null;
 }
 
