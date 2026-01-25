@@ -813,8 +813,8 @@ class DiceCloudSync {
             }
 
             console.log('[DiceCloud Sync] ✅ Comprehensive variant mapping complete');
-          } // Closes if (apiData.creatureProperties && Array.isArray(apiData.creatureProperties)) from line 330
-          else {
+            } // Closes if (apiData.creatureProperties && Array.isArray(apiData.creatureProperties)) from line 330
+          } else {
             console.warn('[DiceCloud Sync] Failed to fetch API data for property cache:', response.error);
           }
         } catch (error) {
