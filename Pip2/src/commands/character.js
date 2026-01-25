@@ -1,17 +1,22 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 
-// Supabase config
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
 export default {
   data: new SlashCommandBuilder()
     .setName('character')
-    .setDescription('View your linked DiceCloud character')
+    .setDescription('View or set your active character')
+    .addStringOption(option =>
+      option
+        .setName('name')
+        .setDescription('Character name to set as active (partial match OK)')
+        .setRequired(false)
+    )
     .addUserOption(option =>
       option
         .setName('user')
-        .setDescription('View another user\'s character (optional)')
+        .setDescription('View another user\'s active character')
         .setRequired(false)
     ),
 
@@ -19,105 +24,66 @@ export default {
     await interaction.deferReply();
 
     try {
+      const characterName = interaction.options.getString('name');
       const targetUser = interaction.options.getUser('user') || interaction.user;
-      const character = await getCharacterByDiscordUser(targetUser.id);
+      const isOwnCharacter = targetUser.id === interaction.user.id;
 
-      if (!character) {
+      // If name provided and it's the user's own character, set it as active
+      if (characterName && isOwnCharacter) {
+        const result = await setActiveCharacter(interaction.user.id, characterName);
+
+        if (!result.success) {
+          await interaction.editReply({
+            embeds: [new EmbedBuilder()
+              .setColor(0xE74C3C)
+              .setTitle('❌ Character Not Found')
+              .setDescription(
+                `No character matching "${characterName}" found.\n\n` +
+                'Use `/characters` to see your synced characters.'
+              )
+            ]
+          });
+          return;
+        }
+
         await interaction.editReply({
           embeds: [new EmbedBuilder()
-            .setColor(0xF39C12)
-            .setTitle('❌ No Character Found')
-            .setDescription(
-              targetUser.id === interaction.user.id
-                ? 'You don\'t have a character linked yet.\n\n' +
-                  '**To link your character:**\n' +
-                  '1. Open the RollCloud extension\n' +
-                  '2. Go to a DiceCloud character sheet\n' +
-                  '3. Click "Sync to Cloud" in the extension'
-                : `${targetUser.username} doesn't have a character linked.`
+            .setColor(0x4ECDC4)
+            .setTitle('✅ Active Character Set')
+            .setDescription(`**${result.character.character_name}** is now your active character.`)
+            .addFields(
+              { name: 'Class', value: `${result.character.class || 'Unknown'} Lv ${result.character.level}`, inline: true },
+              { name: 'HP', value: `${result.character.hit_points?.current || 0}/${result.character.hit_points?.max || 0}`, inline: true },
+              { name: 'AC', value: `${result.character.armor_class || 10}`, inline: true }
             )
           ]
         });
         return;
       }
 
-      // Build character embed
-      const embed = new EmbedBuilder()
-        .setColor(0x4ECDC4)
-        .setTitle(`🎭 ${character.character_name}`)
-        .setDescription(
-          `**${character.race || 'Unknown Race'}** ${character.class || 'Unknown Class'} (Level ${character.level || 1})\n` +
-          (character.alignment ? `*${character.alignment}*` : '')
-        )
-        .addFields(
-          {
-            name: '❤️ Hit Points',
-            value: `${character.hit_points?.current || 0} / ${character.hit_points?.max || 0}`,
-            inline: true
-          },
-          {
-            name: '🛡️ Armor Class',
-            value: `${character.armor_class || 10}`,
-            inline: true
-          },
-          {
-            name: '⚡ Speed',
-            value: `${character.speed || 30} ft`,
-            inline: true
-          }
-        );
+      // Otherwise, show the active character
+      const character = await getActiveCharacter(targetUser.id);
 
-      // Add ability scores if available
-      if (character.attributes && Object.keys(character.attributes).length > 0) {
-        const attrs = character.attributes;
-        const mods = character.attribute_mods || {};
-
-        const formatMod = (mod) => mod >= 0 ? `+${mod}` : `${mod}`;
-
-        const abilityText = [
-          `**STR** ${attrs.strength || 10} (${formatMod(mods.strength || 0)})`,
-          `**DEX** ${attrs.dexterity || 10} (${formatMod(mods.dexterity || 0)})`,
-          `**CON** ${attrs.constitution || 10} (${formatMod(mods.constitution || 0)})`,
-          `**INT** ${attrs.intelligence || 10} (${formatMod(mods.intelligence || 0)})`,
-          `**WIS** ${attrs.wisdom || 10} (${formatMod(mods.wisdom || 0)})`,
-          `**CHA** ${attrs.charisma || 10} (${formatMod(mods.charisma || 0)})`
-        ].join(' | ');
-
-        embed.addFields({ name: '📊 Ability Scores', value: abilityText, inline: false });
+      if (!character) {
+        await interaction.editReply({
+          embeds: [new EmbedBuilder()
+            .setColor(0xF39C12)
+            .setTitle('❌ No Active Character')
+            .setDescription(
+              isOwnCharacter
+                ? 'You don\'t have an active character set.\n\n' +
+                  '**To set one:**\n' +
+                  '• `/character <name>` - Set by name\n' +
+                  '• `/characters` - List all your characters'
+                : `${targetUser.username} doesn't have an active character.`
+            )
+          ]
+        });
+        return;
       }
 
-      // Add saving throws if available
-      if (character.saves && Object.keys(character.saves).length > 0) {
-        const saves = character.saves;
-        const formatMod = (mod) => mod >= 0 ? `+${mod}` : `${mod}`;
-
-        const saveText = Object.entries(saves)
-          .map(([ability, mod]) => `**${ability.slice(0, 3).toUpperCase()}** ${formatMod(mod)}`)
-          .join(' | ');
-
-        embed.addFields({ name: '🎯 Saving Throws', value: saveText, inline: false });
-      }
-
-      // Add spell slots if available
-      if (character.spell_slots && Object.keys(character.spell_slots).length > 0) {
-        const slots = character.spell_slots;
-        const slotText = Object.entries(slots)
-          .filter(([_, data]) => data && (data.max > 0 || data.current > 0))
-          .map(([level, data]) => {
-            const lvl = level.replace('level', '').replace('SpellSlots', '');
-            return `L${lvl}: ${data.current}/${data.max}`;
-          })
-          .join(' | ');
-
-        if (slotText) {
-          embed.addFields({ name: '✨ Spell Slots', value: slotText, inline: false });
-        }
-      }
-
-      embed.setFooter({
-        text: `Last synced: ${new Date(character.updated_at).toLocaleString()}`
-      });
-
+      // Build character sheet embed
+      const embed = buildCharacterEmbed(character, targetUser);
       await interaction.editReply({ embeds: [embed] });
 
     } catch (error) {
@@ -133,17 +99,63 @@ export default {
   }
 };
 
-/**
- * Get character by Discord user ID from Supabase
- */
-async function getCharacterByDiscordUser(discordUserId) {
+function buildCharacterEmbed(character, user) {
+  const formatMod = (mod) => mod >= 0 ? `+${mod}` : `${mod}`;
+  const hp = character.hit_points || { current: 0, max: 0 };
+
+  const embed = new EmbedBuilder()
+    .setColor(0x4ECDC4)
+    .setTitle(`🎭 ${character.character_name}`)
+    .setDescription(
+      `**${character.race || 'Unknown'}** ${character.class || 'Unknown'} (Level ${character.level || 1})\n` +
+      (character.alignment ? `*${character.alignment}*` : '')
+    )
+    .addFields(
+      { name: '❤️ HP', value: `${hp.current}/${hp.max}`, inline: true },
+      { name: '🛡️ AC', value: `${character.armor_class || 10}`, inline: true },
+      { name: '⚡ Speed', value: `${character.speed || 30} ft`, inline: true }
+    );
+
+  // Ability scores
+  if (character.attributes && Object.keys(character.attributes).length > 0) {
+    const attrs = character.attributes;
+    const mods = character.attribute_mods || {};
+
+    const abilityText = [
+      `**STR** ${attrs.strength || 10} (${formatMod(mods.strength || 0)})`,
+      `**DEX** ${attrs.dexterity || 10} (${formatMod(mods.dexterity || 0)})`,
+      `**CON** ${attrs.constitution || 10} (${formatMod(mods.constitution || 0)})`,
+      `**INT** ${attrs.intelligence || 10} (${formatMod(mods.intelligence || 0)})`,
+      `**WIS** ${attrs.wisdom || 10} (${formatMod(mods.wisdom || 0)})`,
+      `**CHA** ${attrs.charisma || 10} (${formatMod(mods.charisma || 0)})`
+    ].join(' | ');
+
+    embed.addFields({ name: '📊 Abilities', value: abilityText, inline: false });
+  }
+
+  // Saving throws
+  if (character.saves && Object.keys(character.saves).length > 0) {
+    const saveText = Object.entries(character.saves)
+      .map(([ability, mod]) => `**${ability.slice(0, 3).toUpperCase()}** ${formatMod(mod)}`)
+      .join(' | ');
+    embed.addFields({ name: '🎯 Saves', value: saveText, inline: false });
+  }
+
+  embed.setFooter({
+    text: `${user.username} • Last synced: ${new Date(character.updated_at).toLocaleString()}`
+  });
+
+  return embed;
+}
+
+async function getActiveCharacter(discordUserId) {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
     throw new Error('Supabase not configured');
   }
 
-  // First try direct discord_user_id lookup
+  // First try to get active character
   let response = await fetch(
-    `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}&select=*&order=updated_at.desc&limit=1`,
+    `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}&is_active=eq.true&select=*&limit=1`,
     {
       headers: {
         'apikey': SUPABASE_SERVICE_KEY,
@@ -153,18 +165,39 @@ async function getCharacterByDiscordUser(discordUserId) {
   );
 
   if (!response.ok) {
-    throw new Error(`Supabase error: ${response.status}`);
+    throw new Error(`Database error: ${response.status}`);
   }
 
   let data = await response.json();
 
-  if (data.length > 0) {
-    return data[0];
+  // If no active character, get most recently updated
+  if (data.length === 0) {
+    response = await fetch(
+      `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}&select=*&order=updated_at.desc&limit=1`,
+      {
+        headers: {
+          'apikey': SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+        }
+      }
+    );
+
+    if (response.ok) {
+      data = await response.json();
+    }
   }
 
-  // Fallback: try to find via pairing
-  response = await fetch(
-    `${SUPABASE_URL}/rest/v1/rollcloud_pairings?discord_user_id=eq.${discordUserId}&select=id`,
+  return data.length > 0 ? data[0] : null;
+}
+
+async function setActiveCharacter(discordUserId, characterName) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+    throw new Error('Supabase not configured');
+  }
+
+  // Find character by name (case-insensitive partial match)
+  const response = await fetch(
+    `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}&character_name=ilike.*${characterName}*&select=*`,
     {
       headers: {
         'apikey': SUPABASE_SERVICE_KEY,
@@ -173,29 +206,45 @@ async function getCharacterByDiscordUser(discordUserId) {
     }
   );
 
-  if (response.ok) {
-    const pairings = await response.json();
-    if (pairings.length > 0) {
-      const pairingId = pairings[0].id;
-
-      response = await fetch(
-        `${SUPABASE_URL}/rest/v1/rollcloud_characters?pairing_id=eq.${pairingId}&select=*&order=updated_at.desc&limit=1`,
-        {
-          headers: {
-            'apikey': SUPABASE_SERVICE_KEY,
-            'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
-          }
-        }
-      );
-
-      if (response.ok) {
-        data = await response.json();
-        if (data.length > 0) {
-          return data[0];
-        }
-      }
-    }
+  if (!response.ok) {
+    throw new Error(`Database error: ${response.status}`);
   }
 
-  return null;
+  const matches = await response.json();
+
+  if (matches.length === 0) {
+    return { success: false };
+  }
+
+  const character = matches[0];
+
+  // Deactivate all other characters for this user
+  await fetch(
+    `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}`,
+    {
+      method: 'PATCH',
+      headers: {
+        'apikey': SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ is_active: false })
+    }
+  );
+
+  // Activate the selected character
+  await fetch(
+    `${SUPABASE_URL}/rest/v1/rollcloud_characters?id=eq.${character.id}`,
+    {
+      method: 'PATCH',
+      headers: {
+        'apikey': SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ is_active: true })
+    }
+  );
+
+  return { success: true, character };
 }
