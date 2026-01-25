@@ -130,6 +130,20 @@ export default function ConfigurePip() {
     }
   }, [status]);
 
+  // Additional check for Discord access token
+  useEffect(() => {
+    if (status === 'authenticated' && session) {
+      const hasAccessToken = !!(session as any)?.accessToken;
+      if (!hasAccessToken) {
+        console.log('⚠️ Discord access token missing, redirecting to login');
+        setError('Discord access token missing. Please sign in again.');
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+      }
+    }
+  }, [status, session]);
+
   const loadServers = async () => {
     try {
       // Fetch real Discord servers via API
@@ -181,11 +195,16 @@ export default function ConfigurePip() {
       // Handle specific error cases
       if (error instanceof Error) {
         if (error.message === 'requires_auth') {
-          // User needs to sign in - this will be handled by the UI
+          // User needs to sign in - redirect to sign in page
+          window.location.href = '/login';
           return;
         } else if (error.message === 'token_expired') {
-          // Token expired - show message to re-authenticate
+          // Token expired - show message and redirect to sign in
           setError('Your Discord session has expired. Please sign in again.');
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 3000);
+          return;
         } else {
           // Other errors
           setError(error.message || 'Failed to load Discord servers');
@@ -422,6 +441,18 @@ export default function ConfigurePip() {
       {/* Server Selection */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-200 dark:border-gray-700">
         <h2 className="text-xl font-bold mb-4">Select Server</h2>
+        
+        {/* Error Display */}
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M8.011 3.015h.01M16 4v.01M12 16v.01M3.015 8.011h.01M8.015 12.015h.01M16 20.01v-.01" />
+              </svg>
+              <span className="text-red-800 dark:text-red-200 font-medium">{error}</span>
+            </div>
+          </div>
+        )}
         
         {servers.length === 0 ? (
           <div className="text-center py-8">
