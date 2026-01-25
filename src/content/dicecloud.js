@@ -3056,7 +3056,7 @@
   /**
    * Listens for messages from popup and other parts of the extension
    */
-  browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  browserAPI.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
     debug.log('DiceCloud received message:', request);
 
     switch (request.action) {
@@ -3109,6 +3109,65 @@
         }
         return true;
 
+      case 'showLoginHint':
+        // Show a login hint on the DiceCloud page
+        try {
+          // Create a simple overlay to guide the user
+          const hintOverlay = document.createElement('div');
+          hintOverlay.id = 'rollcloud-login-hint';
+          hintOverlay.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #4CAF50;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            z-index: 10000;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            max-width: 300px;
+          `;
+          hintOverlay.innerHTML = `
+            <div style="display: flex; align-items: center; margin-bottom: 8px;">
+              <span style="font-size: 18px; margin-right: 8px;">🎲</span>
+              <strong>RollCloud Extension</strong>
+            </div>
+            <div>Please log in to DiceCloud (Google Sign-In or username/password), then click the "Connect with DiceCloud" button again.</div>
+            <button onclick="this.parentElement.remove()" style="
+              margin-top: 10px;
+              background: white;
+              color: #4CAF50;
+              border: none;
+              padding: 5px 10px;
+              border-radius: 4px;
+              cursor: pointer;
+            ">Got it</button>
+          `;
+          
+          // Remove any existing hint
+          const existingHint = document.getElementById('rollcloud-login-hint');
+          if (existingHint) {
+            existingHint.remove();
+          }
+          
+          document.body.appendChild(hintOverlay);
+          
+          // Auto-remove after 10 seconds
+          setTimeout(() => {
+            if (hintOverlay.parentElement) {
+              hintOverlay.remove();
+            }
+          }, 10000);
+          
+          sendResponse({ success: true });
+        } catch (error) {
+          debug.error('Error showing login hint:', error);
+          sendResponse({ success: false, error: error.message });
+        }
+        return true;
+
       case 'extractAuthToken':
         // Extract authentication token from DiceCloud session
         try {
@@ -3120,22 +3179,158 @@
           if (loginToken && userId) {
             debug.log('✅ Found auth token in localStorage');
 
-            // Try to get username from the page
-            let username = 'DiceCloud User';
-            const usernameEl = document.querySelector('[data-id="username"]') ||
-                              document.querySelector('.user-name') ||
-                              document.querySelector('.username');
-            if (usernameEl) {
-              username = usernameEl.textContent.trim();
+            // Separate auth ID (for database) from display username (for UI)
+            const authId = userId; // Meteor user ID for authentication/database
+            
+            // Try to extract display username (for user recognition)
+            let displayUsername = 'DiceCloud User';
+            
+            // Method 1: Check if Meteor.user() is available
+            try {
+              debug.log('🔍 Checking for Meteor.user()...');
+              if (typeof window.Meteor !== 'undefined' && window.Meteor.user) {
+                debug.log('✅ Meteor object available:', typeof window.Meteor);
+                const meteorUser = window.Meteor.user();
+                debug.log('📦 Meteor.user() result:', meteorUser);
+                
+                if (meteorUser) {
+                  displayUsername = meteorUser.username || 
+                                    meteorUser.emails?.[0]?.address ||
+                                    meteorUser.profile?.username ||
+                                    meteorUser.profile?.name ||
+                                    meteorUser.services?.google?.email ||
+                                    meteorUser.services?.facebook?.email ||
+                                    'DiceCloud User';
+                  debug.log('✅ Found display username via Meteor.user():', displayUsername);
+                } else {
+                  debug.log('❌ Meteor.user() returned null/undefined');
+                }
+              } else {
+                debug.log('❌ Meteor.user() not available. window.Meteor:', typeof window.Meteor);
+                debug.log('🔍 Available window properties:', Object.keys(window).filter(k => k.toLowerCase().includes('meteor')).slice(0, 10));
+              }
+            } catch (e) {
+              debug.log('⚠️ Meteor.user() error:', e.message);
             }
+            
+            // Method 2: Check localStorage for user data
+            if (displayUsername === 'DiceCloud User') {
+              try {
+                debug.log('🔍 Checking localStorage for user data...');
+                const allKeys = Object.keys(localStorage);
+                debug.log('📋 All localStorage keys:', allKeys);
+                
+                const meteorUserKeys = allKeys.filter(key => 
+                  (key.includes('Meteor.user') || key.includes('user') || key.includes('User')) && 
+                  !key.includes('Meteor.userId') && 
+                  !key.includes('Meteor.loginToken')
+                );
+                
+                debug.log('🔍 Found user-related localStorage keys:', meteorUserKeys);
+                
+                for (const meteorUserKey of meteorUserKeys) {
+                  try {
+                    const userData = localStorage.getItem(meteorUserKey);
+                    debug.log(`📦 Raw data from key "${meteorUserKey}":`, userData?.substring(0, 200));
+                    
+                    if (userData) {
+                      let parsed;
+                      try {
+                        parsed = JSON.parse(userData);
+                        debug.log(`📦 Parsed data from key "${meteorUserKey}":`, parsed);
+                      } catch (parseError) {
+                        debug.log(`⚠️ Key "${meteorUserKey}" is not JSON, trying raw value`);
+                        // Try raw string if not JSON
+                        if (userData.length > 2 && userData !== 'Chepi' && !userData.match(/^[a-zA-Z0-9]{10,}$/)) {
+                          displayUsername = userData.trim();
+                          debug.log(`✅ Found display username from localStorage key "${meteorUserKey}":`, displayUsername);
+                          break;
+                        }
+                        continue;
+                      }
+                      
+                      displayUsername = parsed.username || 
+                                        parsed.emails?.[0]?.address ||
+                                        parsed.profile?.username ||
+                                        parsed.profile?.name ||
+                                        parsed.name ||
+                                        parsed.email ||
+                                        'DiceCloud User';
+                      if (displayUsername !== 'DiceCloud User') {
+                        debug.log('✅ Found display username in localStorage:', displayUsername);
+                        break;
+                      }
+                    }
+                  } catch (keyError) {
+                    debug.log(`⚠️ Error processing key "${meteorUserKey}":`, keyError.message);
+                  }
+                }
+                
+                if (meteorUserKeys.length === 0) {
+                  debug.log('ℹ️ No additional user data keys found in localStorage (only Meteor.userId and tokens)');
+                }
+              } catch (e) {
+                debug.log('⚠️ Failed to check localStorage user data:', e.message);
+              }
+            }
+            
+            // Method 3: Try window objects
+            if (displayUsername === 'DiceCloud User') {
+              try {
+                const possibleUserObjects = [
+                  window.currentUser, window.user, window.app?.currentUser,
+                  window.app?.user, window.$root?.currentUser, window.$root?.user
+                ];
+                
+                for (const userObj of possibleUserObjects) {
+                  if (userObj) {
+                    const candidateUsername = userObj.username || userObj.email || userObj.name;
+                    if (candidateUsername && candidateUsername !== 'Chepi') {
+                      displayUsername = candidateUsername;
+                      debug.log('✅ Found display username in window object:', displayUsername);
+                      break;
+                    }
+                  }
+                }
+              } catch (e) {
+                debug.log('⚠️ Failed to check window objects:', e.message);
+              }
+            }
+            
+            // Method 4: DOM extraction as last resort
+            if (displayUsername === 'DiceCloud User') {
+              const possibleElements = [
+                '.user-menu .username', '.user-info .username', '.navbar .user-display-name',
+                'header .user-name', '.profile .name', '.avatar + span', '.user-avatar + *'
+              ];
+              
+              for (const selector of possibleElements) {
+                const el = document.querySelector(selector);
+                if (el && el.textContent && el.textContent.trim()) {
+                  const candidate = el.textContent.trim();
+                  if (candidate !== 'Chepi' && candidate.length > 2 && !candidate.match(/^[A-Z][a-z]+$/)) {
+                    displayUsername = candidate;
+                    debug.log(`✅ Found display username with selector "${selector}":`, displayUsername);
+                    break;
+                  }
+                }
+              }
+            }
+            
+            debug.log('✅ Auth ID for database:', authId);
+            debug.log('✅ Display username for UI:', displayUsername);
 
-            sendResponse({
+            const responseData = {
               success: true,
               token: loginToken,
               userId: userId,
               tokenExpires: loginTokenExpires,
-              username: username
-            });
+              username: displayUsername, // Display username for UI
+              authId: authId // Auth ID for database storage
+            };
+            
+            debug.log('📤 About to send response:', responseData);
+            sendResponse(responseData);
           } else {
             debug.warn('⚠️ No auth token found - user may not be logged in');
             sendResponse({
@@ -3150,7 +3345,7 @@
             error: 'Failed to extract token: ' + error.message
           });
         }
-        return true;
+        return true; // Keep channel open for async response
 
       default:
         debug.warn('Unknown action:', request.action);

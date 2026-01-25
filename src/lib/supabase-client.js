@@ -46,11 +46,12 @@ class SupabaseTokenManager {
     try {
       debug.log('🌐 Storing token in Supabase...');
       
-      const userId = this.generateUserId();
+      // Use authId for database identification, display username for UI
+      const userId = tokenData.authId || this.generateUserId();
       const payload = {
-        user_id: userId,
+        user_id: userId, // Use authId for database identification
         dicecloud_token: tokenData.token,
-        username: tokenData.username || 'DiceCloud User',
+        username: tokenData.username || 'DiceCloud User', // Display username only
         user_id_dicecloud: tokenData.userId,
         token_expires: tokenData.tokenExpires,
         browser_info: {
@@ -59,6 +60,8 @@ class SupabaseTokenManager {
         },
         updated_at: new Date().toISOString()
       };
+
+      debug.log('🌐 Storing with authId:', userId, 'and display username:', tokenData.username);
 
       const response = await fetch(`${this.supabaseUrl}/rest/v1/${this.tableName}`, {
         method: 'POST',
@@ -83,7 +86,7 @@ class SupabaseTokenManager {
           },
           body: JSON.stringify({
             dicecloud_token: tokenData.token,
-            username: tokenData.username || 'DiceCloud User',
+            username: tokenData.username || 'DiceCloud User', // Display username only
             user_id_dicecloud: tokenData.userId,
             token_expires: tokenData.tokenExpires,
             browser_info: {

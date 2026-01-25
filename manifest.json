@@ -12,7 +12,8 @@
     "https://dicecloud.com/*",
     "https://*.dicecloud.com/*",
     "https://app.roll20.net/*",
-    "https://roll20.net/*"
+    "https://roll20.net/*",
+    "https://gkfpxwvmumaylahtxqrk.supabase.co/*"
   ],
   "background": {
     "service_worker": "src/background.js"

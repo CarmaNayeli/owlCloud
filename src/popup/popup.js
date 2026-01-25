@@ -4,8 +4,11 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
+  console.log('🚀 Popup DOMContentLoaded fired');
+  
   // Check if browserAPI is available
   if (typeof browserAPI === 'undefined' && typeof window.browserAPI === 'undefined') {
+    console.error('❌ FATAL: browserAPI is not defined!');
     debug.error('❌ FATAL: browserAPI is not defined!');
     document.body.innerHTML = `
       <div style="padding: 20px; color: red; font-family: Arial;">
@@ -25,11 +28,17 @@ document.addEventListener('DOMContentLoaded', () => {
     return;
   }
 
+  console.log('✅ browserAPI is available');
+  debug.log('✅ browserAPI is available');
+
   try {
+    console.log('🚀 About to call initializePopup()');
     initializePopup();
+    console.log('✅ initializePopup() completed');
   } catch (error) {
     // Try to use debug if available, otherwise use console
     const logger = typeof debug !== 'undefined' ? debug : console;
+    console.error('❌ Popup initialization error:', error);
     logger.error('❌ Popup initialization error:', error);
     document.body.innerHTML = `
       <div style="padding: 20px; color: red; font-family: Arial;">
@@ -328,12 +337,30 @@ function initializePopup() {
         autoConnectBtn.textContent = '⏳ Capturing token...';
 
         try {
-          // Send message to DiceCloud tab to extract token
-          const response = await browserAPI.tabs.sendMessage(dicecloudTab.id, {
-            action: 'extractAuthToken'
+          // Send message to DiceCloud tab to extract token using runtime.sendMessage
+          console.log('📡 About to send message to tab:', dicecloudTab.id);
+          debug.log('📡 About to send message to tab:', dicecloudTab.id);
+          
+          const response = await new Promise((resolve) => {
+            browserAPI.runtime.sendMessage({
+              action: 'extractAuthToken',
+              tabId: dicecloudTab.id
+            }, (response) => {
+              console.log('📡 Received callback response:', response);
+              debug.log('📡 Received callback response:', response);
+              // Extract the actual data from the background script response
+              const actualResponse = response.success ? response.data : response;
+              console.log('📡 Actual response object:', actualResponse);
+              debug.log('📡 Actual response object:', actualResponse);
+              resolve(actualResponse);
+            });
           });
+          
+          console.log('📡 Received Promise response:', response);
+          debug.log('📡 Received Promise response:', response);
 
           debug.log('📥 Token capture response:', response);
+          console.log('📥 Token capture response (console):', response);
 
           if (response && response.success && response.token) {
             // Store the token with metadata - use direct storage as primary method
@@ -343,7 +370,8 @@ function initializePopup() {
                 diceCloudToken: response.token,
                 diceCloudUserId: response.userId,
                 tokenExpires: response.tokenExpires,
-                username: response.username
+                username: response.username,
+                authId: response.authId
               };
 
               await browserAPI.storage.local.set(storageData);
@@ -357,7 +385,8 @@ function initializePopup() {
                     token: response.token,
                     userId: response.userId,
                     tokenExpires: response.tokenExpires,
-                    username: response.username
+                    username: response.username, // Display username
+                    authId: response.authId // Auth ID for database
                   });
 
                   if (supabaseResult.success) {
@@ -368,20 +397,6 @@ function initializePopup() {
                 }
               } catch (supabaseError) {
                 debug.log('⚠️ Supabase not available (non-critical):', supabaseError);
-              }
-
-              // Also try background script as backup
-              try {
-                await browserAPI.runtime.sendMessage({
-                  action: 'setApiToken',
-                  token: response.token,
-                  userId: response.userId,
-                  tokenExpires: response.tokenExpires,
-                  username: response.username
-                });
-                debug.log('✅ Also stored via background script');
-              } catch (bgError) {
-                debug.log('⚠️ Background storage failed (non-critical):', bgError);
               }
 
               hideLoginError();

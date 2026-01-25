@@ -52,6 +52,12 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
   debug.log('Background received message:', request);
   debug.log('Message sender:', sender);
 
+  // If this is a content script message, let it handle itself
+  if (sender.tab && request.action === 'extractAuthToken') {
+    debug.log('📤 Passing extractAuthToken to content script - not handling in background');
+    return false; // Don't handle here, let content script handle it
+  }
+
   // Handle async operations and call sendResponse when done
   // This pattern keeps the message port open until sendResponse is called
   (async () => {
@@ -159,6 +165,26 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
           } else {
             debug.warn('⚠️ No Roll20 tabs found to relay roll');
             response = { success: false, error: 'No Roll20 tabs found' };
+          }
+          break;
+        }
+
+        // Handle extractAuthToken with tabId and forward to content script
+        case 'extractAuthToken': {
+          if (request.tabId) {
+            debug.log('📤 Forwarding extractAuthToken to tab:', request.tabId);
+            try {
+              const response = await browserAPI.tabs.sendMessage(request.tabId, {
+                action: 'extractAuthToken'
+              });
+              debug.log('📥 Received response from content script:', response);
+              response = { success: true, data: response };
+            } catch (error) {
+              debug.error('❌ Error forwarding to content script:', error);
+              response = { success: false, error: error.message };
+            }
+          } else {
+            response = { success: false, error: 'No tabId provided' };
           }
           break;
         }
