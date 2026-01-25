@@ -7,7 +7,7 @@ const { exec, execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-// const { installChromeNativeMessaging, installFirefoxNativeMessaging, sendPairingCodeToExtension } = require('./native-messaging');
+const { installChromeNativeMessaging, installFirefoxNativeMessaging, sendPairingCodeToExtension } = require('./native-messaging');
 
 // Browser-specific configuration
 const BROWSER_CONFIG = {
@@ -1608,135 +1608,6 @@ function compareVersions(v1, v2) {
   return 0;
 }
 
-/**
- * Uninstall extension
- */
-async function uninstallExtension(browser) {
-  try {
-    console.log(`\n🗑️ Uninstalling ${browser} extension...`);
-    
-    if (browser === 'chrome') {
-      console.log('  Removing Chrome extension policy...');
-      const { execSync } = require('child_process');
-      const regPath = 'HKLM\\SOFTWARE\\Policies\\Google\\Chrome\\ExtensionInstallForcelist';
-      
-      try {
-        // Check if policy exists before trying to delete
-        execSync(`reg query "${regPath}"`, { encoding: 'utf8', stdio: 'pipe' });
-        console.log('  Found Chrome policy, removing...');
-        execSync(`reg delete "${regPath}" /f`, { stdio: 'pipe' });
-        console.log('  ✅ Chrome policy removed');
-        
-        return {
-          success: true,
-          message: 'Chrome extension uninstalled. Restart Chrome to complete.',
-        };
-        
-      } catch (e) {
-        // Check if the error is just that the registry key doesn't exist
-        const errorMessage = e.message || e.toString();
-        if (errorMessage.includes('ERROR: The system cannot find') || errorMessage.includes('not found')) {
-          console.log('  ℹ️ Chrome policy not found - extension may not be installed via policy');
-          return {
-            success: true,
-            message: 'Chrome extension policy not found. Extension may be installed manually.',
-          };
-        } else {
-          console.error('  ❌ Error removing Chrome policy:', e);
-          return {
-            success: false,
-            error: `Failed to remove Chrome policy: ${errorMessage}`,
-            manual: true
-          };
-        }
-      }
-      
-    } else if (browser === 'firefox') {
-      console.log('  Removing Firefox extension...');
-      
-      const platform = process.platform;
-      let firefoxPath;
-      
-      if (platform === 'win32') {
-        // Try common Firefox installation paths
-        const possiblePaths = [
-          `${process.env.PROGRAMFILES}\\Mozilla Firefox\\firefox.exe`,
-          `${process.env.PROGRAMFILES(X86)}\\Mozilla Firefox\\firefox.exe`,
-          `${process.env.LOCALAPPDATA}\\Programs\\Mozilla Firefox\\firefox.exe`
-        ];
-        
-        for (const path of possiblePaths) {
-          if (fs.existsSync(path)) {
-            firefoxPath = path;
-            break;
-          }
-        }
-        
-        if (!firefoxPath) {
-          console.log('  ℹ️ Firefox installation not found');
-          return {
-            success: true,
-            message: 'Firefox installation not found. Extension may not be installed via policy.',
-            manual: true
-          };
-        }
-        
-        // Use Firefox command line to uninstall
-        const { execSync } = require('child_process');
-        const uninstallCmd = `"${firefoxPath}" --uninstall-extension=${CONFIG.extensionId}`;
-        
-        try {
-          execSync(uninstallCmd, { stdio: 'pipe' });
-          console.log('  ✅ Firefox uninstall command executed');
-          
-          return {
-            success: true,
-            message: 'Firefox extension uninstalled. Restart Firefox to complete.',
-          };
-        } catch (error) {
-          console.log('  ⚠️ Firefox uninstall command failed, checking if extension exists...');
-          
-          // Check if the error is just that the extension isn't installed
-          const errorMessage = error.message || error.toString();
-          if (errorMessage.includes('No extension matching') || errorMessage.includes('not found') || errorMessage.includes('not installed')) {
-            console.log('  ℹ️ Firefox extension not found');
-            return {
-              success: true,
-              message: 'Firefox extension not found. Extension may not be installed.',
-              manual: true
-            };
-          } else {
-            console.error('  ❌ Firefox uninstall failed:', error);
-            return {
-              success: false,
-              error: `Failed to uninstall Firefox extension: ${errorMessage}`,
-              manual: true
-            };
-          }
-        }
-        
-      } else {
-        console.log('  ❌ Uninstall not supported for platform:', platform);
-        return {
-          success: false,
-          error: `Uninstall not supported for platform: ${platform}`,
-          manual: true
-        };
-      }
-      
-    } else {
-      throw new Error(`Unsupported browser for uninstall: ${browser}`);
-    }
-    
-  } catch (error) {
-    console.error('Uninstall error:', error);
-    return {
-      success: false,
-      error: error.message,
-      manual: true
-    };
-  }
-}
 async function forceReinstallExtension(browser, config) {
   try {
     console.log(`\n🔄 Force reinstalling ${browser} extension...`);

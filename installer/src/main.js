@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const { installExtension, uninstallExtension, isExtensionInstalled, installFirefoxDeveloperEdition } = require('./extension-installer');
-// const { sendPairingCodeToExtension } = require('./native-messaging');
+const { sendPairingCodeToExtension } = require('./native-messaging');
 const { generatePairingCode, createPairingAndSend, checkPairing } = require('./pairing');
 
 // Extension and bot configuration
@@ -148,14 +148,14 @@ ipcMain.handle('check-pairing', async (event, code) => {
 });
 
 // Send pairing code to extension
-// ipcMain.handle('send-pairing-to-extension', async (event, browser, code) => {
-//   try {
-//     const success = await sendPairingCodeToExtension(browser, code);
-//     return { success };
-//   } catch (error) {
-//     return { success: false, error: error.message };
-//   }
-// });
+ipcMain.handle('send-pairing-to-extension', async (event, browser, code) => {
+  try {
+    const success = await sendPairingCodeToExtension(browser, code);
+    return { success };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
 
 // Open external URL
 ipcMain.handle('open-external', async (event, url) => {
@@ -201,15 +201,6 @@ ipcMain.handle('force-reinstall-extension', async (event, browser) => {
   }
 });
 
-ipcMain.handle('uninstall-extension', async (event, browser) => {
-  try {
-    const { uninstallExtension } = require('./extension-installer');
-    const result = await uninstallExtension(browser);
-    return result;
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-});
 
 // Close browser for restart
 // ipcMain.handle('close-browser', async (event, browser) => {
