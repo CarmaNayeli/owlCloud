@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
     console.log('✅ Transformed servers:', servers.length);
     
     // Log admin servers
-    const adminServers = servers.filter(server => 
+    const adminServers = servers.filter((server: any) => 
       server.permissions.includes('ADMINISTRATOR') || 
       server.permissions.includes('MANAGE_GUILD')
     );
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
     
     if (adminServers.length === 0) {
       console.log('⚠️ No admin servers found - user has permissions in these servers:');
-      servers.forEach(server => {
+      servers.forEach((server: any) => {
         const hasAdmin = server.permissions.includes('ADMINISTRATOR');
         const hasManageGuild = server.permissions.includes('MANAGE_GUILD');
         console.log(`  - ${server.name}: Admin=${hasAdmin}, ManageGuild=${hasManageGuild}`);
