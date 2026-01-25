@@ -27,10 +27,6 @@
             <span class="browser-icon">C</span>
             <span class="browser-name">Chrome</span>
           </button>
-          <button class="browser-btn" data-browser="edge">
-            <span class="browser-icon">E</span>
-            <span class="browser-name">Edge</span>
-          </button>
           <button class="browser-btn" data-browser="firefox">
             <span class="browser-icon">F</span>
             <span class="browser-name">Firefox</span>
@@ -53,11 +49,11 @@
           <p id="installStatus">Preparing installation...</p>
         </div>
         <div id="installComplete" class="hidden">
-          <p class="success-text">Extension installed successfully!</p>
-          <p class="note">You may need to restart your browser for changes to take effect.</p>
+          <p class="success-text">Extension policy installed successfully!</p>
+          <p class="note">You must restart your browser for the extension to be installed.</p>
           <div class="button-row">
-            <button id="backToStep1" class="btn btn-secondary">Back</button>
-            <button id="continueToStep3" class="btn btn-primary">Continue</button>
+            <button id="restartBrowser" class="btn btn-primary">Restart Browser</button>
+            <button id="continueToStep3" class="btn btn-secondary">Continue Later</button>
           </div>
         </div>
         <div id="installError" class="hidden">

@@ -102,7 +102,7 @@ function createSignedCRX(zipPath, crxPath, privateKey, publicKeyDer) {
       const zipData = fs.readFileSync(zipPath);
 
       // Create signature over the ZIP data
-      const sign = crypto.createSign('RSA-SHA1'); // CRX2 uses SHA1
+      const sign = crypto.createSign('RSA-SHA256'); // Updated to use SHA256 for security
       sign.update(zipData);
       const signature = sign.sign(privateKey);
 
@@ -166,7 +166,7 @@ async function buildSignedChrome() {
 
   // Build the extension first (using existing script)
   console.log('\n📦 Building extension...');
-  execSync('node scripts/build-extension-fixed.js', { stdio: 'inherit' });
+  execSync('node', ['scripts/build-extension-fixed.js'], { stdio: 'inherit' });
 
   const zipPath = path.join(DIST_DIR, 'rollcloud-chrome.zip');
   const crxPath = path.join(DIST_DIR, 'rollcloud-chrome-signed.crx');

@@ -6,12 +6,12 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
-    "build": "electron-builder",
-    "build:win": "electron-builder --win",
-    "build:mac": "electron-builder --mac",
-    "build:linux": "electron-builder --linux",
-    "build:all": "electron-builder --win --mac --linux",
-    "pack": "electron-builder --dir"
+    "build": "node build-safe.js",
+    "build:win": "node build-safe.js --win",
+    "build:mac": "node build-safe.js --mac",
+    "build:linux": "node build-safe.js --linux",
+    "build:all": "node build-safe.js --win --mac --linux",
+    "pack": "node build-safe.js --dir"
   },
   "build": {
     "appId": "com.dicecat.rollcloud.setup",
@@ -25,7 +25,7 @@
     ],
     "extraResources": [
       {
-        "from": "../dist/rollcloud-chrome-minimal.crx",
+        "from": "../dist/rollcloud-chrome-signed.crx",
         "to": "extension/rollcloud-chrome.crx"
       },
       {

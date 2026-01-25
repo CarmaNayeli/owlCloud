@@ -1,14 +1,8 @@
 {
   "manifest_version": 2,
   "name": "RollCloud: Dice Cloud Integration for Roll20",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "description": "Import D&D characters from DiceCloud to Roll20 with enhanced authentication, interactive character sheets, and GM combat tools",
-  "applications": {
-    "gecko": {
-      "id": "rollcloud-experimental@extension.local",
-      "strict_min_version": "109.0"
-    }
-  },
   "permissions": [
     "storage",
     "activeTab",
@@ -18,17 +12,36 @@
     "https://roll20.net/*"
   ],
   "background": {
-    "scripts": ["src/common/debug.js", "src/background.js"]
+    "scripts": [
+      "src/background.js"
+    ],
+    "persistent": false
   },
   "content_scripts": [
     {
-      "matches": ["https://dicecloud.com/*", "https://*.dicecloud.com/*"],
-      "js": ["src/common/browser-polyfill.js", "src/common/debug.js", "src/content/dicecloud.js"],
+      "matches": [
+        "https://dicecloud.com/*",
+        "https://*.dicecloud.com/*"
+      ],
+      "js": [
+        "src/common/browser-polyfill.js",
+        "src/common/debug.js",
+        "src/content/dicecloud.js"
+      ],
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://app.roll20.net/*"],
-      "js": ["src/common/browser-polyfill.js", "src/common/debug.js", "src/content/roll20.js", "src/content/character-sheet-overlay.js"],
+      "matches": [
+        "https://app.roll20.net/*"
+      ],
+      "js": [
+        "src/common/browser-polyfill.js",
+        "src/common/debug.js",
+        "src/lib/meteor-ddp-client.js",
+        "src/lib/dicecloud-sync.js",
+        "src/content/roll20.js",
+        "src/content/character-sheet-overlay.js"
+      ],
       "run_at": "document_idle"
     }
   ],
@@ -59,6 +72,8 @@
     "src/modules/spell-edge-cases.js",
     "src/modules/class-feature-edge-cases.js",
     "src/modules/racial-feature-edge-cases.js",
-    "src/modules/combat-maneuver-edge-cases.js"
+    "src/modules/combat-maneuver-edge-cases.js",
+    "src/lib/meteor-ddp-client.js",
+    "src/lib/dicecloud-sync.js"
   ]
 }

@@ -1,6 +1,6 @@
 /**
  * Extension Installer Module
- * Handles enterprise policy installation for Chrome/Firefox/Edge on Windows/macOS/Linux
+ * Handles enterprise policy installation for Chrome/Firefox on Windows/macOS/Linux
  */
 
 const { exec, execSync } = require('child_process');
@@ -22,21 +22,6 @@ const BROWSER_CONFIG = {
     },
     linux: {
       jsonPath: '/etc/opt/chrome/policies/managed/rollcloud.json',
-      jsonKey: 'ExtensionInstallForcelist'
-    }
-  },
-  edge: {
-    name: 'Microsoft Edge',
-    windows: {
-      registryPath: 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Edge\\ExtensionInstallForcelist',
-      registryPath32on64: 'HKLM\\SOFTWARE\\WOW6432Node\\Policies\\Microsoft\\Edge\\ExtensionInstallForcelist'
-    },
-    mac: {
-      plistPath: '/Library/Managed Preferences/com.microsoft.Edge.plist',
-      plistKey: 'ExtensionInstallForcelist'
-    },
-    linux: {
-      jsonPath: '/etc/opt/edge/policies/managed/rollcloud.json',
       jsonKey: 'ExtensionInstallForcelist'
     }
   },
@@ -65,13 +50,21 @@ async function installExtension(browser, config) {
     return await installFirefoxExtension(config);
   }
 
-  // Chrome/Edge use similar policy mechanisms
+  // Chrome uses similar policy mechanisms
   const browserConfig = BROWSER_CONFIG[browser];
   if (!browserConfig) {
     throw new Error(`Unsupported browser: ${browser}`);
   }
 
-  const policyValue = `${config.extensionId};${config.updateManifestUrl}`;
+  // Use browser-specific update URL
+  let updateUrl;
+  if (browser === 'chrome') {
+    updateUrl = config.chromeUpdateUrl || config.updateManifestUrl;
+  } else {
+    updateUrl = config.firefoxUpdateUrl;
+  }
+
+  const policyValue = `${config.extensionId};${updateUrl}`;
 
   switch (platform) {
     case 'win32':
@@ -86,7 +79,7 @@ async function installExtension(browser, config) {
 }
 
 /**
- * Windows: Write registry key for Chrome/Edge
+ * Windows: Write registry key for Chrome
  */
 async function installWindowsPolicy(browser, policyValue, browserConfig) {
   const regPath = browserConfig.windows.registryPath;
@@ -128,7 +121,7 @@ async function installWindowsPolicy(browser, policyValue, browserConfig) {
 }
 
 /**
- * macOS: Write plist file for Chrome/Edge
+ * macOS: Write plist file for Chrome
  */
 async function installMacPolicy(browser, policyValue, browserConfig) {
   const plistPath = browserConfig.mac.plistPath;
@@ -181,7 +174,7 @@ async function installMacPolicy(browser, policyValue, browserConfig) {
 }
 
 /**
- * Linux: Write JSON policy file for Chrome/Edge
+ * Linux: Write JSON policy file for Chrome
  */
 async function installLinuxPolicy(browser, policyValue, browserConfig) {
   const jsonPath = browserConfig.linux.jsonPath;
@@ -239,88 +232,194 @@ async function installLinuxPolicy(browser, policyValue, browserConfig) {
 }
 
 /**
- * Firefox: Use distribution folder method
+ * Firefox: Use native addon installation API
  */
 async function installFirefoxExtension(config) {
-  const platform = process.platform;
-  let distributionPath;
-
-  switch (platform) {
-    case 'win32':
-      // Find Firefox installation
+  // Use Firefox's about:addons page for manual installation
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const os = require('os');
+    const { execSync } = require('child_process');
+    const crypto = require('crypto');
+    
+    // Use the packaged XPI file from installer resources
+    const isDev = process.env.NODE_ENV === 'development' || process.argv.includes('--dev');
+    let localXpiPath;
+    let distXpiPath;
+    
+    if (isDev) {
+      // Development: use the dist directory
+      localXpiPath = path.join(__dirname, '..', '..', '..', 'dist', 'rollcloud-firefox-signed.xpi');
+      distXpiPath = localXpiPath; // Same path in dev
+    } else {
+      // Production: use the packaged resources
+      localXpiPath = path.join(process.resourcesPath, 'extension', 'rollcloud-firefox.xpi');
+      distXpiPath = path.join(__dirname, '..', '..', '..', 'dist', 'rollcloud-firefox-signed.xpi');
+    }
+    
+    // Check if both XPI files exist
+    if (!fs.existsSync(localXpiPath)) {
+      throw new Error(`Firefox XPI file not found at: ${localXpiPath}`);
+    }
+    
+    if (!fs.existsSync(distXpiPath)) {
+      console.log('   Warning: Dist XPI file not found, only installer XPI available');
+    }
+    
+    // Compare checksums if both files exist
+    if (fs.existsSync(distXpiPath)) {
+      const distHash = crypto.createHash('sha256').update(fs.readFileSync(distXpiPath)).digest('hex');
+      const localHash = crypto.createHash('sha256').update(fs.readFileSync(localXpiPath)).digest('hex');
+      
+      console.log(`   Dist XPI checksum: ${distHash}`);
+      console.log(`   Installer XPI checksum: ${localHash}`);
+      
+      if (distHash !== localHash) {
+        console.log('   ❌ XPI files do not match! Packaging corruption detected.');
+        console.log('   Using dist XPI file directly...');
+        localXpiPath = distXpiPath;
+      } else {
+        console.log('   ✅ XPI files match - packaging is good');
+      }
+    }
+    
+    // Verify file integrity by checking file size and basic structure
+    const stats = fs.statSync(localXpiPath);
+    console.log(`   XPI file size: ${stats.size} bytes`);
+    
+    if (stats.size < 1000) {
+      throw new Error(`XPI file appears to be too small (${stats.size} bytes)`);
+    }
+    
+    // Read first few bytes to verify it's a valid ZIP/XPI file
+    const fileBuffer = fs.readFileSync(localXpiPath, { start: 0, end: 30 });
+    const header = fileBuffer.toString('ascii', 0, Math.min(30, fileBuffer.length));
+    console.log(`   XPI file header: ${header}`);
+    
+    // XPI files are ZIP files, should start with PK (0x50 0x4b)
+    if (!header.startsWith('PK')) {
+      console.log('   ❌ XPI file does not start with PK header - file is corrupted!');
+      throw new Error('XPI file is corrupted - PK header missing');
+    }
+    
+    console.log('   Configuring Firefox for unsigned extensions...');
+    
+    // Configure Firefox to allow unsigned extensions
+    const platform = process.platform;
+    let firefoxPath;
+    let prefsPath;
+    
+    if (platform === 'win32') {
+      // Windows: Find Firefox installation and preferences
       const programFiles = process.env['ProgramFiles'] || 'C:\\Program Files';
       const programFiles86 = process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)';
-
-      if (fs.existsSync(path.join(programFiles, 'Mozilla Firefox'))) {
-        distributionPath = path.join(programFiles, 'Mozilla Firefox', 'distribution');
-      } else if (fs.existsSync(path.join(programFiles86, 'Mozilla Firefox'))) {
-        distributionPath = path.join(programFiles86, 'Mozilla Firefox', 'distribution');
+      
+      if (fs.existsSync(path.join(programFiles, 'Mozilla Firefox', 'firefox.exe'))) {
+        firefoxPath = path.join(programFiles, 'Mozilla Firefox', 'firefox.exe');
+      } else if (fs.existsSync(path.join(programFiles86, 'Mozilla Firefox', 'firefox.exe'))) {
+        firefoxPath = path.join(programFiles86, 'Mozilla Firefox', 'firefox.exe');
       } else {
         throw new Error('Firefox installation not found');
       }
-      break;
-    case 'darwin':
-      distributionPath = BROWSER_CONFIG.firefox.mac.distributionPath;
-      break;
-    case 'linux':
-      distributionPath = BROWSER_CONFIG.firefox.linux.distributionPath;
-      break;
-    default:
-      throw new Error(`Unsupported platform: ${platform}`);
-  }
-
-  // Create policies.json for Firefox
-  const policiesPath = path.join(distributionPath, 'policies.json');
-  const extensionsDir = path.join(distributionPath, 'extensions');
-
-  let policies = { policies: {} };
-  if (fs.existsSync(policiesPath)) {
-    try {
-      policies = JSON.parse(fs.readFileSync(policiesPath, 'utf-8'));
-    } catch {
-      // Invalid JSON, start fresh
-    }
-  }
-
-  // Add extension install policy
-  if (!policies.policies.ExtensionSettings) {
-    policies.policies.ExtensionSettings = {};
-  }
-
-  policies.policies.ExtensionSettings[config.extensionId] = {
-    installation_mode: 'force_installed',
-    install_url: config.updateManifestUrl.replace('update_manifest.xml', 'rollcloud-firefox.xpi')
-  };
-
-  // Write policies
-  const tempFile = path.join(os.tmpdir(), 'firefox-policies.json');
-  fs.writeFileSync(tempFile, JSON.stringify(policies, null, 2));
-
-  const commands = [
-    `mkdir -p "${distributionPath}"`,
-    `cp "${tempFile}" "${policiesPath}"`,
-    `rm "${tempFile}"`
-  ].join(' && ');
-
-  return new Promise((resolve, reject) => {
-    const sudo = require('sudo-prompt');
-    const options = { name: 'RollCloud Setup' };
-
-    sudo.exec(commands, options, (error, stdout, stderr) => {
-      if (error) {
-        reject(new Error(`Failed to install Firefox extension: ${error.message}`));
-      } else {
-        resolve({ message: 'Firefox extension policy installed', requiresRestart: true });
+      
+      // Find Firefox profile directory
+      const appData = process.env['APPDATA'] || path.join(os.homedir(), 'AppData', 'Roaming');
+      const firefoxProfileDir = path.join(appData, 'Mozilla', 'Firefox', 'Profiles');
+      
+      if (fs.existsSync(firefoxProfileDir)) {
+        const profiles = fs.readdirSync(firefoxProfileDir);
+        if (profiles.length > 0) {
+          const profilePath = path.join(firefoxProfileDir, profiles[0]);
+          prefsPath = path.join(profilePath, 'prefs.js');
+          
+          // Add preference to allow unsigned extensions
+          try {
+            let prefsContent = '';
+            if (fs.existsSync(prefsPath)) {
+              prefsContent = fs.readFileSync(prefsPath, 'utf8');
+            }
+            
+            if (!prefsContent.includes('xpinstall.signatures.required')) {
+              prefsContent += '\n// Allow unsigned extensions for RollCloud\n';
+              prefsContent += 'user_pref("xpinstall.signatures.required", false);\n';
+              prefsContent += 'user_pref("extensions.langpacks.signatures.required", false);\n';
+              fs.writeFileSync(prefsPath, prefsContent);
+              console.log('   ✅ Firefox configured to allow unsigned extensions');
+            }
+          } catch (prefsError) {
+            console.log('   ⚠️ Could not configure Firefox preferences');
+          }
+        }
       }
-    });
-  });
+      
+      // Use explicit firefox.exe command
+      const firefoxCommand = `"${firefoxPath}" "${localXpiPath}"`;
+      
+    } else if (platform === 'darwin') {
+      // macOS: Use Firefox application
+      firefoxCommand = `open -a Firefox "${localXpiPath}"`;
+      
+    } else {
+      // Linux: Use firefox command
+      firefoxCommand = `firefox "${localXpiPath}"`;
+    }
+    
+    try {
+      console.log(`   Executing: ${firefoxCommand}`);
+      execSync(firefoxCommand, { stdio: 'pipe' });
+      
+      return { 
+        message: 'Firefox addon installation initiated. Please complete the installation in Firefox.', 
+        requiresRestart: true,
+        requiresManualAction: true,
+        manualInstructions: {
+          type: 'firefox_addon',
+          steps: [
+            '1. Firefox should open with the addon installation prompt',
+            '2. Click "Add to Firefox" to install the extension',
+            '3. If you see "This add-on is not verified", click "Continue to Installation"',
+            '4. Grant necessary permissions when prompted',
+            '5. Restart Firefox after installation'
+          ]
+        }
+      };
+      
+    } catch (error) {
+      console.log('   Firefox command failed, trying manual installation...');
+      // Fallback: Manual installation instructions
+      return { 
+        message: 'Firefox command failed. Please install manually.', 
+        requiresRestart: true,
+        requiresManualAction: true,
+        manualInstructions: {
+          type: 'firefox_addon_manual',
+          steps: [
+            '1. Open Firefox',
+            '2. Type "about:config" in the address bar and press Enter',
+            '3. Search for "xpinstall.signatures.required"',
+            '4. Double-click to set it to "false"',
+            '5. Search for "extensions.langpacks.signatures.required"',
+            '6. Double-click to set it to "false"',
+            '7. Go to about:addons (Ctrl+Shift+A)',
+            '8. Click "Install Add-on from File"',
+            '9. Select the XPI file from the installer resources',
+            '10. Click "Install" and restart Firefox'
+          ]
+        }
+      };
+    }
+    
+  } catch (error) {
+    console.error('   Firefox installation error:', error);
+    throw new Error(`Failed to prepare Firefox addon installation: ${error.message}`);
+  }
 }
 
 // Extension IDs for different browsers
 const EXTENSION_IDS = {
-  chrome: null, // Will be read from keys/public.der or generated
-  edge: null,   // Same as Chrome (Chromium-based)
-  firefox: 'rollcloud@dicecat.dev'
+  chrome: 'mkckngoemfjdkhcpaomdndlecolckgdj', // Actual Chrome extension ID
+  firefox: 'rollcloud@dicecat.dev' // Firefox extension ID
 };
 
 /**
@@ -370,16 +469,6 @@ function getBrowserProfileDirs(browser) {
       } else {
         dirs.push(path.join(home, '.config', 'google-chrome'));
         dirs.push(path.join(home, '.config', 'chromium'));
-      }
-      break;
-
-    case 'edge':
-      if (platform === 'win32') {
-        dirs.push(path.join(process.env.LOCALAPPDATA || '', 'Microsoft', 'Edge', 'User Data'));
-      } else if (platform === 'darwin') {
-        dirs.push(path.join(home, 'Library', 'Application Support', 'Microsoft Edge'));
-      } else {
-        dirs.push(path.join(home, '.config', 'microsoft-edge'));
       }
       break;
 
@@ -451,7 +540,7 @@ function checkActualInstallation(browser, extensionId) {
         console.log(`  Error checking Firefox profiles:`, e.message);
       }
     } else {
-      // Chrome/Edge store extensions in Default/Extensions/<extension_id>/
+      // Chrome stores extensions in Default/Extensions/<extension_id>/
       const profiles = ['Default', 'Profile 1', 'Profile 2', 'Profile 3'];
       for (const profile of profiles) {
         const extDir = path.join(profileDir, profile, 'Extensions', extensionId);
@@ -522,13 +611,13 @@ function checkPolicyInstallation(browser) {
       return false;
     }
 
-    // Chrome/Edge use registry on Windows, plist on macOS, JSON on Linux
+    // Chrome uses registry on Windows, plist on macOS, JSON on Linux
     if (platform === 'win32') {
       const registryPath = browserConfig.windows.registryPath;
       try {
         const result = execSync(`reg query "${registryPath}" 2>nul`, { encoding: 'utf8' });
         // Forcelist entries are strings like "extensionId;updateUrl"
-        const extensionId = getChromeExtensionId();
+        const extensionId = EXTENSION_IDS.chrome;
         if (extensionId && result.includes(extensionId)) {
           console.log(`  ✅ Found ${browser} registry policy for RollCloud`);
           return true;
@@ -542,7 +631,7 @@ function checkPolicyInstallation(browser) {
         try {
           const result = execSync(`plutil -convert json -o - "${plistPath}"`, { encoding: 'utf8' });
           const plist = JSON.parse(result);
-          const extensionId = getChromeExtensionId();
+          const extensionId = EXTENSION_IDS.chrome;
           // Forcelist is array of strings like "extensionId;updateUrl"
           if (extensionId && plist.ExtensionInstallForcelist?.some(e => e.startsWith(extensionId))) {
             console.log(`  ✅ Found ${browser} plist policy for RollCloud`);
@@ -557,7 +646,7 @@ function checkPolicyInstallation(browser) {
       if (fs.existsSync(jsonPath)) {
         try {
           const policies = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
-          const extensionId = getChromeExtensionId();
+          const extensionId = EXTENSION_IDS.chrome;
           // Forcelist is array of strings
           if (extensionId && policies.ExtensionInstallForcelist?.some(e => e.startsWith(extensionId))) {
             console.log(`  ✅ Found ${browser} policy for RollCloud`);
@@ -591,7 +680,7 @@ async function isExtensionInstalled(browser) {
   // Get the appropriate extension ID
   const extensionId = browser === 'firefox'
     ? EXTENSION_IDS.firefox
-    : getChromeExtensionId();
+    : EXTENSION_IDS.chrome; // Use actual Chrome extension ID
 
   console.log(`  Extension ID: ${extensionId || 'unknown'}`);
 

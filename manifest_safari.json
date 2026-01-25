@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "RollCloud: Dice Cloud Integration for Roll20",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Seamlessly integrate Dice Cloud with Roll20 - import characters, forward dice rolls in real-time, and enhance your tabletop experience",
   "browser_specific_settings": {
     "safari": {
@@ -28,7 +28,14 @@
     },
     {
       "matches": ["https://app.roll20.net/*"],
-      "js": ["src/common/browser-polyfill.js", "src/common/debug.js", "src/content/roll20.js", "src/content/character-sheet-overlay.js"],
+      "js": [
+        "src/common/browser-polyfill.js",
+        "src/common/debug.js",
+        "src/lib/meteor-ddp-client.js",
+        "src/lib/dicecloud-sync.js",
+        "src/content/roll20.js",
+        "src/content/character-sheet-overlay.js"
+      ],
       "run_at": "document_idle"
     }
   ],

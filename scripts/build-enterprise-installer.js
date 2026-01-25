@@ -19,11 +19,15 @@ async function buildEnterpriseInstaller() {
   console.log('=================================');
 
   try {
-    // Step 1: Build signed extensions
+    // Step 1: Build base extensions first
+    console.log('\n📦 Building base extensions...');
+    execSync('npm run build:extension', { stdio: 'inherit' });
+
+    // Step 2: Build signed extensions
     console.log('\n🔐 Building signed extensions...');
     execSync('npm run build:signed', { stdio: 'inherit' });
 
-    // Step 2: Update installer package.json for enterprise
+    // Step 3: Update installer package.json for enterprise
     console.log('\n📦 Configuring installer for enterprise...');
     const installerPackagePath = path.join(INSTALLER_DIR, 'package.json');
     const installerPackage = JSON.parse(fs.readFileSync(installerPackagePath, 'utf8'));
@@ -68,11 +72,19 @@ async function buildEnterpriseInstaller() {
 
     fs.writeFileSync(installerMainPath, installerMain);
 
-    // Step 4: Build the installer
+    // Step 5: Clean and build the installer
     console.log('\n🔨 Building enterprise installer...');
+    
+    // Clean previous installer build
+    const installerBuildDir = path.join(INSTALLER_DIR, 'dist');
+    if (fs.existsSync(installerBuildDir)) {
+      fs.rmSync(installerBuildDir, { recursive: true });
+      console.log('   Cleaned previous installer build');
+    }
+    
     execSync('npm run build:installer', { stdio: 'inherit' });
 
-    // Step 5: Create enterprise deployment package
+    // Step 6: Create enterprise deployment package
     console.log('\n📁 Creating enterprise deployment package...');
     const enterpriseDir = path.join(DIST_DIR, 'enterprise');
     
@@ -82,8 +94,16 @@ async function buildEnterpriseInstaller() {
 
     // Copy installer files
     const installerDist = path.join(INSTALLER_DIR, 'dist');
+    console.log(`   Checking installer dist path: ${installerDist}`);
+    console.log(`   Installer dist exists: ${fs.existsSync(installerDist)}`);
+    
     if (fs.existsSync(installerDist)) {
-      execSync(`xcopy "${installerDist}" "${enterpriseDir}" /E /I /Y`, { stdio: 'pipe' });
+      console.log(`   Found installer dist at: ${installerDist}`);
+      // Use manual copy method for better compatibility
+      console.log('   Using manual copy method...');
+      copyFolderRecursive(installerDist, enterpriseDir);
+    } else {
+      console.log('   No installer dist directory found - this is expected if the build failed');
     }
 
     // Copy signed extensions
@@ -174,6 +194,25 @@ Version: 1.2.0
     console.error('❌ Build failed:', error.message);
     process.exit(1);
   }
+}
+
+// Fallback recursive folder copy function
+function copyFolderRecursive(src, dest) {
+  const entries = fs.readdirSync(src, { withFileTypes: true });
+  
+  entries.forEach(entry => {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+    
+    if (entry.isDirectory()) {
+      if (!fs.existsSync(destPath)) {
+        fs.mkdirSync(destPath, { recursive: true });
+      }
+      copyFolderRecursive(srcPath, destPath);
+    } else {
+      fs.copyFileSync(srcPath, destPath);
+    }
+  });
 }
 
 // Run if called directly

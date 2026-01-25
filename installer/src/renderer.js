@@ -72,7 +72,6 @@ function setupBrowserSelection() {
 function getBrowserName(browser) {
   const names = {
     chrome: 'Google Chrome',
-    edge: 'Microsoft Edge',
     firefox: 'Mozilla Firefox'
   };
   return names[browser] || browser;
@@ -84,27 +83,34 @@ function getBrowserName(browser) {
 
 function setupStep2() {
   const continueBtn = document.getElementById('continueToStep3');
+  const restartBtn = document.getElementById('restartBrowser');
   const retryBtn = document.getElementById('retryInstall');
   const backBtn = document.getElementById('backToStep1');
   const backBtnFromError = document.getElementById('backToStep1FromError');
 
   continueBtn.addEventListener('click', () => goToStep(3));
+  restartBtn.addEventListener('click', () => restartBrowser(selectedBrowser));
   retryBtn.addEventListener('click', () => installExtension());
 
-  // Back buttons
-  backBtn.addEventListener('click', () => {
-    selectedBrowser = null;
-    document.querySelectorAll('.browser-btn').forEach(btn => btn.classList.remove('selected'));
-    document.getElementById('browserStatus').textContent = '';
-    goToStep(1);
-  });
+  // Back button from error screen
+  if (backBtnFromError) {
+    backBtnFromError.addEventListener('click', () => {
+      selectedBrowser = null;
+      document.querySelectorAll('.browser-btn').forEach(btn => btn.classList.remove('selected'));
+      document.getElementById('browserStatus').textContent = '';
+      goToStep(1);
+    });
+  }
 
-  backBtnFromError.addEventListener('click', () => {
-    selectedBrowser = null;
-    document.querySelectorAll('.browser-btn').forEach(btn => btn.classList.remove('selected'));
-    document.getElementById('browserStatus').textContent = '';
-    goToStep(1);
-  });
+  // Back button
+  if (backBtn) {
+    backBtn.addEventListener('click', () => {
+      selectedBrowser = null;
+      document.querySelectorAll('.browser-btn').forEach(btn => btn.classList.remove('selected'));
+      document.getElementById('browserStatus').textContent = '';
+      goToStep(1);
+    });
+  }
 }
 
 async function installExtension() {
@@ -123,15 +129,55 @@ async function installExtension() {
   statusText.textContent = 'Installing extension...';
 
   try {
+    console.log('🔧 Installing extension for:', selectedBrowser);
+    console.log('🔧 CONFIG:', {
+      extensionId: 'mkckngoemfjdkhcpaomdndlecolckgdj',
+      chromeUpdateUrl: 'https://raw.githubusercontent.com/CarmaNayeli/rollCloud/main/updates/update_manifest.xml',
+      firefoxUpdateUrl: 'https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-firefox-signed.xpi'
+    });
+    
     const result = await window.api.installExtension(selectedBrowser);
+    
+    console.log('🔧 Install result:', result);
 
-    if (result.success) {
+    if ((result.message && result.message.includes('Extension policy installed')) || 
+        (result.message && result.message.includes('manual installation'))) {
       progress.classList.add('hidden');
       complete.classList.remove('hidden');
+      
+      // Check if manual action is required
+      if (result.requiresManualAction) {
+        const noteElement = document.querySelector('#installComplete .note');
+        
+        if (result.manualInstructions.type === 'firefox_addon') {
+          noteElement.innerHTML = `
+            <strong>Firefox addon installation opened:</strong><br>
+            Please follow these steps:<br>
+            ${result.manualInstructions.steps.map(step => `<div style="margin: 5px 0;">${step}</div>`).join('')}
+            <div style="margin-top: 15px;">
+              <button onclick="window.api.openExternal('${result.manualInstructions.url}')" style="background: #0060df; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+                Reopen Addon Installation
+              </button>
+            </div>
+          `;
+        } else {
+          // Handle manual policy installation (fallback)
+          noteElement.innerHTML = `
+            <strong>Manual installation required:</strong><br>
+            Please follow these steps:<br>
+            1. Create the file: <code>${result.manualInstructions.file}</code><br>
+            2. Copy this content into the file:<br>
+            <pre style="background: #f5f5f5; padding: 10px; margin: 10px 0; font-size: 12px; overflow-x: auto;">${JSON.stringify(result.manualInstructions.content, null, 2)}</pre>
+            3. Restart Firefox
+          `;
+        }
+      }
     } else {
-      throw new Error(result.error || 'Installation failed');
+      console.error('🔧 Install failed:', result);
+      throw new Error(result.message || 'Installation failed');
     }
   } catch (err) {
+    console.error('🔧 Install error:', err);
     progress.classList.add('hidden');
     error.classList.remove('hidden');
     document.getElementById('installErrorText').textContent = err.message;
@@ -387,4 +433,26 @@ function setupGlobalHandlers() {
     e.preventDefault();
     await window.api.openExternal('https://github.com/CarmaNayeli/rollCloud/issues');
   });
+}
+
+// Restart browser function
+async function restartBrowser(browser) {
+  const browserName = getBrowserName(browser);
+  
+  // Show confirmation dialog
+  const confirmed = confirm(`The ${browserName} extension policy has been installed.\n\nYou must restart ${browserName} for the extension to be installed.\n\nWould you like to restart ${browserName} now?`);
+  
+  if (confirmed) {
+    try {
+      if (browser === 'chrome') {
+        await window.api.openExternal('chrome://restart');
+      } else if (browser === 'firefox') {
+        // Firefox doesn't have a restart URL, so we'll close it and let user reopen
+        await window.api.openExternal('about:blank');
+      }
+    } catch (error) {
+      console.error('Failed to restart browser:', error);
+      alert(`Please manually restart ${browserName} to complete the extension installation.`);
+    }
+  }
 }

@@ -138,6 +138,14 @@ async function buildFirefox() {
 
   const buildDir = path.join(DIST_DIR, 'firefox-build');
 
+  // Read the Firefox-specific manifest
+  const firefoxManifestPath = path.join(ROOT_DIR, 'manifest_firefox.json');
+  if (!fs.existsSync(firefoxManifestPath)) {
+    throw new Error('Firefox manifest file not found: manifest_firefox.json');
+  }
+  
+  const firefoxManifest = JSON.parse(fs.readFileSync(firefoxManifestPath, 'utf8'));
+
   // Firefox-specific manifest modifications
   const firefoxOverrides = {
     // Firefox uses browser_specific_settings
@@ -149,7 +157,30 @@ async function buildFirefox() {
     }
   };
 
-  const version = prepareBuildDir(buildDir, firefoxOverrides);
+  // Apply overrides to Firefox manifest
+  Object.assign(firefoxManifest, firefoxOverrides);
+
+  // Clean and create build directory
+  if (fs.existsSync(buildDir)) {
+    fs.rmSync(buildDir, { recursive: true });
+  }
+  fs.mkdirSync(buildDir, { recursive: true });
+
+  // Write Firefox manifest to build directory
+  fs.writeFileSync(path.join(buildDir, 'manifest.json'), JSON.stringify(firefoxManifest, null, 2));
+
+  // Copy icons
+  const iconsDest = path.join(buildDir, 'icons');
+  fs.mkdirSync(iconsDest, { recursive: true });
+  for (const file of fs.readdirSync(ICONS_DIR)) {
+    if (file.endsWith('.png')) {
+      fs.copyFileSync(path.join(ICONS_DIR, file), path.join(iconsDest, file));
+    }
+  }
+
+  // Copy extension source
+  const srcDest = path.join(buildDir, 'src');
+  copyDirRecursive(SRC_DIR, srcDest);
 
   // Create ZIP file for Firefox (XPI is essentially a ZIP)
   const zipPath = path.join(DIST_DIR, 'rollcloud-firefox.zip');
@@ -164,7 +195,7 @@ async function buildFirefox() {
   // Cleanup build directory
   fs.rmSync(buildDir, { recursive: true });
 
-  return version;
+  return firefoxManifest.version;
 }
 
 // Main build function

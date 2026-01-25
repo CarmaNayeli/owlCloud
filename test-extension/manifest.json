@@ -1,0 +1,93 @@
+{
+  "manifest_version": 3,
+  "name": "RollCloud: DiceCloud + Roll20 + Discord Integration",
+  "version": "1.2.0",
+  "description": "Sync DiceCloud V2 characters to Roll20 with Discord turn notifications via Pip 2",
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://dicecloud.com/*",
+    "https://*.dicecloud.com/*",
+    "https://app.roll20.net/*",
+    "https://roll20.net/*"
+  ],
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://dicecloud.com/*",
+        "https://*.dicecloud.com/*"
+      ],
+      "js": [
+        "src/common/browser-polyfill.js",
+        "src/common/debug.js",
+        "src/content/dicecloud.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://app.roll20.net/*"
+      ],
+      "js": [
+        "src/common/browser-polyfill.js",
+        "src/common/debug.js",
+        "src/lib/meteor-ddp-client.js",
+        "src/lib/dicecloud-sync.js",
+        "src/content/roll20.js",
+        "src/content/character-sheet-overlay.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "src/popup-sheet.html",
+        "src/popup-sheet.js",
+        "src/common/debug.js",
+        "src/common/browser-polyfill.js",
+        "src/common/theme-manager.js",
+        "src/common/html-utils.js",
+        "src/modules/color-utils.js",
+        "src/modules/card-creator.js",
+        "src/modules/spell-edge-cases.js",
+        "src/modules/class-feature-edge-cases.js",
+        "src/modules/racial-feature-edge-cases.js",
+        "src/modules/combat-maneuver-edge-cases.js"
+      ],
+      "matches": [
+        "https://app.roll20.net/*"
+      ]
+    },
+    {
+      "resources": [
+        "src/lib/meteor-ddp-client.js",
+        "src/lib/dicecloud-sync.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ],
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4dJJMVAbjk++4+wehvNwoDPYvAcEgWNCRr1B4w6CcCCjFuI/A4cnF4ZOspNDkfRWkgEURG8yVXm0/WXlWllXDU7xuVFojSapFsa58cF7uChzfxvQ/4hU398uxsyjqMkYHFcytozP+2sta7Q0LqgW31r2h9coM1ZqlLUfv8szTzp39SLbYrMOczm1nWCNcEMIUavzEmO+s3rsT+aHYAOMDKrpxMNk+IVBnC07cTGjdbmf8Y27CGdAHxlukBPkfToD2Gt8vekebgUb679TrhDjO6qedsH3OZCES6sAa4OYpJC3aj+vigBOJmsbv+RBzRX4PKo3j+ZLZB8bflCD+BEx/wIDAQAB"
+}

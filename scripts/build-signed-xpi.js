@@ -29,9 +29,9 @@ function createSignedXPI(zipPath, xpiPath) {
       // Extract ZIP to read manifest
       const platform = process.platform;
       if (platform === 'win32') {
-        execSync(`powershell -Command "Expand-Archive -Path '${zipPath}' -DestinationPath '${tempDir}' -Force"`, { stdio: 'pipe' });
+        execSync('powershell', ['-Command', `Expand-Archive -Path '${zipPath}' -DestinationPath '${tempDir}' -Force`], { stdio: 'pipe' });
       } else {
-        execSync(`unzip -o "${zipPath}" -d "${tempDir}"`, { stdio: 'pipe' });
+        execSync('unzip', ['-o', zipPath, '-d', tempDir], { stdio: 'pipe' });
       }
       
       const manifestPath = path.join(tempDir, 'manifest.json');
@@ -67,7 +67,7 @@ async function buildSignedFirefox() {
 
   // Build the extension first
   console.log('\n📦 Building extension...');
-  execSync('node scripts/build-extension-fixed.js', { stdio: 'inherit' });
+  execSync('node', ['scripts/build-extension-fixed.js'], { stdio: 'inherit' });
   
   const zipPath = path.join(DIST_DIR, 'rollcloud-firefox.zip');
   const xpiPath = path.join(DIST_DIR, 'rollcloud-firefox-signed.xpi');

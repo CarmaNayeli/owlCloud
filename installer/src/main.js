@@ -1,12 +1,13 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const { installExtension, uninstallExtension, isExtensionInstalled } = require('./extension-installer');
-// // // // const { installExtensions } = require('./local-installer'); // Disabled for enterprise // Disabled for enterprise // Disabled for enterprise // Disabled for enterprise
 const { generatePairingCode, createPairing, checkPairing } = require('./pairing');
 
 // Extension and bot configuration
 const CONFIG = {
-  extensionId: 'rollcloud-extension', // Will be the actual extension ID after packaging
+  extensionId: 'mkckngoemfjdkhcpaomdndlecolckgdj', // Actual Chrome extension ID from signed CRX
+  chromeUpdateUrl: 'https://raw.githubusercontent.com/CarmaNayeli/rollCloud/main/updates/update_manifest.xml',
+  firefoxUpdateUrl: 'https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-firefox-signed.xpi',
   pip2InviteUrl: 'https://discord.com/api/oauth2/authorize?client_id=1464771468452827380&permissions=536870912&scope=bot%20applications.commands',
   supabaseUrl: 'https://gkfpxwvmumaylahtxqrk.supabase.co',
   supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdrZnB4d3ZtdW1heWxhaHR4cXJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ0NDA4MDIsImV4cCI6MjA4MDAxNjgwMn0.P4a17PQ7i1ZgUvLnFdQGupOtKxx8-CWvPhIaFOl2i7g',

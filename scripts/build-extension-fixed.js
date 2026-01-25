@@ -29,8 +29,21 @@ function prepareBuildDir(buildDir, manifestOverrides = {}) {
   }
   fs.mkdirSync(buildDir, { recursive: true });
 
-  // Copy manifest.json
-  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'manifest.json'), 'utf8'));
+  // Check if this is a Firefox build
+  const isFirefoxBuild = buildDir.includes('firefox');
+  
+  let manifest;
+  if (isFirefoxBuild) {
+    // Read the Firefox-specific manifest
+    const firefoxManifestPath = path.join(ROOT_DIR, 'manifest_firefox.json');
+    if (!fs.existsSync(firefoxManifestPath)) {
+      throw new Error('Firefox manifest file not found: manifest_firefox.json');
+    }
+    manifest = JSON.parse(fs.readFileSync(firefoxManifestPath, 'utf8'));
+  } else {
+    // Copy manifest.json (Chrome)
+    manifest = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'manifest.json'), 'utf8'));
+  }
 
   // Apply any overrides (e.g., for Firefox)
   Object.assign(manifest, manifestOverrides);

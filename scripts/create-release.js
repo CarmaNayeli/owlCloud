@@ -96,7 +96,7 @@ Download and run the installer executable for your platform:
 // Check if GitHub CLI is available
 function checkGitHubCLI() {
   try {
-    execSync('gh --version', { stdio: 'pipe' });
+    execSync('gh', ['--version'], { stdio: 'pipe' });
     return true;
   } catch (error) {
     return false;
@@ -118,8 +118,13 @@ function createGitHubRelease(releaseInfo) {
     console.log('\n🚀 Creating GitHub release...');
     
     // Create release
-    const releaseCommand = `gh release create ${tag} "${chrome}" "${firefox}" --title "${name}" --notes "${notes}" --latest`;
-    execSync(releaseCommand, { stdio: 'inherit' });
+    const releaseArgs = [
+      'release', 'create', tag, chrome, firefox,
+      '--title', name,
+      '--notes', notes,
+      '--latest'
+    ];
+    execSync('gh', releaseArgs, { stdio: 'inherit' });
     
     console.log(`✅ Release ${tag} created successfully!`);
     console.log(`🔗 View at: https://github.com/CarmaNayeli/rollCloud/releases/${tag}`);

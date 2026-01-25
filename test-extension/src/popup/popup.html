@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RollCloud</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🎲 RollCloud</h1>
+      <p class="subtitle">Dice Cloud → Roll20 Bridge</p>
+    </header>
+
+    <main>
+      <!-- Login Form (shown when not authenticated) -->
+      <div id="loginSection" class="hidden">
+        <div class="login-box">
+          <h3>Connect to DiceCloud</h3>
+
+          <!-- Auto-Connect Button (Recommended) -->
+          <div style="margin-bottom: 20px;">
+            <button type="button" class="btn btn-primary" id="autoConnectBtn" style="width: 100%; padding: 15px; font-size: 1.1em;">
+              🔐 Connect with DiceCloud
+            </button>
+            <p class="help-text" style="margin-top: 8px; text-align: center;">
+              Works with <strong>Google Sign-In</strong>, username/password, or any login method<br>
+              <small style="color: #666;">Click button → Log in to DiceCloud → Click button again</small>
+            </p>
+          </div>
+
+          <div style="text-align: center; margin: 15px 0; color: #666;">
+            <span style="display: inline-block; padding: 0 10px; background: white; position: relative; z-index: 1;">or</span>
+            <hr style="margin-top: -12px; border: none; border-top: 1px solid #ddd;">
+          </div>
+
+          <!-- Manual Login Form -->
+          <details style="margin-top: 15px;">
+            <summary style="cursor: pointer; padding: 10px; background: #f5f5f5; border-radius: 5px; font-weight: bold;">
+              🔑 Manual Login (if auto-connect doesn't work)
+            </summary>
+            <form id="usernameLoginForm" style="margin-top: 15px;">
+              <div class="form-group">
+                <label for="username">Username or Email</label>
+                <input type="text" id="username" name="username" required autocomplete="username" placeholder="Your DiceCloud username or email">
+              </div>
+              <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required autocomplete="current-password" placeholder="Your DiceCloud password">
+              </div>
+              <button type="submit" class="btn btn-primary" id="usernameLoginBtn">
+                🔐 Login to DiceCloud
+              </button>
+            </form>
+          </details>
+
+          <div id="loginError" class="error-message hidden"></div>
+        </div>
+      </div>
+
+      <!-- Main Interface (shown when authenticated) -->
+      <div id="mainSection" class="hidden">
+        <div class="user-info">
+          <span>Logged in as: <strong id="usernameDisplay">-</strong></span>
+          <button id="logoutBtn" class="btn-link">Logout</button>
+        </div>
+
+        <div class="character-selector hidden" id="characterSelector">
+          <label for="characterSelect">Active Character:</label>
+          <select id="characterSelect" class="character-dropdown">
+            <option value="">No characters synced</option>
+          </select>
+          <p class="help-text" style="font-size: 0.85em; margin-top: 5px; color: #666;">
+            💡 Sync multiple characters from DiceCloud - switch between them here
+          </p>
+        </div>
+
+        <div id="status" class="status-section">
+          <div class="status-indicator">
+            <span id="statusIcon">⏳</span>
+            <span id="statusText">No character data synced</span>
+          </div>
+        </div>
+
+        <div id="characterInfo" class="character-info hidden">
+          <h3>Synced Character</h3>
+          <div class="info-row">
+            <span class="label">Name:</span>
+            <span id="charName">-</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Level:</span>
+            <span id="charLevel">-</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Class:</span>
+            <span id="charClass">-</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Race:</span>
+            <span id="charRace">-</span>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="syncBtn" class="btn btn-primary">
+            🔄 Sync from Dice Cloud
+          </button>
+          <button id="showSheetBtn" class="btn btn-secondary">
+            📋 Show Character Sheet
+          </button>
+          <button id="clearBtn" class="btn btn-danger">
+            🗑️ Clear Data
+          </button>
+        </div>
+
+        <div class="instructions">
+          <h3>🎲 How to Use RollCloud</h3>
+          <ol>
+            <li><strong>Open Dice Cloud</strong> → Navigate to your character sheet</li>
+            <li><strong>Click "🔄 Sync from Dice Cloud"</strong> → Capture character data</li>
+            <li><strong>Open Roll20</strong> → Navigate to your campaign</li>
+            <li><strong>Click "📋 Show Character Sheet"</strong> → Display the overlay on Roll20</li>
+            <li><strong>Click any ability/skill card</strong> → Roll happens directly in Roll20 chat!</li>
+            <li><strong>Manage combat</strong> → Use GM panel for initiative tracking and action economy</li>
+          </ol>
+          <div class="workflow-note">
+            <p><strong>⚠️ Important:</strong> Character data syncs from DiceCloud, but rolls happen in Roll20!</p>
+            <p><strong>🔄 Workflow:</strong> Extract from DiceCloud → Roll in Roll20</p>
+          </div>
+          
+          <!-- Discord Integration -->
+          <details id="discordSettings" style="margin-top: 15px;">
+            <summary style="cursor: pointer; padding: 10px; background: #5865F2; color: white; border-radius: 5px; font-weight: bold;">
+              🎮 Discord Integration
+            </summary>
+            <div style="margin-top: 10px; padding: 12px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px;">
+
+              <!-- Not Connected State -->
+              <div id="discordNotConnected">
+                <p style="margin-top: 0; font-size: 0.9em; color: #666;">
+                  See turn notifications on your phone via Discord!
+                </p>
+                <button type="button" id="setupDiscordBtn" class="btn btn-primary" style="width: 100%; padding: 12px; font-size: 1em;">
+                  🎮 Setup Discord
+                </button>
+              </div>
+
+              <!-- Pairing In Progress State -->
+              <div id="discordPairing" style="display: none; text-align: center;">
+                <p style="margin-top: 0; font-size: 0.9em; color: #666;">
+                  In Discord, type this command:
+                </p>
+                <div style="background: #5865F2; color: white; padding: 15px; border-radius: 8px; margin: 10px 0;">
+                  <code style="font-size: 1.1em; font-family: monospace;">/rollcloud <span id="pairingCode" style="font-weight: bold; letter-spacing: 2px;">------</span></code>
+                </div>
+                <p style="font-size: 0.8em; color: #888; margin-bottom: 5px;">
+                  Waiting for connection... <span id="pairingCountdown"></span>
+                </p>
+                <button type="button" id="cancelPairingBtn" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.8em;">
+                  Cancel
+                </button>
+              </div>
+
+              <!-- Connected State -->
+              <div id="discordConnected" style="display: none;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                  <span style="color: #27ae60; font-size: 1.2em;">✓</span>
+                  <span style="font-weight: bold;">Connected to Discord!</span>
+                </div>
+                <p style="font-size: 0.85em; color: #666; margin: 0 0 10px 0;">
+                  Server: <strong id="discordServerName">-</strong>
+                </p>
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 10px;">
+                  <input type="checkbox" id="discordWebhookEnabled" checked style="width: 16px; height: 16px; cursor: pointer;">
+                  <span style="font-size: 0.9em;">Enable notifications</span>
+                </label>
+                <div style="display: flex; gap: 8px;">
+                  <button type="button" id="testDiscordWebhook" class="btn btn-secondary" style="flex: 1; padding: 8px; font-size: 0.85em;">
+                    🧪 Test
+                  </button>
+                  <button type="button" id="disconnectDiscordBtn" class="btn btn-danger" style="flex: 1; padding: 8px; font-size: 0.85em;">
+                    Disconnect
+                  </button>
+                </div>
+              </div>
+
+              <div id="discordStatus" style="margin-top: 8px; font-size: 0.85em; display: none;"></div>
+
+              <!-- Advanced: Manual webhook URL (hidden) -->
+              <details style="margin-top: 12px;">
+                <summary style="cursor: pointer; font-size: 0.8em; color: #888;">
+                  Advanced: Manual webhook setup
+                </summary>
+                <div style="margin-top: 8px;">
+                  <input type="url" id="discordWebhookUrl"
+                         placeholder="https://discord.com/api/webhooks/..."
+                         style="width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.8em; box-sizing: border-box; margin-bottom: 6px;">
+                  <button type="button" id="saveDiscordWebhook" class="btn btn-secondary" style="width: 100%; padding: 6px; font-size: 0.8em;">
+                    💾 Save Webhook URL
+                  </button>
+                </div>
+              </details>
+            </div>
+          </details>
+
+          <!-- Experimental Build Instructions (hidden by default) -->
+          <div id="experimentalInstructions" class="experimental-instructions hidden" style="margin-top: 15px; padding: 12px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px;">
+            <h4 style="margin-top: 0; color: #856404;">🧪 Experimental Features</h4>
+            <ul style="margin-bottom: 10px; color: #856404;">
+              <li><strong>Two-Way Sync:</strong> Changes in Roll20 automatically update DiceCloud</li>
+              <li><strong>Real-time Updates:</strong> HP, resources, and conditions sync instantly</li>
+              <li><strong>Action Tracking:</strong> Spell slots and ability uses tracked across platforms</li>
+            </ul>
+
+            <!-- Auto Backwards Sync Toggle -->
+            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #ffeaa7;">
+              <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: #856404; font-weight: bold;">
+                <input type="checkbox" id="autoBackwardsSyncToggle" style="width: 18px; height: 18px; cursor: pointer;">
+                <span>Enable Auto Backwards Sync</span>
+              </label>
+              <p style="margin: 5px 0 0 28px; font-size: 0.8em; color: #856404;">
+                Automatically sync changes from Roll20 back to DiceCloud
+              </p>
+            </div>
+
+            <p style="margin-bottom: 0; margin-top: 10px; font-size: 0.85em; color: #856404;">
+              <strong>⚠️ Experimental:</strong> These features are in testing - report any issues!
+            </p>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      <p class="version" id="versionDisplay">v1.1.2 - Enhanced Authentication</p>
+      <div id="experimentalNotice" class="experimental-notice hidden" style="margin-top: 5px; padding: 8px; background: #ff6b6b; color: white; border-radius: 4px; font-size: 0.85em; text-align: center;">
+        ⚠️ <strong>EXPERIMENTAL BUILD</strong> - Contains two-way sync features
+      </div>
+    </footer>
+  </div>
+
+  <!-- Slot Selection Modal -->
+  <div id="slotModal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>📦 Choose Character Slot</h3>
+        <button id="closeSlotModal" class="modal-close">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-help">Select which slot to save this character to:</p>
+        <div id="slotGrid" class="slot-grid">
+          <!-- Slots will be dynamically populated here -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../common/browser-polyfill.js"></script>
+  <script src="../common/debug.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

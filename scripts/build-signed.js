@@ -35,7 +35,7 @@ async function buildSignedChrome() {
 
   // Build extension ZIP first
   console.log('\n📦 Building extension...');
-  execSync('node scripts/build-extension-fixed.js', { stdio: 'inherit', cwd: ROOT_DIR });
+  execSync('node', ['scripts/build-extension-fixed.js'], { stdio: 'inherit', cwd: ROOT_DIR });
 
   const zipPath = path.join(DIST_DIR, 'rollcloud-chrome.zip');
   if (!fs.existsSync(zipPath)) {

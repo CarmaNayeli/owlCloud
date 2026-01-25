@@ -105,9 +105,9 @@ function createXPI(zipPath, xpiPath) {
       // Use PowerShell to extract on Windows
       const platform = process.platform;
       if (platform === 'win32') {
-        execSync(`powershell -Command "Expand-Archive -Path '${zipPath}' -DestinationPath '${tempDir}' -Force"`, { stdio: 'pipe' });
+        execSync('powershell', ['-Command', `Expand-Archive -Path '${zipPath}' -DestinationPath '${tempDir}' -Force`], { stdio: 'pipe' });
       } else {
-        execSync(`unzip -o "${zipPath}" -d "${tempDir}"`, { stdio: 'pipe' });
+        execSync('unzip', ['-o', zipPath, '-d', tempDir], { stdio: 'pipe' });
       }
       
       const manifestPath = path.join(tempDir, 'manifest.json');
@@ -175,7 +175,7 @@ async function buildProduction() {
   
   // First build the regular extensions
   console.log('\nBuilding base extensions...');
-  execSync('node scripts/build-extension.js', { stdio: 'inherit' });
+  execSync('node', ['scripts/build-extension.js'], { stdio: 'inherit' });
   
   const chromeZip = path.join(DIST_DIR, 'rollcloud-chrome.zip');
   const firefoxZip = path.join(DIST_DIR, 'rollcloud-firefox.zip');
