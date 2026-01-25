@@ -1,6 +1,6 @@
 {
   "name": "rollcloud-setup",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "RollCloud Setup Wizard - Installs browser extension and connects to Discord",
   "main": "src/main.js",
   "scripts": {
