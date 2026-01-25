@@ -7,7 +7,7 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 export default {
   data: new SlashCommandBuilder()
     .setName('rollcloud')
-    .setDescription('Connect RollCloud extension to this Discord server')
+    .setDescription('Connect your RollCloud extension to Discord')
     .addStringOption(option =>
       option
         .setName('code')
@@ -18,41 +18,15 @@ export default {
     ),
 
   async execute(interaction) {
-    // Check permissions
-    if (!interaction.member.permissions.has(PermissionFlagsBits.ManageWebhooks)) {
-      await interaction.reply({
-        content: '❌ You need the **Manage Webhooks** permission to set up RollCloud.',
-        flags: 64 // ephemeral
-      });
-      return;
-    }
-
     const code = interaction.options.getString('code').toUpperCase();
 
-    // Acknowledge immediately to prevent timeout
-    try {
-      await interaction.deferReply();
-    } catch (error) {
-      console.error('Failed to defer interaction:', error.message);
-      // Try a direct reply instead
-      try {
-        await interaction.reply({
-          content: '🔍 Looking up your pairing code...',
-          flags: 64
-        });
-      } catch (replyError) {
-        console.error('Interaction already expired:', replyError.message);
-        return;
-      }
-    }
+    await interaction.deferReply({ ephemeral: true });
 
     try {
-      console.log(`Looking up pairing code: ${code}`);
-      
+      console.log(`User ${interaction.user.tag} pairing with code: ${code}`);
+
       // 1. Look up pairing code in Supabase
       const pairing = await lookupPairingCode(code);
-      
-      console.log(`Pairing result:`, pairing);
 
       if (!pairing) {
         await interaction.editReply({
@@ -72,29 +46,45 @@ export default {
         return;
       }
 
-      if (pairing.status === 'connected') {
+      if (pairing.status === 'connected' && pairing.discord_user_id !== interaction.user.id) {
         await interaction.editReply({
           embeds: [new EmbedBuilder()
             .setColor(0xF39C12)
-            .setTitle('⚠️ Already Connected')
+            .setTitle('⚠️ Already Used')
             .setDescription(
-              `This code has already been used.\n\n` +
-              'If you need to reconnect, click "Setup Discord" in the extension to generate a new code.'
+              `This code has already been used by another user.\n\n` +
+              'Generate a new code in the RollCloud extension.'
             )
           ]
         });
         return;
       }
 
-      // 2. Create webhook in this channel
-      const webhook = await interaction.channel.createWebhook({
-        name: '🎲 RollCloud',
-        reason: `RollCloud pairing by ${interaction.user.tag}`
-      });
+      // 2. Check if we need to create a webhook (first user in channel)
+      let webhookUrl = null;
+      try {
+        // Check for existing RollCloud webhook in channel
+        if (interaction.channel.permissionsFor(interaction.guild.members.me).has(PermissionFlagsBits.ManageWebhooks)) {
+          const webhooks = await interaction.channel.fetchWebhooks();
+          let rollcloudWebhook = webhooks.find(wh => wh.name === '🎲 RollCloud');
 
-      // 3. Update Supabase with webhook URL and Discord info
+          if (!rollcloudWebhook) {
+            // Create new webhook
+            rollcloudWebhook = await interaction.channel.createWebhook({
+              name: '🎲 RollCloud',
+              reason: `RollCloud pairing by ${interaction.user.tag}`
+            });
+          }
+          webhookUrl = rollcloudWebhook.url;
+        }
+      } catch (webhookError) {
+        console.log('Could not create/get webhook (no permission):', webhookError.message);
+        // Continue without webhook - character features will still work
+      }
+
+      // 3. Update Supabase with Discord info
       await completePairing(code, {
-        webhookUrl: webhook.url,
+        webhookUrl: webhookUrl,
         guildId: interaction.guild.id,
         guildName: interaction.guild.name,
         channelId: interaction.channel.id,
@@ -102,50 +92,46 @@ export default {
         userId: interaction.user.id
       });
 
-      // 4. Create instance record in pip2_instances table
-      await createInstanceRecord({
-        discordUserId: interaction.user.id,
-        guildId: interaction.guild.id,
-        guildName: interaction.guild.name,
-        channelId: interaction.channel.id,
-        channelName: interaction.channel.name
-      });
-
-      // 5. Send success message
+      // 4. Send success message
       const embed = new EmbedBuilder()
         .setColor(0x4ECDC4)
         .setTitle('✅ RollCloud Connected!')
         .setDescription(
-          `Turn notifications will now appear in this channel.\n\n` +
-          '**What happens next:**\n' +
-          '• Your RollCloud extension will auto-connect in a few seconds\n' +
-          '• When combat starts in Roll20, turns will appear here\n' +
-          '• Players can check their phones to see whose turn it is!'
+          `Your account is now linked to RollCloud!\n\n` +
+          '**Next steps:**\n' +
+          '• Open a DiceCloud character sheet\n' +
+          '• Click "Sync Character" in the extension\n' +
+          '• Use `/character` to set your active character\n\n' +
+          '**Available commands:**\n' +
+          '`/characters` - List your synced characters\n' +
+          '`/character` - Set active character\n' +
+          '`/sheet` - View character sheet\n' +
+          '`/stats` - Quick stat lookup\n' +
+          '`/roll` - Roll with modifiers'
         )
         .addFields(
           { name: 'DiceCloud User', value: pairing.dicecloud_username || 'Unknown', inline: true },
-          { name: 'Channel', value: `#${interaction.channel.name}`, inline: true }
+          { name: 'Discord User', value: interaction.user.tag, inline: true }
         )
         .setFooter({ text: 'Pip 2 • RollCloud Integration' })
         .setTimestamp();
 
       await interaction.editReply({ embeds: [embed] });
 
-      // 6. Send a test message via the webhook
-      await webhook.send({
-        embeds: [{
-          title: '🎲 RollCloud Ready!',
-          description:
-            'This channel is now connected to RollCloud.\n\n' +
-            '**You\'ll see:**\n' +
-            '• Turn announcements\n' +
-            '• Action economy status (✅ ❌)\n' +
-            '• Round changes\n\n' +
-            '*Check this on your phone during combat!*',
-          color: 0x4ECDC4,
-          timestamp: new Date().toISOString()
-        }]
-      });
+      // 5. Optionally send a public notification
+      if (webhookUrl) {
+        try {
+          const webhook = await interaction.client.fetchWebhook(webhookUrl.split('/').slice(-2)[0]);
+          await webhook.send({
+            embeds: [{
+              description: `🎭 **${interaction.user.tag}** connected their RollCloud account!`,
+              color: 0x4ECDC4
+            }]
+          });
+        } catch (e) {
+          // Ignore webhook errors
+        }
+      }
 
     } catch (error) {
       console.error('RollCloud setup error:', error);
@@ -154,10 +140,7 @@ export default {
         embeds: [new EmbedBuilder()
           .setColor(0xE74C3C)
           .setTitle('❌ Setup Failed')
-          .setDescription(
-            `Something went wrong: ${error.message}\n\n` +
-            'Make sure Pip Bot has **Manage Webhooks** permission in this channel.'
-          )
+          .setDescription(`Something went wrong: ${error.message}`)
         ]
       });
     }
@@ -168,70 +151,50 @@ export default {
  * Look up a pairing code in Supabase
  */
 async function lookupPairingCode(code) {
-  console.log('Supabase config check:', {
-    hasUrl: !!SUPABASE_URL,
-    hasKey: !!SUPABASE_SERVICE_KEY,
-    url: SUPABASE_URL ? SUPABASE_URL.substring(0, 20) + '...' : 'missing'
-  });
-
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
     throw new Error('Supabase not configured');
   }
 
-  // Add timeout to the fetch request
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
 
   try {
-    const startTime = Date.now();
-    const url = `${SUPABASE_URL}/rest/v1/rollcloud_pairings?pairing_code=eq.${code}&select=*`;
-    
-    console.log(`Fetching from: ${url}`);
-
-    const response = await fetch(url, {
-      headers: {
-        'apikey': SUPABASE_SERVICE_KEY,
-        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
-        'Accept': 'application/json'
-      },
-      signal: controller.signal
-    });
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/rollcloud_pairings?pairing_code=eq.${code}&select=*`,
+      {
+        headers: {
+          'apikey': SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+        },
+        signal: controller.signal
+      }
+    );
 
     clearTimeout(timeoutId);
-    const endTime = Date.now();
-    console.log(`Supabase query took ${endTime - startTime}ms`);
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Supabase error:', response.status, errorText);
-      throw new Error(`Failed to lookup pairing code: ${response.status}`);
+      throw new Error(`Database error: ${response.status}`);
     }
 
     const data = await response.json();
-    console.log(`Supabase response data:`, data);
-    
     return data.length > 0 ? data[0] : null;
   } catch (error) {
     clearTimeout(timeoutId);
-    
     if (error.name === 'AbortError') {
-      console.error('Supabase query timed out');
-      throw new Error('Database query timed out. Please try again.');
+      throw new Error('Database query timed out');
     }
-    
     throw error;
   }
 }
 
 /**
- * Complete a pairing by storing the webhook URL in Supabase
+ * Complete a pairing by storing Discord info in Supabase
  */
 async function completePairing(code, discordInfo) {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
     throw new Error('Supabase not configured');
   }
 
-  // First try to update existing record
   const response = await fetch(
     `${SUPABASE_URL}/rest/v1/rollcloud_pairings?pairing_code=eq.${code}`,
     {
@@ -257,91 +220,8 @@ async function completePairing(code, discordInfo) {
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('Supabase PATCH error:', response.status, errorText);
     throw new Error(`Failed to complete pairing: ${errorText}`);
   }
 
-  const data = await response.json();
-  console.log('Supabase PATCH response:', data);
-  
-  return data;
-}
-
-/**
- * Create a new pairing record (for testing/debugging)
- */
-async function createPairingRecord(code) {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-    throw new Error('Supabase not configured');
-  }
-
-  const response = await fetch(
-    `${SUPABASE_URL}/rest/v1/rollcloud_pairings`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SUPABASE_SERVICE_KEY,
-        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
-        'Prefer': 'return=representation'
-      },
-      body: JSON.stringify({
-        pairing_code: code,
-        status: 'pending',
-        created_at: new Date().toISOString()
-      })
-    }
-  );
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Supabase POST error:', response.status, errorText);
-    throw new Error(`Failed to create pairing record: ${errorText}`);
-  }
-
-  const data = await response.json();
-  console.log('Supabase POST response:', data);
-  
-  return data[0];
-}
-
-/**
- * Create a record in pip2_instances table
- */
-async function createInstanceRecord(instanceData) {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-    throw new Error('Supabase not configured');
-  }
-
-  const response = await fetch(
-    `${SUPABASE_URL}/rest/v1/pip2_instances`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SUPABASE_SERVICE_KEY,
-        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
-        'Prefer': 'return=representation'
-      },
-      body: JSON.stringify({
-        discord_user_id: instanceData.discordUserId,
-        guild_id: instanceData.guildId,
-        guild_name: instanceData.guildName,
-        channel_id: instanceData.channelId,
-        channel_name: instanceData.channelName,
-        is_active: true
-      })
-    }
-  );
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Supabase pip2_instances POST error:', response.status, errorText);
-    throw new Error(`Failed to create instance record: ${errorText}`);
-  }
-
-  const data = await response.json();
-  console.log('Supabase pip2_instances POST response:', data);
-  
-  return data[0];
+  return await response.json();
 }
