@@ -8,6 +8,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
+const archiver = require('archiver');
 
 const ROOT_DIR = path.join(__dirname, '..');
 const DIST_DIR = path.join(ROOT_DIR, 'dist');
@@ -69,28 +70,35 @@ function copyDirRecursive(src, dest) {
   }
 }
 
-// Create ZIP archive
+// Create ZIP archive using archiver (cross-platform)
 function createZip(sourceDir, outputPath) {
-  // Remove existing file
-  if (fs.existsSync(outputPath)) {
-    fs.unlinkSync(outputPath);
-  }
+  return new Promise((resolve, reject) => {
+    // Remove existing file
+    if (fs.existsSync(outputPath)) {
+      fs.unlinkSync(outputPath);
+    }
 
-  // Use zip command (available on most systems)
-  const zipName = path.basename(outputPath);
-  const parentDir = path.dirname(outputPath);
+    const output = fs.createWriteStream(outputPath);
+    const archive = archiver('zip', { zlib: { level: 9 } });
 
-  try {
-    execSync(`cd "${sourceDir}" && zip -r "${outputPath}" .`, { stdio: 'pipe' });
-    console.log(`  Created: ${outputPath}`);
-  } catch (error) {
-    console.error(`  Error creating zip: ${error.message}`);
-    process.exit(1);
-  }
+    output.on('close', () => {
+      console.log(`  Created: ${outputPath}`);
+      resolve();
+    });
+
+    archive.on('error', (err) => {
+      console.error(`  Error creating zip: ${err.message}`);
+      reject(err);
+    });
+
+    archive.pipe(output);
+    archive.directory(sourceDir, false);
+    archive.finalize();
+  });
 }
 
 // Build Chrome extension
-function buildChrome() {
+async function buildChrome() {
   console.log('\nBuilding Chrome extension...');
 
   const buildDir = path.join(DIST_DIR, 'chrome-build');
@@ -98,7 +106,7 @@ function buildChrome() {
 
   // Create ZIP (Chrome Web Store format)
   const zipPath = path.join(DIST_DIR, 'rollcloud-chrome.zip');
-  createZip(buildDir, zipPath);
+  await createZip(buildDir, zipPath);
 
   // Also create a copy with .crx extension for the installer
   // (Note: Real .crx files need to be signed, this is just a zip renamed)
@@ -113,7 +121,7 @@ function buildChrome() {
 }
 
 // Build Firefox extension
-function buildFirefox() {
+async function buildFirefox() {
   console.log('\nBuilding Firefox extension...');
 
   const buildDir = path.join(DIST_DIR, 'firefox-build');
@@ -133,7 +141,7 @@ function buildFirefox() {
 
   // Create XPI (which is just a ZIP with .xpi extension)
   const xpiPath = path.join(DIST_DIR, 'rollcloud-firefox.xpi');
-  createZip(buildDir, xpiPath);
+  await createZip(buildDir, xpiPath);
 
   // Cleanup build directory
   fs.rmSync(buildDir, { recursive: true });
@@ -142,14 +150,14 @@ function buildFirefox() {
 }
 
 // Main build function
-function build() {
+async function build() {
   console.log('RollCloud Extension Build Script');
   console.log('=================================');
 
   ensureDistDir();
 
-  const chromeVersion = buildChrome();
-  const firefoxVersion = buildFirefox();
+  const chromeVersion = await buildChrome();
+  const firefoxVersion = await buildFirefox();
 
   console.log('\nBuild complete!');
   console.log(`  Version: ${chromeVersion}`);
@@ -160,4 +168,7 @@ function build() {
   console.log('  - rollcloud-firefox.xpi (Firefox Add-ons)');
 }
 
-build();
+build().catch(error => {
+  console.error('Build failed:', error.message);
+  process.exit(1);
+});

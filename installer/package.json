@@ -37,23 +37,34 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64", "ia32"]
+          "arch": [
+            "x64",
+            "ia32"
+          ]
         },
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "assets/icon.ico",
       "requestedExecutionLevel": "requireAdministrator"
     },
     "mac": {
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "icon": "assets/icon.icns",
       "category": "public.app-category.utilities"
     },
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "icon": "assets/icon.png",
       "category": "Utility"
     },
@@ -79,8 +90,10 @@
   "author": "Dice Cat",
   "license": "MIT",
   "devDependencies": {
-    "electron": "^28.0.0",
-    "electron-builder": "^24.9.1"
+    "electron": "^40.0.0",
+    "electron-builder": "^26.5.0",
+    "png-to-ico": "^3.0.1",
+    "sharp": "^0.34.5"
   },
   "dependencies": {
     "sudo-prompt": "^9.2.1"
