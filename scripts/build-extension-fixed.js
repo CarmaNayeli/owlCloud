@@ -99,7 +99,7 @@ function createZip(sourceDir, outputPath) {
     const output = fs.createWriteStream(outputPath);
     const archive = archiver('zip', { 
       zlib: { 
-        level: 6, // Medium compression for better compatibility
+        level: 0, // No compression for maximum compatibility
         windowBits: 15,
         memLevel: 8
       } 
