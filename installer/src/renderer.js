@@ -137,7 +137,7 @@ async function installExtension() {
     });
     
     const result = await window.api.installExtension(selectedBrowser);
-    
+
     console.log('🔧 Install result:', result);
 
     // Check for success or manual action required
@@ -152,52 +152,53 @@ async function installExtension() {
       // Check if manual action is required
       if (result.requiresManualAction && result.manualInstructions) {
         const noteElement = document.querySelector('#installComplete .note');
-        
+
         if (result.manualInstructions.type === 'firefox_addon') {
           noteElement.innerHTML = `
-            <strong>Firefox addon installation opened:</strong><br>
+            <strong>Firefox extension installation started:</strong><br>
             Please follow these steps:<br>
             ${result.manualInstructions.steps.map(step => `<div style="margin: 5px 0;">${step}</div>`).join('')}
-            <div style="margin-top: 15px;">
-              <button onclick="window.api.openExternal('${result.manualInstructions.url}')" style="background: #0060df; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
-                Reopen Addon Installation
-              </button>
-            </div>
           `;
         } else if (result.manualInstructions.type === 'firefox_download') {
           noteElement.innerHTML = `
-            <strong>Firefox Developer Edition required:</strong><br>
-            Firefox Developer Edition is needed for unsigned extensions.<br><br>
+            <strong>Firefox Developer Edition Required</strong><br>
+            Firefox Developer Edition is needed for this extension.<br><br>
             ${result.manualInstructions.steps.map(step => `<div style="margin: 5px 0;">${step}</div>`).join('')}
             <div style="margin-top: 15px;">
-              <button onclick="installFirefoxDevEdition()" style="background: #ff9500; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+              <button id="btnInstallFirefoxDev" class="action-btn" style="background: #ff9500; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
                 Install Firefox Developer Edition
               </button>
             </div>
             <div style="margin-top: 10px;">
-              <button onclick="window.api.openExternal('${result.manualInstructions.downloadUrl || 'https://www.mozilla.org/firefox/developer/'}')" style="background: #0060df; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+              <button id="btnDownloadManually" class="action-btn" data-url="${result.manualInstructions.downloadUrl || 'https://www.mozilla.org/firefox/developer/'}" style="background: #0060df; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
                 Download Manually
               </button>
             </div>
             <div style="margin-top: 10px;">
-              <button onclick="window.location.reload()" style="background: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+              <button id="btnRetryInstall" class="action-btn" style="background: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
                 Retry Installation
               </button>
             </div>
           `;
+          // Attach event listeners
+          document.getElementById('btnInstallFirefoxDev')?.addEventListener('click', () => installFirefoxDevEdition());
+          document.getElementById('btnDownloadManually')?.addEventListener('click', (e) => {
+            window.api.openExternal(e.target.dataset.url);
+          });
+          document.getElementById('btnRetryInstall')?.addEventListener('click', () => window.location.reload());
         } else if (result.manualInstructions.type === 'firefox_addon_manual') {
-          // Firefox couldn't be launched automatically
           noteElement.innerHTML = `
-            <strong>Manual Firefox installation:</strong><br>
+            <strong>Manual Firefox Installation:</strong><br>
             Please follow these steps to install the extension:<br>
             ${result.manualInstructions.steps.map(step => `<div style="margin: 5px 0;">${step}</div>`).join('')}
-            ${result.manualInstructions.xpiPath ? `<div style="margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 4px; word-break: break-all;"><strong>XPI Location:</strong><br>${result.manualInstructions.xpiPath}</div>` : ''}
+            ${result.manualInstructions.xpiPath ? `<div style="margin: 10px 0; padding: 10px; background: #f5f5f5; color: #333; border-radius: 4px; word-break: break-all;"><strong>XPI Location:</strong><br>${result.manualInstructions.xpiPath}</div>` : ''}
             <div style="margin-top: 15px;">
-              <button onclick="window.location.reload()" style="background: #28a745; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+              <button id="btnRetryManual" class="action-btn" style="background: #28a745; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
                 Retry Installation
               </button>
             </div>
           `;
+          document.getElementById('btnRetryManual')?.addEventListener('click', () => window.location.reload());
         } else {
           // Handle other manual installation types (fallback)
           const steps = result.manualInstructions.steps || [];
@@ -205,9 +206,7 @@ async function installExtension() {
             <strong>Manual installation required:</strong><br>
             Please follow these steps:<br>
             ${steps.map(step => `<div style="margin: 5px 0;">${step}</div>`).join('')}
-            ${result.manualInstructions.xpiPath ? `<div style="margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 4px; word-break: break-all;"><strong>File Location:</strong><br>${result.manualInstructions.xpiPath}</div>` : ''}
-            ${result.manualInstructions.file ? `<div style="margin: 10px 0;">Create file: <code>${result.manualInstructions.file}</code></div>` : ''}
-            ${result.manualInstructions.content ? `<pre style="background: #f5f5f5; padding: 10px; margin: 10px 0; font-size: 12px; overflow-x: auto;">${JSON.stringify(result.manualInstructions.content, null, 2)}</pre>` : ''}
+            ${result.manualInstructions.xpiPath ? `<div style="margin: 10px 0; padding: 10px; background: #f5f5f5; color: #333; border-radius: 4px; word-break: break-all;"><strong>File Location:</strong><br>${result.manualInstructions.xpiPath}</div>` : ''}
           `;
         }
       }
@@ -476,68 +475,72 @@ function setupGlobalHandlers() {
 
 // Install Firefox Developer Edition
 async function installFirefoxDevEdition() {
+  const progress = document.getElementById('installProgress');
+  const error = document.getElementById('installError');
+  const complete = document.getElementById('installComplete');
+  const noteElement = document.querySelector('#installComplete .note');
+
   try {
     progress.classList.remove('hidden');
     error.classList.add('hidden');
     complete.classList.add('hidden');
-    
-    const noteElement = document.querySelector('#installComplete .note');
+
     noteElement.innerHTML = `
       <strong>Installing Firefox Developer Edition...</strong><br>
-      Please wait while Firefox Developer Edition is installed from the bundled installer.<br>
-      <div style="margin-top: 15px;">
-        <div style="background: #f0f0f0; padding: 10px; border-radius: 4px; margin: 10px 0;">
-          <div id="installProgress">Installing from bundled installer...</div>
-        </div>
+      Please wait while Firefox Developer Edition is installed.<br>
+      <div style="margin-top: 15px; padding: 10px; background: #f0f0f0; color: #333; border-radius: 4px;">
+        Installing from bundled installer...
       </div>
     `;
-    
+
     const result = await window.api.installFirefoxDevEdition();
-    
+
+    progress.classList.add('hidden');
+    complete.classList.remove('hidden');
+
     if (result.success) {
       noteElement.innerHTML = `
-        <strong>✅ Firefox Developer Edition installed successfully!</strong><br>
-        Firefox Developer Edition has been installed with relaxed signing requirements.<br><br>
+        <strong style="color: #28a745;">✅ Firefox Developer Edition installed!</strong><br>
+        Firefox Developer Edition is now ready.<br><br>
         <div style="margin-top: 15px;">
-          <button onclick="window.location.reload()" style="background: #28a745; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
-            Retry RollCloud Installation
+          <button id="btnRetryAfterInstall" style="background: #28a745; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+            Continue with RollCloud Installation
           </button>
         </div>
       `;
+      document.getElementById('btnRetryAfterInstall')?.addEventListener('click', () => window.location.reload());
     } else {
-      noteElement.innerHTML = `
-        <strong>❌ Failed to install Firefox Developer Edition</strong><br>
-        Error: ${result.error}<br><br>
-        <div style="margin-top: 15px;">
-          <button onclick="window.api.openExternal('https://www.mozilla.org/firefox/developer/')" style="background: #ff9500; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
-            Download Manually
-          </button>
-        </div>
-        <div style="margin-top: 10px;">
-          <button onclick="window.location.reload()" style="background: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
-            Retry Installation
-          </button>
-        </div>
-      `;
+      showFirefoxInstallError(result.error || 'Unknown error', noteElement);
     }
-    
-  } catch (error) {
-    console.error('Failed to install Firefox Developer Edition:', error);
-    noteElement.innerHTML = `
-      <strong>❌ Failed to install Firefox Developer Edition</strong><br>
-      Error: ${error.message}<br><br>
-      <div style="margin-top: 15px;">
-        <button onclick="window.api.openExternal('https://www.mozilla.org/firefox/developer/')" style="background: #ff9500; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
-          Download Manually
-        </button>
-      </div>
-      <div style="margin-top: 10px;">
-        <button onclick="window.location.reload()" style="background: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
-          Retry Installation
-        </button>
-      </div>
-    `;
+
+  } catch (err) {
+    console.error('Failed to install Firefox Developer Edition:', err);
+    progress.classList.add('hidden');
+    complete.classList.remove('hidden');
+    showFirefoxInstallError(err.message, noteElement);
   }
+}
+
+// Helper to show Firefox install error with buttons
+function showFirefoxInstallError(errorMsg, noteElement) {
+  noteElement.innerHTML = `
+    <strong style="color: #dc3545;">❌ Firefox Developer Edition installation failed</strong><br>
+    Error: ${errorMsg}<br><br>
+    <div style="margin-top: 15px;">
+      <button id="btnDownloadFirefox" style="background: #ff9500; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+        Download Manually
+      </button>
+    </div>
+    <div style="margin-top: 10px;">
+      <button id="btnRetryFirefox" style="background: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+        Retry Installation
+      </button>
+    </div>
+  `;
+  document.getElementById('btnDownloadFirefox')?.addEventListener('click', () => {
+    window.api.openExternal('https://www.mozilla.org/firefox/developer/');
+  });
+  document.getElementById('btnRetryFirefox')?.addEventListener('click', () => window.location.reload());
 }
 
 // Restart browser function
