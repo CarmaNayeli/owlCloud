@@ -25,8 +25,8 @@
     ],
     "extraResources": [
       {
-        "from": "../dist/rollcloud-chrome.crx",
-        "to": "extension/rollcloud-chrome.crx"
+        "from": "../dist/rollcloud-chrome.zip",
+        "to": "extension/rollcloud-chrome.zip"
       },
       {
         "from": "../dist/rollcloud-firefox.xpi",

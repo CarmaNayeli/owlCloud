@@ -108,11 +108,9 @@ async function buildChrome() {
   const zipPath = path.join(DIST_DIR, 'rollcloud-chrome.zip');
   await createZip(buildDir, zipPath);
 
-  // Also create a copy with .crx extension for the installer
-  // (Note: Real .crx files need to be signed, this is just a zip renamed)
-  const crxPath = path.join(DIST_DIR, 'rollcloud-chrome.crx');
-  fs.copyFileSync(zipPath, crxPath);
-  console.log(`  Created: ${crxPath} (unsigned)`);
+  // Note: For local development, use the ZIP file directly
+  // CRX files require signing and special headers
+  console.log(`  Created: ${zipPath} (use this for local installation)`);
 
   // Cleanup build directory
   fs.rmSync(buildDir, { recursive: true });
@@ -163,8 +161,7 @@ async function build() {
   console.log(`  Version: ${chromeVersion}`);
   console.log(`  Output directory: ${DIST_DIR}`);
   console.log('\nFiles created:');
-  console.log('  - rollcloud-chrome.zip (Chrome Web Store)');
-  console.log('  - rollcloud-chrome.crx (Installer bundle)');
+  console.log('  - rollcloud-chrome.zip (Chrome Web Store & local installation)');
   console.log('  - rollcloud-firefox.xpi (Firefox Add-ons)');
 }
 
