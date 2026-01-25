@@ -66,8 +66,10 @@ function initializePopup() {
   const loginError = document.getElementById('loginError');
 
   // DOM Elements - Main Interface
-  const usernameDisplay = document.getElementById('usernameDisplay');
   const logoutBtn = document.getElementById('logoutBtn');
+  const exportBtn = document.getElementById('exportBtn');
+  const importBtn = document.getElementById('importBtn');
+  const importFile = document.getElementById('importFile');
   const characterSelector = document.getElementById('characterSelector');
   const characterSelect = document.getElementById('characterSelect');
   const statusIcon = document.getElementById('statusIcon');
@@ -154,6 +156,15 @@ function initializePopup() {
 
   clearBtn.addEventListener('click', handleClear);
 
+  // Export/Import event listeners
+  if (exportBtn) {
+    exportBtn.addEventListener('click', handleExport);
+  }
+  if (importBtn && importFile) {
+    importBtn.addEventListener('click', () => importFile.click());
+    importFile.addEventListener('change', handleImport);
+  }
+
   // Modal event listeners
   document.getElementById('closeSlotModal').addEventListener('click', closeSlotModal);
 
@@ -193,7 +204,7 @@ function initializePopup() {
       debug.log('📥 Login status response:', response);
 
       if (response.success && response.loggedIn) {
-        showMainSection(response.username);
+        showMainSection();
       } else {
         debug.log('🔄 Background script says not logged in, checking storage directly...');
         // Try alternative method - check storage directly
@@ -202,7 +213,7 @@ function initializePopup() {
           debug.log('📦 Direct storage check result:', result);
           if (result.diceCloudToken) {
             debug.log('✅ Found token in storage, showing main section');
-            showMainSection(result.username || 'DiceCloud User');
+            showMainSection();
           } else {
             debug.log('❌ No token found in storage, checking Supabase...');
             // Try Supabase for cross-session persistence
@@ -224,7 +235,7 @@ function initializePopup() {
                     username: supabaseResult.username,
                     tokenExpires: supabaseResult.tokenExpires
                   });
-                  showMainSection(supabaseResult.username || 'DiceCloud User');
+                  showMainSection();
                 } else {
                   debug.log('❌ No token found in Supabase, showing login. Error:', supabaseResult.error);
                   showLoginSection();
@@ -251,7 +262,7 @@ function initializePopup() {
         debug.log('📦 Direct storage check result (error fallback):', result);
         if (result.diceCloudToken) {
           debug.log('✅ Found token in storage, showing main section');
-          showMainSection(result.username || 'DiceCloud User');
+          showMainSection();
         } else {
           debug.log('❌ No token found in storage, checking Supabase...');
           // Try Supabase for cross-session persistence
@@ -268,7 +279,7 @@ function initializePopup() {
                   username: supabaseResult.username,
                   tokenExpires: supabaseResult.tokenExpires
                 });
-                showMainSection(supabaseResult.username || 'DiceCloud User');
+                showMainSection();
               } else {
                 debug.log('❌ No token found in Supabase, showing login');
                 showLoginSection();
@@ -300,10 +311,9 @@ function initializePopup() {
   /**
    * Shows the main section
    */
-  function showMainSection(username) {
+  function showMainSection() {
     loginSection.classList.add('hidden');
     mainSection.classList.remove('hidden');
-    usernameDisplay.textContent = username || 'User';
   }
 
   /**
@@ -400,7 +410,7 @@ function initializePopup() {
               }
 
               hideLoginError();
-              showMainSection(response.username || 'DiceCloud User');
+              showMainSection();
               loadCharacterData();
             } catch (storageError) {
               debug.error('❌ Direct storage failed:', storageError);
@@ -464,7 +474,7 @@ function initializePopup() {
 
       if (response.success) {
         usernameLoginForm.reset();
-        showMainSection(username);
+        showMainSection();
         loadCharacterData();
       } else {
         showLoginError(response.error || 'Login failed');
@@ -840,6 +850,108 @@ function initializePopup() {
       showError('Error clearing data');
     } finally {
       clearBtn.disabled = false;
+    }
+  }
+
+  /**
+   * Handles export button click - exports all characters to JSON file
+   */
+  async function handleExport() {
+    try {
+      exportBtn.disabled = true;
+      exportBtn.textContent = '⏳ Exporting...';
+
+      // Get all character profiles
+      const profilesResponse = await browserAPI.runtime.sendMessage({ action: 'getAllCharacterProfiles' });
+      const profiles = profilesResponse.success ? profilesResponse.profiles : {};
+
+      // Filter out non-character entries (like rollcloudPlayer)
+      const characterProfiles = {};
+      for (const [key, value] of Object.entries(profiles)) {
+        if (!key.startsWith('rollcloudPlayer')) {
+          characterProfiles[key] = value;
+        }
+      }
+
+      if (Object.keys(characterProfiles).length === 0) {
+        showError('No characters to export');
+        return;
+      }
+
+      // Create export data
+      const exportData = {
+        version: '1.0',
+        exportDate: new Date().toISOString(),
+        characters: characterProfiles
+      };
+
+      // Create and download JSON file
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `rollcloud-characters-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      showSuccess(`Exported ${Object.keys(characterProfiles).length} character(s)`);
+    } catch (error) {
+      debug.error('Error exporting characters:', error);
+      showError('Error exporting: ' + error.message);
+    } finally {
+      exportBtn.disabled = false;
+      exportBtn.textContent = '📤 Export Characters';
+    }
+  }
+
+  /**
+   * Handles import file selection - imports characters from JSON file
+   */
+  async function handleImport(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+      importBtn.disabled = true;
+      importBtn.textContent = '⏳ Importing...';
+
+      const text = await file.text();
+      const importData = JSON.parse(text);
+
+      // Validate import data
+      if (!importData.characters || typeof importData.characters !== 'object') {
+        showError('Invalid import file format');
+        return;
+      }
+
+      // Import each character
+      let importedCount = 0;
+      for (const [characterId, characterData] of Object.entries(importData.characters)) {
+        await browserAPI.runtime.sendMessage({
+          action: 'storeCharacterData',
+          data: characterData,
+          slotId: characterId
+        });
+        importedCount++;
+      }
+
+      // Reload character data
+      await loadCharacterData();
+      showSuccess(`Imported ${importedCount} character(s)`);
+    } catch (error) {
+      debug.error('Error importing characters:', error);
+      if (error instanceof SyntaxError) {
+        showError('Invalid JSON file');
+      } else {
+        showError('Error importing: ' + error.message);
+      }
+    } finally {
+      importBtn.disabled = false;
+      importBtn.textContent = '📥 Import Characters';
+      // Reset file input so the same file can be selected again
+      event.target.value = '';
     }
   }
 
