@@ -1,22 +1,29 @@
 {
   "name": "rollcloud",
-  "version": "1.1.6",
-  "description": "Dice Cloud Integration for Roll20",
+  "version": "1.2.0",
+  "description": "RollCloud: DiceCloud + Roll20 + Discord Integration",
   "scripts": {
-    "build": "node build-scripts/build.js",
-    "build:chrome": "node build-scripts/build.js && echo 'Chrome build: dist/chrome/'",
-    "build:firefox": "node build-scripts/build.js && echo 'Firefox build: dist/firefox/'",
-    "build:experimental": "node -e \"require('child_process').execSync(process.platform==='win32'?'powershell -ExecutionPolicy Bypass -File build-scripts/build-experimental.ps1 -All':'bash build-scripts/build-experimental.sh all',{stdio:'inherit'})\"",
-    "build:exp": "node -e \"require('child_process').execSync(process.platform==='win32'?'powershell -ExecutionPolicy Bypass -File build-scripts/build-experimental.ps1 -All':'bash build-scripts/build-experimental.sh all',{stdio:'inherit'})\"",
-    "clean": "node -e \"const fs=require('fs'); if(fs.existsSync('dist'))fs.rmSync('dist',{recursive:true}); if(fs.existsSync('dist-experimental'))fs.rmSync('dist-experimental',{recursive:true});\""
+    "build:extension": "node scripts/build-extension.js",
+    "build:installer": "cd installer && npm run build",
+    "build:installer:win": "cd installer && npm run build:win",
+    "build:installer:mac": "cd installer && npm run build:mac",
+    "build:installer:linux": "cd installer && npm run build:linux",
+    "build:all": "npm run build:extension && npm run build:installer",
+    "build": "npm run build:extension",
+    "clean": "node -e \"const fs=require('fs'); if(fs.existsSync('dist'))fs.rmSync('dist',{recursive:true});\"",
+    "install:deps": "cd installer && npm install",
+    "dev:installer": "cd installer && npm run dev"
   },
   "keywords": [
+    "rollcloud",
     "dicecloud",
     "roll20",
+    "discord",
+    "pip2",
     "browser-extension",
     "chrome-extension",
     "firefox-addon"
   ],
-  "author": "",
+  "author": "Dice Cat",
   "license": "MIT"
 }

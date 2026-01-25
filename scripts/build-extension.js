@@ -1,0 +1,163 @@
+#!/usr/bin/env node
+
+/**
+ * Build script for RollCloud browser extension
+ * Creates distributable packages for Chrome and Firefox
+ */
+
+const fs = require('fs');
+const path = require('path');
+const { execSync } = require('child_process');
+
+const ROOT_DIR = path.join(__dirname, '..');
+const DIST_DIR = path.join(ROOT_DIR, 'dist');
+const SRC_DIR = path.join(ROOT_DIR, 'src');
+const ICONS_DIR = path.join(ROOT_DIR, 'icons');
+
+// Ensure dist directory exists
+function ensureDistDir() {
+  if (!fs.existsSync(DIST_DIR)) {
+    fs.mkdirSync(DIST_DIR, { recursive: true });
+  }
+}
+
+// Copy files to a temporary build directory
+function prepareBuildDir(buildDir, manifestOverrides = {}) {
+  // Clean and create build directory
+  if (fs.existsSync(buildDir)) {
+    fs.rmSync(buildDir, { recursive: true });
+  }
+  fs.mkdirSync(buildDir, { recursive: true });
+
+  // Copy manifest.json
+  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'manifest.json'), 'utf8'));
+
+  // Apply any overrides (e.g., for Firefox)
+  Object.assign(manifest, manifestOverrides);
+
+  fs.writeFileSync(path.join(buildDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+
+  // Copy icons
+  const iconsDest = path.join(buildDir, 'icons');
+  fs.mkdirSync(iconsDest, { recursive: true });
+  for (const file of fs.readdirSync(ICONS_DIR)) {
+    if (file.endsWith('.png')) {
+      fs.copyFileSync(path.join(ICONS_DIR, file), path.join(iconsDest, file));
+    }
+  }
+
+  // Copy extension source
+  const srcDest = path.join(buildDir, 'src');
+  copyDirRecursive(SRC_DIR, srcDest);
+
+  return manifest.version;
+}
+
+// Recursively copy directory
+function copyDirRecursive(src, dest) {
+  fs.mkdirSync(dest, { recursive: true });
+
+  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+
+    if (entry.isDirectory()) {
+      copyDirRecursive(srcPath, destPath);
+    } else {
+      fs.copyFileSync(srcPath, destPath);
+    }
+  }
+}
+
+// Create ZIP archive
+function createZip(sourceDir, outputPath) {
+  // Remove existing file
+  if (fs.existsSync(outputPath)) {
+    fs.unlinkSync(outputPath);
+  }
+
+  // Use zip command (available on most systems)
+  const zipName = path.basename(outputPath);
+  const parentDir = path.dirname(outputPath);
+
+  try {
+    execSync(`cd "${sourceDir}" && zip -r "${outputPath}" .`, { stdio: 'pipe' });
+    console.log(`  Created: ${outputPath}`);
+  } catch (error) {
+    console.error(`  Error creating zip: ${error.message}`);
+    process.exit(1);
+  }
+}
+
+// Build Chrome extension
+function buildChrome() {
+  console.log('\nBuilding Chrome extension...');
+
+  const buildDir = path.join(DIST_DIR, 'chrome-build');
+  const version = prepareBuildDir(buildDir);
+
+  // Create ZIP (Chrome Web Store format)
+  const zipPath = path.join(DIST_DIR, 'rollcloud-chrome.zip');
+  createZip(buildDir, zipPath);
+
+  // Also create a copy with .crx extension for the installer
+  // (Note: Real .crx files need to be signed, this is just a zip renamed)
+  const crxPath = path.join(DIST_DIR, 'rollcloud-chrome.crx');
+  fs.copyFileSync(zipPath, crxPath);
+  console.log(`  Created: ${crxPath} (unsigned)`);
+
+  // Cleanup build directory
+  fs.rmSync(buildDir, { recursive: true });
+
+  return version;
+}
+
+// Build Firefox extension
+function buildFirefox() {
+  console.log('\nBuilding Firefox extension...');
+
+  const buildDir = path.join(DIST_DIR, 'firefox-build');
+
+  // Firefox-specific manifest modifications
+  const firefoxOverrides = {
+    // Firefox uses browser_specific_settings
+    browser_specific_settings: {
+      gecko: {
+        id: 'rollcloud@dicecat.dev',
+        strict_min_version: '109.0'
+      }
+    }
+  };
+
+  const version = prepareBuildDir(buildDir, firefoxOverrides);
+
+  // Create XPI (which is just a ZIP with .xpi extension)
+  const xpiPath = path.join(DIST_DIR, 'rollcloud-firefox.xpi');
+  createZip(buildDir, xpiPath);
+
+  // Cleanup build directory
+  fs.rmSync(buildDir, { recursive: true });
+
+  return version;
+}
+
+// Main build function
+function build() {
+  console.log('RollCloud Extension Build Script');
+  console.log('=================================');
+
+  ensureDistDir();
+
+  const chromeVersion = buildChrome();
+  const firefoxVersion = buildFirefox();
+
+  console.log('\nBuild complete!');
+  console.log(`  Version: ${chromeVersion}`);
+  console.log(`  Output directory: ${DIST_DIR}`);
+  console.log('\nFiles created:');
+  console.log('  - rollcloud-chrome.zip (Chrome Web Store)');
+  console.log('  - rollcloud-chrome.crx (Installer bundle)');
+  console.log('  - rollcloud-firefox.xpi (Firefox Add-ons)');
+}
+
+build();
