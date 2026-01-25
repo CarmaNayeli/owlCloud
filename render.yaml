@@ -1,0 +1,20 @@
+services:
+  - type: worker
+    name: pip-bot
+    runtime: node
+    plan: starter
+    buildCommand: cd Pip2 && npm install
+    startCommand: cd Pip2 && npm start
+    envVars:
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: DISCORD_CLIENT_ID
+        sync: false
+      - key: DISCORD_GUILD_ID
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: NODE_ENV
+        value: production
