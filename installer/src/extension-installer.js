@@ -372,7 +372,10 @@ async function isExtensionInstalled(browser) {
             // Check if the policy is disabled
             const isDisabled = result.includes('"disabled":true');
             console.log(`Policy disabled: ${isDisabled}`);
+            console.log(`✅ Found RollCloud policy for ${browser}`);
             return !isDisabled;
+          } else {
+            console.log(`❌ No RollCloud policy found for ${browser}`);
           }
           return false;
         } catch (error) {

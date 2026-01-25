@@ -25,7 +25,7 @@
     ],
     "extraResources": [
       {
-        "from": "../dist/rollcloud-chrome-unsigned.crx",
+        "from": "../dist/rollcloud-chrome-minimal.crx",
         "to": "extension/rollcloud-chrome.crx"
       },
       {
