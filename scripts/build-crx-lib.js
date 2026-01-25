@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const ChromeExtension = require('crx');
+const extract = require('extract-zip');
 
 const ROOT_DIR = path.join(__dirname, '..');
 const DIST_DIR = path.join(ROOT_DIR, 'dist');
@@ -54,9 +55,8 @@ async function build() {
   }
   fs.mkdirSync(tempDir, { recursive: true });
 
-  // Extract ZIP
-  const { execSync } = require('child_process');
-  execSync(`unzip -q "${zipPath}" -d "${tempDir}"`);
+  // Extract ZIP (cross-platform)
+  await extract(zipPath, { dir: tempDir });
   console.log(`📦 Extracted ZIP to ${tempDir}`);
 
   // Create CRX
@@ -125,7 +125,7 @@ async function build() {
     fs.rmSync(unpackedDir, { recursive: true });
   }
   fs.mkdirSync(unpackedDir, { recursive: true });
-  execSync(`unzip -q "${zipPath}" -d "${unpackedDir}"`);
+  await extract(zipPath, { dir: unpackedDir });
   console.log(`\n📂 Unpacked extension ready at: ${unpackedDir}`);
 }
 

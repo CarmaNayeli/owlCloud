@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { execSync } = require('child_process');
+const extract = require('extract-zip');
 
 const ROOT_DIR = path.join(__dirname, '..');
 const DIST_DIR = path.join(ROOT_DIR, 'dist');
@@ -55,13 +56,13 @@ async function buildSignedChrome() {
     throw new Error('Extension ZIP not found');
   }
 
-  // Extract ZIP to temp folder
+  // Extract ZIP to temp folder (cross-platform)
   const tempDir = path.join(DIST_DIR, 'chrome-build-temp');
   if (fs.existsSync(tempDir)) {
     fs.rmSync(tempDir, { recursive: true });
   }
   fs.mkdirSync(tempDir, { recursive: true });
-  execSync(`unzip -q "${zipPath}" -d "${tempDir}"`);
+  await extract(zipPath, { dir: tempDir });
 
   // Create CRX using crx library
   const crx = new ChromeExtension({ privateKey });
