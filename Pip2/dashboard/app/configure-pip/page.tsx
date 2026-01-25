@@ -134,6 +134,15 @@ export default function ConfigurePip() {
   useEffect(() => {
     if (status === 'authenticated' && session) {
       const hasAccessToken = !!(session as any)?.accessToken;
+      console.log('🔍 Session debug:', {
+        hasSession: !!session,
+        hasUser: !!session?.user,
+        hasAccessToken: hasAccessToken,
+        accessToken: (session as any)?.accessToken ? 'present' : 'missing',
+        discordId: (session as any)?.discordId,
+        userName: session?.user?.name
+      });
+      
       if (!hasAccessToken) {
         console.log('⚠️ Discord access token missing, showing error message');
         setError('Discord access token missing. Please sign in again to access your Discord servers.');
@@ -447,12 +456,23 @@ export default function ConfigurePip() {
                 </svg>
                 <span className="text-red-800 dark:text-red-200 font-medium">{error}</span>
               </div>
-              <button
-                onClick={() => window.location.href = '/login'}
-                className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm font-medium transition"
-              >
-                Sign In
-              </button>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => window.location.href = '/login'}
+                  className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm font-medium transition"
+                >
+                  Sign In
+                </button>
+                <button
+                  onClick={() => {
+                    // Clear NextAuth session
+                    window.location.href = '/api/auth/signout';
+                  }}
+                  className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm font-medium transition"
+                >
+                  Clear Session
+                </button>
+              </div>
             </div>
           </div>
         )}
