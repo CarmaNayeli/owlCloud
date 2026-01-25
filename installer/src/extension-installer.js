@@ -317,7 +317,7 @@ async function installFirefoxExtension(config) {
 }
 
 /**
- * Check if extension is already installed via policy
+ * Check if extension is already installed via policy or local extraction
  */
 async function isExtensionInstalled(browser) {
   const platform = process.platform;
@@ -331,24 +331,122 @@ async function isExtensionInstalled(browser) {
     switch (platform) {
       case 'win32':
         if (browser === 'firefox') {
-          // Check Firefox distribution folder
+          // Check Firefox distribution folder for local installation
           const programFiles = process.env['ProgramFiles'] || 'C:\\Program Files';
+          const extensionDir = path.join(programFiles, 'Mozilla Firefox', 'distribution', 'extensions');
+          
+          // Look for RollCloud extension directory
+          if (fs.existsSync(extensionDir)) {
+            const extensions = fs.readdirSync(extensionDir);
+            return extensions.some(ext => ext.includes('rollcloud') || ext.includes('mkckngoemfjdkhcpaomdndlecolckgdj'));
+          }
+          
+          // Also check policies
           const policiesPath = path.join(programFiles, 'Mozilla Firefox', 'distribution', 'policies.json');
-          return fs.existsSync(policiesPath);
+          if (fs.existsSync(policiesPath)) {
+            return true; // Policy exists, assume installed
+          }
+          return false;
         }
-        // Check registry for Chrome/Edge
-        const result = execSync(`reg query "${browserConfig.windows.registryPath}" 2>nul`, { encoding: 'utf-8' });
-        return result.includes('rollcloud');
+        
+        // For Chrome/Edge, check both local directories and registry
+        const localAppData = process.env['LOCALAPPDATA'] || path.join(os.homedir(), 'AppData', 'Local');
+        
+        // Check Chrome local installation
+        if (browser === 'chrome') {
+          const chromeExtDir = path.join(localAppData, 'Google', 'Chrome', 'User Data', 'Default', 'Extensions');
+          if (fs.existsSync(chromeExtDir)) {
+            const extensions = fs.readdirSync(chromeExtDir);
+            return extensions.some(ext => ext.includes('rollcloud') || ext.includes('mkckngoemfjdkhcpaomdndlecolckgdj'));
+          }
+        }
+        
+        // Check Edge local installation  
+        if (browser === 'edge') {
+          const edgeExtDir = path.join(localAppData, 'Microsoft', 'Edge', 'User Data', 'Default', 'Extensions');
+          if (fs.existsSync(edgeExtDir)) {
+            const extensions = fs.readdirSync(edgeExtDir);
+            return extensions.some(ext => ext.includes('rollcloud') || ext.includes('mkckngoemfjdkhcpaomdndlecolckgdj'));
+          }
+        }
+        
+        // Check registry for enterprise policies
+        try {
+          const result = execSync(`reg query "${browserConfig.windows.registryPath}" 2>nul`, { encoding: 'utf8' });
+          return result.includes('rollcloud');
+        } catch {
+          // Registry access failed, but local check already done
+        }
+        return false;
+        
       case 'darwin':
         if (browser === 'firefox') {
+          // Check Firefox local installation
+          const homeDir = os.homedir();
+          const firefoxProfileDir = path.join(homeDir, 'Library', 'Application Support', 'Firefox', 'Profiles');
+          
+          if (fs.existsSync(firefoxProfileDir)) {
+            const profiles = fs.readdirSync(firefoxProfileDir);
+            for (const profile of profiles) {
+              const profilePath = path.join(firefoxProfileDir, profile);
+              if (fs.statSync(profilePath).isDirectory()) {
+                const extensionsPath = path.join(profilePath, 'extensions');
+                if (fs.existsSync(extensionsPath)) {
+                  const extensions = fs.readdirSync(extensionsPath);
+                  if (extensions.some(ext => ext.includes('rollcloud') || ext.includes('rollcloud@dicecat.dev'))) {
+                    return true;
+                  }
+                }
+              }
+            }
+          }
+          
+          // Also check policies
           return fs.existsSync(path.join(browserConfig.mac.distributionPath, 'policies.json'));
         }
+        
+        // Check Chrome/Edge local installation
+        const chromeProfileExtDir = path.join(os.homedir(), 'Library', 'Application Support', 'Google', 'Chrome', 'Profile', 'Extensions');
+        if (fs.existsSync(chromeProfileExtDir)) {
+          const profiles = fs.readdirSync(chromeProfileExtDir);
+          for (const profile of profiles) {
+            const profilePath = path.join(chromeProfileExtDir, profile);
+            if (fs.statSync(profilePath).isDirectory()) {
+              const extensions = fs.readdirSync(profilePath);
+              if (extensions.some(ext => ext.includes('rollcloud') || ext.includes('mkckngoemfjdkhcpaomdndlecolckgdj'))) {
+                return true;
+              }
+            }
+          }
+        }
+        
+        // Check policies
         return fs.existsSync(browserConfig.mac.plistPath);
+        
       case 'linux':
         if (browser === 'firefox') {
+          // Check Firefox local installation
+          const homeDir = os.homedir();
+          const firefoxExtDir = path.join(homeDir, '.mozilla', 'firefox', 'extensions');
+          if (fs.existsSync(firefoxExtDir)) {
+            const extensions = fs.readdirSync(firefoxExtDir);
+            return extensions.some(ext => ext.includes('rollcloud') || ext.includes('rollcloud@dicecat.dev'));
+          }
+          
+          // Also check policies
           return fs.existsSync(path.join(browserConfig.linux.distributionPath, 'policies.json'));
         }
+        
+        // Check Chrome local installation
+        const chromeExtDir = path.join(os.homedir(), '.config', 'google-chrome', 'Default', 'Extensions');
+        if (fs.existsSync(chromeExtDir)) {
+          const extensions = fs.readdirSync(chromeExtDir);
+          return extensions.some(ext => ext.includes('rollcloud') || ext.includes('mkckngoemfjdkhcpaomdndlecolckgdj'));
+        }
+        
+        // Check policies
         return fs.existsSync(browserConfig.linux.jsonPath);
+        
       default:
         return false;
     }

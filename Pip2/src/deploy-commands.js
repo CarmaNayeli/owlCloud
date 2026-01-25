@@ -38,13 +38,24 @@ const rest = new REST().setToken(process.env.DISCORD_TOKEN);
   try {
     console.log(`\n🚀 Started refreshing ${commands.length} application (/) commands.`);
 
-    // The put method is used to fully refresh all commands in the guild with the current set
-    const data = await rest.put(
-      Routes.applicationGuildCommands(process.env.DISCORD_CLIENT_ID, process.env.DISCORD_GUILD_ID),
-      { body: commands },
-    );
+    // Use global commands if no guild ID is provided
+    const deploymentType = process.env.DISCORD_GUILD_ID ? 'guild' : 'global';
+    const route = process.env.DISCORD_GUILD_ID
+      ? Routes.applicationGuildCommands(process.env.DISCORD_CLIENT_ID, process.env.DISCORD_GUILD_ID)
+      : Routes.applicationCommands(process.env.DISCORD_CLIENT_ID);
+
+    console.log(`📋 Deployment type: ${deploymentType} commands`);
+
+    // The put method is used to fully refresh all commands
+    const data = await rest.put(route, { body: commands });
 
     console.log(`✅ Successfully reloaded ${data.length} application (/) commands.\n`);
+    
+    if (deploymentType === 'global') {
+      console.log('🌍 Commands deployed globally - may take up to 1 hour to appear in all servers');
+    } else {
+      console.log('🎯 Commands deployed to specific guild');
+    }
   } catch (error) {
     console.error('Error deploying commands:', error);
   }
