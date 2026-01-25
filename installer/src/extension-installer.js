@@ -316,180 +316,301 @@ async function installFirefoxExtension(config) {
   });
 }
 
+// Extension IDs for different browsers
+const EXTENSION_IDS = {
+  chrome: null, // Will be read from keys/public.der or generated
+  edge: null,   // Same as Chrome (Chromium-based)
+  firefox: 'rollcloud@dicecat.dev'
+};
+
 /**
- * Check if extension is installed via enterprise policies only
+ * Get Chrome extension ID from the signing key
  */
-async function isExtensionInstalled(browser) {
+function getChromeExtensionId() {
+  const keysDir = path.join(__dirname, '..', '..', 'keys');
+  const idFile = path.join(__dirname, '..', '..', 'dist', 'rollcloud-chrome-signed.id');
+
+  // Try to read pre-generated ID
+  if (fs.existsSync(idFile)) {
+    return fs.readFileSync(idFile, 'utf8').trim();
+  }
+
+  // Fallback: generate from public key if available
+  const publicKeyDer = path.join(keysDir, 'public.der');
+  if (fs.existsSync(publicKeyDer)) {
+    const crypto = require('crypto');
+    const keyData = fs.readFileSync(publicKeyDer);
+    const hash = crypto.createHash('sha256').update(keyData).digest();
+    let result = '';
+    for (let i = 0; i < 16; i++) {
+      const byte = hash[i];
+      result += String.fromCharCode(97 + ((byte >> 4) & 0x0F));
+      result += String.fromCharCode(97 + (byte & 0x0F));
+    }
+    return result.substring(0, 32);
+  }
+
+  return null;
+}
+
+/**
+ * Get browser profile directories where extensions are installed
+ */
+function getBrowserProfileDirs(browser) {
+  const platform = process.platform;
+  const home = os.homedir();
+  const dirs = [];
+
+  switch (browser) {
+    case 'chrome':
+      if (platform === 'win32') {
+        dirs.push(path.join(process.env.LOCALAPPDATA || '', 'Google', 'Chrome', 'User Data'));
+      } else if (platform === 'darwin') {
+        dirs.push(path.join(home, 'Library', 'Application Support', 'Google', 'Chrome'));
+      } else {
+        dirs.push(path.join(home, '.config', 'google-chrome'));
+        dirs.push(path.join(home, '.config', 'chromium'));
+      }
+      break;
+
+    case 'edge':
+      if (platform === 'win32') {
+        dirs.push(path.join(process.env.LOCALAPPDATA || '', 'Microsoft', 'Edge', 'User Data'));
+      } else if (platform === 'darwin') {
+        dirs.push(path.join(home, 'Library', 'Application Support', 'Microsoft Edge'));
+      } else {
+        dirs.push(path.join(home, '.config', 'microsoft-edge'));
+      }
+      break;
+
+    case 'firefox':
+      if (platform === 'win32') {
+        dirs.push(path.join(process.env.APPDATA || '', 'Mozilla', 'Firefox', 'Profiles'));
+      } else if (platform === 'darwin') {
+        dirs.push(path.join(home, 'Library', 'Application Support', 'Firefox', 'Profiles'));
+      } else {
+        dirs.push(path.join(home, '.mozilla', 'firefox'));
+      }
+      break;
+  }
+
+  return dirs.filter(d => fs.existsSync(d));
+}
+
+/**
+ * Check if extension is actually installed in browser profile
+ */
+function checkActualInstallation(browser, extensionId) {
+  if (!extensionId) {
+    console.log(`  No extension ID available for ${browser}`);
+    return false;
+  }
+
+  const profileDirs = getBrowserProfileDirs(browser);
+  console.log(`  Checking ${browser} profile dirs:`, profileDirs);
+
+  for (const profileDir of profileDirs) {
+    if (browser === 'firefox') {
+      // Firefox stores extensions in profile/extensions/ as .xpi files or folders
+      try {
+        const profiles = fs.readdirSync(profileDir).filter(f => {
+          const fullPath = path.join(profileDir, f);
+          return fs.statSync(fullPath).isDirectory() && f.includes('.default');
+        });
+
+        for (const profile of profiles) {
+          const extDir = path.join(profileDir, profile, 'extensions');
+          if (fs.existsSync(extDir)) {
+            // Check for extension folder or xpi file
+            const extPath = path.join(extDir, extensionId);
+            const xpiPath = path.join(extDir, `${extensionId}.xpi`);
+            if (fs.existsSync(extPath) || fs.existsSync(xpiPath)) {
+              console.log(`  ✅ Found Firefox extension at: ${fs.existsSync(extPath) ? extPath : xpiPath}`);
+              return true;
+            }
+          }
+
+          // Also check extensions.json for enabled extensions
+          const extJsonPath = path.join(profileDir, profile, 'extensions.json');
+          if (fs.existsSync(extJsonPath)) {
+            try {
+              const extJson = JSON.parse(fs.readFileSync(extJsonPath, 'utf8'));
+              const found = extJson.addons?.some(addon =>
+                addon.id === extensionId && addon.active && !addon.userDisabled
+              );
+              if (found) {
+                console.log(`  ✅ Found active Firefox extension in extensions.json`);
+                return true;
+              }
+            } catch (e) {
+              // Ignore parse errors
+            }
+          }
+        }
+      } catch (e) {
+        console.log(`  Error checking Firefox profiles:`, e.message);
+      }
+    } else {
+      // Chrome/Edge store extensions in Default/Extensions/<extension_id>/
+      const profiles = ['Default', 'Profile 1', 'Profile 2', 'Profile 3'];
+      for (const profile of profiles) {
+        const extDir = path.join(profileDir, profile, 'Extensions', extensionId);
+        if (fs.existsSync(extDir)) {
+          // Check if there's at least one version folder
+          try {
+            const versions = fs.readdirSync(extDir);
+            if (versions.length > 0) {
+              console.log(`  ✅ Found ${browser} extension at: ${extDir}`);
+              return true;
+            }
+          } catch (e) {
+            // Ignore read errors
+          }
+        }
+
+        // Also check Preferences/Secure Preferences for extension state
+        const prefsPath = path.join(profileDir, profile, 'Preferences');
+        if (fs.existsSync(prefsPath)) {
+          try {
+            const prefs = JSON.parse(fs.readFileSync(prefsPath, 'utf8'));
+            if (prefs.extensions?.settings?.[extensionId]?.state === 1) {
+              console.log(`  ✅ Found enabled ${browser} extension in Preferences`);
+              return true;
+            }
+          } catch (e) {
+            // Ignore parse errors
+          }
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Check if extension policy is installed (enterprise deployment)
+ */
+function checkPolicyInstallation(browser) {
   const platform = process.platform;
   const browserConfig = BROWSER_CONFIG[browser];
 
+  if (!browserConfig) return false;
+
+  try {
+    if (browser === 'firefox') {
+      // Firefox uses policies.json with ExtensionSettings
+      let policiesPath;
+      if (platform === 'win32') {
+        const programFiles = process.env['ProgramFiles'] || 'C:\\Program Files';
+        policiesPath = path.join(programFiles, 'Mozilla Firefox', 'distribution', 'policies.json');
+      } else if (platform === 'darwin') {
+        policiesPath = path.join(browserConfig.mac.distributionPath, 'policies.json');
+      } else {
+        policiesPath = path.join(browserConfig.linux.distributionPath, 'policies.json');
+      }
+
+      if (fs.existsSync(policiesPath)) {
+        const policies = JSON.parse(fs.readFileSync(policiesPath, 'utf8'));
+        // Correct structure: policies.policies.ExtensionSettings
+        const extSettings = policies.policies?.ExtensionSettings;
+        if (extSettings && extSettings[EXTENSION_IDS.firefox]) {
+          console.log(`  ✅ Found Firefox policy for RollCloud`);
+          return true;
+        }
+      }
+      return false;
+    }
+
+    // Chrome/Edge use registry on Windows, plist on macOS, JSON on Linux
+    if (platform === 'win32') {
+      const registryPath = browserConfig.windows.registryPath;
+      try {
+        const result = execSync(`reg query "${registryPath}" 2>nul`, { encoding: 'utf8' });
+        // Forcelist entries are strings like "extensionId;updateUrl"
+        const extensionId = getChromeExtensionId();
+        if (extensionId && result.includes(extensionId)) {
+          console.log(`  ✅ Found ${browser} registry policy for RollCloud`);
+          return true;
+        }
+      } catch (e) {
+        // Registry key doesn't exist
+      }
+    } else if (platform === 'darwin') {
+      const plistPath = browserConfig.mac.plistPath;
+      if (fs.existsSync(plistPath)) {
+        try {
+          const result = execSync(`plutil -convert json -o - "${plistPath}"`, { encoding: 'utf8' });
+          const plist = JSON.parse(result);
+          const extensionId = getChromeExtensionId();
+          // Forcelist is array of strings like "extensionId;updateUrl"
+          if (extensionId && plist.ExtensionInstallForcelist?.some(e => e.startsWith(extensionId))) {
+            console.log(`  ✅ Found ${browser} plist policy for RollCloud`);
+            return true;
+          }
+        } catch (e) {
+          // Plist parse error
+        }
+      }
+    } else {
+      const jsonPath = browserConfig.linux.jsonPath;
+      if (fs.existsSync(jsonPath)) {
+        try {
+          const policies = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+          const extensionId = getChromeExtensionId();
+          // Forcelist is array of strings
+          if (extensionId && policies.ExtensionInstallForcelist?.some(e => e.startsWith(extensionId))) {
+            console.log(`  ✅ Found ${browser} policy for RollCloud`);
+            return true;
+          }
+        } catch (e) {
+          // JSON parse error
+        }
+      }
+    }
+
+    return false;
+  } catch (error) {
+    console.log(`  Error checking policy:`, error.message);
+    return false;
+  }
+}
+
+/**
+ * Check if extension is installed - checks both actual installation and policies
+ */
+async function isExtensionInstalled(browser) {
+  console.log(`\n🔍 Checking if RollCloud is installed in ${browser}...`);
+
+  const browserConfig = BROWSER_CONFIG[browser];
   if (!browserConfig) {
-    console.log(`No browser config for ${browser}`);
+    console.log(`  ❌ Unsupported browser: ${browser}`);
     return false;
   }
 
-  try {
-    switch (platform) {
-      case 'win32':
-        if (browser === 'firefox') {
-          // Check Firefox enterprise policy
-          const programFiles = process.env['ProgramFiles'] || 'C:\\Program Files';
-          const policiesPath = path.join(programFiles, 'Mozilla Firefox', 'distribution', 'policies.json');
-          
-          console.log(`Checking Firefox policies at: ${policiesPath}`);
-          console.log(`File exists: ${fs.existsSync(policiesPath)}`);
-          
-          if (fs.existsSync(policiesPath)) {
-            try {
-              const policies = JSON.parse(fs.readFileSync(policiesPath, 'utf8'));
-              console.log(`Firefox policies:`, JSON.stringify(policies, null, 2));
-              
-              if (policies.extensions && policies.extensions.length > 0) {
-                const rollcloudPolicy = policies.extensions.find(ext => 
-                  ext.id === 'rollcloud@dicecat.dev'
-                );
-                console.log(`RollCloud policy found:`, rollcloudPolicy);
-                return rollcloudPolicy && !rollcloudPolicy.disabled;
-              }
-            } catch (error) {
-              console.log(`Error reading Firefox policies:`, error);
-              // Policies file corrupted
-              return false;
-            }
-          }
-          return false;
-        }
-        
-        // Check Chrome/Edge enterprise policies in registry
-        try {
-          const registryPath = browserConfig.windows.registryPath;
-          console.log(`Checking ${browser} registry at: ${registryPath}`);
-          
-          const result = execSync(`reg query "${registryPath}" 2>nul`, { encoding: 'utf8' });
-          console.log(`Registry result:`, result);
-          
-          if (result.includes('rollcloud')) {
-            // Check if the policy is disabled
-            const isDisabled = result.includes('"disabled":true');
-            console.log(`Policy disabled: ${isDisabled}`);
-            console.log(`✅ Found RollCloud policy for ${browser}`);
-            return !isDisabled;
-          } else {
-            console.log(`❌ No RollCloud policy found for ${browser}`);
-          }
-          return false;
-        } catch (error) {
-          console.log(`Registry access failed for ${browser}:`, error.message);
-          // Registry access failed
-          return false;
-        }
-        
-      case 'darwin':
-        if (browser === 'firefox') {
-          // Check Firefox enterprise policy
-          const policiesPath = path.join(browserConfig.mac.distributionPath, 'policies.json');
-          console.log(`Checking Firefox policies at: ${policiesPath}`);
-          
-          if (fs.existsSync(policiesPath)) {
-            try {
-              const policies = JSON.parse(fs.readFileSync(policiesPath, 'utf8'));
-              console.log(`Firefox policies:`, JSON.stringify(policies, null, 2));
-              
-              if (policies.extensions && policies.extensions.length > 0) {
-                const rollcloudPolicy = policies.extensions.find(ext => 
-                  ext.id === 'rollcloud@dicecat.dev'
-                );
-                console.log(`RollCloud policy found:`, rollcloudPolicy);
-                return rollcloudPolicy && !rollcloudPolicy.disabled;
-              }
-            } catch (error) {
-              console.log(`Error reading Firefox policies:`, error);
-              return false;
-            }
-          }
-          return false;
-        }
-        
-        // Check Chrome enterprise policy
-        const plistPath = path.join(os.homedir(), 'Library', 'Managed Preferences', 'com.google.Chrome.plist');
-        console.log(`Checking Chrome plist at: ${plistPath}`);
-        console.log(`File exists: ${fs.existsSync(plistPath)}`);
-        
-        if (fs.existsSync(plistPath)) {
-          try {
-            const plist = require('plist').parse(fs.readFileSync(plistPath, 'utf8'));
-            console.log(`Chrome plist:`, JSON.stringify(plist, null, 2));
-            
-            if (plist.ExtensionInstallForcelist && plist.ExtensionInstallForcelist.length > 0) {
-              const rollcloudPolicy = plist.ExtensionInstallForcelist.find(item => 
-                item.id === 'mkckngoemfjdkhcpaomdndlecolckgdj'
-              );
-              console.log(`RollCloud policy found:`, rollcloudPolicy);
-              return rollcloudPolicy && !rollcloudPolicy.disabled;
-            }
-          } catch (error) {
-            console.log(`Error reading Chrome plist:`, error);
-            return false;
-          }
-        }
-        
-      case 'linux':
-        if (browser === 'firefox') {
-          // Check Firefox enterprise policy
-          const policiesPath = path.join(browserConfig.linux.distributionPath, 'policies.json');
-          console.log(`Checking Firefox policies at: ${policiesPath}`);
-          
-          if (fs.existsSync(policiesPath)) {
-            try {
-              const policies = JSON.parse(fs.readFileSync(policiesPath, 'utf8'));
-              console.log(`Firefox policies:`, JSON.stringify(policies, null, 2));
-              
-              if (policies.extensions && policies.extensions.length > 0) {
-                const rollcloudPolicy = policies.extensions.find(ext => 
-                  ext.id === 'rollcloud@dicecat.dev'
-                );
-                console.log(`RollCloud policy found:`, rollcloudPolicy);
-                return rollcloudPolicy && !rollcloudPolicy.disabled;
-              }
-            } catch (error) {
-              console.log(`Error reading Firefox policies:`, error);
-              return false;
-            }
-          }
-          return false;
-        }
-        
-        // Check Chrome enterprise policy
-        const jsonPath = path.join('/etc/opt/chrome/policies/managed', 'rollcloud.json');
-        console.log(`Checking Chrome policy at: ${jsonPath}`);
-        console.log(`File exists: ${fs.existsSync(jsonPath)}`);
-        
-        if (fs.existsSync(jsonPath)) {
-          try {
-            const policies = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
-            console.log(`Chrome policies:`, JSON.stringify(policies, null, 2));
-            
-            if (policies.ExtensionInstallForcelist && policies.ExtensionInstallForcelist.length > 0) {
-              const rollcloudPolicy = policies.ExtensionInstallForcelist.find(item => 
-                item.id === 'mkckngoemfjdkhcpaomdndlecolckgdj'
-              );
-              console.log(`RollCloud policy found:`, rollcloudPolicy);
-              return rollcloudPolicy && !rollcloudPolicy.disabled;
-            }
-          } catch (error) {
-            console.log(`Error reading Chrome policies:`, error);
-            return false;
-          }
-        }
-        
-      default:
-        console.log(`Unsupported platform: ${platform}`);
-        return false;
-    }
-  } catch (error) {
-    console.log(`Error in isExtensionInstalled:`, error);
-    return false;
+  // Get the appropriate extension ID
+  const extensionId = browser === 'firefox'
+    ? EXTENSION_IDS.firefox
+    : getChromeExtensionId();
+
+  console.log(`  Extension ID: ${extensionId || 'unknown'}`);
+
+  // Check actual browser profile for installed extension
+  const actuallyInstalled = checkActualInstallation(browser, extensionId);
+  if (actuallyInstalled) {
+    console.log(`  ✅ Extension is ACTUALLY INSTALLED in ${browser}`);
+    return true;
   }
+
+  // Check if policy is set (pending installation)
+  const policySet = checkPolicyInstallation(browser);
+  if (policySet) {
+    console.log(`  ⚠️ Policy is set but extension not yet installed (browser restart may be needed)`);
+    return 'policy_only';
+  }
+
+  console.log(`  ❌ Extension is NOT installed in ${browser}`);
+  return false;
 }
 
 /**

@@ -24,17 +24,25 @@ function ensureKeysDir() {
 function getOrGenerateKeys() {
   const privateKeyPath = path.join(KEYS_DIR, 'private.pem');
   const publicKeyPath = path.join(KEYS_DIR, 'public.pem');
+  const publicKeyDerPath = path.join(KEYS_DIR, 'public.der');
 
   if (fs.existsSync(privateKeyPath) && fs.existsSync(publicKeyPath)) {
     console.log('🔑 Using existing RSA key pair');
+    const privateKeyPem = fs.readFileSync(privateKeyPath, 'utf8');
+    const publicKeyPem = fs.readFileSync(publicKeyPath, 'utf8');
+
+    // Convert PEM to DER for CRX format
+    const publicKeyDer = pemToDer(publicKeyPem);
+
     return {
-      privateKey: fs.readFileSync(privateKeyPath),
-      publicKey: fs.readFileSync(publicKeyPath)
+      privateKey: privateKeyPem,
+      publicKeyPem: publicKeyPem,
+      publicKeyDer: publicKeyDer
     };
   }
 
   console.log('🔑 Generating new RSA key pair...');
-  
+
   // Generate 2048-bit RSA key pair
   const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', {
     modulusLength: 2048,
@@ -42,87 +50,91 @@ function getOrGenerateKeys() {
     privateKeyEncoding: { type: 'pkcs8', format: 'pem' }
   });
 
-  // Save keys
+  // Save keys in PEM format
   fs.writeFileSync(privateKeyPath, privateKey);
   fs.writeFileSync(publicKeyPath, publicKey);
 
-  console.log(`  Private key: ${privateKeyPath}`);
-  console.log(`  Public key: ${publicKeyPath}`);
+  // Convert and save DER format for CRX
+  const publicKeyDer = pemToDer(publicKey);
+  fs.writeFileSync(publicKeyDerPath, publicKeyDer);
 
-  return { privateKey, publicKey };
+  console.log(`  Private key: ${privateKeyPath}`);
+  console.log(`  Public key (PEM): ${publicKeyPath}`);
+  console.log(`  Public key (DER): ${publicKeyDerPath}`);
+
+  return { privateKey, publicKeyPem: publicKey, publicKeyDer };
 }
 
-// Generate Chrome extension ID from public key
-function generateChromeId(publicKey) {
-  // Convert PEM to Buffer if it's a string
-  const keyBuffer = Buffer.isBuffer(publicKey) ? publicKey : Buffer.from(publicKey);
-  
-  // Remove PEM headers and footers
-  const pemKey = keyBuffer.toString();
-  const keyBody = pemKey
-    .replace(/-----BEGIN PUBLIC KEY-----/, '')
-    .replace(/-----END PUBLIC KEY-----/, '')
-    .replace(/\s/g, '');
+// Convert PEM to DER format (raw binary)
+function pemToDer(pem) {
+  // Remove PEM headers/footers and decode base64
+  const base64 = pem
+    .replace(/-----BEGIN [A-Z ]+-----/, '')
+    .replace(/-----END [A-Z ]+-----/, '')
+    .replace(/\s+/g, '');
+  return Buffer.from(base64, 'base64');
+}
 
-  // Create SHA256 hash
-  const hash = crypto.createHash('sha256').update(keyBody, 'base64').digest();
+// Generate Chrome extension ID from DER-encoded public key
+function generateChromeId(publicKeyDer) {
+  // Chrome extension ID is first 16 bytes of SHA256 hash of the DER public key
+  // encoded as lowercase hex with a-p mapping (0-9 -> a-j, a-f -> k-p)
+  const hash = crypto.createHash('sha256').update(publicKeyDer).digest();
 
-  // Convert to base32 and map to lowercase a-z
-  const base32Chars = 'abcdefghijklmnopqrstuvwxyz234567';
+  // Take first 16 bytes and map to a-p alphabet
   let result = '';
-  
-  for (let i = 0; i < 32; i++) {
+  for (let i = 0; i < 16; i++) {
     const byte = hash[i];
     const low = byte & 0x0F;
     const high = (byte & 0xF0) >> 4;
-    
-    result += base32Chars[high] + base32Chars[low];
+    // Map 0-15 to 'a'-'p'
+    result += String.fromCharCode(97 + high) + String.fromCharCode(97 + low);
   }
 
   return result.substring(0, 32);
 }
 
-// Create properly signed CRX file
-function createSignedCRX(zipPath, crxPath, privateKey, publicKey, publicKeyPath) {
+// Create properly signed CRX file (CRX2 format with DER-encoded key)
+function createSignedCRX(zipPath, crxPath, privateKey, publicKeyDer) {
   return new Promise((resolve, reject) => {
     try {
       // Read ZIP file
       const zipData = fs.readFileSync(zipPath);
-      
-      // Create signature
-      const sign = crypto.createSign('RSA-SHA256');
+
+      // Create signature over the ZIP data
+      const sign = crypto.createSign('RSA-SHA1'); // CRX2 uses SHA1
       sign.update(zipData);
       const signature = sign.sign(privateKey);
-      
+
       console.log(`   ZIP size: ${zipData.length} bytes`);
-      console.log(`   Public key size: ${publicKey.length} bytes`);
+      console.log(`   Public key (DER) size: ${publicKeyDer.length} bytes`);
       console.log(`   Signature size: ${signature.length} bytes`);
-      
-      // Create CRX header
+
+      // Create CRX2 header (16 bytes)
       const header = Buffer.alloc(16);
       header.write('Cr24', 0); // Magic number
-      header.writeUInt32LE(2, 4); // Version
-      header.writeUInt32LE(publicKey.length, 8); // Public key length
+      header.writeUInt32LE(2, 4); // CRX version 2
+      header.writeUInt32LE(publicKeyDer.length, 8); // Public key length
       header.writeUInt32LE(signature.length, 12); // Signature length
-      
-      // Verify header
+
       console.log(`   Header: ${header.toString('hex')}`);
-      
-      // Combine header, public key, signature, and zip data
-      const crxData = Buffer.concat([header, publicKey, signature, zipData]);
-      
+
+      // CRX2 format: header + public_key (DER) + signature + zip_data
+      const crxData = Buffer.concat([header, publicKeyDer, signature, zipData]);
+
       // Write CRX file
       fs.writeFileSync(crxPath, crxData);
-      
-      // Generate and save extension ID
-      const extensionId = generateChromeId(publicKey);
+
+      // Generate extension ID from DER public key
+      const extensionId = generateChromeId(publicKeyDer);
       const idPath = crxPath.replace('.crx', '.id');
       fs.writeFileSync(idPath, extensionId);
-      
+
       console.log(`  Created: ${crxPath}`);
       console.log(`  Extension ID: ${extensionId}`);
-      
-      resolve({ extensionId, publicKeyPath });
+      console.log(`  Total CRX size: ${crxData.length} bytes`);
+
+      resolve({ extensionId });
     } catch (error) {
       console.error('CRX creation error:', error);
       reject(error);
@@ -130,16 +142,16 @@ function createSignedCRX(zipPath, crxPath, privateKey, publicKey, publicKeyPath)
   });
 }
 
-// Update Chrome manifest with extension ID
-function updateChromeManifest(extensionId, publicKeyPath) {
+// Update Chrome manifest with extension ID (base64 DER key)
+function updateChromeManifest(extensionId, publicKeyDer) {
   const manifestPath = path.join(ROOT_DIR, 'manifest.json');
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-  
-  // Add key property for enterprise deployment
-  manifest.key = fs.readFileSync(publicKeyPath, 'utf8');
-  
+
+  // Chrome manifest "key" field needs base64-encoded DER public key
+  manifest.key = publicKeyDer.toString('base64');
+
   fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
-  console.log(`  Updated manifest with public key`);
+  console.log(`  Updated manifest with public key (base64 DER)`);
 }
 
 // Build signed Chrome extension
@@ -148,40 +160,39 @@ async function buildSignedChrome() {
   console.log('===================================');
 
   ensureKeysDir();
-  
-  // Get or generate keys
-  const { privateKey, publicKey } = getOrGenerateKeys();
-  const publicKeyPath = path.join(KEYS_DIR, 'public.pem');
-  
+
+  // Get or generate keys (now returns DER for CRX format)
+  const { privateKey, publicKeyPem, publicKeyDer } = getOrGenerateKeys();
+
   // Build the extension first (using existing script)
   console.log('\n📦 Building extension...');
   execSync('node scripts/build-extension-fixed.js', { stdio: 'inherit' });
-  
+
   const zipPath = path.join(DIST_DIR, 'rollcloud-chrome.zip');
   const crxPath = path.join(DIST_DIR, 'rollcloud-chrome-signed.crx');
-  
+
   if (!fs.existsSync(zipPath)) {
     throw new Error('Extension ZIP not found. Run build-extension-fixed.js first.');
   }
-  
-  // Create signed CRX
-  const result = await createSignedCRX(zipPath, crxPath, privateKey, publicKey, publicKeyPath);
-  
-  // Update manifest with public key
-  updateChromeManifest(result.extensionId, result.publicKeyPath);
-  
+
+  // Create signed CRX with DER-encoded public key
+  const result = await createSignedCRX(zipPath, crxPath, privateKey, publicKeyDer);
+
+  // Update manifest with base64 DER public key
+  updateChromeManifest(result.extensionId, publicKeyDer);
+
   console.log('\n✅ Signed Chrome extension created!');
   console.log(`📁 Files created:`);
-  console.log(`   - ${crxPath} (signed CRX)`);
+  console.log(`   - ${crxPath} (signed CRX2)`);
   console.log(`   - ${crxPath.replace('.crx', '.id')} (extension ID)`);
-  console.log(`   - ${path.join(KEYS_DIR, 'private.pem')} (private key)`);
-  console.log(`   - ${path.join(KEYS_DIR, 'public.pem')} (public key)`);
-  
+  console.log(`   - ${path.join(KEYS_DIR, 'private.pem')} (private key - keep secure!)`);
+  console.log(`   - ${path.join(KEYS_DIR, 'public.pem')} (public key PEM)`);
+
   console.log('\n🎯 Usage:');
-  console.log('1. Use the signed CRX for enterprise deployment');
-  console.log('2. Keep the private key secure for future updates');
+  console.log('1. For enterprise: use signed CRX with group policy');
+  console.log('2. For development: load unpacked from dist/chrome-build or ZIP');
   console.log('3. Extension ID: ' + result.extensionId);
-  
+
   return result;
 }
 
