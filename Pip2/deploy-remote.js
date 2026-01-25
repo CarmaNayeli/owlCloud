@@ -17,13 +17,16 @@ const __dirname = dirname(__filename);
 console.log('🚀 Pip2 Remote Deployment Setup\n');
 
 // Check environment variables
-const requiredVars = ['DISCORD_TOKEN', 'DISCORD_CLIENT_ID', 'DISCORD_GUILD_ID'];
+const requiredVars = ['DISCORD_TOKEN', 'DISCORD_CLIENT_ID'];
 const missingVars = requiredVars.filter(varName => !process.env[varName]);
 
 if (missingVars.length > 0) {
   console.log('❌ Missing required environment variables:');
   missingVars.forEach(varName => console.log(`   - ${varName}`));
-  console.log('\nPlease set these in your .env file or Render dashboard.');
+  console.log('\nFor remote deployment, you only need:');
+  console.log('- DISCORD_TOKEN (from Discord Developer Portal)');
+  console.log('- DISCORD_CLIENT_ID (from Discord Developer Portal)');
+  console.log('\nGUILD_ID is optional - for testing in specific server only');
   process.exit(1);
 }
 
@@ -59,15 +62,24 @@ const rest = new REST().setToken(process.env.DISCORD_TOKEN);
   try {
     console.log(`\n🌐 Deploying ${commands.length} commands to Discord...`);
     
-    const data = await rest.put(
-      Routes.applicationGuildCommands(
-        process.env.DISCORD_CLIENT_ID, 
-        process.env.DISCORD_GUILD_ID
-      ),
-      { body: commands },
-    );
+    // Use global commands for remote deployment (available to all servers)
+    const deploymentType = process.env.DISCORD_GUILD_ID ? 'guild' : 'global';
+    const route = process.env.DISCORD_GUILD_ID
+      ? Routes.applicationGuildCommands(process.env.DISCORD_CLIENT_ID, process.env.DISCORD_GUILD_ID)
+      : Routes.applicationCommands(process.env.DISCORD_CLIENT_ID);
+    
+    console.log(`📋 Deployment type: ${deploymentType} commands`);
+    
+    const data = await rest.put(route, { body: commands });
 
     console.log(`✅ Successfully deployed ${data.length} commands!`);
+    
+    if (deploymentType === 'global') {
+      console.log('🌍 Commands are now available globally to all servers!');
+      console.log('⏰ Note: Global commands can take up to 1 hour to propagate');
+    } else {
+      console.log('🎯 Commands deployed to specific guild for testing');
+    }
     
     console.log('\n🎯 Next Steps:');
     console.log('1. Push code to GitHub');

@@ -11,7 +11,7 @@ services:
       - key: DISCORD_CLIENT_ID
         sync: false  # Set this in Render dashboard
       - key: DISCORD_GUILD_ID
-        sync: false  # Set this in Render dashboard
+        sync: false  # Optional: for testing in specific server only
       - key: SUPABASE_URL
         sync: false  # Set this in Render dashboard
       - key: SUPABASE_SERVICE_KEY
