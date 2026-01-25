@@ -72,9 +72,28 @@ function copyDirRecursive(src, dest) {
 // Create ZIP archive using archiver (cross-platform)
 function createZip(sourceDir, outputPath) {
   return new Promise((resolve, reject) => {
-    // Remove existing file
+    // Remove existing file with retry logic
     if (fs.existsSync(outputPath)) {
-      fs.unlinkSync(outputPath);
+      try {
+        fs.unlinkSync(outputPath);
+      } catch (error) {
+        if (error.code === 'EBUSY') {
+          // File is locked, wait a moment and retry
+          setTimeout(() => {
+            try {
+              fs.unlinkSync(outputPath);
+            } catch (retryError) {
+              if (retryError.code === 'EBUSY') {
+                console.warn(`  Warning: Could not remove ${outputPath} - file is locked`);
+              } else {
+                throw retryError;
+              }
+            }
+          }, 1000);
+        } else {
+          throw error;
+        }
+      }
     }
 
     const output = fs.createWriteStream(outputPath);
