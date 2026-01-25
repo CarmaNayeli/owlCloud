@@ -2,7 +2,7 @@ export default function Home() {
   return (
     <div className="space-y-8">
       {/* Hero Section */}
-      <div className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg shadow-xl p-8">
+      <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg shadow-xl p-8">
         <h1 className="text-4xl font-bold mb-4">🎲 RollCloud Dashboard</h1>
         <p className="text-xl opacity-90">
           Manage your Discord integration for RollCloud combat tracking
@@ -33,7 +33,7 @@ export default function Home() {
           </p>
           <a
             href="/reaction-roles"
-            className="inline-block bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition"
+            className="inline-block bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"
           >
             Manage Roles
           </a>
@@ -47,7 +47,7 @@ export default function Home() {
           </p>
           <a
             href="/changelog"
-            className="inline-block bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition"
+            className="inline-block bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"
           >
             View Changelog
           </a>
@@ -73,7 +73,7 @@ export default function Home() {
         <h2 className="text-2xl font-bold mb-4">📖 Available Commands</h2>
         <div className="grid md:grid-cols-2 gap-6">
           <div>
-            <h3 className="font-semibold text-lg mb-2 text-indigo-600 dark:text-indigo-400">Reaction Roles</h3>
+            <h3 className="font-semibold text-lg mb-2 text-green-600 dark:text-green-400">Reaction Roles</h3>
             <ul className="space-y-2 text-sm font-mono">
               <li><code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">/reactionrole create</code> - Create reaction role message</li>
               <li><code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">/reactionrole add</code> - Add role to message</li>
@@ -83,7 +83,7 @@ export default function Home() {
           </div>
 
           <div>
-            <h3 className="font-semibold text-lg mb-2 text-indigo-600 dark:text-indigo-400">Changelog</h3>
+            <h3 className="font-semibold text-lg mb-2 text-green-600 dark:text-green-400">Changelog</h3>
             <ul className="space-y-2 text-sm font-mono">
               <li><code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">/changelog view</code> - View latest updates</li>
               <li><code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">/changelog post</code> - Post to announcements</li>
@@ -91,7 +91,7 @@ export default function Home() {
           </div>
 
           <div>
-            <h3 className="font-semibold text-lg mb-2 text-indigo-600 dark:text-indigo-400">Fun Commands</h3>
+            <h3 className="font-semibold text-lg mb-2 text-green-600 dark:text-green-400">Fun Commands</h3>
             <ul className="space-y-2 text-sm font-mono">
               <li><code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">/roll [dice]</code> - Roll dice (e.g., 2d6+3)</li>
               <li><code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">/coin [count]</code> - Flip coins</li>
@@ -99,7 +99,7 @@ export default function Home() {
           </div>
 
           <div>
-            <h3 className="font-semibold text-lg mb-2 text-indigo-600 dark:text-indigo-400">Utility</h3>
+            <h3 className="font-semibold text-lg mb-2 text-green-600 dark:text-green-400">Utility</h3>
             <ul className="space-y-2 text-sm font-mono">
               <li><code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">/ping</code> - Check bot responsiveness</li>
               <li><code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">/help</code> - Show help information</li>
@@ -124,14 +124,14 @@ export default function Home() {
             href="https://github.com/CarmaNayeli/rollCloud"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-indigo-600 dark:text-indigo-400 hover:underline"
+            className="text-green-600 dark:text-green-400 hover:underline"
           >
             GitHub Repository
           </a>
           <a
             href="/api/health"
             target="_blank"
-            className="text-indigo-600 dark:text-indigo-400 hover:underline"
+            className="text-green-600 dark:text-green-400 hover:underline"
           >
             API Health Check
           </a>

@@ -1,7 +1,7 @@
 export default function SetupPage() {
   return (
     <div className="space-y-8">
-      <div className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg shadow-xl p-8">
+      <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg shadow-xl p-8">
         <h1 className="text-4xl font-bold mb-4">⚙️ Setup Guide</h1>
         <p className="text-xl opacity-90">
           Get RollCloud up and running for your D&D sessions

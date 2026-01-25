@@ -35,7 +35,7 @@ export default function ReactionRolesPage() {
         <h1 className="text-3xl font-bold">🎭 Reaction Roles Management</h1>
         <button
           onClick={fetchReactionRoles}
-          className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition"
+          className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"
         >
           Refresh
         </button>
@@ -53,7 +53,7 @@ export default function ReactionRolesPage() {
 
       {loading ? (
         <div className="text-center py-12">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-indigo-600 border-t-transparent"></div>
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-green-600 border-t-transparent"></div>
           <p className="mt-4 text-gray-600 dark:text-gray-400">Loading reaction roles...</p>
         </div>
       ) : Object.keys(reactionRoles).length === 0 ? (
