@@ -47,9 +47,9 @@ class SupabaseTokenManager {
       debug.log('🌐 Storing token in Supabase...');
 
       // Use browser fingerprint for consistent storage/retrieval
-      const oderId = this.generateUserId();
+      const visitorId = this.generateUserId();
       const payload = {
-        user_id: oderId, // Browser fingerprint for cross-session lookup
+        user_id: visitorId, // Browser fingerprint for cross-session lookup
         dicecloud_token: tokenData.token,
         username: tokenData.username || 'DiceCloud User',
         user_id_dicecloud: tokenData.userId, // Store DiceCloud ID separately
@@ -62,7 +62,7 @@ class SupabaseTokenManager {
         updated_at: new Date().toISOString()
       };
 
-      debug.log('🌐 Storing with browser ID:', oderId, 'DiceCloud ID:', tokenData.authId);
+      debug.log('🌐 Storing with browser ID:', visitorId, 'DiceCloud ID:', tokenData.authId);
 
       const response = await fetch(`${this.supabaseUrl}/rest/v1/${this.tableName}`, {
         method: 'POST',
@@ -75,9 +75,14 @@ class SupabaseTokenManager {
         body: JSON.stringify(payload)
       });
 
+      debug.log('📥 Supabase POST response status:', response.status);
+
       if (!response.ok) {
+        const errorText = await response.text();
+        debug.log('⚠️ Supabase POST failed, trying PATCH. Error:', response.status, errorText);
+
         // Try to update if insert fails (user already exists)
-        const updateResponse = await fetch(`${this.supabaseUrl}/rest/v1/${this.tableName}?user_id=eq.${oderId}`, {
+        const updateResponse = await fetch(`${this.supabaseUrl}/rest/v1/${this.tableName}?user_id=eq.${visitorId}`, {
           method: 'PATCH',
           headers: {
             'apikey': this.supabaseKey,
@@ -99,8 +104,12 @@ class SupabaseTokenManager {
           })
         });
 
+        debug.log('📥 Supabase PATCH response status:', updateResponse.status);
+
         if (!updateResponse.ok) {
-          throw new Error(`Supabase update failed: ${updateResponse.status}`);
+          const patchErrorText = await updateResponse.text();
+          debug.error('❌ Supabase PATCH also failed:', updateResponse.status, patchErrorText);
+          throw new Error(`Supabase update failed: ${updateResponse.status} - ${patchErrorText}`);
         }
       }
 
