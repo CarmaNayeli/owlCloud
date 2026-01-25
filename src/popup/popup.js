@@ -1194,6 +1194,7 @@ function initializePopup() {
    */
   function checkExperimentalBuild() {
     // Check for experimental build indicators
+    // Only explicit indicators - manifest name or version suffix
     const experimentalIndicators = [
       () => {
         try {
@@ -1207,19 +1208,13 @@ function initializePopup() {
       () => {
         try {
           const manifest = browserAPI.runtime.getManifest();
-          return manifest && manifest.version && manifest.version.endsWith('.1');
+          // Only mark as experimental if version has 4 parts ending in .1 (e.g., 1.2.2.1)
+          const version = manifest && manifest.version;
+          if (!version) return false;
+          const parts = version.split('.');
+          return parts.length === 4 && parts[3] === '1';
         } catch (e) {
           debug.log('🔍 Could not check manifest version:', e);
-          return false;
-        }
-      },
-      async () => {
-        try {
-          const url = browserAPI.runtime.getURL('src/lib/meteor-ddp-client.js');
-          const response = await fetch(url);
-          return response.ok;
-        } catch (e) {
-          debug.log('🔍 Experimental files not found:', e);
           return false;
         }
       }
