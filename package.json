@@ -4,11 +4,13 @@
   "description": "RollCloud: DiceCloud + Roll20 + Discord Integration",
   "scripts": {
     "build:extension": "node scripts/build-extension.js",
+    "build:extension:fixed": "node scripts/build-extension-fixed.js",
     "build:installer": "cd installer && npm run build",
     "build:installer:win": "cd installer && npm run build:win",
     "build:installer:mac": "cd installer && npm run build:mac",
     "build:installer:linux": "cd installer && npm run build:linux",
     "build:all": "npm run build:extension && npm run build:installer",
+    "build:all:fixed": "npm run build:extension:fixed && npm run build:installer",
     "build": "npm run build:extension",
     "build:production": "node scripts/build-production.js",
     "build:release": "npm run build:production && node scripts/create-release.js",
