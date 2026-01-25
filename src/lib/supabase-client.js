@@ -219,7 +219,7 @@ class SupabaseTokenManager {
   async deleteToken() {
     try {
       debug.log('🌐 Deleting token from Supabase...');
-      
+
       const userId = this.generateUserId();
       const response = await fetch(`${this.supabaseUrl}/rest/v1/${this.tableName}?user_id=eq.${userId}`, {
         method: 'DELETE',
@@ -238,6 +238,164 @@ class SupabaseTokenManager {
       return { success: true };
     } catch (error) {
       debug.error('❌ Failed to delete token from Supabase:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Store character data in Supabase
+   * Links character to Discord pairing for bot commands
+   */
+  async storeCharacter(characterData, pairingCode = null) {
+    try {
+      debug.log('🎭 Storing character in Supabase:', characterData.name);
+
+      const payload = {
+        dicecloud_character_id: characterData.id,
+        character_name: characterData.name || 'Unknown',
+        race: characterData.race || null,
+        class: characterData.class || null,
+        level: characterData.level || 1,
+        alignment: characterData.alignment || null,
+        hit_points: characterData.hitPoints || { current: 0, max: 0 },
+        armor_class: characterData.armorClass || 10,
+        speed: characterData.speed || 30,
+        initiative: characterData.initiative || 0,
+        proficiency_bonus: characterData.proficiencyBonus || 2,
+        attributes: characterData.attributes || {},
+        attribute_mods: characterData.attributeMods || {},
+        saves: characterData.saves || {},
+        skills: characterData.skills || {},
+        spell_slots: characterData.spellSlots || {},
+        resources: characterData.resources || [],
+        conditions: characterData.conditions || [],
+        updated_at: new Date().toISOString()
+      };
+
+      // If pairing code provided, look up the pairing to link
+      if (pairingCode) {
+        const pairingResponse = await fetch(
+          `${this.supabaseUrl}/rest/v1/rollcloud_pairings?pairing_code=eq.${pairingCode}&select=id,discord_user_id`,
+          {
+            headers: {
+              'apikey': this.supabaseKey,
+              'Authorization': `Bearer ${this.supabaseKey}`
+            }
+          }
+        );
+        if (pairingResponse.ok) {
+          const pairings = await pairingResponse.json();
+          if (pairings.length > 0) {
+            payload.pairing_id = pairings[0].id;
+            payload.discord_user_id = pairings[0].discord_user_id;
+          }
+        }
+      }
+
+      // Try to upsert (insert or update on conflict)
+      const response = await fetch(
+        `${this.supabaseUrl}/rest/v1/rollcloud_characters`,
+        {
+          method: 'POST',
+          headers: {
+            'apikey': this.supabaseKey,
+            'Authorization': `Bearer ${this.supabaseKey}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'resolution=merge-duplicates,return=minimal'
+          },
+          body: JSON.stringify(payload)
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        debug.log('⚠️ Character POST failed, trying PATCH:', errorText);
+
+        // Try update instead
+        const updateResponse = await fetch(
+          `${this.supabaseUrl}/rest/v1/rollcloud_characters?dicecloud_character_id=eq.${characterData.id}`,
+          {
+            method: 'PATCH',
+            headers: {
+              'apikey': this.supabaseKey,
+              'Authorization': `Bearer ${this.supabaseKey}`,
+              'Content-Type': 'application/json',
+              'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify(payload)
+          }
+        );
+
+        if (!updateResponse.ok) {
+          const patchError = await updateResponse.text();
+          throw new Error(`Character update failed: ${patchError}`);
+        }
+      }
+
+      debug.log('✅ Character stored in Supabase:', characterData.name);
+      return { success: true };
+    } catch (error) {
+      debug.error('❌ Failed to store character:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Retrieve character data from Supabase by DiceCloud ID
+   */
+  async getCharacter(diceCloudCharacterId) {
+    try {
+      const response = await fetch(
+        `${this.supabaseUrl}/rest/v1/rollcloud_characters?dicecloud_character_id=eq.${diceCloudCharacterId}&select=*`,
+        {
+          headers: {
+            'apikey': this.supabaseKey,
+            'Authorization': `Bearer ${this.supabaseKey}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch character: ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (data.length > 0) {
+        return { success: true, character: data[0] };
+      }
+      return { success: false, error: 'Character not found' };
+    } catch (error) {
+      debug.error('❌ Failed to get character:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Get character by Discord user ID (for bot commands)
+   */
+  async getCharacterByDiscordUser(discordUserId) {
+    try {
+      const response = await fetch(
+        `${this.supabaseUrl}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}&select=*&order=updated_at.desc&limit=1`,
+        {
+          headers: {
+            'apikey': this.supabaseKey,
+            'Authorization': `Bearer ${this.supabaseKey}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch character: ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (data.length > 0) {
+        return { success: true, character: data[0] };
+      }
+      return { success: false, error: 'No character linked to this Discord user' };
+    } catch (error) {
+      debug.error('❌ Failed to get character by Discord user:', error);
       return { success: false, error: error.message };
     }
   }
