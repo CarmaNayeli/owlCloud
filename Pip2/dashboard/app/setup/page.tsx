@@ -1,162 +1,163 @@
 export default function SetupPage() {
-  const BOT_INVITE_URL = "https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=268454928&scope=bot%20applications.commands";
-
   return (
     <div className="space-y-8">
       <div className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg shadow-xl p-8">
         <h1 className="text-4xl font-bold mb-4">⚙️ Setup Guide</h1>
         <p className="text-xl opacity-90">
-          Get Pip Bot up and running in your Discord server
+          Get RollCloud up and running for your D&D sessions
         </p>
       </div>
 
-      {/* Step 1: Invite Bot */}
+      {/* Step 1: Download */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-200 dark:border-gray-700">
         <div className="flex items-start space-x-4">
           <div className="text-4xl">1️⃣</div>
           <div className="flex-1">
-            <h2 className="text-2xl font-bold mb-4">Invite Pip Bot to Your Server</h2>
+            <h2 className="text-2xl font-bold mb-4">Download RollCloud</h2>
             <p className="text-gray-600 dark:text-gray-400 mb-4">
-              Click the button below to invite Pip Bot. You must have "Manage Server" permission.
+              Download the RollCloud browser extension installer for your platform.
             </p>
-            <a
-              href={BOT_INVITE_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 transition font-semibold"
-            >
-              🎲 Invite Pip Bot
-            </a>
+            <div className="flex flex-wrap gap-4 mb-6">
+              <a
+                href="https://github.com/CarmaNayeli/rollCloud/releases/latest"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition font-semibold"
+              >
+                ⬇️ Download Latest Release
+              </a>
+              <a
+                href="https://github.com/CarmaNayeli/rollCloud"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block bg-gray-700 text-white px-6 py-3 rounded-lg hover:bg-gray-800 transition font-semibold"
+              >
+                📦 View on GitHub
+              </a>
+            </div>
 
-            <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-4">
-              <h3 className="font-semibold mb-2">Required Permissions</h3>
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-4">
+              <h3 className="font-semibold mb-2">What's Included</h3>
               <ul className="text-sm space-y-1">
-                <li>✅ Send Messages</li>
-                <li>✅ Embed Links</li>
-                <li>✅ Add Reactions</li>
-                <li>✅ Manage Roles (for reaction roles)</li>
-                <li>✅ Read Message History</li>
-                <li>✅ Use Slash Commands</li>
+                <li>✅ Browser extension for DiceCloud V2</li>
+                <li>✅ Combat turn tracking</li>
+                <li>✅ Discord integration for turn notifications</li>
+                <li>✅ Action economy buttons</li>
               </ul>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Step 2: Configure Roles */}
+      {/* Step 2: Install Extension */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-200 dark:border-gray-700">
         <div className="flex items-start space-x-4">
           <div className="text-4xl">2️⃣</div>
           <div className="flex-1">
-            <h2 className="text-2xl font-bold mb-4">Configure Role Hierarchy</h2>
+            <h2 className="text-2xl font-bold mb-4">Install the Extension</h2>
             <p className="text-gray-600 dark:text-gray-400 mb-4">
-              For reaction roles to work, Pip Bot's role must be <strong>higher</strong> than any roles it will assign.
+              Run the installer and it will automatically install the extension to your browsers.
             </p>
 
             <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded p-4">
-              <h3 className="font-semibold mb-2">⚠️ Important</h3>
-              <ol className="text-sm space-y-2 list-decimal list-inside">
-                <li>Go to Server Settings → Roles</li>
-                <li>Drag Pip Bot's role above any roles you want it to assign</li>
-                <li>Save changes</li>
-              </ol>
+              <h3 className="font-semibold mb-2">⚠️ Supported Browsers</h3>
+              <ul className="text-sm space-y-1">
+                <li>✅ Google Chrome</li>
+                <li>✅ Microsoft Edge</li>
+                <li>✅ Brave</li>
+                <li>✅ Other Chromium-based browsers</li>
+              </ul>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Step 3: Enable Intents */}
+      {/* Step 3: Connect Discord */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-200 dark:border-gray-700">
         <div className="flex items-start space-x-4">
           <div className="text-4xl">3️⃣</div>
           <div className="flex-1">
-            <h2 className="text-2xl font-bold mb-4">Enable Required Intents (For Bot Hosts)</h2>
+            <h2 className="text-2xl font-bold mb-4">Connect to Discord</h2>
             <p className="text-gray-600 dark:text-gray-400 mb-4">
-              If you're hosting Pip Bot yourself, enable these intents in the Discord Developer Portal:
+              Use the <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">/rollcloud pair</code> command in Discord to link a channel to your DiceCloud character.
             </p>
 
             <ol className="space-y-3 text-sm">
               <li className="flex items-start space-x-2">
                 <span className="font-bold">1.</span>
-                <div>
-                  Go to <a href="https://discord.com/developers/applications" target="_blank" rel="noopener noreferrer" className="text-indigo-600 dark:text-indigo-400 hover:underline">Discord Developer Portal</a>
-                </div>
+                <div>Open Discord and go to your game channel</div>
               </li>
               <li className="flex items-start space-x-2">
                 <span className="font-bold">2.</span>
-                <div>Select your application → Bot → Privileged Gateway Intents</div>
+                <div>Type <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">/rollcloud pair</code></div>
               </li>
               <li className="flex items-start space-x-2">
                 <span className="font-bold">3.</span>
-                <div>Enable: <strong>Server Members Intent</strong>, <strong>Message Content Intent</strong></div>
+                <div>Enter your DiceCloud character ID</div>
               </li>
               <li className="flex items-start space-x-2">
                 <span className="font-bold">4.</span>
-                <div>Save changes and restart your bot</div>
+                <div>Combat turns will now post to this channel!</div>
               </li>
             </ol>
           </div>
         </div>
       </div>
 
-      {/* Step 4: Test Commands */}
+      {/* Step 4: Test */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-200 dark:border-gray-700">
         <div className="flex items-start space-x-4">
           <div className="text-4xl">4️⃣</div>
           <div className="flex-1">
-            <h2 className="text-2xl font-bold mb-4">Test the Bot</h2>
+            <h2 className="text-2xl font-bold mb-4">Test the Integration</h2>
             <p className="text-gray-600 dark:text-gray-400 mb-4">
-              Try these commands to make sure everything works:
+              Start a combat in DiceCloud V2 and watch the turn notifications appear in Discord!
             </p>
 
             <div className="space-y-2 font-mono text-sm">
               <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded">
-                <code>/ping</code>
-                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 font-sans">Check if bot is responsive</p>
+                <code>/rollcloud status</code>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 font-sans">Check your pairing status</p>
               </div>
               <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded">
-                <code>/help</code>
-                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 font-sans">View all available commands</p>
-              </div>
-              <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded">
-                <code>/roll 2d6</code>
-                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 font-sans">Roll two 6-sided dice</p>
+                <code>/roll 1d20+5</code>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 font-sans">Roll dice directly in Discord</p>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Reaction Roles Setup */}
+      {/* Manual Installation */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-        <h2 className="text-2xl font-bold mb-4">🎭 Setting Up Reaction Roles</h2>
+        <h2 className="text-2xl font-bold mb-4">🛠️ Manual Installation</h2>
+        <p className="text-gray-600 dark:text-gray-400 mb-4">
+          For developers or if the installer doesn't work for your setup:
+        </p>
 
         <div className="space-y-4">
           <div>
-            <h3 className="font-semibold mb-2">Step 1: Create a Reaction Role Message</h3>
-            <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-sm">
-              /reactionrole create title:"Choose Your Roles" description:"React to get roles!"
+            <h3 className="font-semibold mb-2">Step 1: Clone the Repository</h3>
+            <code className="block bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded text-sm overflow-x-auto">
+              git clone https://github.com/CarmaNayeli/rollCloud.git
             </code>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-              This creates an embed message and gives you a message ID.
-            </p>
           </div>
 
           <div>
-            <h3 className="font-semibold mb-2">Step 2: Add Roles to the Message</h3>
-            <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-sm">
-              /reactionrole add message_id:123456789 emoji:🎲 role:@Dice Players
+            <h3 className="font-semibold mb-2">Step 2: Build the Extension</h3>
+            <code className="block bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded text-sm overflow-x-auto">
+              cd rollCloud && npm install && npm run build
             </code>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-              Replace 123456789 with your message ID from Step 1.
-            </p>
           </div>
 
           <div>
-            <h3 className="font-semibold mb-2">Step 3: Users React to Get Roles</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Users can now click the emoji reactions to self-assign roles. Click again to remove the role.
-            </p>
+            <h3 className="font-semibold mb-2">Step 3: Load in Chrome</h3>
+            <ol className="text-sm space-y-1 list-decimal list-inside text-gray-600 dark:text-gray-400">
+              <li>Open <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">chrome://extensions</code></li>
+              <li>Enable "Developer mode" (top right)</li>
+              <li>Click "Load unpacked"</li>
+              <li>Select the <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">dist</code> folder</li>
+            </ol>
           </div>
         </div>
       </div>
@@ -167,25 +168,25 @@ export default function SetupPage() {
 
         <div className="space-y-4">
           <div>
-            <h3 className="font-semibold text-red-600 dark:text-red-400">Slash commands not showing up?</h3>
+            <h3 className="font-semibold text-red-600 dark:text-red-400">Extension not detecting DiceCloud?</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Wait a few minutes after inviting the bot. Discord can take up to 1 hour to sync slash commands.
+              Make sure you're on dicecloud.com and refresh the page after installing.
             </p>
           </div>
 
           <div>
-            <h3 className="font-semibold text-red-600 dark:text-red-400">Reaction roles not working?</h3>
+            <h3 className="font-semibold text-red-600 dark:text-red-400">Discord notifications not appearing?</h3>
             <ul className="text-sm text-gray-600 dark:text-gray-400 list-disc list-inside space-y-1">
-              <li>Check that Pip Bot's role is above the roles it's trying to assign</li>
-              <li>Ensure the bot has "Manage Roles" permission</li>
-              <li>Verify you used the correct message ID</li>
+              <li>Check your pairing status with <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">/rollcloud status</code></li>
+              <li>Make sure the bot has permission to post in the channel</li>
+              <li>Verify your character ID is correct</li>
             </ul>
           </div>
 
           <div>
-            <h3 className="font-semibold text-red-600 dark:text-red-400">Bot not responding?</h3>
+            <h3 className="font-semibold text-red-600 dark:text-red-400">Buttons not working?</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Check that the bot is online (green status). If hosting yourself, check your bot logs.
+              Discord buttons expire after 15 minutes. Start a new turn to get fresh buttons.
             </p>
           </div>
         </div>
