@@ -22,7 +22,7 @@ export default {
     if (!interaction.member.permissions.has(PermissionFlagsBits.ManageWebhooks)) {
       await interaction.reply({
         content: '❌ You need the **Manage Webhooks** permission to set up RollCloud.',
-        ephemeral: true
+        flags: 64 // ephemeral
       });
       return;
     }

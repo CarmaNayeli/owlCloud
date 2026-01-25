@@ -34,12 +34,17 @@ async function handleCommand(interaction) {
   } catch (error) {
     console.error(`Error executing ${interaction.commandName}:`, error);
 
-    const errorMessage = { content: 'There was an error executing this command!', ephemeral: true };
+    const errorMessage = { content: 'There was an error executing this command!', flags: 64 }; // 64 = ephemeral
 
-    if (interaction.replied || interaction.deferred) {
-      await interaction.followUp(errorMessage);
-    } else {
-      await interaction.reply(errorMessage);
+    try {
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp(errorMessage);
+      } else {
+        await interaction.reply(errorMessage);
+      }
+    } catch (replyError) {
+      // If interaction has expired, we can't reply - just log it
+      console.error('Failed to reply to interaction:', replyError.message);
     }
   }
 }
