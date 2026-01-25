@@ -67,8 +67,25 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
       switch (request.action) {
         case 'storeCharacterData':
           await storeCharacterData(request.data, request.slotId);
+          // Also sync to Supabase if cloud sync is enabled
+          if (request.syncToCloud && typeof SupabaseTokenManager !== 'undefined') {
+            const supabase = new SupabaseTokenManager();
+            await supabase.storeCharacter(request.data, request.pairingCode);
+          }
           response = { success: true };
           break;
+
+        case 'syncCharacterToCloud': {
+          // Explicitly sync character to Supabase
+          if (typeof SupabaseTokenManager === 'undefined') {
+            response = { success: false, error: 'Cloud sync not available' };
+            break;
+          }
+          const supabase = new SupabaseTokenManager();
+          const syncResult = await supabase.storeCharacter(request.characterData, request.pairingCode);
+          response = syncResult;
+          break;
+        }
 
         case 'getCharacterData': {
           const data = await getCharacterData(request.characterId);
