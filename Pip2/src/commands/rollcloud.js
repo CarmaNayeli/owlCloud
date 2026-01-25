@@ -222,6 +222,7 @@ async function completePairing(code, discordInfo) {
     throw new Error('Supabase not configured');
   }
 
+  // First try to update existing record
   const response = await fetch(
     `${SUPABASE_URL}/rest/v1/rollcloud_pairings?pairing_code=eq.${code}`,
     {
@@ -246,9 +247,51 @@ async function completePairing(code, discordInfo) {
   );
 
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Failed to complete pairing: ${error}`);
+    const errorText = await response.text();
+    console.error('Supabase PATCH error:', response.status, errorText);
+    throw new Error(`Failed to complete pairing: ${errorText}`);
   }
 
-  return await response.json();
+  const data = await response.json();
+  console.log('Supabase PATCH response:', data);
+  
+  return data;
+}
+
+/**
+ * Create a new pairing record (for testing/debugging)
+ */
+async function createPairingRecord(code) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+    throw new Error('Supabase not configured');
+  }
+
+  const response = await fetch(
+    `${SUPABASE_URL}/rest/v1/rollcloud_pairings`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+        'Prefer': 'return=representation'
+      },
+      body: JSON.stringify({
+        pairing_code: code,
+        status: 'pending',
+        created_at: new Date().toISOString()
+      })
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Supabase POST error:', response.status, errorText);
+    throw new Error(`Failed to create pairing record: ${errorText}`);
+  }
+
+  const data = await response.json();
+  console.log('Supabase POST response:', data);
+  
+  return data[0];
 }
