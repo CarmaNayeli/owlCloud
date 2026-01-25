@@ -897,22 +897,14 @@ function showFirefoxInstallError(errorMsg, noteElement) {
 // Restart browser function
 async function restartBrowser(browser) {
   const browserName = getBrowserName(browser);
-  
+
   // Show confirmation dialog
-  const confirmed = confirm(`The ${browserName} extension policy has been installed.\n\nYou must restart ${browserName} for the extension to be installed.\n\nWould you like to restart ${browserName} now?`);
-  
+  const confirmed = confirm(`The ${browserName} extension policy has been installed.\n\nYou must restart ${browserName} for the extension to be installed.\n\nWould you like instructions on how to restart?`);
+
   if (confirmed) {
-    try {
-      if (browser === 'chrome') {
-        await window.api.openExternal('chrome://restart');
-      } else if (browser === 'firefox') {
-        // Firefox Developer Edition doesn't have a restart URL, so prompt user to restart manually
-        alert(`Please close and reopen Firefox Developer Edition to complete the extension installation.\n\nThe RollCloud extension will be installed automatically when Firefox Developer Edition restarts.`);
-      }
-    } catch (error) {
-      console.error('Failed to restart browser:', error);
-      alert(`Please manually restart ${browserName} to complete the extension installation.\n\nError: ${error.message}`);
-    }
+    // Show manual restart instructions for both browsers
+    // chrome://restart only works from within Chrome, not externally
+    alert(`Please close and reopen ${browserName} to complete the extension installation.\n\nThe RollCloud extension will be installed automatically when ${browserName} restarts.\n\nTip: Make sure to close ALL ${browserName} windows, including any in the system tray.`);
   } else {
     // User cancelled - don't do anything
     console.log('User cancelled browser restart');
