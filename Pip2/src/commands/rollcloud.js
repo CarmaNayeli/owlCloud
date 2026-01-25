@@ -29,9 +29,21 @@ export default {
 
     const code = interaction.options.getString('code').toUpperCase();
 
-    // Defer immediately to avoid timeout, but check if already deferred
-    if (!interaction.deferred && !interaction.replied) {
+    // Acknowledge immediately to prevent timeout
+    try {
       await interaction.deferReply();
+    } catch (error) {
+      console.error('Failed to defer interaction:', error.message);
+      // Try a direct reply instead
+      try {
+        await interaction.reply({
+          content: '🔍 Looking up your pairing code...',
+          flags: 64
+        });
+      } catch (replyError) {
+        console.error('Interaction already expired:', replyError.message);
+        return;
+      }
     }
 
     try {
