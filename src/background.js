@@ -135,6 +135,34 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
           }
           break;
 
+        case 'relayRollToRoll20': {
+          // Relay roll from popup-sheet to Roll20 content script
+          debug.log('🎲 Relaying roll to Roll20:', request.roll);
+
+          const r20Tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
+          if (r20Tabs.length > 0) {
+            for (const tab of r20Tabs) {
+              try {
+                await browserAPI.tabs.sendMessage(tab.id, {
+                  action: 'rollFromPopout',
+                  roll: request.roll,
+                  name: request.roll?.name,
+                  formula: request.roll?.formula,
+                  characterName: request.roll?.characterName
+                });
+                debug.log('✅ Roll relayed to Roll20 tab:', tab.id);
+              } catch (tabError) {
+                debug.warn('⚠️ Could not send to tab', tab.id, tabError.message);
+              }
+            }
+            response = { success: true };
+          } else {
+            debug.warn('⚠️ No Roll20 tabs found to relay roll');
+            response = { success: false, error: 'No Roll20 tabs found' };
+          }
+          break;
+        }
+
         default:
           debug.warn('Unknown action:', request.action);
           response = { success: false, error: 'Unknown action: ' + request.action };
