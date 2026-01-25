@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const { installExtension, uninstallExtension, isExtensionInstalled } = require('./extension-installer');
-const { installExtensions } = require('./local-installer');
+// const { installExtensions } = require('./local-installer'); // Disabled for production
 const { generatePairingCode, createPairing, checkPairing } = require('./pairing');
 
 // Extension and bot configuration
@@ -75,7 +75,7 @@ ipcMain.handle('check-extension-installed', async (event, browser) => {
 // Install extension via local ZIP extraction
 ipcMain.handle('install-extension', async (event, browser) => {
   try {
-    const results = await installExtensions();
+    const result = await installExtension(browser, CONFIG); // Use enterprise policy
     
     if (browser === 'chrome') {
       return results.chrome;

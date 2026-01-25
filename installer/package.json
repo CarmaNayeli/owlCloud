@@ -25,12 +25,12 @@
     ],
     "extraResources": [
       {
-        "from": "../dist/rollcloud-chrome.zip",
-        "to": "extension/rollcloud-chrome.zip"
+        "from": "../releases/rollcloud-chrome-1.2.0.crx",
+        "to": "extension/rollcloud-chrome.crx"
       },
       {
-        "from": "../dist/rollcloud-firefox.zip",
-        "to": "extension/rollcloud-firefox.zip"
+        "from": "../releases/rollcloud-firefox-1.2.0.xpi",
+        "to": "extension/rollcloud-firefox.xpi"
       }
     ],
     "win": {
