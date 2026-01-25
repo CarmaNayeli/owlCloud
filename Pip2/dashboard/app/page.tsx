@@ -25,15 +25,15 @@ export default function Home() {
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-          <h2 className="text-xl font-bold mb-2">Pip 2 Settings</h2>
+          <h2 className="text-xl font-bold mb-2">Configure Pip</h2>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
-            Configure Pip 2 bot: reaction roles, changelog, and stats
+            Manage slash commands and permissions for servers where you're an admin
           </p>
           <a
-            href="/pip-settings"
+            href="/configure-pip"
             className="inline-block bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"
           >
-            Open Settings
+            Configure Commands
           </a>
         </div>
       </div>

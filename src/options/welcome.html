@@ -5,88 +5,141 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Welcome to RollCloud</title>
   <style>
+    :root {
+      --bg-primary: #ffffff;
+      --bg-secondary: #f8f9fa;
+      --bg-tertiary: #e9ecef;
+      --text-primary: #333333;
+      --text-secondary: #666666;
+      --text-muted: #999999;
+      --accent-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      --accent-secondary: #667eea;
+      --accent-hover: #5a67d8;
+      --border-color: #dee2e6;
+      --warning-bg: #fff3cd;
+      --warning-border: #ffeaa7;
+      --warning-text: #856404;
+      --info-bg: #e3f2fd;
+      --info-border: #90caf9;
+      --info-text: #1565c0;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-primary: #1a1a1a;
+        --bg-secondary: #2d2d2d;
+        --bg-tertiary: #404040;
+        --text-primary: #ffffff;
+        --text-secondary: #cccccc;
+        --text-muted: #999999;
+        --accent-secondary: #7c8ff8;
+        --accent-hover: #6b7fdb;
+        --border-color: #404040;
+        --warning-bg: #3b3b00;
+        --warning-border: #666600;
+        --warning-text: #ffeb3b;
+        --info-bg: #1a3a52;
+        --info-border: #2c5282;
+        --info-text: #64b5f6;
+      }
+    }
+    
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       margin: 0;
       padding: 20px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: var(--bg-secondary);
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
+      color: var(--text-primary);
     }
     
     .container {
-      background: white;
+      background: var(--bg-primary);
       border-radius: 12px;
       padding: 40px;
       max-width: 600px;
       box-shadow: 0 20px 40px rgba(0,0,0,0.1);
       text-align: center;
+      border: 1px solid var(--border-color);
     }
     
     .logo {
       width: 80px;
       height: 80px;
       margin: 0 auto 20px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      border-radius: 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      font-size: 32px;
-      font-weight: bold;
+    }
+    
+    .logo img {
+      width: 100%;
+      height: 100%;
+      border-radius: 12px;
     }
     
     h1 {
-      color: #333;
+      color: var(--text-primary);
       margin: 0 0 10px 0;
       font-size: 28px;
     }
     
     .subtitle {
-      color: #666;
+      color: var(--text-secondary);
       margin: 0 0 30px 0;
       font-size: 16px;
     }
     
-    .features {
+    .instructions {
       text-align: left;
       margin: 30px 0;
     }
     
-    .feature {
+    .step {
       display: flex;
-      align-items: center;
-      margin: 15px 0;
-      padding: 15px;
-      background: #f8f9fa;
+      align-items: flex-start;
+      margin: 20px 0;
+      padding: 20px;
+      background: var(--bg-secondary);
       border-radius: 8px;
+      border-left: 4px solid var(--accent-secondary);
     }
     
-    .feature-icon {
-      width: 40px;
-      height: 40px;
-      background: #e9ecef;
-      border-radius: 8px;
+    .step-number {
+      width: 32px;
+      height: 32px;
+      background: var(--accent-primary);
+      color: white;
+      border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
+      font-weight: bold;
       margin-right: 15px;
-      font-size: 20px;
+      flex-shrink: 0;
     }
     
-    .feature-text h3 {
+    .step-content h4 {
       margin: 0 0 5px 0;
-      color: #333;
+      color: var(--text-primary);
       font-size: 16px;
     }
     
-    .feature-text p {
+    .step-content p {
       margin: 0;
-      color: #666;
+      color: var(--text-secondary);
       font-size: 14px;
+      line-height: 1.4;
+    }
+    
+    .step-content a {
+      color: var(--accent-secondary);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    
+    .step-content a:hover {
+      text-decoration: underline;
     }
     
     .actions {
@@ -107,7 +160,7 @@
     }
     
     .btn-primary {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: var(--accent-primary);
       color: white;
     }
     
@@ -117,60 +170,93 @@
     }
     
     .btn-secondary {
-      background: #e9ecef;
-      color: #495057;
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
     }
     
     .btn-secondary:hover {
-      background: #dee2e6;
+      background: var(--border-color);
     }
     
     .note {
       margin-top: 20px;
       padding: 15px;
-      background: #fff3cd;
-      border: 1px solid #ffeaa7;
+      background: var(--warning-bg);
+      border: 1px solid var(--warning-border);
       border-radius: 6px;
-      color: #856404;
+      color: var(--warning-text);
       font-size: 14px;
+    }
+    
+    .note ul {
+      text-align: left;
+      margin: 10px 0;
+    }
+    
+    .note li {
+      margin: 5px 0;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="logo">RC</div>
+    <div class="logo">
+      <img src="../icons/icon.svg" alt="RollCloud Logo">
+    </div>
     <h1>Welcome to RollCloud!</h1>
     <p class="subtitle">DiceCloud + Roll20 + Discord Integration</p>
     
-    <div class="features">
-      <div class="feature">
-        <div class="feature-icon">🎲</div>
-        <div class="feature-text">
-          <h3>DiceCloud Sync</h3>
-          <p>Sync your DiceCloud V2 characters to Roll20 with one click</p>
+    <div class="instructions">
+      <h3>🚀 Getting Started</h3>
+      
+      <div class="step">
+        <div class="step-number">1</div>
+        <div class="step-content">
+          <h4>🎲 Go to DiceCloud</h4>
+          <p>Navigate to <a href="https://dicecloud.com" target="_blank">dicecloud.com</a> and open your character sheet</p>
         </div>
       </div>
       
-      <div class="feature">
-        <div class="feature-icon">🎯</div>
-        <div class="feature-text">
-          <h3>Combat Tracking</h3>
-          <p>Automatic turn notifications and combat management</p>
+      <div class="step">
+        <div class="step-number">2</div>
+        <div class="step-content">
+          <h4>🔄 Sync Your Character</h4>
+          <p>Click the RollCloud icon in your browser toolbar, then click "🔄 Sync from Dice Cloud"</p>
         </div>
       </div>
       
-      <div class="feature">
-        <div class="feature-icon">💬</div>
-        <div class="feature-text">
-          <h3>Discord Integration</h3>
-          <p>Turn notifications via Pip 2 Discord bot</p>
+      <div class="step">
+        <div class="step-number">3</div>
+        <div class="step-content">
+          <h4>🎯 Open Roll20</h4>
+          <p>Go to your Roll20 campaign and refresh the page to see your synced character sheet</p>
+        </div>
+      </div>
+      
+      <div class="step">
+        <div class="step-number">4</div>
+        <div class="step-content">
+          <h4>📋 Show Character Sheet</h4>
+          <p>Click "📋 Show Character Sheet" in the RollCloud popup to display your character overlay</p>
+        </div>
+      </div>
+      
+      <div class="step">
+        <div class="step-number">5</div>
+        <div class="step-content">
+          <h4>💬 Connect to Discord</h4>
+          <p>Expand "Discord Integration" in the popup and follow the setup instructions for turn notifications</p>
         </div>
       </div>
     </div>
     
     <div class="actions">
-      <button class="btn btn-primary" onclick="openPopup()">
-        🚀 Get Started
+      <button class="btn btn-primary" onclick="openDiceCloud()">
+        🎲 Open DiceCloud
+      </button>
+      <button class="btn btn-secondary" onclick="openPopup()">
+        📍 How to Open RollCloud
       </button>
       <button class="btn btn-secondary" onclick="openDocs()">
         📚 View Documentation
@@ -178,37 +264,55 @@
     </div>
     
     <div class="note">
-      <strong>💡 Tip:</strong> Click the RollCloud icon in your browser toolbar to open the popup anytime!
+      <strong>💡 Quick Tips:</strong>
+      <ul style="text-align: left; margin: 10px 0;">
+        <li>Click the RollCloud icon in your browser toolbar to access the popup anytime</li>
+        <li>Character data syncs FROM DiceCloud, but dice rolls happen IN Roll20</li>
+        <li>Using the installer? Return to the installer after setup to complete the installation</li>
+        <li>Need help? Join our Discord community for support</li>
+      </ul>
     </div>
   </div>
 
   <script>
     function openPopup() {
-      // Try to open the popup (this works differently in different browsers)
-      if (typeof chrome !== 'undefined' && chrome.action) {
-        // Chrome - we can't directly open popup, but we can close this tab
+      // Since we're in the options page, we can't directly open the popup
+      // Instead, we'll show instructions and close this tab
+      alert('📍 How to open RollCloud:\n\n1. Look for the RollCloud icon (🎲) in your browser toolbar\n2. Click the icon to open the popup\n3. If you don\'t see the icon:\n   - Click the puzzle piece icon in Chrome toolbar\n   - Find RollCloud and pin it to your toolbar\n\nThis tab will close now.');
+      
+      // Close this options tab
+      if (typeof chrome !== 'undefined' && chrome.tabs) {
         chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
           chrome.tabs.remove(tabs[0].id);
         });
       } else if (typeof browser !== 'undefined' && browser.browserAction) {
-        // Firefox - similar approach (use browserAction for manifest v2)
         browser.tabs.query({active: true, currentWindow: true}, function(tabs) {
           browser.tabs.remove(tabs[0].id);
         });
       } else if (typeof browser !== 'undefined' && browser.action) {
-        // Firefox manifest v3 - use action
         browser.tabs.query({active: true, currentWindow: true}, function(tabs) {
           browser.tabs.remove(tabs[0].id);
         });
       }
     }
     
+    function openDiceCloud() {
+      // Open DiceCloud in a new tab
+      const diceCloudWindow = window.open('https://dicecloud.com', '_blank');
+      
+      // Give a brief moment for the tab to open, then show guidance
+      setTimeout(() => {
+        alert('🎲 DiceCloud opened in a new tab!\n\nNext steps:\n1. Log in to DiceCloud\n2. Open your character sheet\n3. Come back to this tab and continue setup\n\nOr click the RollCloud icon in your toolbar to start syncing!');
+      }, 500);
+    }
+    
     function openDocs() {
+      // Open documentation in a new tab
       window.open('https://github.com/CarmaNayeli/rollCloud', '_blank');
     }
     
-    // Auto-close after 10 seconds if user doesn't interact
-    setTimeout(() => {
+    // Auto-close after 15 seconds if user doesn't interact
+    let autoCloseTimer = setTimeout(() => {
       if (typeof chrome !== 'undefined' && chrome.tabs) {
         chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
           chrome.tabs.remove(tabs[0].id);
@@ -218,7 +322,16 @@
           browser.tabs.remove(tabs[0].id);
         });
       }
-    }, 10000);
+    }, 15000);
+    
+    // Cancel auto-close when user interacts with the page
+    document.addEventListener('click', () => {
+      clearTimeout(autoCloseTimer);
+    });
+    
+    document.addEventListener('keydown', () => {
+      clearTimeout(autoCloseTimer);
+    });
   </script>
 </body>
 </html>

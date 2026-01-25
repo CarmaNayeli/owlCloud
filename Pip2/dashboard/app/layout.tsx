@@ -26,8 +26,7 @@ export default function RootLayout({
               <div className="flex items-center space-x-6">
                 <a href="/" className="hover:text-green-200 transition">Home</a>
                 <a href="/setup" className="hover:text-green-200 transition">Setup</a>
-                <a href="/pip-settings" className="hover:text-green-200 transition">Pip 2 Settings</a>
-                <a href="/my-instances" className="hover:text-green-200 transition">My Instances</a>
+                <a href="/configure-pip" className="hover:text-green-200 transition">Configure Pip</a>
                 <AuthButton />
               </div>
             </div>
