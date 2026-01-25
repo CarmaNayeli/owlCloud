@@ -3,9 +3,9 @@ export default function Home() {
     <div className="space-y-8">
       {/* Hero Section */}
       <div className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg shadow-xl p-8">
-        <h1 className="text-4xl font-bold mb-4">🎲 Pip Bot Dashboard</h1>
+        <h1 className="text-4xl font-bold mb-4">🎲 RollCloud Dashboard</h1>
         <p className="text-xl opacity-90">
-          Manage your Discord bot for the Dice Cat community
+          Manage your Discord integration for RollCloud combat tracking
         </p>
       </div>
 
@@ -15,7 +15,7 @@ export default function Home() {
           <div className="text-3xl mb-4">⚙️</div>
           <h2 className="text-xl font-bold mb-2">Setup Guide</h2>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
-            Learn how to invite and configure Pip Bot for your server
+            Learn how to set up RollCloud Discord integration
           </p>
           <a
             href="/setup"
@@ -43,7 +43,7 @@ export default function Home() {
           <div className="text-3xl mb-4">📋</div>
           <h2 className="text-xl font-bold mb-2">Changelog</h2>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
-            View and post Dice Cat app updates to Discord
+            View and post RollCloud updates to Discord
           </p>
           <a
             href="/changelog"
@@ -113,15 +113,15 @@ export default function Home() {
         <h2 className="text-2xl font-bold mb-4">🔗 Quick Links</h2>
         <div className="flex flex-wrap gap-4">
           <a
-            href="https://discord.com/developers/applications"
+            href="https://github.com/CarmaNayeli/rollCloud/releases/latest"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-indigo-600 dark:text-indigo-400 hover:underline"
+            className="inline-flex items-center bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"
           >
-            Discord Developer Portal
+            ⬇️ Download RollCloud
           </a>
           <a
-            href="https://github.com/anthropics/dice-cat"
+            href="https://github.com/CarmaNayeli/rollCloud"
             target="_blank"
             rel="noopener noreferrer"
             className="text-indigo-600 dark:text-indigo-400 hover:underline"

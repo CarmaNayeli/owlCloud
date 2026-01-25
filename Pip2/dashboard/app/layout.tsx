@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Pip Bot Dashboard",
-  description: "Admin dashboard for Pip Bot - Dice Cat Discord Bot",
+  title: "RollCloud Dashboard",
+  description: "Admin dashboard for RollCloud Discord integration",
 };
 
 export default function RootLayout({
@@ -18,7 +18,7 @@ export default function RootLayout({
           <div className="container mx-auto flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <span className="text-2xl">🎲</span>
-              <h1 className="text-xl font-bold">Pip Bot Dashboard</h1>
+              <h1 className="text-xl font-bold">RollCloud Dashboard</h1>
             </div>
             <div className="flex space-x-6">
               <a href="/" className="hover:text-indigo-200 transition">Home</a>

@@ -1,7 +1,7 @@
 {
-  "name": "pip-bot-dashboard",
+  "name": "rollcloud-dashboard",
   "version": "1.0.0",
-  "description": "Web dashboard for Pip Bot",
+  "description": "Web dashboard for RollCloud",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
