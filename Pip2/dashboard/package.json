@@ -1,6 +1,6 @@
 {
   "name": "rollcloud-dashboard",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "Web dashboard for RollCloud",
   "scripts": {
     "dev": "next dev",
@@ -9,7 +9,9 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
     "next": "^14.2.0",
+    "next-auth": "^4.24.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
