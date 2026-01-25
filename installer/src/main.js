@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const { installExtension, uninstallExtension, isExtensionInstalled } = require('./extension-installer');
-// const { installExtensions } = require('./local-installer'); // Disabled for production
+// // const { installExtensions } = require('./local-installer'); // Disabled for production // Disabled for production
 const { generatePairingCode, createPairing, checkPairing } = require('./pairing');
 
 // Extension and bot configuration
