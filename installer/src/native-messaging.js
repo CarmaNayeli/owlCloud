@@ -1,40 +1,224 @@
 /**
  * Native Messaging for Installer-Extension Communication
- * Allows the installer to send pairing codes directly to the extension
+ *
+ * Architecture:
+ * - The browser extension connects to a native messaging host
+ * - The host is a separate process spawned by the browser
+ * - The installer communicates with the host via a shared file
+ *
+ * Flow:
+ * 1. Installer generates pairing code and writes to shared file
+ * 2. Extension connects to native messaging host
+ * 3. Extension requests pairing code from host
+ * 4. Host reads from shared file and responds
  */
 
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { app } = require('electron');
+
+// Shared file location for IPC between installer and native host
+const PAIRING_FILE_NAME = 'rollcloud-pairing.json';
+
+/**
+ * Get the path to the shared pairing file
+ */
+function getPairingFilePath() {
+  // Use app data folder for shared file
+  const appDataPath = app.getPath('userData');
+  return path.join(appDataPath, PAIRING_FILE_NAME);
+}
+
+/**
+ * Get the path where the native host script should be installed
+ */
+function getNativeHostPath() {
+  if (process.platform === 'win32') {
+    // On Windows, use a batch file that runs the JS host
+    return path.join(app.getPath('userData'), 'native-host', 'rollcloud_host.bat');
+  } else {
+    // On Mac/Linux, use the JS file directly
+    return path.join(app.getPath('userData'), 'native-host', 'rollcloud_host.js');
+  }
+}
+
+/**
+ * Get the native messaging manifest directory for each browser
+ */
+function getNativeMessagingManifestPath(browser) {
+  const home = os.homedir();
+
+  if (process.platform === 'win32') {
+    // Windows uses registry, but we can also use manifest files
+    if (browser === 'chrome') {
+      return path.join(home, 'AppData', 'Local', 'Google', 'Chrome', 'User Data', 'NativeMessagingHosts');
+    } else if (browser === 'firefox') {
+      return path.join(home, 'AppData', 'Roaming', 'Mozilla', 'NativeMessagingHosts');
+    }
+  } else if (process.platform === 'darwin') {
+    // macOS
+    if (browser === 'chrome') {
+      return path.join(home, 'Library', 'Application Support', 'Google', 'Chrome', 'NativeMessagingHosts');
+    } else if (browser === 'firefox') {
+      return path.join(home, 'Library', 'Application Support', 'Mozilla', 'NativeMessagingHosts');
+    }
+  } else {
+    // Linux
+    if (browser === 'chrome') {
+      return path.join(home, '.config', 'google-chrome', 'NativeMessagingHosts');
+    } else if (browser === 'firefox') {
+      return path.join(home, '.mozilla', 'native-messaging-hosts');
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Install the native messaging host script
+ */
+async function installNativeHost() {
+  try {
+    const hostDir = path.dirname(getNativeHostPath());
+
+    // Create host directory
+    if (!fs.existsSync(hostDir)) {
+      fs.mkdirSync(hostDir, { recursive: true });
+    }
+
+    // Read the host script template
+    const sourceHostPath = path.join(__dirname, '..', 'native-messaging', 'rollcloud_installer_host.js');
+    let hostScript = fs.readFileSync(sourceHostPath, 'utf8');
+
+    // Inject the pairing file path into the host script
+    const pairingFilePath = getPairingFilePath();
+    hostScript = hostScript.replace(
+      "let currentPairingCode = null;",
+      `let currentPairingCode = null;\nconst PAIRING_FILE = ${JSON.stringify(pairingFilePath)};`
+    );
+
+    // Add file-reading logic to the host script
+    const fileReadLogic = `
+// Read pairing code from shared file (set by installer)
+function readPairingFromFile() {
+  try {
+    if (fs.existsSync(PAIRING_FILE)) {
+      const data = JSON.parse(fs.readFileSync(PAIRING_FILE, 'utf8'));
+      if (data.code && data.timestamp) {
+        // Check if code is less than 10 minutes old
+        const age = Date.now() - data.timestamp;
+        if (age < 10 * 60 * 1000) {
+          return { code: data.code, username: data.username };
+        }
+      }
+    }
+  } catch (e) {
+    log('Error reading pairing file: ' + e.message);
+  }
+  return null;
+}
+`;
+
+    // Insert file reading logic after log function
+    hostScript = hostScript.replace(
+      "log('Native messaging host started');",
+      fileReadLogic + "\nlog('Native messaging host started');"
+    );
+
+    // Modify getPairingCode handler to read from file
+    hostScript = hostScript.replace(
+      `case 'getPairingCode':
+      // Extension requesting the current pairing code
+      sendMessage({
+        type: 'pairingCode',
+        code: currentPairingCode,
+        username: pairingUsername,
+        status: currentPairingCode ? 'ready' : 'none'
+      });
+      break;`,
+      `case 'getPairingCode':
+      // Extension requesting the current pairing code
+      // First check file, then fall back to in-memory
+      const fileData = readPairingFromFile();
+      const code = fileData?.code || currentPairingCode;
+      const username = fileData?.username || pairingUsername;
+      sendMessage({
+        type: 'pairingCode',
+        code: code,
+        username: username,
+        status: code ? 'ready' : 'none'
+      });
+      break;`
+    );
+
+    // Write the host script
+    const destHostPath = getNativeHostPath();
+
+    if (process.platform === 'win32') {
+      // On Windows, write the JS file and a batch wrapper
+      const jsPath = destHostPath.replace('.bat', '.js');
+      fs.writeFileSync(jsPath, hostScript, 'utf8');
+
+      // Create batch wrapper
+      const batchContent = `@echo off\nnode "${jsPath}" %*`;
+      fs.writeFileSync(destHostPath, batchContent, 'utf8');
+    } else {
+      // On Mac/Linux, write JS file with shebang and make executable
+      fs.writeFileSync(destHostPath, hostScript, { mode: 0o755 });
+    }
+
+    console.log('✅ Native messaging host installed at:', destHostPath);
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to install native host:', error);
+    return false;
+  }
+}
 
 /**
  * Install Chrome native messaging manifest
  */
 async function installChromeNativeMessaging() {
   try {
-    const manifestPath = path.join(os.homedir(), 'Google', 'Chrome', 'User Data', 'NativeMessagingHosts', 'com.rollcloud.installer.json');
-    const manifestDir = path.dirname(manifestPath);
-    
+    // First install the host script
+    await installNativeHost();
+
+    const manifestDir = getNativeMessagingManifestPath('chrome');
+    if (!manifestDir) {
+      console.error('❌ Could not determine Chrome manifest path for this platform');
+      return false;
+    }
+
     // Ensure directory exists
     if (!fs.existsSync(manifestDir)) {
       fs.mkdirSync(manifestDir, { recursive: true });
     }
-    
+
+    const hostPath = getNativeHostPath();
+
     const manifest = {
       name: 'com.rollcloud.installer',
       description: 'RollCloud Installer Native Messaging Host',
-      path: path.join(process.resourcesPath, 'dist', 'win-unpacked', 'RollCloud Setup v2.exe'),
+      path: hostPath,
       type: 'stdio',
-      allowed_origins: ['chrome-extension://mkckngoemfjdkhcpaomdndlecolckgdj']
+      allowed_origins: ['chrome-extension://mkckngoemfjdkhcpaomdndlecolckgdj/']
     };
-    
+
+    const manifestPath = path.join(manifestDir, 'com.rollcloud.installer.json');
     fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
-    console.log('✅ Chrome native messaging manifest installed');
+
+    // On Windows, also register in registry
+    if (process.platform === 'win32') {
+      await registerWindowsNativeHost('chrome', manifestPath);
+    }
+
+    console.log('✅ Chrome native messaging manifest installed at:', manifestPath);
     return true;
   } catch (error) {
-      console.error('❌ Failed to install Chrome native messaging manifest:', error);
-      return false;
-    }
+    console.error('❌ Failed to install Chrome native messaging:', error);
+    return false;
+  }
 }
 
 /**
@@ -42,35 +226,127 @@ async function installChromeNativeMessaging() {
  */
 async function installFirefoxNativeMessaging() {
   try {
-    // Firefox doesn't use native messaging manifests in the same way
-    // The extension will connect directly to the installer
-    console.log('✅ Firefox native messaging ready (extension will connect directly)');
+    // First install the host script
+    await installNativeHost();
+
+    const manifestDir = getNativeMessagingManifestPath('firefox');
+    if (!manifestDir) {
+      console.error('❌ Could not determine Firefox manifest path for this platform');
+      return false;
+    }
+
+    // Ensure directory exists
+    if (!fs.existsSync(manifestDir)) {
+      fs.mkdirSync(manifestDir, { recursive: true });
+    }
+
+    const hostPath = getNativeHostPath();
+
+    const manifest = {
+      name: 'com.rollcloud.installer',
+      description: 'RollCloud Installer Native Messaging Host',
+      path: hostPath,
+      type: 'stdio',
+      allowed_extensions: ['rollcloud@dicecat.dev']
+    };
+
+    const manifestPath = path.join(manifestDir, 'com.rollcloud.installer.json');
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+
+    console.log('✅ Firefox native messaging manifest installed at:', manifestPath);
     return true;
   } catch (error) {
-    console.error('❌ Failed to prepare Firefox native messaging:', error);
-      return false;
+    console.error('❌ Failed to install Firefox native messaging:', error);
+    return false;
+  }
+}
+
+/**
+ * Register native messaging host in Windows registry
+ */
+async function registerWindowsNativeHost(browser, manifestPath) {
+  if (process.platform !== 'win32') return;
+
+  try {
+    const { execSync } = require('child_process');
+
+    let regPath;
+    if (browser === 'chrome') {
+      regPath = 'HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts\\com.rollcloud.installer';
+    } else if (browser === 'firefox') {
+      regPath = 'HKCU\\Software\\Mozilla\\NativeMessagingHosts\\com.rollcloud.installer';
+    } else {
+      return;
+    }
+
+    // Add registry key pointing to manifest
+    execSync(`reg add "${regPath}" /ve /t REG_SZ /d "${manifestPath}" /f`, { stdio: 'ignore' });
+    console.log(`✅ Registered native host in Windows registry for ${browser}`);
+  } catch (error) {
+    console.warn(`⚠️ Could not register in Windows registry (may require admin): ${error.message}`);
+  }
+}
+
+/**
+ * Write pairing code to shared file for native host to read
+ */
+function writePairingCodeToFile(code, username = null) {
+  try {
+    const pairingFilePath = getPairingFilePath();
+    const pairingDir = path.dirname(pairingFilePath);
+
+    if (!fs.existsSync(pairingDir)) {
+      fs.mkdirSync(pairingDir, { recursive: true });
+    }
+
+    const data = {
+      code: code,
+      username: username,
+      timestamp: Date.now()
+    };
+
+    fs.writeFileSync(pairingFilePath, JSON.stringify(data, null, 2));
+    console.log('📝 Pairing code written to file:', pairingFilePath);
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to write pairing code to file:', error);
+    return false;
+  }
+}
+
+/**
+ * Clear the pairing code file
+ */
+function clearPairingCodeFile() {
+  try {
+    const pairingFilePath = getPairingFilePath();
+    if (fs.existsSync(pairingFilePath)) {
+      fs.unlinkSync(pairingFilePath);
+      console.log('🗑️ Pairing code file cleared');
+    }
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to clear pairing code file:', error);
+    return false;
   }
 }
 
 /**
  * Send pairing code to extension via native messaging
+ * This writes to a shared file that the native host reads
  */
-async function sendPairingCodeToExtension(browser, code) {
+async function sendPairingCodeToExtension(browser, code, username = null) {
   try {
-    console.log(`📤 Sending pairing code to ${browser} extension:`, code);
-    
-    if (browser === 'chrome') {
-      // For Chrome, we'd need to use the native messaging host
-      // This is more complex and may not be necessary if the extension connects to us
-      console.log('📝 Chrome native messaging not implemented for sending pairing codes');
-      return false;
-    } else if (browser === 'firefox') {
-      // Firefox extension should connect to us via native messaging
-      console.log('📝 Firefox extension should connect to installer for pairing code');
-      // The extension will poll for the pairing code from the installer
+    console.log(`📤 Setting pairing code for ${browser} extension:`, code);
+
+    // Write pairing code to shared file
+    const success = writePairingCodeToFile(code, username);
+
+    if (success) {
+      console.log('✅ Pairing code ready for extension to retrieve via native messaging');
       return true;
     }
-    
+
     return false;
   } catch (error) {
     console.error('❌ Failed to send pairing code to extension:', error);
@@ -78,8 +354,37 @@ async function sendPairingCodeToExtension(browser, code) {
   }
 }
 
+/**
+ * Uninstall native messaging (for cleanup)
+ */
+async function uninstallNativeMessaging(browser) {
+  try {
+    const manifestDir = getNativeMessagingManifestPath(browser);
+    if (manifestDir) {
+      const manifestPath = path.join(manifestDir, 'com.rollcloud.installer.json');
+      if (fs.existsSync(manifestPath)) {
+        fs.unlinkSync(manifestPath);
+        console.log(`✅ Removed ${browser} native messaging manifest`);
+      }
+    }
+
+    // Clear pairing file
+    clearPairingCodeFile();
+
+    return true;
+  } catch (error) {
+    console.error(`❌ Failed to uninstall ${browser} native messaging:`, error);
+    return false;
+  }
+}
+
 module.exports = {
   installChromeNativeMessaging,
   installFirefoxNativeMessaging,
-  sendPairingCodeToExtension
+  sendPairingCodeToExtension,
+  writePairingCodeToFile,
+  clearPairingCodeFile,
+  uninstallNativeMessaging,
+  getNativeHostPath,
+  getPairingFilePath
 };
