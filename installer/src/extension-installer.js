@@ -232,8 +232,36 @@ async function installLinuxPolicy(browser, policyValue, browserConfig) {
 }
 
 /**
- * Firefox: Use native addon installation API
+ * Install Firefox Developer Edition from bundled installer
  */
+async function installFirefoxDeveloperEdition() {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const { execSync } = require('child_process');
+    
+    console.log('   Installing Firefox Developer Edition from bundled installer...');
+    
+    // Path to the bundled installer
+    const installerPath = path.join(__dirname, '..', 'assets', 'FirefoxDeveloperEdition.exe');
+    
+    if (!fs.existsSync(installerPath)) {
+      throw new Error('Firefox Developer Edition installer not found in assets');
+    }
+    
+    console.log(`   Using bundled installer: ${installerPath}`);
+    
+    // Run the installer silently
+    execSync(`"${installerPath}" /S`, { stdio: 'pipe', timeout: 60000 });
+    
+    console.log('   Firefox Developer Edition installed successfully!');
+    return { success: true };
+    
+  } catch (error) {
+    console.error('   Failed to install Firefox Developer Edition:', error);
+    throw new Error(`Failed to install Firefox Developer Edition: ${error.message}`);
+  }
+}
 async function installFirefoxExtension(config) {
   // Use Firefox's about:addons page for manual installation
   try {
@@ -310,17 +338,67 @@ async function installFirefoxExtension(config) {
     let firefoxPath;
     let prefsPath;
     
+    console.log(`   Platform detected: ${platform}`);
+    
     if (platform === 'win32') {
       // Windows: Find Firefox installation and preferences
       const programFiles = process.env['ProgramFiles'] || 'C:\\Program Files';
       const programFiles86 = process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)';
       
-      if (fs.existsSync(path.join(programFiles, 'Mozilla Firefox', 'firefox.exe'))) {
-        firefoxPath = path.join(programFiles, 'Mozilla Firefox', 'firefox.exe');
-      } else if (fs.existsSync(path.join(programFiles86, 'Mozilla Firefox', 'firefox.exe'))) {
-        firefoxPath = path.join(programFiles86, 'Mozilla Firefox', 'firefox.exe');
+      console.log(`   Checking Program Files: ${programFiles}`);
+      console.log(`   Checking Program Files (x86): ${programFiles86}`);
+      
+      const firefoxPath1 = path.join(programFiles, 'Mozilla Firefox', 'firefox.exe');
+      const firefoxPath2 = path.join(programFiles86, 'Mozilla Firefox', 'firefox.exe');
+      
+      console.log(`   Checking path 1: ${firefoxPath1}`);
+      console.log(`   Path 1 exists: ${fs.existsSync(firefoxPath1)}`);
+      console.log(`   Checking path 2: ${firefoxPath2}`);
+      console.log(`   Path 2 exists: ${fs.existsSync(firefoxPath2)}`);
+      
+      // Check for Firefox Developer Edition first (better for unsigned extensions)
+      const devFirefoxPath1 = path.join(programFiles, 'Firefox Developer Edition', 'firefox.exe');
+      const devFirefoxPath2 = path.join(programFiles86, 'Firefox Developer Edition', 'firefox.exe');
+      
+      console.log(`   Checking Dev Firefox path 1: ${devFirefoxPath1}`);
+      console.log(`   Dev Firefox path 1 exists: ${fs.existsSync(devFirefoxPath1)}`);
+      console.log(`   Checking Dev Firefox path 2: ${devFirefoxPath2}`);
+      console.log(`   Dev Firefox path 2 exists: ${fs.existsSync(devFirefoxPath2)}`);
+      
+      // Prioritize Developer Edition
+      if (fs.existsSync(devFirefoxPath1)) {
+        firefoxPath = devFirefoxPath1;
+        console.log(`   ✅ Using Firefox Developer Edition: ${firefoxPath}`);
+      } else if (fs.existsSync(devFirefoxPath2)) {
+        firefoxPath = devFirefoxPath2;
+        console.log(`   ✅ Using Firefox Developer Edition: ${firefoxPath}`);
+      } else if (fs.existsSync(firefoxPath1)) {
+        firefoxPath = firefoxPath1;
+        console.log(`   Using regular Firefox: ${firefoxPath}`);
+      } else if (fs.existsSync(firefoxPath2)) {
+        firefoxPath = firefoxPath2;
+        console.log(`   Using regular Firefox: ${firefoxPath}`);
       } else {
-        throw new Error('Firefox installation not found');
+        console.log('   ❌ Firefox installation not found');
+        
+        // Offer to download and install Firefox Developer Edition
+        return { 
+          message: 'Firefox not found. Firefox Developer Edition is recommended for unsigned extensions.', 
+          requiresRestart: false,
+          requiresManualAction: true,
+          manualInstructions: {
+            type: 'firefox_download',
+            steps: [
+              '1. Firefox Developer Edition is recommended for unsigned extensions',
+              '2. Would you like to automatically download and install Firefox Developer Edition?',
+              '3. Click "Install Firefox Developer Edition" to proceed',
+              '4. Firefox Developer Edition has relaxed signing requirements',
+              '5. After installation, run this installer again to install RollCloud extension'
+            ],
+            downloadUrl: 'https://download.mozilla.org/?product=firefox-devedition-latest-ssl&os=win64&lang=en-US',
+            autoInstall: true
+          }
+        };
       }
       
       // Find Firefox profile directory
@@ -367,26 +445,40 @@ async function installFirefoxExtension(config) {
     
     try {
       console.log(`   Executing: ${firefoxCommand}`);
-      execSync(firefoxCommand, { stdio: 'pipe' });
+      console.log(`   Firefox path: ${firefoxPath}`);
+      console.log(`   XPI path: ${localXpiPath}`);
+      
+      // Instead of trying to install directly, just open Firefox and provide manual instructions
+      const openCommand = `"${firefoxPath}"`;
+      console.log(`   Opening Firefox with: ${openCommand}`);
+      
+      const result = execSync(openCommand, { stdio: 'pipe', timeout: 5000 });
+      console.log(`   Firefox opened successfully`);
       
       return { 
-        message: 'Firefox addon installation initiated. Please complete the installation in Firefox.', 
+        message: 'Firefox opened. Please install the extension manually.', 
         requiresRestart: true,
         requiresManualAction: true,
         manualInstructions: {
-          type: 'firefox_addon',
+          type: 'firefox_addon_manual',
           steps: [
-            '1. Firefox should open with the addon installation prompt',
-            '2. Click "Add to Firefox" to install the extension',
-            '3. If you see "This add-on is not verified", click "Continue to Installation"',
-            '4. Grant necessary permissions when prompted',
-            '5. Restart Firefox after installation'
-          ]
+            '1. Firefox should now be open',
+            '2. Go to about:addons (Ctrl+Shift+A)',
+            '3. Click "Install Add-on from File"',
+            '4. Navigate to and select the RollCloud XPI file',
+            '5. Click "Install" and grant permissions',
+            '6. Restart Firefox after installation'
+          ],
+          xpiPath: localXpiPath
         }
       };
       
     } catch (error) {
-      console.log('   Firefox command failed, trying manual installation...');
+      console.log('   Firefox command failed with error:', error.message);
+      console.log('   Error code:', error.code);
+      console.log('   Error signal:', error.signal);
+      console.log('   Trying manual installation...');
+      
       // Fallback: Manual installation instructions
       return { 
         message: 'Firefox command failed. Please install manually.', 
@@ -395,17 +487,14 @@ async function installFirefoxExtension(config) {
         manualInstructions: {
           type: 'firefox_addon_manual',
           steps: [
-            '1. Open Firefox',
-            '2. Type "about:config" in the address bar and press Enter',
-            '3. Search for "xpinstall.signatures.required"',
-            '4. Double-click to set it to "false"',
-            '5. Search for "extensions.langpacks.signatures.required"',
-            '6. Double-click to set it to "false"',
-            '7. Go to about:addons (Ctrl+Shift+A)',
-            '8. Click "Install Add-on from File"',
-            '9. Select the XPI file from the installer resources',
-            '10. Click "Install" and restart Firefox'
-          ]
+            '1. Open Firefox manually',
+            '2. Go to about:addons (Ctrl+Shift+A)',
+            '3. Click "Install Add-on from File"',
+            '4. Navigate to and select the RollCloud XPI file',
+            '5. Click "Install" and grant permissions',
+            '6. Restart Firefox after installation'
+          ],
+          xpiPath: localXpiPath
         }
       };
     }

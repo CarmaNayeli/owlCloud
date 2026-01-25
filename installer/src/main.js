@@ -84,6 +84,16 @@ ipcMain.handle('install-extension', async (event, browser) => {
   }
 });
 
+// Install Firefox Developer Edition
+ipcMain.handle('install-firefox-dev-edition', async () => {
+  try {
+    const result = await installFirefoxDeveloperEdition();
+    return result;
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
 // Uninstall extension (remove policy)
 ipcMain.handle('uninstall-extension', async (event, browser) => {
   try {

@@ -2,11 +2,19 @@
 
 A browser extension that integrates Dice Cloud with Roll20. Import D&D character data using the DiceCloud REST API, use interactive character sheets with click-to-roll functionality, and manage combat with GM tools.
 
-**🎲 Version 1.2.0 - Discord Integration & Enhanced Features**
+**🎲 Version 1.2.2 - Firefox Developer Edition Support**
 
 **Quick Download:** [Firefox](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-firefox.zip) | [Chrome](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-chrome.zip) | [Safari](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-safari.zip)
 
 ### 📋 Recent Changes
+
+**Version 1.2.2**
+- **Firefox Developer Edition Support**: Bundled Firefox Developer Edition installer for seamless unsigned extension installation
+- **Improved Firefox Installation**: Automatic detection and installation of Firefox Developer Edition when regular Firefox is not found
+- **Enhanced Installer UI**: Better user guidance for Firefox extension installation
+- **Manifest V2 Compatibility**: Fixed Firefox manifest to use proper Manifest V2 format
+- **Bundled Dependencies**: No more download dependencies - everything included in installer
+- **Version Clarity**: Updated to 1.2.2 to avoid confusion with previous versions
 
 **Version 1.2.0**
 - **Discord Integration**: Connect RollCloud to Discord for real-time combat updates

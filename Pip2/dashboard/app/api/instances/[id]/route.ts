@@ -10,7 +10,7 @@ const supabase = createClient(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -19,7 +19,7 @@ export async function PATCH(
   }
 
   const discordId = (session.user as any).discordId;
-  const instanceId = params.id;
+  const { id: instanceId } = await params;
 
   if (!discordId) {
     return NextResponse.json({ error: 'Discord ID not found' }, { status: 400 });
@@ -62,7 +62,7 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await getServerSession(authOptions);
 
@@ -71,7 +71,7 @@ export async function DELETE(
   }
 
   const discordId = (session.user as any).discordId;
-  const instanceId = params.id;
+  const { id: instanceId } = await params;
 
   if (!discordId) {
     return NextResponse.json({ error: 'Discord ID not found' }, { status: 400 });

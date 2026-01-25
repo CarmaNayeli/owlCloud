@@ -160,6 +160,22 @@ async function installExtension() {
               </button>
             </div>
           `;
+        } else if (result.manualInstructions.type === 'firefox_download') {
+          noteElement.innerHTML = `
+            <strong>Firefox Developer Edition recommended:</strong><br>
+            Firefox Developer Edition has relaxed signing requirements for unsigned extensions.<br><br>
+            ${result.manualInstructions.steps.map(step => `<div style="margin: 5px 0;">${step}</div>`).join('')}
+            <div style="margin-top: 15px;">
+              <button onclick="installFirefoxDevEdition()" style="background: #ff9500; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+                Install Firefox Developer Edition
+              </button>
+            </div>
+            <div style="margin-top: 10px;">
+              <button onclick="window.location.reload()" style="background: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+                Retry Installation
+              </button>
+            </div>
+          `;
         } else {
           // Handle manual policy installation (fallback)
           noteElement.innerHTML = `
@@ -433,6 +449,72 @@ function setupGlobalHandlers() {
     e.preventDefault();
     await window.api.openExternal('https://github.com/CarmaNayeli/rollCloud/issues');
   });
+}
+
+// Install Firefox Developer Edition
+async function installFirefoxDevEdition() {
+  try {
+    progress.classList.remove('hidden');
+    error.classList.add('hidden');
+    complete.classList.add('hidden');
+    
+    const noteElement = document.querySelector('#installComplete .note');
+    noteElement.innerHTML = `
+      <strong>Installing Firefox Developer Edition...</strong><br>
+      Please wait while Firefox Developer Edition is installed from the bundled installer.<br>
+      <div style="margin-top: 15px;">
+        <div style="background: #f0f0f0; padding: 10px; border-radius: 4px; margin: 10px 0;">
+          <div id="installProgress">Installing from bundled installer...</div>
+        </div>
+      </div>
+    `;
+    
+    const result = await window.api.installFirefoxDevEdition();
+    
+    if (result.success) {
+      noteElement.innerHTML = `
+        <strong>✅ Firefox Developer Edition installed successfully!</strong><br>
+        Firefox Developer Edition has been installed with relaxed signing requirements.<br><br>
+        <div style="margin-top: 15px;">
+          <button onclick="window.location.reload()" style="background: #28a745; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+            Retry RollCloud Installation
+          </button>
+        </div>
+      `;
+    } else {
+      noteElement.innerHTML = `
+        <strong>❌ Failed to install Firefox Developer Edition</strong><br>
+        Error: ${result.error}<br><br>
+        <div style="margin-top: 15px;">
+          <button onclick="window.api.openExternal('https://www.mozilla.org/firefox/developer/')" style="background: #ff9500; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+            Download Manually
+          </button>
+        </div>
+        <div style="margin-top: 10px;">
+          <button onclick="window.location.reload()" style="background: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+            Retry Installation
+          </button>
+        </div>
+      `;
+    }
+    
+  } catch (error) {
+    console.error('Failed to install Firefox Developer Edition:', error);
+    noteElement.innerHTML = `
+      <strong>❌ Failed to install Firefox Developer Edition</strong><br>
+      Error: ${error.message}<br><br>
+      <div style="margin-top: 15px;">
+        <button onclick="window.api.openExternal('https://www.mozilla.org/firefox/developer/')" style="background: #ff9500; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+          Download Manually
+        </button>
+      </div>
+      <div style="margin-top: 10px;">
+        <button onclick="window.location.reload()" style="background: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+          Retry Installation
+        </button>
+      </div>
+    `;
+  }
 }
 
 // Restart browser function

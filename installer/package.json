@@ -1,6 +1,6 @@
 {
   "name": "rollcloud-setup",
-  "version": "1.2.0",
+  "version": "1.2.2",
   "description": "RollCloud Enterprise Extension Installer",
   "main": "src/main.js",
   "scripts": {
@@ -15,7 +15,7 @@
   },
   "build": {
     "appId": "com.dicecat.rollcloud.setup",
-    "productName": "RollCloud Setup",
+    "productName": "RollCloud Setup v2",
     "directories": {
       "output": "dist"
     },
@@ -40,12 +40,6 @@
           "arch": [
             "x64",
             "ia32"
-          ]
-        },
-        {
-          "target": "portable",
-          "arch": [
-            "x64"
           ]
         }
       ],
