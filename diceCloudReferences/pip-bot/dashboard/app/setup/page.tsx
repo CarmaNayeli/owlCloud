@@ -1,5 +1,5 @@
 export default function SetupPage() {
-  const BOT_INVITE_URL = "https://discord.com/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=268454928&scope=bot%20applications.commands";
+  const BOT_INVITE_URL = "https://discord.com/oauth2/authorize?client_id=1464771468452827380&permissions=268454928&scope=bot%20applications.commands";
 
   return (
     <div className="space-y-8">
