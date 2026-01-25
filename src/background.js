@@ -163,6 +163,69 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
           break;
         }
 
+        // ============== Discord Pairing Message Handlers ==============
+
+        case 'checkLoginStatus': {
+          const loginStatus = await checkLoginStatus();
+          response = { success: true, ...loginStatus };
+          break;
+        }
+
+        case 'createDiscordPairing': {
+          const pairingResult = await createDiscordPairing(request.code, request.username);
+          response = pairingResult;
+          break;
+        }
+
+        case 'checkDiscordPairing': {
+          const checkResult = await checkDiscordPairing(request.code);
+          response = checkResult;
+          break;
+        }
+
+        case 'setDiscordWebhook': {
+          await setDiscordWebhookSettings(request.webhookUrl, true, request.serverName);
+          // Also set the pairing ID for command polling if provided
+          if (request.pairingId) {
+            currentPairingId = request.pairingId;
+            await browserAPI.storage.local.set({ currentPairingId: request.pairingId });
+            // Start command polling
+            startCommandPolling(request.pairingId);
+          }
+          response = { success: true };
+          break;
+        }
+
+        case 'getDiscordWebhook': {
+          const settings = await getDiscordWebhookSettings();
+          response = { success: true, ...settings };
+          break;
+        }
+
+        case 'testDiscordWebhook': {
+          const testResult = await testDiscordWebhook(request.webhookUrl);
+          response = testResult;
+          break;
+        }
+
+        case 'requestPairingCodeFromInstaller': {
+          // Request pairing code from native messaging host
+          if (installerPort) {
+            installerPort.postMessage({ type: 'getPairingCode' });
+            response = { success: true, message: 'Pairing code requested from installer' };
+          } else {
+            // Try to connect first
+            const port = await connectToInstaller();
+            if (port) {
+              port.postMessage({ type: 'getPairingCode' });
+              response = { success: true, message: 'Connected and requested pairing code' };
+            } else {
+              response = { success: false, error: 'Could not connect to installer' };
+            }
+          }
+          break;
+        }
+
         default:
           debug.warn('Unknown action:', request.action);
           response = { success: false, error: 'Unknown action: ' + request.action };
@@ -1535,17 +1598,23 @@ async function connectToInstaller() {
 function handleInstallerMessage(message) {
   switch (message.type) {
     case 'pong':
-      debug.log('Installer is available');
-      break;
-      
-    case 'pairingCode':
-      if (message.code) {
-        debug.log('Received pairing code from installer:', message.code);
-        // Store the pairing code and start the pairing process
-        handleInstallerPairingCode(message.code);
+      debug.log('✅ Installer is available, requesting pairing code...');
+      // After confirming connection, request pairing code
+      if (installerPort) {
+        installerPort.postMessage({ type: 'getPairingCode' });
       }
       break;
-      
+
+    case 'pairingCode':
+      if (message.code) {
+        debug.log('📥 Received pairing code from installer:', message.code);
+        // Store the pairing code and start the pairing process
+        handleInstallerPairingCode(message.code, message.username);
+      } else {
+        debug.log('No pairing code available from installer (code is null)');
+      }
+      break;
+
     default:
       debug.warn('Unknown message type from installer:', message.type);
   }
@@ -1553,25 +1622,32 @@ function handleInstallerMessage(message) {
 
 /**
  * Handle pairing code received from installer
+ * @param {string} code - The pairing code
+ * @param {string} installerUsername - Optional username from installer
  */
-async function handleInstallerPairingCode(code) {
+async function handleInstallerPairingCode(code, installerUsername = null) {
   try {
     // Store the pairing code
-    await browserAPI.storage.local.set({ 
+    await browserAPI.storage.local.set({
       installerPairingCode: code,
       pairingSource: 'installer'
     });
-    
-    // Get DiceCloud username
-    const loginStatus = await checkLoginStatus();
-    const diceCloudUsername = loginStatus.username || 'DiceCloud User';
-    
+
+    // Get DiceCloud username - prefer installer-provided, fall back to local
+    let diceCloudUsername = installerUsername;
+    if (!diceCloudUsername) {
+      const loginStatus = await checkLoginStatus();
+      diceCloudUsername = loginStatus.username || 'DiceCloud User';
+    }
+
+    debug.log('📤 Creating Discord pairing with code:', code, 'username:', diceCloudUsername);
+
     // Create pairing in Supabase
     const result = await createDiscordPairing(code, diceCloudUsername);
-    
+
     if (result.success) {
       debug.log('✅ Pairing created from installer code');
-      
+
       // Notify popup that pairing is in progress
       broadcastToPopup({
         action: 'installerPairingStarted',
