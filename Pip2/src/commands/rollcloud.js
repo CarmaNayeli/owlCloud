@@ -89,7 +89,8 @@ export default {
         guildName: interaction.guild.name,
         channelId: interaction.channel.id,
         channelName: interaction.channel.name,
-        userId: interaction.user.id
+        userId: interaction.user.id,
+        client: interaction.client
       });
 
       // 4. Send success message
@@ -195,7 +196,8 @@ async function completePairing(code, discordInfo) {
     throw new Error('Supabase not configured');
   }
 
-  const response = await fetch(
+  // First, update the pairing table
+  const pairingResponse = await fetch(
     `${SUPABASE_URL}/rest/v1/rollcloud_pairings?pairing_code=eq.${code}`,
     {
       method: 'PATCH',
@@ -218,10 +220,57 @@ async function completePairing(code, discordInfo) {
     }
   );
 
-  if (!response.ok) {
-    const errorText = await response.text();
+  if (!pairingResponse.ok) {
+    const errorText = await pairingResponse.text();
     throw new Error(`Failed to complete pairing: ${errorText}`);
   }
 
-  return await response.json();
+  const pairingData = await pairingResponse.json();
+  
+  // Now, update the auth_tokens table with Discord info
+  if (pairingData.length > 0 && pairingData[0].dicecloud_user_id) {
+    try {
+      await updateAuthTokensWithDiscordInfo(pairingData[0].dicecloud_user_id, discordInfo);
+      console.log(`Updated auth_tokens for DiceCloud user: ${pairingData[0].dicecloud_user_id}`);
+    } catch (authError) {
+      console.error('Failed to update auth_tokens with Discord info:', authError);
+      // Don't fail the pairing if auth_tokens update fails
+    }
+  }
+
+  return pairingData;
+}
+
+/**
+ * Update auth_tokens table with Discord information
+ */
+async function updateAuthTokensWithDiscordInfo(dicecloudUserId, discordInfo) {
+  // First, get the Discord user details
+  const discordUser = await discordInfo.client.users.fetch(discordInfo.userId);
+  
+  const response = await fetch(
+    `${SUPABASE_URL}/rest/v1/auth_tokens?user_id_dicecloud=eq.${dicecloudUserId}`,
+    {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({
+        discord_user_id: discordInfo.userId,
+        discord_username: discordUser.username,
+        discord_global_name: discordUser.globalName || discordUser.username,
+        updated_at: new Date().toISOString()
+      })
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to update auth_tokens: ${errorText}`);
+  }
+
+  return response;
 }

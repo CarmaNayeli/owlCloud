@@ -215,7 +215,7 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
 
         case 'createDiscordPairing': {
-          const pairingResult = await createDiscordPairing(request.code, request.username);
+          const pairingResult = await createDiscordPairing(request.code, request.username, request.diceCloudUserId);
           response = pairingResult;
           break;
         }
@@ -1093,7 +1093,7 @@ function isSupabaseConfigured() {
 /**
  * Create a Discord pairing code in Supabase
  */
-async function createDiscordPairing(code, diceCloudUsername) {
+async function createDiscordPairing(code, diceCloudUsername, diceCloudUserId) {
   // Check if Supabase is configured
   if (!isSupabaseConfigured()) {
     debug.warn('Supabase not configured - pairing unavailable');
@@ -1116,12 +1116,13 @@ async function createDiscordPairing(code, diceCloudUsername) {
       body: JSON.stringify({
         pairing_code: code,
         dicecloud_username: diceCloudUsername,
+        dicecloud_user_id: diceCloudUserId, // Store the actual DiceCloud user ID (Meteor ID)
         status: 'pending'
       })
     });
 
     if (response.ok) {
-      debug.log('✅ Discord pairing created:', code);
+      debug.log('✅ Discord pairing created:', code, 'for DiceCloud user:', diceCloudUserId);
       return { success: true, code };
     } else {
       const error = await response.text();

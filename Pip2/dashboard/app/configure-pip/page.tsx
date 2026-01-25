@@ -39,6 +39,7 @@ export default function ConfigurePip() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [inviting, setInviting] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Mock data - replace with actual API calls
   const mockCommands: SlashCommand[] = [
@@ -135,14 +136,24 @@ export default function ConfigurePip() {
       const response = await fetch('/api/discord/servers');
       
       if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        
         if (response.status === 401) {
-          // Token expired, need to re-authenticate
-          throw new Error('Discord token expired');
+          if (errorData.requiresAuth) {
+            // User needs to sign in
+            throw new Error('requires_auth');
+          } else if (errorData.tokenExpired) {
+            // Token expired, need to re-authenticate
+            throw new Error('token_expired');
+          }
+          throw new Error('Discord authentication failed');
         }
-        throw new Error('Failed to fetch servers');
+        
+        throw new Error(errorData.error || 'Failed to fetch servers');
       }
       
       const userServers = await response.json();
+      console.log('📊 Received servers:', userServers.length);
       
       // Check which servers have the bot
       const serversWithBotStatus = await Promise.all(
@@ -159,10 +170,29 @@ export default function ConfigurePip() {
         server.permissions.includes('MANAGE_GUILD')
       );
       
+      console.log('👑 Admin servers:', adminServers.length);
+      console.log('📋 All servers:', userServers.length);
+      
       setServers(adminServers);
       setCommands(mockCommands);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error loading servers:', error);
+      
+      // Handle specific error cases
+      if (error instanceof Error) {
+        if (error.message === 'requires_auth') {
+          // User needs to sign in - this will be handled by the UI
+          return;
+        } else if (error.message === 'token_expired') {
+          // Token expired - show message to re-authenticate
+          setError('Your Discord session has expired. Please sign in again.');
+        } else {
+          // Other errors
+          setError(error.message || 'Failed to load Discord servers');
+        }
+      } else {
+        setError('An unknown error occurred while loading servers');
+      }
       
       // If we can't fetch real servers, don't show mock data
       setServers([]);

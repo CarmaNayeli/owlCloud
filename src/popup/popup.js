@@ -1424,13 +1424,15 @@ function initializePopup() {
       // Get DiceCloud user info
       const loginStatus = await browserAPI.runtime.sendMessage({ action: 'checkLoginStatus' });
       const diceCloudUsername = loginStatus.username || 'Unknown';
+      const diceCloudUserId = loginStatus.userId; // This is the Meteor ID
 
       // Store in Supabase (only if we generated locally - installer code already exists)
       if (!installerProvided) {
         const storeResult = await browserAPI.runtime.sendMessage({
           action: 'createDiscordPairing',
           code: code,
-          username: diceCloudUsername
+          username: diceCloudUsername,
+          diceCloudUserId: diceCloudUserId
         });
 
         if (!storeResult.success) {
