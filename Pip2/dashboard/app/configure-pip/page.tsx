@@ -206,16 +206,76 @@ export default function ConfigurePip() {
 
       const inviteUrl = `https://discord.com/oauth2/authorize?client_id=${clientId}&permissions=${permissions}&scope=bot%20applications.commands&guild_id=${serverId}`;
       
+      // Open Discord authorization in new tab
       window.open(inviteUrl, '_blank');
       
-      // Poll to check if bot was added (in real implementation)
-      setTimeout(() => {
+      // Show user feedback
+      alert(`Discord authorization opened in a new tab!\n\nPlease authorize Pip to join the server, then this page will automatically set up your instance.`);
+      
+      // Poll to check if bot was added and create instance
+      setTimeout(async () => {
+        await checkBotAndCreateInstance(serverId);
         loadServers(); // Refresh server list
         setInviting(null);
       }, 5000);
     } catch (error) {
       console.error('Error inviting bot:', error);
       setInviting(null);
+      alert('Failed to open Discord authorization. Please try again.');
+    }
+  };
+
+  const checkBotAndCreateInstance = async (serverId: string) => {
+    try {
+      // Check if bot is now in server
+      const botInServer = await checkBotInServer(serverId);
+      
+      if (botInServer) {
+        // Find the server details
+        const server = servers.find(s => s.id === serverId);
+        if (!server) return;
+        
+        // Fetch server channels
+        const channelsResponse = await fetch(`/api/discord/channels/${serverId}`);
+        let channels = [];
+        
+        if (channelsResponse.ok) {
+          const data = await channelsResponse.json();
+          channels = data.channels || [];
+        }
+        
+        // Use the first available text channel, or fallback to default
+        const firstChannel = channels.find((ch: any) => ch.type === 0);
+        const channelId = firstChannel?.id || 'default-channel';
+        const channelName = firstChannel?.name || 'general';
+        
+        // Create instance
+        const instanceData = {
+          guild_id: serverId,
+          guild_name: server.name,
+          channel_id: channelId,
+          channel_name: channelName
+        };
+        
+        const response = await fetch('/api/instances', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(instanceData),
+        });
+        
+        if (response.ok) {
+          console.log('Instance created successfully');
+          const instance = await response.json();
+          console.log('Instance data:', instance);
+        } else {
+          const errorText = await response.text();
+          console.error('Failed to create instance:', errorText);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking bot and creating instance:', error);
     }
   };
 

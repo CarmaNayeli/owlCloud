@@ -61,10 +61,6 @@
 
       <!-- Main Interface (shown when authenticated) -->
       <div id="mainSection" class="hidden">
-        <div class="user-info">
-          <button id="logoutBtn" class="btn-link">Logout</button>
-        </div>
-
         <div class="character-selector hidden" id="characterSelector">
           <label for="characterSelect">Active Character:</label>
           <select id="characterSelect" class="character-dropdown">
@@ -109,86 +105,36 @@
           <button id="showSheetBtn" class="btn btn-secondary">
             📋 Show Character Sheet
           </button>
-          <button id="exportBtn" class="btn btn-secondary">
-            📤 Export Characters
+          <button id="howToBtn" class="btn btn-secondary">
+            📖 How to Use
           </button>
-          <button id="importBtn" class="btn btn-secondary">
-            📥 Import Characters
-          </button>
-          <input type="file" id="importFile" accept=".json" style="display: none;">
-          <button id="cloudSyncBtn" class="btn btn-secondary">
-            ☁️ Sync to Cloud
-          </button>
-          <button id="clearBtn" class="btn btn-danger">
-            🗑️ Clear Data
-          </button>
+          <div class="settings-dropdown">
+            <button id="settingsBtn" class="btn btn-secondary settings-btn" title="Settings">
+              ⚙️
+            </button>
+            <div id="settingsMenu" class="settings-menu hidden">
+              <button id="exportBtn" class="settings-item">
+                📤 Export Characters
+              </button>
+              <button id="importBtn" class="settings-item">
+                📥 Import Characters
+              </button>
+              <input type="file" id="importFile" accept=".json" style="display: none;">
+              <button id="cloudSyncBtn" class="settings-item">
+                ☁️ Sync to Cloud
+              </button>
+              <div class="settings-divider"></div>
+              <button id="logoutBtn" class="settings-item">
+                🚪 Logout
+              </button>
+              <button id="clearBtn" class="settings-item danger">
+                🗑️ Clear Data
+              </button>
+            </div>
+          </div>
         </div>
 
-        <div class="instructions">
-          <h3>🎲 How to Use RollCloud</h3>
-          <div class="quick-steps">
-            <div class="step-row">
-              <div class="step-item">
-                <span class="step-emoji">🎲</span>
-                <div class="step-text">
-                  <strong>Open DiceCloud</strong><br>
-                  <small>Navigate to your character sheet</small>
-                </div>
-              </div>
-              <div class="step-arrow">→</div>
-              <div class="step-item">
-                <span class="step-emoji">🔄</span>
-                <div class="step-text">
-                  <strong>Sync Character</strong><br>
-                  <small>Click "Sync from Dice Cloud"</small>
-                </div>
-              </div>
-            </div>
-            <div class="step-row">
-              <div class="step-item">
-                <span class="step-emoji">🎯</span>
-                <div class="step-text">
-                  <strong>Open Roll20</strong><br>
-                  <small>Go to your campaign & refresh</small>
-                </div>
-              </div>
-              <div class="step-arrow">→</div>
-              <div class="step-item">
-                <span class="step-emoji">📋</span>
-                <div class="step-text">
-                  <strong>Show Sheet</strong><br>
-                  <small>Click "Show Character Sheet"</small>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <div class="detailed-steps">
-            <h4>📋 Detailed Steps:</h4>
-            <ol>
-              <li><strong>Open Dice Cloud</strong> → Navigate to your character sheet</li>
-              <li><strong>Click "🔄 Sync from Dice Cloud"</strong> → Capture character data</li>
-              <li><strong>Open Roll20</strong> → Navigate to your campaign and <strong>refresh the page</strong></li>
-              <li><strong>Click "📋 Show Character Sheet"</strong> → Display the overlay on Roll20</li>
-              <li><strong>Click any ability/skill card</strong> → Roll happens directly in Roll20 chat!</li>
-              <li><strong>Manage combat</strong> → Use GM panel for initiative tracking and action economy</li>
-            </ol>
-          </div>
-          
-          <div class="workflow-note">
-            <p><strong>⚠️ Important:</strong> Character data syncs from DiceCloud, but rolls happen in Roll20!</p>
-            <p><strong>🔄 Workflow:</strong> Extract from DiceCloud → Roll in Roll20</p>
-          </div>
-          
-          <div class="discord-note">
-            <p><strong>💬 Discord Setup:</strong> Expand "Discord Integration" below to get turn notifications on your phone!</p>
-          </div>
-          
-          <div class="installer-note">
-            <p><strong>🔧 Using the Installer?</strong> After setting up RollCloud, return to the installer to complete installation.</p>
-          </div>
-          
-          <!-- Discord Integration -->
+        <!-- Discord Integration -->
           <details id="discordSettings" style="margin-top: 15px;">
             <summary style="cursor: pointer; padding: 10px; background: #5865F2; color: white; border-radius: 5px; font-weight: bold;">
               🎮 Discord Integration

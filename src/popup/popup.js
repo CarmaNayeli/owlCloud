@@ -83,6 +83,9 @@ function initializePopup() {
   const syncBtn = document.getElementById('syncBtn');
   const showSheetBtn = document.getElementById('showSheetBtn');
   const clearBtn = document.getElementById('clearBtn');
+  const howToBtn = document.getElementById('howToBtn');
+  const settingsBtn = document.getElementById('settingsBtn');
+  const settingsMenu = document.getElementById('settingsMenu');
 
   // DOM Elements - Experimental Features
   const autoBackwardsSyncToggle = document.getElementById('autoBackwardsSyncToggle');
@@ -155,7 +158,23 @@ function initializePopup() {
     debug.error('❌ showSheetBtn not found!');
   }
 
+  if (howToBtn) {
+    howToBtn.addEventListener('click', handleHowTo);
+  }
+
   clearBtn.addEventListener('click', handleClear);
+
+  // Settings dropdown event listeners
+  if (settingsBtn && settingsMenu) {
+    settingsBtn.addEventListener('click', toggleSettingsMenu);
+    
+    // Close settings menu when clicking outside
+    document.addEventListener('click', (event) => {
+      if (!settingsBtn.contains(event.target) && !settingsMenu.contains(event.target)) {
+        settingsMenu.classList.add('hidden');
+      }
+    });
+  }
 
   // Export/Import event listeners
   if (exportBtn) {
@@ -821,6 +840,30 @@ function initializePopup() {
     } finally {
       showSheetBtn.disabled = false;
       showSheetBtn.textContent = '📋 Show Character Sheet';
+    }
+  }
+
+  /**
+   * Toggle settings menu dropdown
+   */
+  function toggleSettingsMenu(event) {
+    event.stopPropagation();
+    settingsMenu.classList.toggle('hidden');
+  }
+
+  /**
+   * Handles "How to Use" button click - opens welcome screen
+   */
+  function handleHowTo() {
+    // Open the welcome screen (options page)
+    if (typeof browser !== 'undefined' && browser.runtime && browser.runtime.openOptionsPage) {
+      browser.runtime.openOptionsPage();
+    } else if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.openOptionsPage) {
+      chrome.runtime.openOptionsPage();
+    } else {
+      // Fallback: try to open the welcome screen directly
+      const welcomeUrl = browserAPI.runtime.getURL('src/options/welcome.html');
+      browserAPI.tabs.create({ url: welcomeUrl });
     }
   }
 
