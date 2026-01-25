@@ -67,12 +67,16 @@ function setupBrowserSelection() {
             <button id="btnContinueFromPolicy" class="btn btn-primary">
               Continue Setup
             </button>
+            <button id="btnClearPolicyAndReinstall" class="btn btn-secondary" style="margin-left: 10px;">
+              Clear & Reinstall
+            </button>
           </div>
           <div style="margin-top: 10px; font-size: 0.8em; color: #666;">
-            The extension will be installed when you restart your browser.
+            The extension will be installed when you restart your browser, or clear to start fresh.
           </div>
         `;
         document.getElementById('btnContinueFromPolicy').addEventListener('click', () => goToStep(3));
+        document.getElementById('btnClearPolicyAndReinstall').addEventListener('click', () => clearPolicyAndReinstall());
       } else if (isInstalled) {
         // Extension is installed, check for updates
         statusText.innerHTML = `
@@ -85,13 +89,17 @@ function setupBrowserSelection() {
             <button id="btnCheckUpdates" class="btn btn-secondary" style="margin-left: 10px;">
               Check for Updates
             </button>
+            <button id="btnClearAndReinstall" class="btn btn-secondary" style="margin-left: 10px;">
+              Reinstall
+            </button>
           </div>
           <div style="margin-top: 10px; font-size: 0.8em; color: #666;">
-            You can check for updates or continue with current version.
+            You can check for updates, reinstall, or continue with current version.
           </div>
         `;
         document.getElementById('btnContinueFromInstalled').addEventListener('click', () => goToStep(3));
         document.getElementById('btnCheckUpdates').addEventListener('click', () => checkForUpdatesAndProceed());
+        document.getElementById('btnClearAndReinstall').addEventListener('click', () => clearPolicyAndReinstall());
       } else {
         statusText.textContent = `Selected ${getBrowserName(selectedBrowser)}. Ready to install.`;
         statusText.innerHTML = `
@@ -322,6 +330,56 @@ async function checkForUpdatesAndProceed() {
       </div>
     `;
     document.getElementById('btnContinueAfterError').addEventListener('click', () => goToStep(3));
+  }
+}
+
+async function clearPolicyAndReinstall() {
+  const statusText = document.getElementById('browserStatus');
+
+  try {
+    statusText.innerHTML = `
+      <div style="color: #ff9500;">🔄 Clearing existing installation...</div>
+      <div style="font-size: 0.9em; margin-top: 5px;">Removing policy and preparing for reinstall...</div>
+    `;
+
+    // Uninstall existing extension/policy
+    const uninstallResult = await window.api.uninstallExtension(selectedBrowser);
+
+    if (uninstallResult.success) {
+      statusText.innerHTML = `
+        <div style="color: #28a745;">✅ Policy cleared!</div>
+        <div style="font-size: 0.9em; margin-top: 5px;">Ready to reinstall. Click Continue to proceed.</div>
+        <div style="margin-top: 10px;">
+          <button id="btnProceedToInstall" class="btn btn-primary">
+            Continue to Install
+          </button>
+        </div>
+      `;
+      document.getElementById('btnProceedToInstall').addEventListener('click', () => goToStep(2));
+    } else {
+      statusText.innerHTML = `
+        <div style="color: #dc3545;">❌ Failed to clear policy</div>
+        <div style="font-size: 0.9em; margin-top: 5px;">${uninstallResult.error || 'Unknown error'}</div>
+        <div style="margin-top: 10px;">
+          <button id="btnRetryUninstall" class="btn btn-primary">Retry</button>
+          <button id="btnSkipToContinue" class="btn btn-secondary" style="margin-left: 10px;">Continue Anyway</button>
+        </div>
+      `;
+      document.getElementById('btnRetryUninstall').addEventListener('click', () => clearPolicyAndReinstall());
+      document.getElementById('btnSkipToContinue').addEventListener('click', () => goToStep(2));
+    }
+  } catch (error) {
+    console.error('Clear policy failed:', error);
+    statusText.innerHTML = `
+      <div style="color: #dc3545;">❌ Error clearing policy</div>
+      <div style="font-size: 0.9em; margin-top: 5px;">${error.message}</div>
+      <div style="margin-top: 10px;">
+        <button id="btnRetryClear" class="btn btn-primary">Retry</button>
+        <button id="btnSkipClear" class="btn btn-secondary" style="margin-left: 10px;">Continue Anyway</button>
+      </div>
+    `;
+    document.getElementById('btnRetryClear').addEventListener('click', () => clearPolicyAndReinstall());
+    document.getElementById('btnSkipClear').addEventListener('click', () => goToStep(2));
   }
 }
 

@@ -960,31 +960,25 @@ function checkActualInstallation(browser, extensionId) {
       for (const profile of profiles) {
         const extDir = path.join(profileDir, profile, 'Extensions', extensionId);
         if (fs.existsSync(extDir)) {
-          // Check if there's at least one version folder
+          // Check if there's at least one version folder with a manifest.json
           try {
             const versions = fs.readdirSync(extDir);
-            if (versions.length > 0) {
-              console.log(`  ✅ Found ${browser} extension at: ${extDir}`);
-              return true;
+            for (const version of versions) {
+              const versionDir = path.join(extDir, version);
+              const manifestPath = path.join(versionDir, 'manifest.json');
+              // Only count as installed if manifest.json actually exists
+              if (fs.existsSync(manifestPath)) {
+                console.log(`  ✅ Found ${browser} extension with manifest at: ${versionDir}`);
+                return true;
+              }
             }
+            // Folder exists but no valid manifest - likely residual/corrupted
+            console.log(`  ⚠️ Extension folder exists but no valid manifest found: ${extDir}`);
           } catch (e) {
             // Ignore read errors
           }
         }
-
-        // Also check Preferences/Secure Preferences for extension state
-        const prefsPath = path.join(profileDir, profile, 'Preferences');
-        if (fs.existsSync(prefsPath)) {
-          try {
-            const prefs = JSON.parse(fs.readFileSync(prefsPath, 'utf8'));
-            if (prefs.extensions?.settings?.[extensionId]?.state === 1) {
-              console.log(`  ✅ Found enabled ${browser} extension in Preferences`);
-              return true;
-            }
-          } catch (e) {
-            // Ignore parse errors
-          }
-        }
+        // Note: Removed Preferences check as it's unreliable after uninstall
       }
     }
   }
