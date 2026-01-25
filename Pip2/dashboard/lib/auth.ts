@@ -18,7 +18,9 @@ console.log('🔧 Environment Variables Check:', {
   NEXTAUTH_URL: requiredEnvVars.NEXTAUTH_URL || 'MISSING',
   DISCORD_REDIRECT_URI: requiredEnvVars.DISCORD_REDIRECT_URI || 'MISSING',
   NEXTAUTH_URL_INTERNAL: requiredEnvVars.NEXTAUTH_URL_INTERNAL || 'MISSING',
-  NODE_ENV: process.env.NODE_ENV
+  NODE_ENV: process.env.NODE_ENV,
+  DISCORD_CLIENT_ID_VALUE: requiredEnvVars.DISCORD_CLIENT_ID?.substring(0, 10) + '...',
+  DISCORD_CLIENT_SECRET_VALUE: requiredEnvVars.DISCORD_CLIENT_SECRET?.substring(0, 10) + '...'
 });
 
 // Check if Discord provider can be initialized
@@ -57,7 +59,9 @@ export const authOptions: AuthOptions = {
         hasProfile: !!profile,
         provider: account?.provider,
         accountType: account?.type,
-        hasCredentials: !!credentials
+        hasCredentials: !!credentials,
+        userName: user?.name,
+        userEmail: email
       });
       return true;
     },
@@ -67,7 +71,9 @@ export const authOptions: AuthOptions = {
         hasProfile: !!profile,
         hasAccessToken: !!account?.access_token,
         accessTokenLength: account?.access_token?.length || 0,
-        discordId: profile?.id
+        discordId: profile?.id,
+        tokenKeys: Object.keys(token),
+        accountKeys: account ? Object.keys(account) : []
       });
       
       if (account) {
@@ -75,13 +81,15 @@ export const authOptions: AuthOptions = {
         token.discordId = profile?.id;
         console.log('✅ Token updated:', {
           accessTokenSet: !!token.accessToken,
-          discordIdSet: !!token.discordId
+          discordIdSet: !!token.discordId,
+          accessTokenLength: token.accessToken?.length
         });
       }
       
       console.log('🔐 JWT Result:', {
         hasAccessToken: !!token.accessToken,
-        hasDiscordId: !!token.discordId
+        hasDiscordId: !!token.discordId,
+        tokenKeys: Object.keys(token)
       });
       
       return token;
@@ -92,7 +100,8 @@ export const authOptions: AuthOptions = {
         hasToken: !!token,
         hasAccessToken: !!token.accessToken,
         accessTokenLength: token.accessToken?.length || 0,
-        discordId: token.discordId
+        discordId: token.discordId,
+        sessionKeys: session ? Object.keys(session) : []
       });
       
       if (session.user) {
@@ -100,14 +109,16 @@ export const authOptions: AuthOptions = {
         (session.user as any).accessToken = token.accessToken;
         console.log('✅ Session updated:', {
           accessTokenSet: !!(session.user as any).accessToken,
-          discordIdSet: !!(session.user as any).discordId
+          discordIdSet: !!(session.user as any).discordId,
+          accessTokenLength: (session.user as any).accessToken?.length || 0
         });
       }
       
       console.log('👤 Session Result:', {
         hasUser: !!session?.user,
         hasAccessToken: !!(session.user as any)?.accessToken,
-        hasDiscordId: !!(session.user as any)?.discordId
+        hasDiscordId: !!(session.user as any)?.discordId,
+        sessionKeys: Object.keys(session)
       });
       
       return session;
