@@ -70,7 +70,7 @@ function copyDirRecursive(src, dest) {
   }
 }
 
-// Create ZIP archive using archiver (cross-platform)
+// Create ZIP archive using Node.js built-in zlib for maximum compatibility
 function createZip(sourceDir, outputPath) {
   return new Promise((resolve, reject) => {
     // Remove existing file
@@ -79,7 +79,13 @@ function createZip(sourceDir, outputPath) {
     }
 
     const output = fs.createWriteStream(outputPath);
-    const archive = archiver('zip', { zlib: { level: 9 } });
+    const archive = archiver('zip', { 
+      zlib: { 
+        level: 6, // Medium compression for better compatibility
+        windowBits: 15,
+        memLevel: 8
+      } 
+    });
 
     output.on('close', () => {
       console.log(`  Created: ${outputPath}`);
@@ -89,6 +95,14 @@ function createZip(sourceDir, outputPath) {
     archive.on('error', (err) => {
       console.error(`  Error creating zip: ${err.message}`);
       reject(err);
+    });
+
+    archive.on('warning', (err) => {
+      if (err.code === 'ENOENT') {
+        console.warn(`  Warning: ${err.message}`);
+      } else {
+        reject(err);
+      }
     });
 
     archive.pipe(output);
