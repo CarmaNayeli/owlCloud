@@ -153,6 +153,7 @@ function setupStep3() {
 
 function setupStep4() {
   const copyBtn = document.getElementById('copyCode');
+  const regenerateBtn = document.getElementById('regenerateCode');
 
   copyBtn.addEventListener('click', () => {
     if (pairingCode) {
@@ -161,6 +162,52 @@ function setupStep4() {
       setTimeout(() => {
         copyBtn.textContent = '[copy]';
       }, 2000);
+    }
+  });
+
+  regenerateBtn.addEventListener('click', async () => {
+    // Disable button temporarily
+    regenerateBtn.disabled = true;
+    regenerateBtn.textContent = '🔄 Generating...';
+
+    try {
+      // Generate new pairing code
+      const codeResult = await window.api.generatePairingCode();
+      pairingCode = codeResult.code;
+
+      // Update the display
+      const codeDisplay = document.getElementById('pairingCode');
+      codeDisplay.textContent = pairingCode;
+
+      // Create new pairing in Supabase
+      await window.api.createPairing(pairingCode);
+
+      // Reset connection status
+      const waitingDiv = document.getElementById('waitingForConnection');
+      const completeDiv = document.getElementById('connectionComplete');
+      waitingDiv.classList.add('hidden');
+      completeDiv.classList.add('hidden');
+
+      // Re-enable button
+      regenerateBtn.disabled = false;
+      regenerateBtn.textContent = '🔄 Generate New Code';
+
+      // Show success feedback
+      regenerateBtn.style.backgroundColor = '#4ECDC4';
+      setTimeout(() => {
+        regenerateBtn.style.backgroundColor = '';
+      }, 1000);
+
+    } catch (error) {
+      console.error('Failed to regenerate code:', error);
+      regenerateBtn.disabled = false;
+      regenerateBtn.textContent = '🔄 Generate New Code';
+      
+      // Show error feedback
+      regenerateBtn.style.backgroundColor = '#E74C3C';
+      setTimeout(() => {
+        regenerateBtn.style.backgroundColor = '';
+      }, 1000);
     }
   });
 }

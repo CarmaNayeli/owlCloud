@@ -217,6 +217,15 @@ header h1 {
   min-height: 1.5em;
 }
 
+.button-group {
+  margin: 15px 0;
+  text-align: center;
+}
+
+.button-group .btn {
+  margin: 0 5px;
+}
+
 .success-text {
   color: #22c55e;
   font-weight: 500;
