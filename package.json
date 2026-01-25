@@ -38,6 +38,7 @@
     "archiver": "^7.0.1"
   },
   "dependencies": {
-    "crx": "^5.0.1"
+    "crx": "^5.0.1",
+    "extract-zip": "^2.0.1"
   }
 }
