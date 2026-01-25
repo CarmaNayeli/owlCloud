@@ -5,6 +5,9 @@
   "scripts": {
     "build:extension": "node scripts/build-extension.js",
     "build:extension:fixed": "node scripts/build-extension-fixed.js",
+    "build:signed": "node scripts/build-signed.js",
+    "build:signed:chrome": "node scripts/build-signed-crx.js",
+    "build:signed:firefox": "node scripts/build-signed-xpi.js",
     "build:installer": "cd installer && npm run build",
     "build:installer:win": "cd installer && npm run build:win",
     "build:installer:mac": "cd installer && npm run build:mac",
