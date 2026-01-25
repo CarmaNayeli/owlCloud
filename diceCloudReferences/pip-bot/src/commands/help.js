@@ -38,6 +38,13 @@ export default {
           inline: false
         },
         {
+          name: '🎮 RollCloud Integration',
+          value:
+            '`/rollcloud [code]` - Connect RollCloud extension\n' +
+            '*Get the code from your RollCloud extension*',
+          inline: false
+        },
+        {
           name: '⚙️ Utility Commands',
           value: '`/ping` - Check bot responsiveness',
           inline: false

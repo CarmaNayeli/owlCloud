@@ -1,5 +1,9 @@
 import { Events, ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } from 'discord.js';
 
+// Supabase config for RollCloud commands
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+
 export default {
   name: Events.InteractionCreate,
   once: false,
@@ -47,6 +51,8 @@ async function handleButtonInteraction(interaction) {
     await handleCreateTicket(interaction, params);
   } else if (interaction.customId === 'close_ticket') {
     await handleCloseTicket(interaction);
+  } else if (action === 'rollcloud') {
+    await handleRollCloudButton(interaction, params);
   }
 }
 
@@ -184,4 +190,187 @@ async function handleCreateTicket(interaction, params) {
       content: '❌ Failed to create ticket. Please contact an administrator.'
     });
   }
+}
+
+// ============================================================================
+// RollCloud Button Handlers
+// ============================================================================
+
+/**
+ * Handle RollCloud button interactions
+ * Button customId format: rollcloud:<command_type>:<action_name>:<extra_data>
+ *
+ * Examples:
+ * - rollcloud:roll:Attack:1d20+5
+ * - rollcloud:use_action:Longsword
+ * - rollcloud:use_bonus:Healing Word
+ * - rollcloud:end_turn
+ * - rollcloud:use_ability:Fireball:spell
+ */
+async function handleRollCloudButton(interaction, params) {
+  const [commandType, actionName, ...extraData] = params;
+
+  // Acknowledge immediately
+  await interaction.deferReply({ ephemeral: true });
+
+  try {
+    // Find the pairing for this channel
+    const pairing = await findPairingForChannel(interaction.channelId);
+
+    if (!pairing) {
+      await interaction.editReply({
+        content: '❌ RollCloud is not connected to this channel. Use `/rollcloud <code>` to connect.'
+      });
+      return;
+    }
+
+    // Create command in Supabase
+    const command = await createRollCloudCommand({
+      pairingId: pairing.id,
+      discordUserId: interaction.user.id,
+      discordUsername: interaction.user.username,
+      discordMessageId: interaction.message.id,
+      commandType: commandType,
+      actionName: actionName,
+      commandData: parseExtraData(commandType, extraData)
+    });
+
+    if (!command.success) {
+      await interaction.editReply({
+        content: `❌ Failed to send command: ${command.error}`
+      });
+      return;
+    }
+
+    // Respond based on command type
+    const responseMessages = {
+      roll: `🎲 Rolling **${actionName}**...`,
+      use_action: `⚔️ Using action: **${actionName}**`,
+      use_bonus: `✨ Using bonus action: **${actionName}**`,
+      end_turn: `⏭️ Ending turn...`,
+      use_ability: `🔮 Using **${actionName}**...`
+    };
+
+    await interaction.editReply({
+      content: responseMessages[commandType] || `📤 Sent: ${commandType}`
+    });
+
+    console.log(`✅ RollCloud command sent: ${commandType} ${actionName} by ${interaction.user.tag}`);
+
+  } catch (error) {
+    console.error('RollCloud button error:', error);
+    await interaction.editReply({
+      content: '❌ Something went wrong. Please try again.'
+    });
+  }
+}
+
+/**
+ * Find a RollCloud pairing for a channel
+ */
+async function findPairingForChannel(channelId) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+    console.error('Supabase not configured');
+    return null;
+  }
+
+  try {
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/rollcloud_pairings?discord_channel_id=eq.${channelId}&status=eq.connected&select=*`,
+      {
+        headers: {
+          'apikey': SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+        }
+      }
+    );
+
+    if (!response.ok) {
+      console.error('Failed to find pairing:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    return data.length > 0 ? data[0] : null;
+  } catch (error) {
+    console.error('Error finding pairing:', error);
+    return null;
+  }
+}
+
+/**
+ * Create a command in Supabase for the extension to pick up
+ */
+async function createRollCloudCommand(options) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+    return { success: false, error: 'Supabase not configured' };
+  }
+
+  try {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/rollcloud_commands`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+        'Prefer': 'return=representation'
+      },
+      body: JSON.stringify({
+        pairing_id: options.pairingId,
+        discord_user_id: options.discordUserId,
+        discord_username: options.discordUsername,
+        discord_message_id: options.discordMessageId,
+        command_type: options.commandType,
+        action_name: options.actionName,
+        command_data: options.commandData || {},
+        status: 'pending'
+      })
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      return { success: true, command: data[0] };
+    } else {
+      const error = await response.text();
+      console.error('Failed to create command:', error);
+      return { success: false, error: 'Failed to create command' };
+    }
+  } catch (error) {
+    console.error('Error creating command:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Parse extra data from button customId based on command type
+ */
+function parseExtraData(commandType, extraData) {
+  const data = {};
+
+  switch (commandType) {
+    case 'roll':
+      // extraData[0] is the roll string, e.g., "1d20+5"
+      if (extraData[0]) {
+        data.roll_string = extraData.join(':'); // Rejoin in case roll had colons
+      }
+      break;
+
+    case 'use_ability':
+      // extraData[0] might be ability type (spell, feature, etc.)
+      if (extraData[0]) {
+        data.ability_type = extraData[0];
+      }
+      if (extraData[1]) {
+        data.spell_level = extraData[1];
+      }
+      break;
+
+    default:
+      // Store any extra data as-is
+      if (extraData.length > 0) {
+        data.extra = extraData;
+      }
+  }
+
+  return data;
 }

@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!--
+  Chrome Extension Update Manifest
+
+  This file is used by Chrome's enterprise policy to check for and install
+  the RollCloud extension. It should be hosted at a publicly accessible URL.
+
+  When you release a new version:
+  1. Update the version number below
+  2. Upload the new .crx file to GitHub releases
+  3. Update the codebase URL to point to the new release
+  4. Commit and push this file
+-->
+<gupdate xmlns='http://www.google.com/update2/response' protocol='2.0'>
+  <app appid='rollcloud-extension-id'>
+    <updatecheck
+      codebase='https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-chrome.crx'
+      version='1.1.6' />
+  </app>
+</gupdate>

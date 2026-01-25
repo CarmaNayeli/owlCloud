@@ -10315,6 +10315,9 @@ function initActionEconomy() {
 
       // Announce to Roll20 chat
       postToChatIfOpener(`🔄 ${characterData.name} resets turn actions!`);
+
+      // Update Discord
+      postActionEconomyToDiscord();
     });
   }
 
@@ -10329,6 +10332,9 @@ function initActionEconomy() {
 
       // Announce to Roll20 chat
       postToChatIfOpener(`🔄 ${characterData.name} resets all actions!`);
+
+      // Update Discord
+      postActionEconomyToDiscord();
     });
   }
 
@@ -10388,14 +10394,14 @@ function updateActionEconomyAvailability() {
 function activateTurn() {
   debug.log('⚔️ Activating turn - setting isMyTurn = true');
   isMyTurn = true;
-  
+
   // Reset reaction at the start of your turn (one reaction per round)
   const reactionIndicator = document.getElementById('reaction-indicator');
   if (reactionIndicator) {
     reactionIndicator.dataset.used = 'false';
     debug.log('🔄 Reaction restored (one per round limit)');
   }
-  
+
   updateActionEconomyAvailability();
 
   // Add visual highlight effect
@@ -10405,6 +10411,10 @@ function activateTurn() {
     actionEconomy.style.border = '2px solid #4ECDC4';
     debug.log('⚔️ Added visual highlight to action economy');
   }
+
+  // Send action economy state to Discord (with fresh actions available)
+  // Small delay to ensure action state is updated
+  setTimeout(() => postActionEconomyToDiscord(), 100);
 
   debug.log('⚔️ Turn activated! All actions available.');
 }
@@ -10494,6 +10504,48 @@ function postActionToChat(actionLabel, state) {
   const emoji = state === 'used' ? '❌' : '✅';
   const message = `${emoji} ${characterData.name} ${state === 'used' ? 'uses' : 'restores'} ${actionLabel}`;
   postToChatIfOpener(message);
+
+  // Also post to Discord
+  postActionEconomyToDiscord();
+}
+
+/**
+ * Get current action economy state
+ */
+function getActionEconomyState() {
+  const actionIndicator = document.getElementById('action-indicator');
+  const bonusActionIndicator = document.getElementById('bonus-action-indicator');
+  const movementIndicator = document.getElementById('movement-indicator');
+  const reactionIndicator = document.getElementById('reaction-indicator');
+
+  return {
+    action: actionIndicator?.dataset.used === 'true',
+    bonus: bonusActionIndicator?.dataset.used === 'true',
+    movement: movementIndicator?.dataset.used === 'true',
+    reaction: reactionIndicator?.dataset.used === 'true'
+  };
+}
+
+/**
+ * Post action economy state to Discord webhook
+ */
+function postActionEconomyToDiscord() {
+  if (!characterData || !characterData.name) return;
+
+  const actions = getActionEconomyState();
+
+  // Send via the opener (Roll20 content script) which has access to browserAPI
+  if (window.opener && !window.opener.closed) {
+    window.opener.postMessage({
+      action: 'postToDiscordFromPopup',
+      payload: {
+        type: 'actionUpdate',
+        characterName: characterData.name,
+        actions: actions
+      }
+    }, '*');
+    debug.log(`🎮 Discord: Posted action economy update for ${characterData.name}`);
+  }
 }
 
 /**

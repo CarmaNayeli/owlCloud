@@ -2034,6 +2034,8 @@ ${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗
       document.getElementById('round-display').textContent = `Round ${initiativeTracker.round}`;
       // Announce new round
       postChatMessage(`⚔️ Round ${initiativeTracker.round} begins!`);
+      // Notify Discord of round change
+      postRoundChangeToDiscord(initiativeTracker.round);
     }
 
     updateInitiativeDisplay();
@@ -2252,7 +2254,7 @@ ${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗
   }
 
   /**
-   * Notify current turn to character sheet
+   * Notify current turn to character sheet and Discord
    */
   function notifyCurrentTurn() {
     const current = getCurrentCombatant();
@@ -2302,6 +2304,56 @@ ${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗
         debug.warn(`⚠️ Error sending message to popup "${characterName}":`, error);
         delete characterPopups[characterName];
       }
+    });
+
+    // Post to Discord webhook
+    postTurnToDiscord(current);
+  }
+
+  /**
+   * Post turn notification to Discord webhook
+   */
+  function postTurnToDiscord(combatant) {
+    if (!combatant) return;
+
+    browserAPI.runtime.sendMessage({
+      action: 'postToDiscord',
+      payload: {
+        type: 'turnStart',
+        characterName: combatant.name,
+        combatant: combatant.name,
+        initiative: combatant.initiative,
+        round: initiativeTracker.round
+      }
+    }).then(response => {
+      if (response && response.success) {
+        debug.log(`🎮 Discord: Posted turn for ${combatant.name}`);
+      }
+    }).catch(err => {
+      // Webhook might not be configured - that's fine
+      debug.log('Discord webhook not configured or failed:', err.message);
+    });
+  }
+
+  /**
+   * Post round change to Discord webhook
+   */
+  function postRoundChangeToDiscord(round) {
+    const current = getCurrentCombatant();
+
+    browserAPI.runtime.sendMessage({
+      action: 'postToDiscord',
+      payload: {
+        type: 'roundChange',
+        round: round,
+        combatant: current ? current.name : null
+      }
+    }).then(response => {
+      if (response && response.success) {
+        debug.log(`🎮 Discord: Posted round ${round} change`);
+      }
+    }).catch(err => {
+      debug.log('Discord webhook not configured or failed:', err.message);
     });
   }
 
@@ -2662,6 +2714,20 @@ ${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗
       // Receive player data updates for GM overview
       if (event.data.characterName && event.data.data) {
         updatePlayerData(event.data.characterName, event.data.data);
+      }
+    } else if (event.data && event.data.action === 'postToDiscordFromPopup') {
+      // Forward Discord webhook post from popup to background script
+      if (event.data.payload) {
+        browserAPI.runtime.sendMessage({
+          action: 'postToDiscord',
+          payload: event.data.payload
+        }).then(response => {
+          if (response && response.success) {
+            debug.log(`🎮 Discord: Forwarded action update from popup`);
+          }
+        }).catch(err => {
+          debug.log('Discord webhook not configured or failed:', err.message);
+        });
       }
     }
   });

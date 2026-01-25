@@ -130,6 +130,81 @@
             <p><strong>🔄 Workflow:</strong> Extract from DiceCloud → Roll in Roll20</p>
           </div>
           
+          <!-- Discord Integration -->
+          <details id="discordSettings" style="margin-top: 15px;">
+            <summary style="cursor: pointer; padding: 10px; background: #5865F2; color: white; border-radius: 5px; font-weight: bold;">
+              🎮 Discord Integration
+            </summary>
+            <div style="margin-top: 10px; padding: 12px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px;">
+
+              <!-- Not Connected State -->
+              <div id="discordNotConnected">
+                <p style="margin-top: 0; font-size: 0.9em; color: #666;">
+                  See turn notifications on your phone via Discord!
+                </p>
+                <button type="button" id="setupDiscordBtn" class="btn btn-primary" style="width: 100%; padding: 12px; font-size: 1em;">
+                  🎮 Setup Discord
+                </button>
+              </div>
+
+              <!-- Pairing In Progress State -->
+              <div id="discordPairing" style="display: none; text-align: center;">
+                <p style="margin-top: 0; font-size: 0.9em; color: #666;">
+                  In Discord, type this command:
+                </p>
+                <div style="background: #5865F2; color: white; padding: 15px; border-radius: 8px; margin: 10px 0;">
+                  <code style="font-size: 1.1em; font-family: monospace;">/rollcloud <span id="pairingCode" style="font-weight: bold; letter-spacing: 2px;">------</span></code>
+                </div>
+                <p style="font-size: 0.8em; color: #888; margin-bottom: 5px;">
+                  Waiting for connection... <span id="pairingCountdown"></span>
+                </p>
+                <button type="button" id="cancelPairingBtn" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.8em;">
+                  Cancel
+                </button>
+              </div>
+
+              <!-- Connected State -->
+              <div id="discordConnected" style="display: none;">
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                  <span style="color: #27ae60; font-size: 1.2em;">✓</span>
+                  <span style="font-weight: bold;">Connected to Discord!</span>
+                </div>
+                <p style="font-size: 0.85em; color: #666; margin: 0 0 10px 0;">
+                  Server: <strong id="discordServerName">-</strong>
+                </p>
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 10px;">
+                  <input type="checkbox" id="discordWebhookEnabled" checked style="width: 16px; height: 16px; cursor: pointer;">
+                  <span style="font-size: 0.9em;">Enable notifications</span>
+                </label>
+                <div style="display: flex; gap: 8px;">
+                  <button type="button" id="testDiscordWebhook" class="btn btn-secondary" style="flex: 1; padding: 8px; font-size: 0.85em;">
+                    🧪 Test
+                  </button>
+                  <button type="button" id="disconnectDiscordBtn" class="btn btn-danger" style="flex: 1; padding: 8px; font-size: 0.85em;">
+                    Disconnect
+                  </button>
+                </div>
+              </div>
+
+              <div id="discordStatus" style="margin-top: 8px; font-size: 0.85em; display: none;"></div>
+
+              <!-- Advanced: Manual webhook URL (hidden) -->
+              <details style="margin-top: 12px;">
+                <summary style="cursor: pointer; font-size: 0.8em; color: #888;">
+                  Advanced: Manual webhook setup
+                </summary>
+                <div style="margin-top: 8px;">
+                  <input type="url" id="discordWebhookUrl"
+                         placeholder="https://discord.com/api/webhooks/..."
+                         style="width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.8em; box-sizing: border-box; margin-bottom: 6px;">
+                  <button type="button" id="saveDiscordWebhook" class="btn btn-secondary" style="width: 100%; padding: 6px; font-size: 0.8em;">
+                    💾 Save Webhook URL
+                  </button>
+                </div>
+              </details>
+            </div>
+          </details>
+
           <!-- Experimental Build Instructions (hidden by default) -->
           <div id="experimentalInstructions" class="experimental-instructions hidden" style="margin-top: 15px; padding: 12px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px;">
             <h4 style="margin-top: 0; color: #856404;">🧪 Experimental Features</h4>

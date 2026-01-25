@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self';">
+  <title>RollCloud Setup</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>RollCloud Setup</h1>
+      <p class="subtitle">Dice Cloud + Roll20 + Discord</p>
+    </header>
+
+    <!-- Step 1: Choose Browser -->
+    <section id="step1" class="step active">
+      <div class="step-header">
+        <span class="step-number">1</span>
+        <h2>Choose Your Browser</h2>
+      </div>
+      <div class="step-content">
+        <p>Select the browser you use for Roll20:</p>
+        <div class="browser-grid">
+          <button class="browser-btn" data-browser="chrome">
+            <span class="browser-icon">C</span>
+            <span class="browser-name">Chrome</span>
+          </button>
+          <button class="browser-btn" data-browser="edge">
+            <span class="browser-icon">E</span>
+            <span class="browser-name">Edge</span>
+          </button>
+          <button class="browser-btn" data-browser="firefox">
+            <span class="browser-icon">F</span>
+            <span class="browser-name">Firefox</span>
+          </button>
+        </div>
+        <p id="browserStatus" class="status-text"></p>
+      </div>
+    </section>
+
+    <!-- Step 2: Install Extension -->
+    <section id="step2" class="step">
+      <div class="step-header">
+        <span class="step-number">2</span>
+        <h2>Install Extension</h2>
+      </div>
+      <div class="step-content">
+        <p>Installing RollCloud extension for <strong id="selectedBrowserName">Browser</strong>...</p>
+        <div id="installProgress" class="progress-container">
+          <div class="spinner"></div>
+          <p id="installStatus">Preparing installation...</p>
+        </div>
+        <div id="installComplete" class="hidden">
+          <p class="success-text">Extension installed successfully!</p>
+          <p class="note">You may need to restart your browser for changes to take effect.</p>
+          <button id="continueToStep3" class="btn btn-primary">Continue</button>
+        </div>
+        <div id="installError" class="hidden">
+          <p class="error-text" id="installErrorText">Installation failed</p>
+          <button id="retryInstall" class="btn btn-secondary">Retry</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 3: Add Pip Bot -->
+    <section id="step3" class="step">
+      <div class="step-header">
+        <span class="step-number">3</span>
+        <h2>Add Pip Bot to Discord</h2>
+      </div>
+      <div class="step-content">
+        <p>Pip Bot handles turn notifications in Discord.</p>
+        <button id="addPipBot" class="btn btn-primary btn-large">
+          Add Pip Bot to Your Server
+        </button>
+        <p class="note">A browser window will open. Select your Discord server and authorize the bot.</p>
+        <div id="botAdded" class="hidden">
+          <p class="success-text">Great! Click continue when you've added the bot.</p>
+          <button id="continueToStep4" class="btn btn-primary">Continue</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 4: Connect -->
+    <section id="step4" class="step">
+      <div class="step-header">
+        <span class="step-number">4</span>
+        <h2>Connect to Discord</h2>
+      </div>
+      <div class="step-content">
+        <p>In Discord, type this command in any channel where Pip Bot is present:</p>
+        <div class="code-display">
+          <code>/rollcloud <span id="pairingCode">------</span></code>
+          <button id="copyCode" class="btn-icon" title="Copy code">[copy]</button>
+        </div>
+        <div id="waitingForConnection" class="progress-container">
+          <div class="spinner"></div>
+          <p>Waiting for connection... <span id="countdown"></span></p>
+        </div>
+        <div id="connectionComplete" class="hidden">
+          <p class="success-text">Connected!</p>
+          <p>Server: <strong id="connectedServer">-</strong></p>
+          <p>Channel: <strong id="connectedChannel">-</strong></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 5: Done -->
+    <section id="step5" class="step">
+      <div class="step-header">
+        <span class="step-number">+</span>
+        <h2>Setup Complete!</h2>
+      </div>
+      <div class="step-content">
+        <div class="success-box">
+          <p class="big-check">[OK]</p>
+          <p>RollCloud is ready to use!</p>
+        </div>
+        <div class="next-steps">
+          <h3>What's Next?</h3>
+          <ol>
+            <li>Open <strong>Roll20</strong> in your browser</li>
+            <li>Click the RollCloud extension icon</li>
+            <li>Sync your character from Dice Cloud</li>
+            <li>Combat turns will appear in Discord!</li>
+          </ol>
+        </div>
+        <button id="finishSetup" class="btn btn-primary btn-large">Finish Setup</button>
+        <p class="note">You can safely delete this installer - you won't need it again.</p>
+      </div>
+    </section>
+
+    <!-- Error State -->
+    <section id="errorState" class="step hidden">
+      <div class="step-header">
+        <span class="step-number">!</span>
+        <h2>Something Went Wrong</h2>
+      </div>
+      <div class="step-content">
+        <p class="error-text" id="globalErrorText">An error occurred during setup.</p>
+        <button id="restartSetup" class="btn btn-secondary">Start Over</button>
+      </div>
+    </section>
+
+    <footer>
+      <p>RollCloud v1.1.6 | <a href="#" id="helpLink">Need help?</a></p>
+    </footer>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
