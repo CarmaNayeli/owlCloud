@@ -85,11 +85,11 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json(servers);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('❌ Error fetching Discord servers:', error);
     return NextResponse.json({ 
       error: 'Internal server error',
-      details: error.message 
+      details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
 }
