@@ -174,11 +174,11 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
           if (request.tabId) {
             debug.log('📤 Forwarding extractAuthToken to tab:', request.tabId);
             try {
-              const response = await browserAPI.tabs.sendMessage(request.tabId, {
+              const contentResponse = await browserAPI.tabs.sendMessage(request.tabId, {
                 action: 'extractAuthToken'
               });
-              debug.log('📥 Received response from content script:', response);
-              response = { success: true, data: response };
+              debug.log('📥 Received response from content script:', contentResponse);
+              response = { success: true, data: contentResponse };
             } catch (error) {
               debug.error('❌ Error forwarding to content script:', error);
               response = { success: false, error: error.message };

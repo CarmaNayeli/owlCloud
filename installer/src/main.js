@@ -99,7 +99,7 @@ ipcMain.handle('install-firefox-dev-edition', async () => {
 ipcMain.handle('uninstall-extension', async (event, browser) => {
   try {
     await uninstallExtension(browser);
-    return { success: true };
+    return { success: true, message: `The ${browser} extension has been removed. Restart your browser to complete the uninstall.` };
   } catch (error) {
     return { success: false, error: error.message };
   }
