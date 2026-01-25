@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const { installExtension, uninstallExtension, isExtensionInstalled, installFirefoxDeveloperEdition } = require('./extension-installer');
 const { sendPairingCodeToExtension } = require('./native-messaging');
-const { generatePairingCode, createPairingAndSend, checkPairing } = require('./pairing');
+const { generatePairingCode, createPairing, createPairingAndSend, checkPairing } = require('./pairing');
 
 // Extension and bot configuration
 const CONFIG = {

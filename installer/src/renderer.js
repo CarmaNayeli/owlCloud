@@ -848,19 +848,8 @@ async function restartBrowser(browser) {
       if (browser === 'chrome') {
         await window.api.openExternal('chrome://restart');
       } else if (browser === 'firefox') {
-        // Firefox doesn't have a restart URL, so we need to close all Firefox windows
-        alert(`Closing Firefox windows and preparing for restart...\n\nPlease reopen Firefox after it closes.`);
-        
-        // Use the new close browser function
-        // await window.api.closeBrowser('firefox');
-        
-        // Removed the check for result.success and the associated error handling
-        alert(`Closing Firefox windows and preparing for restart...\n\nPlease reopen Firefox after it closes.`);
-        
-        // Give it a moment to close, then show instructions
-        setTimeout(() => {
-          alert(`Firefox has been closed. Please reopen Firefox to complete the extension installation.\n\nThe RollCloud extension will be installed automatically when Firefox restarts.`);
-        }, 2000);
+        // Firefox doesn't have a restart URL, so prompt user to restart manually
+        alert(`Please close and reopen Firefox to complete the extension installation.\n\nThe RollCloud extension will be installed automatically when Firefox restarts.`);
       }
     } catch (error) {
       console.error('Failed to restart browser:', error);

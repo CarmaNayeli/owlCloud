@@ -1258,3 +1258,4 @@ function initializePopup() {
     });
   }
 } // End initializePopup
+}); // End DOMContentLoaded
