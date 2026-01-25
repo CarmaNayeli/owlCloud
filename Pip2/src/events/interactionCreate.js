@@ -37,14 +37,20 @@ async function handleCommand(interaction) {
     const errorMessage = { content: 'There was an error executing this command!', flags: 64 }; // 64 = ephemeral
 
     try {
+      // Check if interaction is already replied or deferred
       if (interaction.replied || interaction.deferred) {
         await interaction.followUp(errorMessage);
       } else {
         await interaction.reply(errorMessage);
       }
     } catch (replyError) {
-      // If interaction has expired, we can't reply - just log it
-      console.error('Failed to reply to interaction:', replyError.message);
+      // If interaction has expired or already acknowledged, we can't reply - just log it
+      if (replyError.message.includes('already been acknowledged') || 
+          replyError.message.includes('Unknown interaction')) {
+        console.error('Interaction already acknowledged or expired - cannot reply:', replyError.message);
+      } else {
+        console.error('Failed to reply to interaction:', replyError.message);
+      }
     }
   }
 }

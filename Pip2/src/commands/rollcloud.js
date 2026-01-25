@@ -29,8 +29,10 @@ export default {
 
     const code = interaction.options.getString('code').toUpperCase();
 
-    // Defer immediately to avoid timeout
-    await interaction.deferReply();
+    // Defer immediately to avoid timeout, but check if already deferred
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.deferReply();
+    }
 
     try {
       console.log(`Looking up pairing code: ${code}`);
@@ -155,31 +157,49 @@ async function lookupPairingCode(code) {
     throw new Error('Supabase not configured');
   }
 
-  const startTime = Date.now();
-  const url = `${SUPABASE_URL}/rest/v1/rollcloud_pairings?pairing_code=eq.${code}&select=*`;
-  
-  console.log(`Fetching from: ${url}`);
+  // Add timeout to the fetch request
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
 
-  const response = await fetch(url, {
-    headers: {
-      'apikey': SUPABASE_SERVICE_KEY,
-      'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+  try {
+    const startTime = Date.now();
+    const url = `${SUPABASE_URL}/rest/v1/rollcloud_pairings?pairing_code=eq.${code}&select=*`;
+    
+    console.log(`Fetching from: ${url}`);
+
+    const response = await fetch(url, {
+      headers: {
+        'apikey': SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+        'Accept': 'application/json'
+      },
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+    const endTime = Date.now();
+    console.log(`Supabase query took ${endTime - startTime}ms`);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Supabase error:', response.status, errorText);
+      throw new Error(`Failed to lookup pairing code: ${response.status}`);
     }
-  });
 
-  const endTime = Date.now();
-  console.log(`Supabase query took ${endTime - startTime}ms`);
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Supabase error:', response.status, errorText);
-    throw new Error(`Failed to lookup pairing code: ${response.status}`);
+    const data = await response.json();
+    console.log(`Supabase response data:`, data);
+    
+    return data.length > 0 ? data[0] : null;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    
+    if (error.name === 'AbortError') {
+      console.error('Supabase query timed out');
+      throw new Error('Database query timed out. Please try again.');
+    }
+    
+    throw error;
   }
-
-  const data = await response.json();
-  console.log(`Supabase response data:`, data);
-  
-  return data.length > 0 ? data[0] : null;
 }
 
 /**
