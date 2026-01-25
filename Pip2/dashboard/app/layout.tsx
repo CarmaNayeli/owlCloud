@@ -14,23 +14,24 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased">
-        <nav className="bg-indigo-600 text-white p-4 shadow-lg">
+        <nav className="bg-green-600 text-white p-4 shadow-lg">
           <div className="container mx-auto flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <span className="text-2xl">🎲</span>
-              <h1 className="text-xl font-bold">RollCloud Dashboard</h1>
+              <h1 className="text-xl font-bold">RollCloud</h1>
             </div>
             <div className="flex space-x-6">
-              <a href="/" className="hover:text-indigo-200 transition">Home</a>
-              <a href="/setup" className="hover:text-indigo-200 transition">Setup</a>
-              <a href="/reaction-roles" className="hover:text-indigo-200 transition">Reaction Roles</a>
-              <a href="/changelog" className="hover:text-indigo-200 transition">Changelog</a>
+              <a href="/" className="hover:text-green-200 transition">Home</a>
+              <a href="/setup" className="hover:text-green-200 transition">Setup</a>
+              <a href="/pip-settings" className="hover:text-green-200 transition">Pip 2 Settings</a>
             </div>
           </div>
         </nav>
         <main className="container mx-auto p-6">
           {children}
         </main>
+        <footer className="border-t border-gray-200 dark:border-gray-700 mt-8 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+          RollCloud v1.2
+        </footer>
       </body>
     </html>
   );
