@@ -131,52 +131,60 @@ export default function ConfigurePip() {
 
   const loadServers = async () => {
     try {
-      // Mock API call - replace with actual Discord API call
-      const mockServers: DiscordServer[] = [
-        {
-          id: '123456789',
-          name: 'RollCloud Community',
-          icon: undefined,
-          permissions: ['ADMINISTRATOR'],
-          botMember: true,
-          owner: false,
-          features: []
-        },
-        {
-          id: '987654321',
-          name: 'D&D Adventures',
-          icon: undefined,
-          permissions: ['MANAGE_GUILD', 'MANAGE_CHANNELS'],
-          botMember: true,
-          owner: false,
-          features: []
-        },
-        {
-          id: '456789123',
-          name: 'Gaming Hub',
-          icon: undefined,
-          permissions: ['USE_APPLICATION_COMMANDS'],
-          botMember: false,
-          owner: false,
-          features: []
-        }
-      ];
+      // Fetch real Discord servers via API
+      const response = await fetch('/api/discord/servers');
       
-      setServers(mockServers.filter(server => 
+      if (!response.ok) {
+        if (response.status === 401) {
+          // Token expired, need to re-authenticate
+          throw new Error('Discord token expired');
+        }
+        throw new Error('Failed to fetch servers');
+      }
+      
+      const userServers = await response.json();
+      
+      // Check which servers have the bot
+      const serversWithBotStatus = await Promise.all(
+        userServers.map(async (server: DiscordServer) => {
+          // Check if bot is in server
+          const botInServer = await checkBotInServer(server.id);
+          return { ...server, botMember: botInServer };
+        })
+      );
+      
+      // Filter to only show servers where user has admin permissions
+      const adminServers = serversWithBotStatus.filter(server => 
         server.permissions.includes('ADMINISTRATOR') || 
         server.permissions.includes('MANAGE_GUILD')
-      ));
+      );
+      
+      setServers(adminServers);
       setCommands(mockCommands);
     } catch (error) {
       console.error('Error loading servers:', error);
+      
+      // If we can't fetch real servers, don't show mock data
+      setServers([]);
+      setCommands([]);
     } finally {
       setLoading(false);
     }
   };
 
   const checkBotInServer = async (serverId: string): Promise<boolean> => {
-    // Mock implementation - replace with actual bot check
-    return serverId === '123456789'; // Only in first server
+    try {
+      // Check if bot is in server via API
+      const response = await fetch(`/api/discord/bot-in-server/${serverId}`);
+      if (response.ok) {
+        const data = await response.json();
+        return data.botPresent;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error checking bot presence:', error);
+      return false;
+    }
   };
 
   const inviteBot = async (serverId: string) => {
@@ -327,12 +335,44 @@ export default function ConfigurePip() {
         
         {servers.length === 0 ? (
           <div className="text-center py-8">
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
-              No servers found where you have admin permissions.
+            <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No Servers Found</h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              You don't have any Discord servers where you have admin permissions, or Pip isn't in any of your servers yet.
             </p>
-            <p className="text-sm text-gray-500 dark:text-gray-500">
-              Make sure Pip is in your server and you have Administrator or Manage Server permissions.
-            </p>
+            <div className="space-y-4">
+              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+                <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">Want to add Pip to a server?</h4>
+                <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">
+                  You can invite Pip to any Discord server where you have admin permissions.
+                </p>
+                <button
+                  onClick={() => window.open('https://discord.com/oauth2/authorize?client_id=YOUR_BOT_CLIENT_ID&permissions=8&scope=bot%20applications.commands', '_blank')}
+                  className="bg-[#5865F2] hover:bg-[#4752C4] text-white px-4 py-2 rounded-lg font-medium transition"
+                >
+                  Invite Pip to Server
+                </button>
+              </div>
+              <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 border border-green-200 dark:border-green-800">
+                <h4 className="font-semibold text-green-900 dark:text-green-100 mb-2">Create a new server</h4>
+                <p className="text-sm text-green-800 dark:text-green-200 mb-3">
+                  Don't have a server yet? Create a new Discord server to get started with Pip.
+                </p>
+                <button
+                  onClick={() => window.open('https://discord.com/new', '_blank')}
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition"
+                >
+                  Create New Server
+                </button>
+              </div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                <p>After adding Pip to a server or creating a new one, refresh this page to see your servers.</p>
+              </div>
+            </div>
           </div>
         ) : (
           <div className="grid gap-4">
