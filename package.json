@@ -36,5 +36,8 @@
   "license": "MIT",
   "devDependencies": {
     "archiver": "^7.0.1"
+  },
+  "dependencies": {
+    "crx": "^5.0.1"
   }
 }
