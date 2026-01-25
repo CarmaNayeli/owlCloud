@@ -1007,8 +1007,8 @@ function buildDiscordMessage(payload) {
 
 // Supabase configuration - set these to enable automatic pairing
 // If not configured, users can still use manual webhook URL entry
-const SUPABASE_URL = 'https://your-project.supabase.co'; // TODO: Replace with actual URL
-const SUPABASE_ANON_KEY = 'your-anon-key'; // TODO: Replace with actual key
+const SUPABASE_URL = 'https://gkfpxwvmumaylahtxqrk.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdrZnB4d3ZtdW1heWxhaHR4cXJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ0NDA4MDIsImV4cCI6MjA4MDAxNjgwMn0.P4a17PQ7i1ZgUvLnFdQGupOtKxx8-CWvPhIaFOl2i7g';
 
 /**
  * Check if Supabase is configured
