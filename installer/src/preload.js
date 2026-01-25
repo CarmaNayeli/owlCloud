@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('api', {
   checkExtensionInstalled: (browser) => ipcRenderer.invoke('check-extension-installed', browser),
   installExtension: (browser) => ipcRenderer.invoke('install-extension', browser),
   uninstallExtension: (browser) => ipcRenderer.invoke('uninstall-extension', browser),
+  installFirefoxDevEdition: () => ipcRenderer.invoke('install-firefox-dev-edition'),
 
   // Discord
   openDiscordInvite: () => ipcRenderer.invoke('open-discord-invite'),
