@@ -29,8 +29,8 @@
         "to": "extension/rollcloud-chrome.zip"
       },
       {
-        "from": "../dist/rollcloud-firefox.xpi",
-        "to": "extension/rollcloud-firefox.xpi"
+        "from": "../dist/rollcloud-firefox.zip",
+        "to": "extension/rollcloud-firefox.zip"
       }
     ],
     "win": {

@@ -137,9 +137,15 @@ async function buildFirefox() {
 
   const version = prepareBuildDir(buildDir, firefoxOverrides);
 
-  // Create XPI (which is just a ZIP with .xpi extension)
+  // Create ZIP file for Firefox (XPI is essentially a ZIP)
+  const zipPath = path.join(DIST_DIR, 'rollcloud-firefox.zip');
+  await createZip(buildDir, zipPath);
+  
+  // Also create XPI copy for convenience (Firefox can install ZIP files directly)
   const xpiPath = path.join(DIST_DIR, 'rollcloud-firefox.xpi');
-  await createZip(buildDir, xpiPath);
+  fs.copyFileSync(zipPath, xpiPath);
+  console.log(`  Created: ${zipPath} (use this for Firefox installation)`);
+  console.log(`  Created: ${xpiPath} (XPI format)`);
 
   // Cleanup build directory
   fs.rmSync(buildDir, { recursive: true });
@@ -162,7 +168,8 @@ async function build() {
   console.log(`  Output directory: ${DIST_DIR}`);
   console.log('\nFiles created:');
   console.log('  - rollcloud-chrome.zip (Chrome Web Store & local installation)');
-  console.log('  - rollcloud-firefox.xpi (Firefox Add-ons)');
+  console.log('  - rollcloud-firefox.zip (Firefox Add-ons - use this for installation)');
+  console.log('  - rollcloud-firefox.xpi (XPI format)');
 }
 
 build().catch(error => {

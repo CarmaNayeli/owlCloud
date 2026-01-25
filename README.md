@@ -2,18 +2,23 @@
 
 A browser extension that integrates Dice Cloud with Roll20. Import D&D character data using the DiceCloud REST API, use interactive character sheets with click-to-roll functionality, and manage combat with GM tools.
 
-**🎲 Version 1.1.6 - Paladin Feature Improvements**
+**🎲 Version 1.2.0 - Discord Integration & Enhanced Features**
 
 **Quick Download:** [Firefox](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-firefox.zip) | [Chrome](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-chrome.zip) | [Safari](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-safari.zip)
 
 ### 📋 Recent Changes
 
-**Version 1.1.6**
-- Custom modal for Lay on Hands: Heal with healing pool selection
-- Proper separation of Lay on Hands: Heal (modal) vs Restore (normal handler)
-- Consistent button text across all action buttons
-- Robust name normalization for punctuation/spacing variations
-- Enhanced edge case system for class features
+**Version 1.2.0**
+- **Discord Integration**: Connect RollCloud to Discord for real-time combat updates
+- **Pip Bot Integration**: Turn tracking and action economy updates in Discord
+- **Web Dashboard**: Manage Discord bot and view RollCloud status online
+- **One-Click Setup**: Simple code-based connection between extension and Discord
+- **Enhanced Combat**: Real-time turn notifications and action economy tracking
+- **Custom Modal for Lay on Hands**: Heal with healing pool selection
+- **Proper separation of Lay on Hands**: Heal (modal) vs Restore (normal handler)
+- **Consistent button text**: Across all action buttons
+- **Robust name normalization**: For punctuation/spacing variations
+- **Enhanced edge case system**: For class features
 
 ## Features
 
@@ -41,6 +46,15 @@ A browser extension that integrates Dice Cloud with Roll20. Import D&D character
 - **D&D 5e Rules Compliance**: Enforces one reaction per round, proper tracking
 - **Hidden Rolls**: GM Mode hides rolls until revealed
 - **Player Overview**: Track party member HP, AC, and conditions
+- **Discord Integration**: Real-time turn and combat updates in Discord
+
+### Discord Integration
+- **Real-Time Combat Updates**: Turn changes and action economy updates posted to Discord
+- **Pip Bot Connection**: Connect with the Pip Bot for seamless Discord integration
+- **One-Click Setup**: Generate connection code in extension, enter in Discord
+- **Web Dashboard**: Manage integration and view status at [pip-bot.vercel.app](https://pip-bot.vercel.app)
+- **Server Management**: Support for multiple Discord servers
+- **Combat Notifications**: Automatic turn announcements and action economy status
 
 ### Lucky Feat System
 - **Lucky Feat Integration**: Manual action button with modal interface
@@ -60,7 +74,7 @@ A browser extension that integrates Dice Cloud with Roll20. Import D&D character
 Download the pre-built extension for your browser:
 
 #### 🦊 Firefox
-[**Download RollCloud for Firefox**](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-firefox-v1.1.4.zip)
+[**Download RollCloud for Firefox**](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-firefox-v1.2.0.zip)
 
 1. **Download** the Firefox ZIP file
 2. **Extract** the ZIP file to a folder
@@ -70,7 +84,7 @@ Download the pre-built extension for your browser:
 6. **Done!** The RollCloud icon appears in your toolbar
 
 #### 🌐 Chrome / Edge / Brave
-[**Download RollCloud for Chrome**](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-chrome-v1.1.4.zip)
+[**Download RollCloud for Chrome**](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-chrome-v1.2.0.zip)
 
 1. **Download** the Chrome ZIP file
 2. **Extract** the ZIP file to a folder
@@ -80,7 +94,7 @@ Download the pre-built extension for your browser:
 6. **Done!** The RollCloud icon appears in your toolbar
 
 #### 🧭 Safari
-[**Download RollCloud for Safari**](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-safari-v1.1.4.zip)
+[**Download RollCloud for Safari**](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-safari-v1.2.0.zip)
 
 **Requirements:**
 - macOS with Safari 14.0 or later
@@ -156,6 +170,58 @@ Once you've imported your character data:
    - Choose offensive (attack roll) or defensive (ability check/save) usage
    - Roll an additional d20 and pick the better result
    - Lucky points are tracked automatically and deducted after use
+
+### Discord Integration Setup
+
+Connect RollCloud to Discord for real-time combat updates and turn tracking:
+
+#### Prerequisites
+- Discord server with admin permissions
+- Pip Bot added to your server (invite link available in extension)
+
+#### Setup Process
+
+1. **Add Pip Bot to Discord**:
+   - Click the "Discord Integration" button in the RollCloud extension
+   - Follow the invite link to add Pip Bot to your Discord server
+   - Ensure the bot has necessary permissions for posting messages
+
+2. **Generate Connection Code**:
+   - In RollCloud extension, click "Setup Discord Integration"
+   - The extension will generate a 6-character code (e.g., `ABC123`)
+   - Copy this code
+
+3. **Connect in Discord**:
+   - In your Discord server, type `/rollcloud [your-code]`
+   - Example: `/rollcloud ABC123`
+   - The bot will confirm the connection
+
+4. **Verify Connection**:
+   - Extension will show "Connected to Discord" status
+   - Start combat in Roll20 to test turn notifications
+   - Check Discord for real-time updates
+
+#### Features in Discord
+
+- **Turn Notifications**: Automatic announcements when combat turns change
+- **Action Economy**: Real-time status of actions, bonus actions, and reactions
+- **Combat Flow**: Seamless tracking of initiative and turn order
+- **Multiple Servers**: Support for different Discord servers with unique connections
+
+#### Web Dashboard
+
+Manage your Discord integration online:
+- **Setup URL**: [rollcloud.vercel.app/setup](https://rollcloud.vercel.app/setup)
+- **Dashboard**: [pip-bot.vercel.app](https://pip-bot.vercel.app)
+- **Features**: View connection status, manage servers, command reference
+- **Real-time Status**: Monitor active connections and combat updates
+
+#### Troubleshooting Discord Integration
+
+- **Bot Not Responding**: Ensure Pip Bot is online and has message permissions
+- **Invalid Code**: Generate a new code from the extension (codes expire after 5 minutes)
+- **No Notifications**: Check that you're in GM mode and combat is active
+- **Multiple Servers**: Each server needs its own connection code
 
 ## 🧪 Experimental Build - Two-Way Sync
 
