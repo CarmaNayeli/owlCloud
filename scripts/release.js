@@ -26,9 +26,9 @@ async function release() {
   console.log('📦 Step 1: Building extension...');
   execSync('node scripts/build-extension-fixed.js', { stdio: 'inherit', cwd: ROOT_DIR });
 
-  // Step 2: Build CRX with crx library
-  console.log('\n📦 Step 2: Building CRX...');
-  execSync('node scripts/build-crx-lib.js', { stdio: 'inherit', cwd: ROOT_DIR });
+  // Step 2: Build signed CRX with crx3 library
+  console.log('\n📦 Step 2: Building signed CRX...');
+  execSync('node scripts/build-signed.js', { stdio: 'inherit', cwd: ROOT_DIR });
 
   // Step 3: Verify files exist
   console.log('\n✅ Step 3: Verifying build artifacts...');
