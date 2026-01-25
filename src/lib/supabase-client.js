@@ -40,6 +40,25 @@ class SupabaseTokenManager {
   }
 
   /**
+   * Normalize date to ISO 8601 format for PostgreSQL
+   * Handles Meteor date formats like "Sat Jan 25 2025 12:00:00 GMT+0300"
+   */
+  normalizeDate(dateValue) {
+    if (!dateValue) return null;
+    try {
+      const date = new Date(dateValue);
+      if (isNaN(date.getTime())) {
+        debug.warn('⚠️ Invalid date value:', dateValue);
+        return null;
+      }
+      return date.toISOString();
+    } catch (e) {
+      debug.warn('⚠️ Failed to normalize date:', dateValue, e);
+      return null;
+    }
+  }
+
+  /**
    * Store auth token in Supabase
    */
   async storeToken(tokenData) {
@@ -48,12 +67,16 @@ class SupabaseTokenManager {
 
       // Use browser fingerprint for consistent storage/retrieval
       const visitorId = this.generateUserId();
+
+      // Normalize token_expires to ISO 8601 format for PostgreSQL
+      const normalizedTokenExpires = this.normalizeDate(tokenData.tokenExpires);
+
       const payload = {
         user_id: visitorId, // Browser fingerprint for cross-session lookup
         dicecloud_token: tokenData.token,
         username: tokenData.username || 'DiceCloud User',
         user_id_dicecloud: tokenData.userId, // Store DiceCloud ID separately
-        token_expires: tokenData.tokenExpires,
+        token_expires: normalizedTokenExpires,
         browser_info: {
           userAgent: navigator.userAgent,
           authId: tokenData.authId, // Store authId in browser_info for reference
@@ -94,7 +117,7 @@ class SupabaseTokenManager {
             dicecloud_token: tokenData.token,
             username: tokenData.username || 'DiceCloud User',
             user_id_dicecloud: tokenData.userId,
-            token_expires: tokenData.tokenExpires,
+            token_expires: normalizedTokenExpires,
             browser_info: {
               userAgent: navigator.userAgent,
               authId: tokenData.authId,
