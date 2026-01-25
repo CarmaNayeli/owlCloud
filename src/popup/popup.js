@@ -70,6 +70,7 @@ function initializePopup() {
   const exportBtn = document.getElementById('exportBtn');
   const importBtn = document.getElementById('importBtn');
   const importFile = document.getElementById('importFile');
+  const cloudSyncBtn = document.getElementById('cloudSyncBtn');
   const characterSelector = document.getElementById('characterSelector');
   const characterSelect = document.getElementById('characterSelect');
   const statusIcon = document.getElementById('statusIcon');
@@ -163,6 +164,9 @@ function initializePopup() {
   if (importBtn && importFile) {
     importBtn.addEventListener('click', () => importFile.click());
     importFile.addEventListener('change', handleImport);
+  }
+  if (cloudSyncBtn) {
+    cloudSyncBtn.addEventListener('click', handleCloudSync);
   }
 
   // Modal event listeners
@@ -952,6 +956,53 @@ function initializePopup() {
       importBtn.textContent = '📥 Import Characters';
       // Reset file input so the same file can be selected again
       event.target.value = '';
+    }
+  }
+
+  /**
+   * Handles cloud sync button click - manually syncs token to Supabase
+   */
+  async function handleCloudSync() {
+    try {
+      cloudSyncBtn.disabled = true;
+      cloudSyncBtn.textContent = '⏳ Syncing...';
+
+      // Get current token from storage
+      const result = await browserAPI.storage.local.get(['diceCloudToken', 'username', 'tokenExpires', 'diceCloudUserId', 'authId']);
+
+      if (!result.diceCloudToken) {
+        showError('No token to sync. Please log in first.');
+        return;
+      }
+
+      // Check if Supabase is available
+      if (typeof SupabaseTokenManager === 'undefined') {
+        showError('Cloud sync not available');
+        return;
+      }
+
+      const supabaseManager = new SupabaseTokenManager();
+      debug.log('🌐 Manual cloud sync - Browser ID:', supabaseManager.generateUserId());
+
+      const supabaseResult = await supabaseManager.storeToken({
+        token: result.diceCloudToken,
+        userId: result.diceCloudUserId,
+        tokenExpires: result.tokenExpires,
+        username: result.username || 'DiceCloud User',
+        authId: result.authId || result.diceCloudUserId
+      });
+
+      if (supabaseResult.success) {
+        showSuccess('Token synced to cloud!');
+      } else {
+        showError('Cloud sync failed: ' + (supabaseResult.error || 'Unknown error'));
+      }
+    } catch (error) {
+      debug.error('Error syncing to cloud:', error);
+      showError('Cloud sync error: ' + error.message);
+    } finally {
+      cloudSyncBtn.disabled = false;
+      cloudSyncBtn.textContent = '☁️ Sync to Cloud';
     }
   }
 
