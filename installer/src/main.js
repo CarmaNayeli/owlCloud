@@ -72,18 +72,12 @@ ipcMain.handle('check-extension-installed', async (event, browser) => {
   return await isExtensionInstalled(browser);
 });
 
-// Install extension via local ZIP extraction
+// Install extension via enterprise policy
 ipcMain.handle('install-extension', async (event, browser) => {
   try {
-    const results = await installExtensions();
+    const result = await installExtension(browser, CONFIG);
     
-    if (browser === 'chrome') {
-      return results.chrome;
-    } else if (browser === 'firefox') {
-      return results.firefox;
-    } else {
-      return { success: false, error: 'Unsupported browser' };
-    }
+    return result;
   } catch (error) {
     return { success: false, error: error.message };
   }
