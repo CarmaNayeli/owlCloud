@@ -19,9 +19,10 @@ export default function RootLayout({
         <SessionProvider>
           <nav className="bg-green-600 text-white p-4 shadow-lg">
             <div className="container mx-auto flex items-center justify-between">
-              <div className="flex items-center space-x-2">
+              <a href="/" className="flex items-center space-x-2 hover:opacity-90 transition">
+                <img src="/logo.png" alt="RollCloud" className="w-8 h-8" />
                 <h1 className="text-xl font-bold">RollCloud</h1>
-              </div>
+              </a>
               <div className="flex items-center space-x-6">
                 <a href="/" className="hover:text-green-200 transition">Home</a>
                 <a href="/setup" className="hover:text-green-200 transition">Setup</a>
