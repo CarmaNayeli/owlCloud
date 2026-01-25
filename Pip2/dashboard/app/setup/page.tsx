@@ -2,9 +2,9 @@ export default function SetupPage() {
   return (
     <div className="space-y-8">
       <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg shadow-xl p-8">
-        <h1 className="text-4xl font-bold mb-4">⚙️ Setup Guide</h1>
+        <h1 className="text-4xl font-bold mb-4">Setup Guide</h1>
         <p className="text-xl opacity-90">
-          Get RollCloud up and running for your D&D sessions
+          Connect DiceCloud V2 to Roll20 with Discord turn notifications
         </p>
       </div>
 
@@ -36,13 +36,13 @@ export default function SetupPage() {
               </a>
             </div>
 
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-4">
+            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded p-4">
               <h3 className="font-semibold mb-2">What's Included</h3>
               <ul className="text-sm space-y-1">
-                <li>✅ Browser extension for DiceCloud V2</li>
-                <li>✅ Combat turn tracking</li>
-                <li>✅ Discord integration for turn notifications</li>
-                <li>✅ Action economy buttons</li>
+                <li>Browser extension for Roll20 + DiceCloud V2</li>
+                <li>Character sync from DiceCloud to Roll20</li>
+                <li>Discord turn notifications via Pip 2 bot</li>
+                <li>Action economy buttons in Discord</li>
               </ul>
             </div>
           </div>
@@ -206,10 +206,10 @@ export default function SetupPage() {
             Go to Dashboard
           </a>
           <a
-            href="/reaction-roles"
+            href="/pip-settings"
             className="bg-white/20 text-white px-4 py-2 rounded hover:bg-white/30 transition font-semibold"
           >
-            View Reaction Roles
+            Pip 2 Settings
           </a>
         </div>
       </div>
