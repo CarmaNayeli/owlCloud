@@ -7,6 +7,7 @@ const { exec, execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+// const { installChromeNativeMessaging, installFirefoxNativeMessaging, sendPairingCodeToExtension } = require('./native-messaging');
 
 // Browser-specific configuration
 const BROWSER_CONFIG = {
@@ -329,11 +330,69 @@ function launchFirefox(firefoxPath, fileToOpen = null) {
 }
 
 /**
+ * Wait for Firefox Developer Edition to be installed and available
+ */
+async function waitForFirefoxInstallation() {
+  const maxWaitTime = 5 * 60 * 1000; // 5 minutes
+  const checkInterval = 3000; // Check every 3 seconds
+  const startTime = Date.now();
+  
+  console.log('   ⏳ Waiting for Firefox Developer Edition installation...');
+  
+  return new Promise((resolve) => {
+    const checkInstallation = () => {
+      const elapsed = Date.now() - startTime;
+      
+      if (elapsed > maxWaitTime) {
+        console.log('   ⏱️ Timeout waiting for Firefox installation');
+        resolve({
+          success: false,
+          timeout: true,
+          message: 'Installation timeout. Please complete the installation manually and click Retry.'
+        });
+        return;
+      }
+      
+      // Check if Firefox Developer Edition is now installed
+      const firefoxPath = findFirefoxDeveloperEdition();
+      
+      if (firefoxPath) {
+        console.log('   ✅ Firefox Developer Edition found at:', firefoxPath);
+        
+        // Check if it's actually running (installer might still be running)
+        const isRunning = isFirefoxRunning();
+        
+        if (isRunning) {
+          console.log('   ✅ Firefox Developer Edition is running');
+          resolve({
+            success: true,
+            firefoxPath,
+            isRunning: true,
+            message: 'Firefox Developer Edition installed and running successfully!'
+          });
+        } else {
+          console.log('   🔍 Firefox found but not running yet, checking again...');
+          setTimeout(checkInstallation, checkInterval);
+        }
+      } else {
+        // Still not installed, continue waiting
+        const remainingTime = Math.max(0, Math.ceil((maxWaitTime - elapsed) / 1000));
+        console.log(`   ⏳ Still waiting... (${Math.floor(remainingTime / 60)}:${(remainingTime % 60).toString().padStart(2, '0')} remaining)`);
+        setTimeout(checkInstallation, checkInterval);
+      }
+    };
+    
+    // Start checking
+    setTimeout(checkInstallation, 2000); // Wait 2 seconds before first check
+  });
+}
+
+/**
  * Install Firefox Developer Edition from bundled stub installer
  */
 async function installFirefoxDeveloperEdition() {
   try {
-    console.log('   Installing Firefox Developer Edition from stub installer...');
+    console.log('   Installing Firefox Developer Edition from bundled installer...');
 
     // Path to the bundled installer - check both dev and production paths
     const isDev = process.env.NODE_ENV === 'development' || process.argv.includes('--dev') || !process.resourcesPath;
@@ -360,41 +419,164 @@ async function installFirefoxDeveloperEdition() {
       if (fs.existsSync(fallbackPath)) {
         installerPath = fallbackPath;
       } else {
-        // Open download page as last resort
+        // Only open download page as last resort if installer is missing
         const { shell } = require('electron');
-        await shell.openExternal('https://www.mozilla.org/firefox/developer/');
+        await shell.openExternal('https://www.firefox.com/en-US/channel/desktop/developer/?redirect_source=mozilla-org');
         return {
           success: false,
           openedDownloadPage: true,
-          downloadUrl: 'https://www.mozilla.org/firefox/developer/',
-          message: 'Installer not found. Download page opened instead.'
+          downloadUrl: 'https://www.firefox.com/en-US/channel/desktop/developer/?redirect_source=mozilla-org',
+          message: 'Bundled installer not found. Download page opened instead.'
         };
       }
     }
 
-    console.log(`   Using stub installer: ${installerPath}`);
+    console.log(`   Using bundled installer: ${installerPath}`);
 
-    // Run the stub installer - it will download and install Firefox Developer Edition
-    // Using spawn for better handling of the installer process
-    const { spawn } = require('child_process');
+    // Execute the installer directly with proper Windows handling
+    const { spawn, exec } = require('child_process');
 
     return new Promise((resolve, reject) => {
-      const installer = spawn(installerPath, [], {
-        detached: true,
-        stdio: 'ignore'
+      console.log('   Executing Firefox Developer Edition installer...');
+      
+      // Method 1: Use exec with proper Windows command execution
+      const execCmd = `"${installerPath}"`;
+      
+      exec(execCmd, {
+        cwd: path.dirname(installerPath),
+        timeout: 15000, // 15 second timeout to allow installer to start
+        windowsHide: false
+      }, (error, stdout, stderr) => {
+        if (error) {
+          console.log('   Exec returned (expected for GUI installer):', error.code || error.message);
+          
+          // For GUI installers, the process often returns immediately while the installer continues
+          // This is normal behavior, so we consider it successful
+          if (error.code === 0 || error.signal === null) {
+            console.log('   Installer appears to be running');
+            
+            // Start waiting for installation to complete
+            waitForFirefoxInstallation().then((waitResult) => {
+              if (waitResult.success) {
+                resolve({
+                  success: true,
+                  installing: false,
+                  completed: true,
+                  firefoxPath: waitResult.firefoxPath,
+                  message: 'Firefox Developer Edition installed successfully!'
+                });
+              } else {
+                resolve({
+                  success: true,
+                  installing: true,
+                  waiting: true,
+                  message: waitResult.message || 'Please complete the Firefox installation and click Retry.'
+                });
+              }
+            });
+            
+          } else {
+            // Method 2: Try spawn with detached execution
+            console.log('   Trying spawn method...');
+            
+            try {
+              const installer = spawn(installerPath, [], {
+                detached: true,
+                stdio: ['ignore', 'pipe', 'pipe'],
+                shell: false, // Don't use shell to avoid extra processes
+                windowsHide: false,
+                cwd: path.dirname(installerPath),
+                env: { ...process.env }
+              });
+
+              installer.on('error', (spawnError) => {
+                console.error('   Spawn error:', spawnError);
+                reject(new Error(`Failed to launch installer: ${spawnError.message}`));
+              });
+
+              installer.on('spawn', () => {
+                console.log('   Installer spawned successfully');
+                installer.unref(); // Allow parent to exit
+                
+                // Start waiting for installation to complete
+                waitForFirefoxInstallation().then((waitResult) => {
+                  if (waitResult.success) {
+                    resolve({
+                      success: true,
+                      installing: false,
+                      completed: true,
+                      firefoxPath: waitResult.firefoxPath,
+                      message: 'Firefox Developer Edition installed successfully!'
+                    });
+                  } else {
+                    resolve({
+                      success: true,
+                      installing: true,
+                      waiting: true,
+                      message: waitResult.message || 'Please complete the Firefox installation and click Retry.'
+                    });
+                  }
+                });
+              });
+
+              // Timeout fallback
+              setTimeout(() => {
+                if (!installer.killed) {
+                  console.log('   Installer running (timeout reached)');
+                  installer.unref();
+                  
+                  // Start waiting for installation to complete
+                  waitForFirefoxInstallation().then((waitResult) => {
+                    if (waitResult.success) {
+                      resolve({
+                        success: true,
+                        installing: false,
+                        completed: true,
+                        firefoxPath: waitResult.firefoxPath,
+                        message: 'Firefox Developer Edition installed successfully!'
+                      });
+                    } else {
+                      resolve({
+                        success: true,
+                        installing: true,
+                        waiting: true,
+                        message: waitResult.message || 'Please complete the Firefox installation and click Retry.'
+                      });
+                    }
+                  });
+                }
+              }, 3000);
+
+            } catch (spawnError) {
+              console.error('   Spawn failed:', spawnError);
+              reject(new Error(`Failed to launch installer: ${spawnError.message}`));
+            }
+          }
+        } else {
+          console.log('   Exec completed successfully');
+          
+          // Start waiting for installation to complete
+          waitForFirefoxInstallation().then((waitResult) => {
+            if (waitResult.success) {
+              resolve({
+                success: true,
+                installing: false,
+                completed: true,
+                firefoxPath: waitResult.firefoxPath,
+                message: 'Firefox Developer Edition installed successfully!'
+              });
+            } else {
+              resolve({
+                success: true,
+                installing: true,
+                waiting: true,
+                message: waitResult.message || 'Please complete the Firefox installation and click Retry.'
+              });
+            }
+          });
+        }
       });
 
-      installer.unref();
-
-      // The stub installer runs and downloads Firefox in the background
-      // We return immediately and let the user wait
-      console.log('   Stub installer launched - it will download Firefox Developer Edition');
-
-      resolve({
-        success: true,
-        installing: true,
-        message: 'Firefox Developer Edition installer launched. Please wait for installation to complete, then click Retry.'
-      });
     });
 
   } catch (error) {
@@ -403,7 +585,7 @@ async function installFirefoxDeveloperEdition() {
     // Fallback: open download page
     try {
       const { shell } = require('electron');
-      await shell.openExternal('https://www.mozilla.org/firefox/developer/');
+      await shell.openExternal('https://www.firefox.com/en-US/channel/desktop/developer/?redirect_source=mozilla-org');
     } catch (e) {
       // Ignore
     }
@@ -412,7 +594,7 @@ async function installFirefoxDeveloperEdition() {
       success: false,
       error: error.message,
       openedDownloadPage: true,
-      downloadUrl: 'https://www.mozilla.org/firefox/developer/',
+      downloadUrl: 'https://www.firefox.com/en-US/channel/desktop/developer/?redirect_source=mozilla-org',
       message: `Installation failed: ${error.message}. Download page opened.`
     };
   }
@@ -440,29 +622,39 @@ async function installFirefoxExtension(config) {
     let firefoxPath = findFirefoxDeveloperEdition();
 
     // ========================================================================
-    // Step 2: If not installed, prompt user to download Firefox Developer Edition
+    // Step 2: If not installed, install it using the bundled installer
     // ========================================================================
     if (!firefoxPath) {
       console.log('   Firefox Developer Edition not found.');
-      console.log('\n   Step 2: Firefox Developer Edition required...');
+      console.log('\n   Step 2: Installing Firefox Developer Edition...');
 
-      // Return instructions to download - all platforms use the same approach
-      return {
-        message: 'Firefox Developer Edition is required but not installed.',
-        requiresRestart: false,
-        requiresManualAction: true,
-        manualInstructions: {
-          type: 'firefox_download',
-          steps: [
-            '1. Firefox Developer Edition is required for this extension',
-            '2. Click "Download Firefox Developer Edition" below',
-            '3. Install Firefox Developer Edition',
-            '4. Click "Retry Installation" to continue'
-          ],
-          downloadUrl: 'https://www.mozilla.org/firefox/developer/',
-          autoInstall: false
+      // Call the installer function directly
+      const installResult = await installFirefoxDeveloperEdition();
+      
+      if (installResult.success) {
+        if (installResult.completed) {
+          // Installation completed successfully, continue with extension installation
+          console.log('   ✅ Firefox Developer Edition installation completed');
+          // Continue with the rest of the extension installation process
+        } else {
+          // Still installing/waiting
+          return {
+            message: installResult.message || 'Firefox Developer Edition installation in progress.',
+            requiresRestart: false,
+            requiresManualAction: true,
+            manualInstructions: {
+              type: 'firefox_installation',
+              steps: [
+                '1. Firefox Developer Edition installer is now running',
+                '2. Complete the installation wizard',
+                '3. Click "Retry Installation" when finished'
+              ]
+            }
+          };
         }
-      };
+      } else {
+        return installResult;
+      }
     } else {
       console.log('   ✅ Firefox Developer Edition already installed');
     }
@@ -472,17 +664,50 @@ async function installFirefoxExtension(config) {
     // ========================================================================
     console.log('\n   Step 3: Locating extension XPI file...');
 
-    const isDev = process.env.NODE_ENV === 'development' || process.argv.includes('--dev');
+    const isDev = process.env.NODE_ENV === 'development' || process.argv.includes('--dev') || !process.resourcesPath;
     let localXpiPath;
+
+    console.log(`   Development mode: ${isDev}`);
+    console.log(`   __dirname: ${__dirname}`);
+    console.log(`   process.resourcesPath: ${process.resourcesPath}`);
 
     if (isDev) {
       localXpiPath = path.join(__dirname, '..', '..', '..', 'dist', 'rollcloud-firefox-signed.xpi');
+      console.log(`   Trying dev path: ${localXpiPath}`);
+      
+      // If the signed version doesn't exist, try the unsigned one
+      if (!fs.existsSync(localXpiPath)) {
+        localXpiPath = path.join(__dirname, '..', '..', '..', 'dist', 'rollcloud-firefox.xpi');
+        console.log(`   Signed not found, trying unsigned: ${localXpiPath}`);
+      }
     } else {
       localXpiPath = path.join(process.resourcesPath, 'extension', 'rollcloud-firefox.xpi');
+      console.log(`   Trying production path: ${localXpiPath}`);
     }
 
     if (!fs.existsSync(localXpiPath)) {
-      throw new Error(`Firefox XPI file not found at: ${localXpiPath}`);
+      // Try some additional fallback paths
+      const fallbackPaths = [
+        path.join(__dirname, '..', '..', '..', 'dist', 'rollcloud-firefox-signed.xpi'),
+        path.join(__dirname, '..', '..', '..', 'dist', 'rollcloud-firefox.xpi'),
+        path.join(__dirname, '..', '..', 'dist', 'rollcloud-firefox-signed.xpi'),
+        path.join(__dirname, '..', '..', 'dist', 'rollcloud-firefox.xpi'),
+        path.join(process.cwd(), 'dist', 'rollcloud-firefox-signed.xpi'),
+        path.join(process.cwd(), 'dist', 'rollcloud-firefox.xpi')
+      ];
+      
+      for (const fallback of fallbackPaths) {
+        console.log(`   Trying fallback: ${fallback}`);
+        if (fs.existsSync(fallback)) {
+          localXpiPath = fallback;
+          console.log(`   Found XPI at: ${localXpiPath}`);
+          break;
+        }
+      }
+    }
+
+    if (!fs.existsSync(localXpiPath)) {
+      throw new Error(`Firefox XPI file not found at: ${localXpiPath}. Tried multiple paths.`);
     }
 
     // Verify file integrity
@@ -896,10 +1121,702 @@ async function isExtensionInstalled(browser) {
  * Uninstall extension (remove policy)
  */
 async function uninstallExtension(browser) {
-  // Implementation for cleanup - similar structure but removes entries
-  // For now, just log that this would remove the policy
-  console.log(`Would uninstall ${browser} extension policy`);
-  return { success: true };
+  try {
+    console.log(`\n🗑️ Uninstalling ${browser} extension...`);
+    
+    if (browser === 'firefox') {
+      // For Firefox, we need to remove from policies.json and extension directories
+      const platform = process.platform;
+      let policiesPath;
+      
+      if (platform === 'win32') {
+        const programFiles = process.env['ProgramFiles'] || 'C:\\Program Files';
+        policiesPath = path.join(programFiles, 'Mozilla Firefox', 'distribution', 'policies.json');
+      } else if (platform === 'darwin') {
+        policiesPath = '/Applications/Firefox.app/Contents/Resources/distribution/policies.json';
+      } else {
+        policiesPath = '/usr/lib/firefox/distribution/policies.json';
+      }
+
+      // Remove from policies.json if it exists
+      if (fs.existsSync(policiesPath)) {
+        try {
+          const policies = JSON.parse(fs.readFileSync(policiesPath, 'utf8'));
+          if (policies.policies?.ExtensionSettings?.[EXTENSION_IDS.firefox]) {
+            delete policies.policies.ExtensionSettings[EXTENSION_IDS.firefox];
+            
+            // Write back the updated policies
+            const tempFile = path.join(require('os').tmpdir(), 'rollcloud-policies-backup.json');
+            fs.writeFileSync(tempFile, JSON.stringify(policies, null, 2));
+            
+            const sudo = require('sudo-prompt');
+            const options = { name: 'RollCloud Setup' };
+            const commands = `cp "${tempFile}" "${policiesPath}" && rm "${tempFile}"`;
+            
+            return new Promise((resolve, reject) => {
+              sudo.exec(commands, options, (error) => {
+                if (error) {
+                  console.log('   Could not remove Firefox policy (may require manual removal)');
+                  resolve({ success: true, message: 'Extension uninstall initiated. Some components may require manual removal.' });
+                } else {
+                  console.log('   ✅ Firefox extension policy removed');
+                  resolve({ success: true, message: 'Firefox extension uninstalled successfully.' });
+                }
+              });
+            });
+          }
+        } catch (e) {
+          console.log('   Error reading policies file:', e.message);
+        }
+      }
+      
+      // Also remove from user profiles
+      const profileDirs = getBrowserProfileDirs('firefox');
+      for (const profileDir of profileDirs) {
+        try {
+          const profiles = fs.readdirSync(profileDir).filter(f => {
+            const fullPath = path.join(profileDir, f);
+            return fs.statSync(fullPath).isDirectory() && f.includes('.default');
+          });
+
+          for (const profile of profiles) {
+            const extDir = path.join(profileDir, profile, 'extensions', EXTENSION_IDS.firefox);
+            const xpiPath = path.join(profileDir, profile, 'extensions', `${EXTENSION_IDS.firefox}.xpi`);
+            
+            if (fs.existsSync(extDir)) {
+              try {
+                fs.rmSync(extDir, { recursive: true, force: true });
+                console.log(`   ✅ Removed Firefox extension directory: ${extDir}`);
+              } catch (e) {
+                console.log(`   Could not remove extension directory: ${e.message}`);
+              }
+            }
+            
+            if (fs.existsSync(xpiPath)) {
+              try {
+                fs.unlinkSync(xpiPath);
+                console.log(`   ✅ Removed Firefox extension XPI: ${xpiPath}`);
+              } catch (e) {
+                console.log(`   Could not remove XPI file: ${e.message}`);
+              }
+            }
+          }
+        } catch (e) {
+          console.log(`   Error checking profile ${profileDir}:`, e.message);
+        }
+      }
+      
+      return { success: true, message: 'Firefox extension uninstalled successfully.' };
+      
+    } else {
+      // For Chrome, remove from registry/policy
+      const platform = process.platform;
+      const browserConfig = BROWSER_CONFIG[browser];
+      
+      if (!browserConfig) {
+        throw new Error(`Unsupported browser: ${browser}`);
+      }
+
+      if (platform === 'win32') {
+        const regPath = browserConfig.windows.registryPath;
+        const extensionId = EXTENSION_IDS.chrome;
+        
+        try {
+          // Get all values in the registry key
+          const result = execSync(`reg query "${regPath}"`, { encoding: 'utf8' });
+          const lines = result.split('\n');
+          
+          for (const line of lines) {
+            if (line.includes(extensionId)) {
+              // Extract the value name (usually a number)
+              const match = line.match(/^\s*(\d+)\s+REG_SZ/);
+              if (match) {
+                const valueName = match[1];
+                const deleteCmd = `reg delete "${regPath}" /v "${valueName}" /f`;
+                
+                try {
+                  execSync(deleteCmd);
+                  console.log(`   ✅ Removed Chrome extension policy: ${valueName}`);
+                } catch (e) {
+                  // Try with elevated privileges
+                  const sudo = require('sudo-prompt');
+                  const options = { name: 'RollCloud Setup' };
+                  
+                  return new Promise((resolve, reject) => {
+                    sudo.exec(deleteCmd, options, (error) => {
+                      if (error) {
+                        reject(new Error(`Failed to remove Chrome policy: ${error.message}`));
+                      } else {
+                        resolve({ success: true, message: 'Chrome extension uninstalled successfully.' });
+                      }
+                    });
+                  });
+                }
+              }
+            }
+          }
+          
+          return { success: true, message: 'Chrome extension uninstalled successfully.' };
+          
+        } catch (e) {
+          console.log('   Registry key not found or no extension policies to remove');
+          return { success: true, message: 'No Chrome extension policies found to remove.' };
+        }
+      } else {
+        // macOS/Linux - remove from policy files
+        console.log(`   ${browser} uninstall not implemented for ${platform}`);
+        return { success: true, message: 'Extension uninstall completed.' };
+      }
+    }
+    
+  } catch (error) {
+    console.error('Uninstall error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Check for extension updates by comparing versions
+ */
+async function checkForUpdates(browser, config) {
+  try {
+    console.log(`\n🔄 Checking for updates for ${browser} extension...`);
+    
+    const platform = process.platform;
+    let currentVersion = null;
+    let latestVersion = null;
+    
+    // Get current installed version
+    currentVersion = await getInstalledExtensionVersion(browser);
+    
+    if (!currentVersion) {
+      return {
+        success: true,
+        updateAvailable: false,
+        message: 'Extension is not installed',
+        currentVersion: null,
+        latestVersion: null
+      };
+    }
+    
+    // Get latest version from remote
+    if (browser === 'chrome') {
+      latestVersion = await getChromeLatestVersion(config);
+    } else if (browser === 'firefox') {
+      latestVersion = await getFirefoxLatestVersion(config);
+    }
+    
+    if (!latestVersion) {
+      return {
+        success: false,
+        error: 'Could not determine latest version',
+        currentVersion,
+        latestVersion: null
+      };
+    }
+    
+    // Compare versions
+    const updateAvailable = compareVersions(currentVersion, latestVersion) < 0;
+    
+    console.log(`  Current version: ${currentVersion}`);
+    console.log(`  Latest version: ${latestVersion}`);
+    console.log(`  Update available: ${updateAvailable}`);
+    
+    return {
+      success: true,
+      updateAvailable,
+      currentVersion,
+      latestVersion,
+      message: updateAvailable ? 'Update available' : 'Extension is up to date'
+    };
+    
+  } catch (error) {
+    console.error('Update check error:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Update extension to latest version
+ */
+async function updateExtension(browser, config) {
+  try {
+    console.log(`\n🔄 Updating ${browser} extension...`);
+    
+    // First check if update is available
+    const updateCheck = await checkForUpdates(browser, config);
+    
+    if (!updateCheck.success) {
+      return updateCheck;
+    }
+    
+    if (!updateCheck.updateAvailable) {
+      return {
+        success: true,
+        message: 'Extension is already up to date',
+        requiresRestart: false
+      };
+    }
+    
+    // For Chrome, update policy will trigger automatic update
+    if (browser === 'chrome') {
+      console.log('  Updating Chrome extension via policy...');
+      const result = await installExtension(browser, config);
+      return {
+        ...result,
+        message: 'Chrome extension update initiated. Restart browser to complete.',
+        wasUpdate: true
+      };
+    }
+    
+    // For Firefox, we need to reinstall the XPI
+    if (browser === 'firefox') {
+      console.log('  Updating Firefox extension...');
+      
+      // Remove existing extension first
+      await uninstallExtension(browser);
+      
+      // Install new version
+      const result = await installFirefoxExtension(config);
+      
+      return {
+        ...result,
+        message: 'Firefox extension update initiated. Follow the installation prompts.',
+        wasUpdate: true
+      };
+    }
+    
+    throw new Error(`Unsupported browser for updates: ${browser}`);
+    
+  } catch (error) {
+    console.error('Update error:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Get current installed extension version
+ */
+async function getInstalledExtensionVersion(browser) {
+  const extensionId = browser === 'firefox' 
+    ? EXTENSION_IDS.firefox 
+    : EXTENSION_IDS.chrome;
+    
+  if (!extensionId) return null;
+  
+  const profileDirs = getBrowserProfileDirs(browser);
+  
+  for (const profileDir of profileDirs) {
+    try {
+      if (browser === 'firefox') {
+        // Check Firefox extensions.json for version
+        const profiles = fs.readdirSync(profileDir).filter(f => {
+          const fullPath = path.join(profileDir, f);
+          return fs.statSync(fullPath).isDirectory() && f.includes('.default');
+        });
+
+        for (const profile of profiles) {
+          const extJsonPath = path.join(profileDir, profile, 'extensions.json');
+          if (fs.existsSync(extJsonPath)) {
+            try {
+              const extJson = JSON.parse(fs.readFileSync(extJsonPath, 'utf8'));
+              const addon = extJson.addons?.find(a => a.id === extensionId);
+              if (addon && addon.version) {
+                console.log(`  Found Firefox version ${addon.version}`);
+                return addon.version;
+              }
+            } catch (e) {
+              // Ignore parse errors
+            }
+          }
+          
+          // Also check manifest.json in extension folder
+          const extDir = path.join(profileDir, profile, 'extensions', extensionId);
+          if (fs.existsSync(extDir)) {
+            const manifestPath = path.join(extDir, 'manifest.json');
+            if (fs.existsSync(manifestPath)) {
+              try {
+                const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+                if (manifest.version) {
+                  console.log(`  Found Firefox version ${manifest.version}`);
+                  return manifest.version;
+                }
+              } catch (e) {
+                // Ignore parse errors
+              }
+            }
+          }
+        }
+      } else {
+        // Chrome - check Preferences or manifest.json
+        const profiles = ['Default', 'Profile 1', 'Profile 2', 'Profile 3'];
+        for (const profile of profiles) {
+          const extDir = path.join(profileDir, profile, 'Extensions', extensionId);
+          if (fs.existsSync(extDir)) {
+            try {
+              const versions = fs.readdirSync(extDir);
+              if (versions.length > 0) {
+                // Get the latest version folder
+                const latestVersion = versions.sort().pop();
+                const manifestPath = path.join(extDir, latestVersion, 'manifest.json');
+                if (fs.existsSync(manifestPath)) {
+                  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+                  if (manifest.version) {
+                    console.log(`  Found Chrome version ${manifest.version}`);
+                    return manifest.version;
+                  }
+                }
+              }
+            } catch (e) {
+              // Ignore read errors
+            }
+          }
+          
+          // Also check Preferences file
+          const prefsPath = path.join(profileDir, profile, 'Preferences');
+          if (fs.existsSync(prefsPath)) {
+            try {
+              const prefs = JSON.parse(fs.readFileSync(prefsPath, 'utf8'));
+              const extSettings = prefs.extensions?.settings?.[extensionId];
+              if (extSettings && extSettings.manifest && extSettings.manifest.version) {
+                console.log(`  Found Chrome version ${extSettings.manifest.version}`);
+                return extSettings.manifest.version;
+              }
+            } catch (e) {
+              // Ignore parse errors
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.log(`  Error checking profile ${profileDir}:`, e.message);
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Get latest Chrome version from update manifest
+ */
+async function getChromeLatestVersion(config) {
+  try {
+    const https = require('https');
+    const updateUrl = config.chromeUpdateUrl || config.updateManifestUrl;
+    
+    return new Promise((resolve, reject) => {
+      https.get(updateUrl, (res) => {
+        let data = '';
+        
+        res.on('data', (chunk) => {
+          data += chunk;
+        });
+        
+        res.on('end', () => {
+          try {
+            // Parse XML to extract version
+            const versionMatch = data.match(/version='([^']+)'/);
+            if (versionMatch) {
+              resolve(versionMatch[1]);
+            } else {
+              reject(new Error('Version not found in update manifest'));
+            }
+          } catch (e) {
+            reject(new Error('Failed to parse update manifest'));
+          }
+        });
+      }).on('error', (e) => {
+        reject(e);
+      });
+    });
+  } catch (error) {
+    console.error('Error getting Chrome version:', error);
+    return null;
+  }
+}
+
+/**
+ * Get latest Firefox version from GitHub releases
+ */
+async function getFirefoxLatestVersion(config) {
+  try {
+    const https = require('https');
+    const releasesUrl = 'https://api.github.com/repos/CarmaNayeli/rollCloud/releases/latest';
+    
+    return new Promise((resolve, reject) => {
+      const options = {
+        headers: {
+          'User-Agent': 'RollCloud-Installer'
+        }
+      };
+      
+      https.get(releasesUrl, options, (res) => {
+        let data = '';
+        
+        res.on('data', (chunk) => {
+          data += chunk;
+        });
+        
+        res.on('end', () => {
+          try {
+            const release = JSON.parse(data);
+            const versionMatch = release.tag_name?.match(/v?(\d+\.\d+\.\d+)/);
+            if (versionMatch) {
+              resolve(versionMatch[1]);
+            } else {
+              reject(new Error('Version not found in release'));
+            }
+          } catch (e) {
+            reject(new Error('Failed to parse release data'));
+          }
+        });
+      }).on('error', (e) => {
+        reject(e);
+      });
+    });
+  } catch (error) {
+    console.error('Error getting Firefox version:', error);
+    return null;
+  }
+}
+
+/**
+ * Compare two version strings (returns -1, 0, or 1)
+ */
+function compareVersions(v1, v2) {
+  if (!v1 || !v2) return 0;
+  
+  const parts1 = v1.split('.').map(Number);
+  const parts2 = v2.split('.').map(Number);
+  
+  const maxLength = Math.max(parts1.length, parts2.length);
+  
+  for (let i = 0; i < maxLength; i++) {
+    const part1 = parts1[i] || 0;
+    const part2 = parts2[i] || 0;
+    
+    if (part1 < part2) return -1;
+    if (part1 > part2) return 1;
+  }
+  
+  return 0;
+}
+
+/**
+ * Uninstall extension
+ */
+async function uninstallExtension(browser) {
+  try {
+    console.log(`\n🗑️ Uninstalling ${browser} extension...`);
+    
+    if (browser === 'chrome') {
+      console.log('  Removing Chrome extension policy...');
+      const { execSync } = require('child_process');
+      const regPath = 'HKLM\\SOFTWARE\\Policies\\Google\\Chrome\\ExtensionInstallForcelist';
+      
+      try {
+        // Check if policy exists before trying to delete
+        execSync(`reg query "${regPath}"`, { encoding: 'utf8', stdio: 'pipe' });
+        console.log('  Found Chrome policy, removing...');
+        execSync(`reg delete "${regPath}" /f`, { stdio: 'pipe' });
+        console.log('  ✅ Chrome policy removed');
+        
+        return {
+          success: true,
+          message: 'Chrome extension uninstalled. Restart Chrome to complete.',
+        };
+        
+      } catch (e) {
+        // Check if the error is just that the registry key doesn't exist
+        const errorMessage = e.message || e.toString();
+        if (errorMessage.includes('ERROR: The system cannot find') || errorMessage.includes('not found')) {
+          console.log('  ℹ️ Chrome policy not found - extension may not be installed via policy');
+          return {
+            success: true,
+            message: 'Chrome extension policy not found. Extension may be installed manually.',
+          };
+        } else {
+          console.error('  ❌ Error removing Chrome policy:', e);
+          return {
+            success: false,
+            error: `Failed to remove Chrome policy: ${errorMessage}`,
+            manual: true
+          };
+        }
+      }
+      
+    } else if (browser === 'firefox') {
+      console.log('  Removing Firefox extension...');
+      
+      const platform = process.platform;
+      let firefoxPath;
+      
+      if (platform === 'win32') {
+        // Try common Firefox installation paths
+        const possiblePaths = [
+          `${process.env.PROGRAMFILES}\\Mozilla Firefox\\firefox.exe`,
+          `${process.env.PROGRAMFILES(X86)}\\Mozilla Firefox\\firefox.exe`,
+          `${process.env.LOCALAPPDATA}\\Programs\\Mozilla Firefox\\firefox.exe`
+        ];
+        
+        for (const path of possiblePaths) {
+          if (fs.existsSync(path)) {
+            firefoxPath = path;
+            break;
+          }
+        }
+        
+        if (!firefoxPath) {
+          console.log('  ℹ️ Firefox installation not found');
+          return {
+            success: true,
+            message: 'Firefox installation not found. Extension may not be installed via policy.',
+            manual: true
+          };
+        }
+        
+        // Use Firefox command line to uninstall
+        const { execSync } = require('child_process');
+        const uninstallCmd = `"${firefoxPath}" --uninstall-extension=${CONFIG.extensionId}`;
+        
+        try {
+          execSync(uninstallCmd, { stdio: 'pipe' });
+          console.log('  ✅ Firefox uninstall command executed');
+          
+          return {
+            success: true,
+            message: 'Firefox extension uninstalled. Restart Firefox to complete.',
+          };
+        } catch (error) {
+          console.log('  ⚠️ Firefox uninstall command failed, checking if extension exists...');
+          
+          // Check if the error is just that the extension isn't installed
+          const errorMessage = error.message || error.toString();
+          if (errorMessage.includes('No extension matching') || errorMessage.includes('not found') || errorMessage.includes('not installed')) {
+            console.log('  ℹ️ Firefox extension not found');
+            return {
+              success: true,
+              message: 'Firefox extension not found. Extension may not be installed.',
+              manual: true
+            };
+          } else {
+            console.error('  ❌ Firefox uninstall failed:', error);
+            return {
+              success: false,
+              error: `Failed to uninstall Firefox extension: ${errorMessage}`,
+              manual: true
+            };
+          }
+        }
+        
+      } else {
+        console.log('  ❌ Uninstall not supported for platform:', platform);
+        return {
+          success: false,
+          error: `Uninstall not supported for platform: ${platform}`,
+          manual: true
+        };
+      }
+      
+    } else {
+      throw new Error(`Unsupported browser for uninstall: ${browser}`);
+    }
+    
+  } catch (error) {
+    console.error('Uninstall error:', error);
+    return {
+      success: false,
+      error: error.message,
+      manual: true
+    };
+  }
+}
+async function forceReinstallExtension(browser, config) {
+  try {
+    console.log(`\n🔄 Force reinstalling ${browser} extension...`);
+    
+    // For Chrome, just reinstall the policy (no need to uninstall first)
+    if (browser === 'chrome') {
+      console.log('  Force reinstalling Chrome extension via policy...');
+      
+      // Chrome doesn't need uninstall - just set the policy again
+      const platform = process.platform;
+      const extensionId = config.extensionId;
+      const updateUrl = config.chromeUpdateUrl;
+      
+      if (platform === 'win32') {
+        console.log('  Setting Chrome policy via registry...');
+        const { execSync } = require('child_process');
+        const regPath = 'HKLM\\SOFTWARE\\Policies\\Google\\Chrome\\ExtensionInstallForcelist';
+        
+        try {
+          // Remove existing policy first
+          execSync(`reg query "${regPath}"`, { encoding: 'utf8' });
+          console.log('  Found existing Chrome policy, removing...');
+          execSync(`reg delete "${regPath}" /f`, { stdio: 'pipe' });
+        } catch (e) {
+          console.log('  No existing Chrome policy found');
+        }
+        
+        // Add new policy
+        const policyValue = `"${extensionId}";${updateUrl}"`;
+        const cmd = `reg add "${regPath}" /v 1 /t REG_SZ /d ${policyValue} /f`;
+        
+        execSync(cmd, { stdio: 'pipe' });
+        console.log('  ✅ Chrome policy set successfully');
+        
+        return {
+          success: true,
+          message: 'Chrome extension force reinstalled. Restart Chrome to complete.',
+          wasForceReinstall: true
+        };
+        
+      } else {
+        console.log('  Chrome force reinstall not implemented for this platform');
+        return {
+          success: false,
+          error: 'Chrome force reinstall only supported on Windows'
+        };
+      }
+    }
+    
+    // For Firefox, we need to uninstall first, then reinstall
+    if (browser === 'firefox') {
+      console.log('  Force reinstalling Firefox extension...');
+      
+      // Remove existing extension first
+      console.log('  Removing existing Firefox extension...');
+      await uninstallExtension(browser);
+      
+      // Wait a moment for removal to complete
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Install new version
+      console.log('  Installing new Firefox extension...');
+      const result = await installFirefoxExtension(config);
+      
+      return {
+        ...result,
+        message: 'Firefox extension force reinstalled. Follow the installation prompts.',
+        wasForceReinstall: true
+      };
+    }
+    
+    throw new Error(`Unsupported browser for force reinstall: ${browser}`);
+    
+  } catch (error) {
+    console.error('Force reinstall error:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
 }
 
 module.exports = {
@@ -907,6 +1824,7 @@ module.exports = {
   uninstallExtension,
   isExtensionInstalled,
   installFirefoxDeveloperEdition,
-  findFirefoxDeveloperEdition,
-  isFirefoxRunning
+  checkForUpdates,
+  updateExtension,
+  forceReinstallExtension
 };

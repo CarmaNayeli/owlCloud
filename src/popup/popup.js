@@ -28,7 +28,9 @@ document.addEventListener('DOMContentLoaded', () => {
   try {
     initializePopup();
   } catch (error) {
-    debug.error('❌ Popup initialization error:', error);
+    // Try to use debug if available, otherwise use console
+    const logger = typeof debug !== 'undefined' ? debug : console;
+    logger.error('❌ Popup initialization error:', error);
     document.body.innerHTML = `
       <div style="padding: 20px; color: red; font-family: Arial;">
         <h2>Initialization Error</h2>
@@ -37,7 +39,6 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
     `;
   }
-});
 
 function initializePopup() {
   // Check if this is an experimental build
@@ -89,6 +90,43 @@ function initializePopup() {
 
   // Initialize
   checkLoginStatus();
+  
+  // Debug: Check if Supabase is available
+  debug.log('🔍 Supabase availability check:', typeof SupabaseTokenManager !== 'undefined' ? 'Available' : 'Not available');
+  if (typeof SupabaseTokenManager !== 'undefined') {
+    const testManager = new SupabaseTokenManager();
+    debug.log('🔍 Generated user ID:', testManager.generateUserId());
+  }
+  
+  // Listen for data sync notifications from content scripts
+  browserAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === 'dataSynced') {
+      debug.log('📥 Received data sync notification:', message);
+      // Refresh character data to show the newly synced character
+      loadCharacterData();
+      showSuccess(`${message.characterName} synced successfully!`);
+    }
+  });
+  
+  // Fallback: Periodically check for new character data every 5 seconds
+  // This helps when background script communication is failing
+  let lastCharacterCount = 0;
+  setInterval(async () => {
+    try {
+      const result = await browserAPI.storage.local.get(['characterProfiles']);
+      const profiles = result.characterProfiles || {};
+      const currentCount = Object.keys(profiles).filter(id => profiles[id].type !== 'rollcloudPlayer').length;
+      
+      if (currentCount > lastCharacterCount) {
+        debug.log('🔄 Detected new character data via polling');
+        loadCharacterData();
+        showSuccess('New character data detected!');
+      }
+      lastCharacterCount = currentCount;
+    } catch (error) {
+      // Silently ignore polling errors
+    }
+  }, 5000);
 
   // Event Listeners - Login
   autoConnectBtn.addEventListener('click', handleAutoConnect);
@@ -141,17 +179,104 @@ function initializePopup() {
    */
   async function checkLoginStatus() {
     try {
+      debug.log('🔍 Checking login status...');
       const response = await browserAPI.runtime.sendMessage({ action: 'checkLoginStatus' });
+      debug.log('📥 Login status response:', response);
 
       if (response.success && response.loggedIn) {
         showMainSection(response.username);
-        loadCharacterData();
       } else {
-        showLoginSection();
+        debug.log('🔄 Background script says not logged in, checking storage directly...');
+        // Try alternative method - check storage directly
+        try {
+          const result = await browserAPI.storage.local.get(['diceCloudToken', 'username', 'tokenExpires']);
+          debug.log('📦 Direct storage check result:', result);
+          if (result.diceCloudToken) {
+            debug.log('✅ Found token in storage, showing main section');
+            showMainSection(result.username || 'DiceCloud User');
+          } else {
+            debug.log('❌ No token found in storage, checking Supabase...');
+            // Try Supabase for cross-session persistence
+            try {
+              if (typeof SupabaseTokenManager !== 'undefined') {
+                debug.log('🌐 Attempting to retrieve token from Supabase...');
+                const supabaseManager = new SupabaseTokenManager();
+                const userId = supabaseManager.generateUserId();
+                debug.log('🔍 Using user ID for Supabase lookup:', userId);
+                
+                const supabaseResult = await supabaseManager.retrieveToken();
+                debug.log('📥 Supabase retrieval result:', supabaseResult);
+                
+                if (supabaseResult.success) {
+                  debug.log('✅ Found token in Supabase, restoring to local storage...');
+                  // Store token locally for faster access
+                  await browserAPI.storage.local.set({
+                    diceCloudToken: supabaseResult.token,
+                    username: supabaseResult.username,
+                    tokenExpires: supabaseResult.tokenExpires
+                  });
+                  showMainSection(supabaseResult.username || 'DiceCloud User');
+                } else {
+                  debug.log('❌ No token found in Supabase, showing login. Error:', supabaseResult.error);
+                  showLoginSection();
+                }
+              } else {
+                debug.log('❌ Supabase not available, showing login');
+                showLoginSection();
+              }
+            } catch (supabaseError) {
+              debug.error('❌ Supabase check failed:', supabaseError);
+              showLoginSection();
+            }
+          }
+        } catch (storageError) {
+          debug.error('❌ Storage check failed:', storageError);
+          showLoginSection();
+        }
       }
     } catch (error) {
-      debug.error('Error checking login status:', error);
-      showLoginSection();
+      debug.error('❌ Error checking login status:', error);
+      // Try alternative method - check storage directly
+      try {
+        const result = await browserAPI.storage.local.get(['diceCloudToken', 'username', 'tokenExpires']);
+        debug.log('📦 Direct storage check result (error fallback):', result);
+        if (result.diceCloudToken) {
+          debug.log('✅ Found token in storage, showing main section');
+          showMainSection(result.username || 'DiceCloud User');
+        } else {
+          debug.log('❌ No token found in storage, checking Supabase...');
+          // Try Supabase for cross-session persistence
+          try {
+            if (typeof SupabaseTokenManager !== 'undefined') {
+              const supabaseManager = new SupabaseTokenManager();
+              const supabaseResult = await supabaseManager.retrieveToken();
+              
+              if (supabaseResult.success) {
+                debug.log('✅ Found token in Supabase (error fallback), restoring to local storage...');
+                // Store token locally for faster access
+                await browserAPI.storage.local.set({
+                  diceCloudToken: supabaseResult.token,
+                  username: supabaseResult.username,
+                  tokenExpires: supabaseResult.tokenExpires
+                });
+                showMainSection(supabaseResult.username || 'DiceCloud User');
+              } else {
+                debug.log('❌ No token found in Supabase, showing login');
+                showLoginSection();
+              }
+            } else {
+              debug.log('❌ Supabase not available, showing login');
+              showLoginSection();
+            }
+          } catch (supabaseError) {
+            debug.error('❌ Supabase check failed:', supabaseError);
+            showLoginSection();
+          }
+        }
+      } catch (storageError) {
+        debug.error('❌ Storage check failed:', storageError);
+        showLoginSection();
+      }
     }
   }
 
@@ -208,54 +333,130 @@ function initializePopup() {
             action: 'extractAuthToken'
           });
 
-          if (response && response.success && response.token) {
-            // Store the token with metadata
-            await browserAPI.runtime.sendMessage({
-              action: 'setApiToken',
-              token: response.token,
-              userId: response.userId,
+/**
+ * Handles auto-connect - checks for DiceCloud tab or opens one
+ */
+async function handleAutoConnect() {
+  try {
+    autoConnectBtn.disabled = true;
+    autoConnectBtn.textContent = '⏳ Checking...';
+    hideLoginError();
+
+    // First, check if the current active tab is DiceCloud
+    const [activeTab] = await browserAPI.tabs.query({ active: true, currentWindow: true });
+    let dicecloudTab = null;
+
+    if (activeTab && activeTab.url && activeTab.url.includes('dicecloud.com')) {
+      // User is currently on DiceCloud - use this tab
+      dicecloudTab = activeTab;
+      debug.log('Using current active DiceCloud tab');
+    } else {
+      // Check if any other tab has DiceCloud open
+      const tabs = await browserAPI.tabs.query({ url: 'https://dicecloud.com/*' });
+      if (tabs.length > 0) {
+        dicecloudTab = tabs[0];
+        debug.log('Found DiceCloud tab:', dicecloudTab.id);
+      }
+    }
+
+    if (dicecloudTab) {
+      // DiceCloud is open - try to capture token
+      autoConnectBtn.textContent = '⏳ Capturing token...';
+
+      try {
+        // Send message to DiceCloud tab to extract token
+        const response = await browserAPI.tabs.sendMessage(dicecloudTab.id, {
+          action: 'extractAuthToken'
+        });
+
+        debug.log('📥 Token capture response:', response);
+
+        if (response && response.success && response.token) {
+          // Store the token with metadata - use direct storage as primary method
+          try {
+            debug.log('💾 Storing token directly in storage...');
+            const storageData = {
+              diceCloudToken: response.token,
+              diceCloudUserId: response.userId,
               tokenExpires: response.tokenExpires,
               username: response.username
-            });
-
-            // Only close DiceCloud tab if it's not the current active tab
-            if (dicecloudTab.id !== activeTab.id) {
-              await browserAPI.tabs.remove(dicecloudTab.id);
+            };
+            
+            await browserAPI.storage.local.set(storageData);
+            debug.log('✅ Token stored successfully in direct storage:', storageData);
+            
+            // Also store in Supabase for cross-session persistence
+            try {
+              if (typeof SupabaseTokenManager !== 'undefined') {
+                const supabaseManager = new SupabaseTokenManager();
+                const supabaseResult = await supabaseManager.storeToken({
+                  token: response.token,
+                  userId: response.userId,
+                  tokenExpires: response.tokenExpires,
+                  username: response.username
+                });
+                
+                if (supabaseResult.success) {
+                  debug.log('✅ Token also stored in Supabase for cross-session persistence');
+                } else {
+                  debug.log('⚠️ Supabase storage failed (non-critical):', supabaseResult.error);
+                }
+              }
+            } catch (supabaseError) {
+              debug.log('⚠️ Supabase not available (non-critical):', supabaseError);
             }
-
-            // Show success and load data
+            
+            // Also try background script as backup
+            try {
+              await browserAPI.runtime.sendMessage({
+                action: 'setApiToken',
+                token: response.token,
+                userId: response.userId,
+                tokenExpires: response.tokenExpires,
+                username: response.username
+              });
+              debug.log('✅ Also stored via background script');
+            } catch (bgError) {
+              debug.log('⚠️ Background storage failed (non-critical):', bgError);
+            }
+            
             hideLoginError();
             showMainSection(response.username || 'DiceCloud User');
             loadCharacterData();
-          } else {
-            // Not logged in - show error and keep DiceCloud tab open
-            showLoginError('Please log in to DiceCloud, then click the button again.');
-            // Focus the DiceCloud tab
-            await browserAPI.tabs.update(dicecloudTab.id, { active: true });
+          } catch (storageError) {
+            debug.error('❌ Direct storage failed:', storageError);
+            showLoginError('Failed to save login. Please try again.');
+            return;
           }
-        } catch (error) {
-          debug.error('Error capturing token:', error);
-          showLoginError('Error: ' + error.message);
+        } else {
+          // Not logged in - show error and keep DiceCloud tab open
+          showLoginError('Please log in to DiceCloud, then click the button again.');
+          // Focus the DiceCloud tab
+          await browserAPI.tabs.update(dicecloudTab.id, { active: true });
         }
-      } else {
-        // No DiceCloud tab - open one
-        autoConnectBtn.textContent = '⏳ Opening DiceCloud...';
-
-        await browserAPI.tabs.create({
-          url: 'https://dicecloud.com',
-          active: true
-        });
-
-        showLoginError('DiceCloud opened in new tab. Log in, then click this button again.');
+      } catch (error) {
+        debug.error('Error capturing token:', error);
+        showLoginError('Error: ' + error.message);
       }
-    } catch (error) {
-      debug.error('Auto-connect error:', error);
-      showLoginError('Error: ' + error.message);
-    } finally {
-      autoConnectBtn.disabled = false;
-      autoConnectBtn.textContent = '🔐 Connect with DiceCloud';
+    } else {
+      // No DiceCloud tab - open one
+      autoConnectBtn.textContent = '⏳ Opening DiceCloud...';
+
+      await browserAPI.tabs.create({
+        url: 'https://dicecloud.com',
+        active: true
+      });
+
+      showLoginError('DiceCloud opened in new tab. Log in, then click this button again.');
     }
+  } catch (error) {
+    debug.error('Auto-connect error:', error);
+    showLoginError('Error: ' + error.message);
+  } finally {
+    autoConnectBtn.disabled = false;
+    autoConnectBtn.textContent = '🔐 Connect with DiceCloud';
   }
+}
 
   /**
    * Handles username/password login
@@ -303,6 +504,23 @@ function initializePopup() {
    */
   async function handleLogout() {
     try {
+      // Delete from Supabase
+      try {
+        if (typeof SupabaseTokenManager !== 'undefined') {
+          const supabaseManager = new SupabaseTokenManager();
+          const supabaseResult = await supabaseManager.deleteToken();
+          
+          if (supabaseResult.success) {
+            debug.log('✅ Token deleted from Supabase');
+          } else {
+            debug.log('⚠️ Supabase deletion failed (non-critical):', supabaseResult.error);
+          }
+        }
+      } catch (supabaseError) {
+        debug.log('⚠️ Supabase not available for logout (non-critical):', supabaseError);
+      }
+
+      // Logout from background script
       await browserAPI.runtime.sendMessage({ action: 'logout' });
       showLoginSection();
       clearCharacterDisplay();
@@ -1043,10 +1261,12 @@ function initializePopup() {
       }
     ];
 
-    // Check if any indicator returns true
-    Promise.any(experimentalIndicators.map(check => 
+    // Check if any indicator returns true (using Promise.all for compatibility)
+    Promise.all(experimentalIndicators.map(check => 
       Promise.resolve(check()).catch(() => false)
-    )).then(isExperimental => {
+    )).then(results => {
+      const isExperimental = results.some(result => result === true);
+      
       if (isExperimental) {
         const experimentalNotice = document.getElementById('experimentalNotice');
         const versionDisplay = document.getElementById('versionDisplay');
@@ -1065,10 +1285,12 @@ function initializePopup() {
         }
         
         debug.log('🧪 Experimental build detected');
+      } else {
+        debug.log('📦 Standard build detected');
       }
-    }).catch(() => {
-      // Not experimental, keep default display
-      debug.log('📦 Standard build detected');
+    }).catch(error => {
+      debug.log('🔍 Error checking experimental build:', error);
+      debug.log('📦 Assuming standard build');
     });
   }
 } // End initializePopup

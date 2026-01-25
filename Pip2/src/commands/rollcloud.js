@@ -102,7 +102,16 @@ export default {
         userId: interaction.user.id
       });
 
-      // 4. Send success message
+      // 4. Create instance record in pip2_instances table
+      await createInstanceRecord({
+        discordUserId: interaction.user.id,
+        guildId: interaction.guild.id,
+        guildName: interaction.guild.name,
+        channelId: interaction.channel.id,
+        channelName: interaction.channel.name
+      });
+
+      // 5. Send success message
       const embed = new EmbedBuilder()
         .setColor(0x4ECDC4)
         .setTitle('✅ RollCloud Connected!')
@@ -122,7 +131,7 @@ export default {
 
       await interaction.editReply({ embeds: [embed] });
 
-      // 5. Send a test message via the webhook
+      // 6. Send a test message via the webhook
       await webhook.send({
         embeds: [{
           title: '🎲 RollCloud Ready!',
@@ -292,6 +301,47 @@ async function createPairingRecord(code) {
 
   const data = await response.json();
   console.log('Supabase POST response:', data);
+  
+  return data[0];
+}
+
+/**
+ * Create a record in pip2_instances table
+ */
+async function createInstanceRecord(instanceData) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+    throw new Error('Supabase not configured');
+  }
+
+  const response = await fetch(
+    `${SUPABASE_URL}/rest/v1/pip2_instances`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+        'Prefer': 'return=representation'
+      },
+      body: JSON.stringify({
+        discord_user_id: instanceData.discordUserId,
+        guild_id: instanceData.guildId,
+        guild_name: instanceData.guildName,
+        channel_id: instanceData.channelId,
+        channel_name: instanceData.channelName,
+        is_active: true
+      })
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Supabase pip2_instances POST error:', response.status, errorText);
+    throw new Error(`Failed to create instance record: ${errorText}`);
+  }
+
+  const data = await response.json();
+  console.log('Supabase pip2_instances POST response:', data);
   
   return data[0];
 }

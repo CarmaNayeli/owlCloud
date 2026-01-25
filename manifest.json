@@ -5,7 +5,8 @@
   "description": "Sync DiceCloud V2 characters to Roll20 with Discord turn notifications via Pip 2",
   "permissions": [
     "storage",
-    "activeTab"
+    "activeTab",
+    "nativeMessaging"
   ],
   "host_permissions": [
     "https://dicecloud.com/*",
@@ -48,11 +49,11 @@
     "default_popup": "src/popup/popup.html",
     "default_icon": {
       "16": "icons/icon16.png",
-      "32": "icons/icon32.png",
       "48": "icons/icon48.png",
       "128": "icons/icon128.png"
     }
   },
+  "options_page": "src/options/welcome.html",
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",

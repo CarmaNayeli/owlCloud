@@ -3,9 +3,9 @@
  * Handles data storage, API authentication, and communication between Dice Cloud and Roll20
  */
 
-// Import debug utility for Chrome service workers
-if (typeof importScripts === 'function') {
-  importScripts('common/debug.js');
+// For Chrome service workers, import debug utility
+if (typeof importScripts === 'function' && typeof chrome !== 'undefined') {
+  importScripts('src/common/debug.js');
 }
 
 debug.log('RollCloud: Background script starting...');
@@ -19,11 +19,38 @@ const browserAPI = (typeof browser !== 'undefined' && browser.runtime) ? browser
 const isFirefox = typeof browser !== 'undefined';
 debug.log('RollCloud: Background script initialized on', isFirefox ? 'Firefox' : 'Chrome');
 
+// Firefox-specific debugging
+if (isFirefox) {
+  debug.log('🦊 Firefox detected - checking extension context...');
+  
+  // Test if we can access runtime
+  try {
+    const manifest = browserAPI.runtime.getManifest();
+    debug.log('✅ Firefox runtime accessible, version:', manifest.version);
+  } catch (error) {
+    debug.error('❌ Firefox runtime not accessible:', error);
+  }
+  
+  // Test storage
+  try {
+    browserAPI.storage.local.get(['test'], (result) => {
+      if (browserAPI.runtime.lastError) {
+        debug.error('❌ Firefox storage error:', browserAPI.runtime.lastError);
+      } else {
+        debug.log('✅ Firefox storage working');
+      }
+    });
+  } catch (error) {
+    debug.error('❌ Firefox storage test error:', error);
+  }
+}
+
 const API_BASE = 'https://dicecloud.com/api';
 
 // Listen for messages from content scripts and popup
 browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
   debug.log('Background received message:', request);
+  debug.log('Message sender:', sender);
 
   // Handle async operations and call sendResponse when done
   // This pattern keeps the message port open until sendResponse is called
@@ -99,148 +126,22 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
               action: 'forwardToPopup',
               rollResult: request.rollResult,
               baseRoll: request.baseRoll,
-              rollType: request.rollType,
-              rollName: request.rollName,
-              checkRacialTraits: request.checkRacialTraits
+              characterName: request.characterName,
+              characterId: request.characterId
             });
-          }
-          
-          response = { success: true };
-          break;
-
-        case 'checkLoginStatus': {
-          const status = await checkLoginStatus();
-          response = { success: true, ...status };
-          break;
-        }
-
-        case 'rollInDiceCloudAndForward':
-          // Legacy action - now routes directly to Roll20 (no DiceCloud!)
-          debug.log('📡 Routing roll directly to Roll20 (skipping DiceCloud):', request.roll);
-          await sendRollToAllRoll20Tabs(request.roll);
-          response = { success: true };
-          break;
-
-        case 'sendRollToRoll20':
-          await sendRollToAllRoll20Tabs(request.roll);
-          response = { success: true };
-          break;
-
-        case 'relayRollToRoll20':
-          debug.log('📡 Relaying roll from popup to Roll20:', request.roll);
-          await sendRollToAllRoll20Tabs(request.roll);
-          debug.log('✅ Roll relayed successfully');
-          response = { success: true };
-          break;
-
-        case 'toggleGMMode':
-          debug.log('📡 Relaying GM Mode toggle to Roll20:', request.enabled);
-          await sendGMModeToggleToRoll20Tabs(request.enabled);
-          debug.log('✅ GM Mode toggle relayed successfully');
-          response = { success: true };
-          break;
-
-        case 'postChatMessageFromPopup':
-          debug.log('📡 Relaying chat message from popup to Roll20:', request.message);
-          await sendChatMessageToAllRoll20Tabs(request.message);
-          debug.log('✅ Chat message relayed successfully');
-          response = { success: true };
-          break;
-
-        case 'fetchDiceCloudAPI':
-          debug.log('📡 Fetching DiceCloud API:', request.url);
-          try {
-            const apiResponse = await fetch(request.url, {
-              headers: {
-                'Authorization': `Bearer ${request.token}`,
-                'Content-Type': 'application/json'
-              }
-            });
-
-            if (apiResponse.ok) {
-              const data = await apiResponse.json();
-              response = { success: true, data };
-              debug.log('✅ DiceCloud API fetched successfully');
-            } else {
-              // Get the error text to see what's wrong
-              const errorText = await apiResponse.text();
-              console.error('❌ DiceCloud API error response:', errorText);
-              response = { success: false, error: `HTTP ${apiResponse.status}: ${errorText}` };
-              debug.warn('❌ DiceCloud API fetch failed:', apiResponse.status);
-            }
-          } catch (error) {
-            response = { success: false, error: error.message };
-            debug.error('❌ Error fetching DiceCloud API:', error);
+            response = { success: true };
+          } else {
+            response = { success: false, error: 'No Roll20 tabs found' };
           }
           break;
-
-        // Discord Webhook Integration
-        case 'setDiscordWebhook': {
-          await setDiscordWebhookSettings(request.webhookUrl, request.enabled, request.serverName);
-          response = { success: true };
-          break;
-        }
-
-        case 'getDiscordWebhook': {
-          const webhookSettings = await getDiscordWebhookSettings();
-          response = { success: true, ...webhookSettings };
-          break;
-        }
-
-        case 'testDiscordWebhook': {
-          const testResult = await testDiscordWebhook(request.webhookUrl);
-          response = testResult;
-          break;
-        }
-
-        case 'postToDiscord': {
-          const postResult = await postToDiscordWebhook(request.payload);
-          response = postResult;
-          break;
-        }
-
-        case 'postTurnToDiscord': {
-          // New method: write turn to Supabase, Pip Bot posts with buttons
-          const turnResult = await postTurnToSupabase(request.payload);
-          response = turnResult;
-          break;
-        }
-
-        // Discord Pairing (Supabase)
-        case 'createDiscordPairing': {
-          const pairingResult = await createDiscordPairing(request.code, request.username);
-          response = pairingResult;
-          break;
-        }
-
-        case 'checkDiscordPairing': {
-          const checkResult = await checkDiscordPairing(request.code);
-          // If connected, store pairing ID and start polling
-          if (checkResult.success && checkResult.connected && checkResult.pairingId) {
-            await storePairingId(checkResult.pairingId);
-            await startCommandPolling(checkResult.pairingId);
-          }
-          response = checkResult;
-          break;
-        }
-
-        case 'startCommandPolling': {
-          await startCommandPolling(request.pairingId);
-          response = { success: true };
-          break;
-        }
-
-        case 'stopCommandPolling': {
-          stopCommandPolling();
-          response = { success: true };
-          break;
-        }
 
         default:
           debug.warn('Unknown action:', request.action);
-          response = { success: false, error: 'Unknown action' };
+          response = { success: false, error: 'Unknown action: ' + request.action };
+          break;
       }
 
+      debug.log('Sending response:', response);
       sendResponse(response);
     } catch (error) {
       debug.error('Error handling message:', error);
@@ -248,7 +149,7 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
   })();
 
-  // Return true to keep the message channel open for async sendResponse
+  // Return true to indicate we'll respond asynchronously
   return true;
 });
 
@@ -735,10 +636,45 @@ async function sendChatMessageToAllRoll20Tabs(message) {
 browserAPI.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'install') {
     debug.log('Extension installed');
+    
+    // Auto-open popup after installation
+    setTimeout(() => {
+      openExtensionPopup();
+    }, 1000); // Wait 1 second for extension to fully initialize
+    
   } else if (details.reason === 'update') {
     debug.log('Extension updated to version', browserAPI.runtime.getManifest().version);
   }
 });
+
+/**
+ * Open the extension popup
+ */
+async function openExtensionPopup() {
+  try {
+    debug.log('🚀 Opening extension popup after installation...');
+    
+    // For Chrome, we can open the popup directly
+    if (!isFirefox) {
+      // Chrome doesn't have a direct API to open popup, but we can open the options page
+      // which serves a similar purpose for first-time setup
+      browserAPI.runtime.openOptionsPage();
+      debug.log('✅ Opened options page for Chrome');
+    } else {
+      // For Firefox, we can try to open the popup
+      try {
+        // Firefox doesn't have a direct popup opening API either
+        // So we'll open the options page as well
+        browserAPI.runtime.openOptionsPage();
+        debug.log('✅ Opened options page for Firefox');
+      } catch (error) {
+        debug.log('⚠️ Could not open options page:', error);
+      }
+    }
+  } catch (error) {
+    debug.log('❌ Error opening popup/options:', error);
+  }
+}
 
 // ============================================================================
 // Discord Webhook Integration
@@ -1525,3 +1461,118 @@ function extractAvailableActions(characterData) {
 
   return actions;
 }
+
+// ============================================================================
+// Native Messaging for Installer Communication
+// ============================================================================
+
+let installerPort = null;
+
+/**
+ * Connect to installer via native messaging
+ */
+async function connectToInstaller() {
+  try {
+    if (installerPort) {
+      return installerPort;
+    }
+
+    // Try to connect to the installer native messaging host
+    installerPort = browserAPI.runtime.connectNative('com.rollcloud.installer');
+    
+    installerPort.onMessage.addListener((message) => {
+      debug.log('Received message from installer:', message);
+      handleInstallerMessage(message);
+    });
+    
+    installerPort.onDisconnect.addListener(() => {
+      debug.log('Disconnected from installer');
+      installerPort = null;
+    });
+
+    // Send a ping to test connection
+    installerPort.postMessage({ type: 'ping' });
+    
+    debug.log('✅ Connected to installer via native messaging');
+    return installerPort;
+  } catch (error) {
+    debug.warn('Failed to connect to installer:', error);
+    return null;
+  }
+}
+
+/**
+ * Handle messages from installer
+ */
+function handleInstallerMessage(message) {
+  switch (message.type) {
+    case 'pong':
+      debug.log('Installer is available');
+      break;
+      
+    case 'pairingCode':
+      if (message.code) {
+        debug.log('Received pairing code from installer:', message.code);
+        // Store the pairing code and start the pairing process
+        handleInstallerPairingCode(message.code);
+      }
+      break;
+      
+    default:
+      debug.warn('Unknown message type from installer:', message.type);
+  }
+}
+
+/**
+ * Handle pairing code received from installer
+ */
+async function handleInstallerPairingCode(code) {
+  try {
+    // Store the pairing code
+    await browserAPI.storage.local.set({ 
+      installerPairingCode: code,
+      pairingSource: 'installer'
+    });
+    
+    // Get DiceCloud username
+    const loginStatus = await checkLoginStatus();
+    const diceCloudUsername = loginStatus.username || 'DiceCloud User';
+    
+    // Create pairing in Supabase
+    const result = await createDiscordPairing(code, diceCloudUsername);
+    
+    if (result.success) {
+      debug.log('✅ Pairing created from installer code');
+      
+      // Notify popup that pairing is in progress
+      broadcastToPopup({
+        action: 'installerPairingStarted',
+        code: code
+      });
+    } else {
+      debug.error('Failed to create pairing from installer code:', result.error);
+    }
+  } catch (error) {
+    debug.error('Error handling installer pairing code:', error);
+  }
+}
+
+/**
+ * Broadcast message to popup if it's open
+ */
+async function broadcastToPopup(message) {
+  try {
+    // Try to send to popup via runtime message
+    await browserAPI.runtime.sendMessage(message);
+  } catch (error) {
+    // Popup might not be open, that's okay
+    debug.log('Popup not available for broadcast');
+  }
+}
+
+// Auto-connect to installer when extension loads
+(async () => {
+  setTimeout(async () => {
+    await connectToInstaller();
+  }, 2000); // Wait 2 seconds for extension to fully initialize
+})();

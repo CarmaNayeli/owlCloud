@@ -74,7 +74,9 @@
       "installerHeaderIcon": "assets/icon.ico",
       "createDesktopShortcut": false,
       "createStartMenuShortcut": false,
-      "runAfterFinish": true
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "perMachine": true
     }
   },
   "keywords": [

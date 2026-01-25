@@ -1,7 +1,8 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const { installExtension, uninstallExtension, isExtensionInstalled, installFirefoxDeveloperEdition } = require('./extension-installer');
-const { generatePairingCode, createPairing, checkPairing } = require('./pairing');
+// const { sendPairingCodeToExtension } = require('./native-messaging');
+const { generatePairingCode, createPairingAndSend, checkPairing } = require('./pairing');
 
 // Extension and bot configuration
 const CONFIG = {
@@ -126,6 +127,16 @@ ipcMain.handle('create-pairing', async (event, code) => {
   }
 });
 
+// Create pairing and send to extension (new integrated flow)
+ipcMain.handle('create-pairing-and-send', async (event, browser) => {
+  try {
+    const result = await createPairingAndSend(browser, CONFIG);
+    return result;
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
 // Check if pairing is complete
 ipcMain.handle('check-pairing', async (event, code) => {
   try {
@@ -135,6 +146,16 @@ ipcMain.handle('check-pairing', async (event, code) => {
     return { success: false, error: error.message };
   }
 });
+
+// Send pairing code to extension
+// ipcMain.handle('send-pairing-to-extension', async (event, browser, code) => {
+//   try {
+//     const success = await sendPairingCodeToExtension(browser, code);
+//     return { success };
+//   } catch (error) {
+//     return { success: false, error: error.message };
+//   }
+// });
 
 // Open external URL
 ipcMain.handle('open-external', async (event, url) => {
@@ -146,6 +167,182 @@ ipcMain.handle('open-external', async (event, url) => {
 ipcMain.handle('quit-app', async () => {
   app.quit();
 });
+
+// Check for extension updates
+ipcMain.handle('check-for-updates', async (event, browser) => {
+  try {
+    const { checkForUpdates } = require('./extension-installer');
+    const result = await checkForUpdates(browser, CONFIG);
+    return result;
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Update extension
+ipcMain.handle('update-extension', async (event, browser) => {
+  try {
+    const { updateExtension } = require('./extension-installer');
+    const result = await updateExtension(browser, CONFIG);
+    return result;
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Force reinstall extension
+ipcMain.handle('force-reinstall-extension', async (event, browser) => {
+  try {
+    const { forceReinstallExtension } = require('./extension-installer');
+    const result = await forceReinstallExtension(browser, CONFIG);
+    return result;
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('uninstall-extension', async (event, browser) => {
+  try {
+    const { uninstallExtension } = require('./extension-installer');
+    const result = await uninstallExtension(browser);
+    return result;
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Close browser for restart
+// ipcMain.handle('close-browser', async (event, browser) => {
+//   try {
+//     const { exec } = require('child_process');
+//     
+//     if (browser === 'firefox') {
+//       if (process.platform === 'win32') {
+//         // Try multiple methods to close Firefox
+//         const commands = [
+//           'taskkill /f /im firefox.exe',
+//           'taskkill /f /im firefox-dev.exe',
+//           'taskkill /f /im "Mozilla Firefox"',
+//           'taskkill /f /im "Firefox Developer Edition"'
+//         ];
+//         
+//         let browserClosed = false;
+//         for (const cmd of commands) {
+//           try {
+//             exec(cmd, { stdio: 'pipe' });
+//             console.log(`✅ Firefox closed with: ${cmd}`);
+//             browserClosed = true;
+//             break;
+//           } catch (error) {
+//             // Check if the error is because the process wasn't found (browser not running)
+//             if (error.message.includes('not found') || error.message.includes('ERROR: The process') && error.message.includes('not found')) {
+//               console.log(`Firefox not running (checked with ${cmd})`);
+//               browserClosed = true; // Consider this a success since browser isn't running
+//               break;
+//             }
+//             console.log(`Failed to close Firefox with ${cmd}:`, error.message);
+//           }
+//         }
+//         
+//         if (!browserClosed) {
+//           throw new Error('Could not close Firefox with any method');
+//         }
+//       } else if (process.platform === 'darwin') {
+//         const commands = [
+//           'pkill -f "Firefox Developer Edition"',
+//           'pkill -f firefox',
+//           'osascript -e \'tell application "Firefox Developer Edition" to quit\'',
+//           'osascript -e \'tell application "Firefox" to quit\''
+//         ];
+//         
+//         let browserClosed = false;
+//         for (const cmd of commands) {
+//           try {
+//             exec(cmd, { stdio: 'pipe' });
+//             console.log(`✅ Firefox closed with: ${cmd}`);
+//             browserClosed = true;
+//             break;
+//           } catch (error) {
+//             console.log(`Failed to close Firefox with ${cmd}:`, error.message);
+//           }
+//         }
+//         
+//         if (!browserClosed) {
+//           throw new Error('Could not close Firefox with any method');
+//         }
+//       } else {
+//         exec('pkill -f firefox', (error) => {
+//           if (error) {
+//             console.log('Could not close Firefox:', error.message);
+//           }
+//         });
+//       }
+//     } else if (browser === 'chrome') {
+//       if (process.platform === 'win32') {
+//         const commands = [
+//           'taskkill /f /im chrome.exe',
+//           'taskkill /f /im "Google Chrome"',
+//           'taskkill /f /im "Google Chrome Canary"',
+//           'taskkill /f /im "Google Chrome Beta"'
+//         ];
+//         
+//         let browserClosed = false;
+//         for (const cmd of commands) {
+//           try {
+//             exec(cmd, { stdio: 'pipe' });
+//             console.log(`✅ Chrome closed with: ${cmd}`);
+//             browserClosed = true;
+//             break;
+//           } catch (error) {
+//             // Check if the error is because the process wasn't found (browser not running)
+//             if (error.message.includes('not found') || error.message.includes('ERROR: The process') && error.message.includes('not found')) {
+//               console.log(`Chrome not running (checked with ${cmd})`);
+//               browserClosed = true; // Consider this a success since browser isn't running
+//               break;
+//             }
+//             console.log(`Failed to close Chrome with ${cmd}:`, error.message);
+//           }
+//         }
+//         
+//         if (!browserClosed) {
+//           throw new Error('Could not close Chrome with any method');
+//         }
+//       } else if (process.platform === 'darwin') {
+//         const commands = [
+//           'osascript -e \'tell application "Google Chrome" to quit\'',
+//           'pkill -f "Google Chrome"'
+//         ];
+//         
+//         let browserClosed = false;
+//         for (const cmd of commands) {
+//           try {
+//             exec(cmd, { stdio: 'pipe' });
+//             console.log(`✅ Chrome closed with: ${cmd}`);
+//             browserClosed = true;
+//             break;
+//           } catch (error) {
+//             console.log(`Failed to close Chrome with ${cmd}:`, error.message);
+//           }
+//         }
+//         
+//         if (!browserClosed) {
+//           throw new Error('Could not close Chrome with any method');
+//         }
+//       } else {
+//         exec('pkill -f chrome', (error) => {
+//           if (error) {
+//             console.log('Could not close Chrome:', error.message);
+//           }
+//         });
+//       }
+//     }
+//     
+//     return { success: true };
+//   } catch (error) {
+//     console.error('Error closing browser:', error);
+//     return { success: false, error: error.message };
+//   }
+// });
 
 // ============================================================================
 // Utilities

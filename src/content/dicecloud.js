@@ -105,11 +105,58 @@
     let tokenResponse;
     try {
       tokenResponse = await browserAPI.runtime.sendMessage({ action: 'getApiToken' });
+      debug.log('🔑 Token response from background:', tokenResponse);
     } catch (error) {
       debug.error('Extension context error:', error);
-      throw new Error('Extension reloaded. Please refresh the page.');
+      debug.log('🔄 Background script not responding, trying direct storage...');
+      
+      // Fallback: get token directly from storage
+      try {
+        const storageResult = await browserAPI.storage.local.get(['diceCloudToken', 'tokenExpires', 'username']);
+        debug.log('📦 Direct storage result:', storageResult);
+        if (storageResult.diceCloudToken) {
+          tokenResponse = {
+            success: true,
+            token: storageResult.diceCloudToken,
+            tokenExpires: storageResult.tokenExpires,
+            username: storageResult.username
+          };
+          debug.log('✅ Token obtained from direct storage');
+        } else {
+          debug.error('❌ No token found in storage, storage keys:', Object.keys(storageResult));
+          throw new Error('No token found in storage');
+        }
+      } catch (storageError) {
+        debug.error('Storage fallback failed:', storageError);
+        throw new Error('Extension reloaded. Please refresh the page.');
+      }
     }
-    debug.log('🔑 Token response:', tokenResponse);
+
+    // If background script responded but failed, also try storage fallback
+    if (tokenResponse && !tokenResponse.success) {
+      debug.log('🔄 Background script reported failure, trying direct storage...');
+      try {
+        const storageResult = await browserAPI.storage.local.get(['diceCloudToken', 'tokenExpires', 'username']);
+        debug.log('📦 Direct storage result (background failed):', storageResult);
+        if (storageResult.diceCloudToken) {
+          tokenResponse = {
+            success: true,
+            token: storageResult.diceCloudToken,
+            tokenExpires: storageResult.tokenExpires,
+            username: storageResult.username
+          };
+          debug.log('✅ Token obtained from direct storage (background failed)');
+        } else {
+          debug.error('❌ No token found in storage, storage keys:', Object.keys(storageResult));
+          throw new Error('No token found in storage');
+        }
+      } catch (storageError) {
+        debug.error('Storage fallback failed:', storageError);
+        throw new Error('Extension reloaded. Please refresh the page.');
+      }
+    }
+
+    debug.log('🔍 Final token response:', tokenResponse);
 
     if (!tokenResponse.success || !tokenResponse.token) {
       const error = 'Not logged in to DiceCloud. Please login via the extension popup.';
@@ -4929,32 +4976,90 @@
 
         // Store in extension storage - wrap callback in Promise
         return new Promise((resolve, reject) => {
-          browserAPI.runtime.sendMessage({
-            action: 'storeCharacterData',
-            data: characterData,
-            slotId: slotId
-          }, (response) => {
-            if (browserAPI.runtime.lastError) {
-              debug.error('❌ Extension context error:', browserAPI.runtime.lastError);
-              showNotification('Extension context error. Please refresh the page.', 'error');
-              if (button) {
-                button.innerHTML = '🔄 Sync to RollCloud';
-                button.disabled = false;
+          const storeData = () => {
+            browserAPI.runtime.sendMessage({
+              action: 'storeCharacterData',
+              data: characterData,
+              slotId: slotId
+            }, (response) => {
+              if (browserAPI.runtime.lastError) {
+                debug.error('❌ Extension context error:', browserAPI.runtime.lastError);
+                debug.log('🔄 Background script not responding, trying direct storage...');
+                
+                // Fallback: store directly in storage
+                browserAPI.storage.local.get(['characterProfiles'], (result) => {
+                  if (browserAPI.runtime.lastError) {
+                    debug.error('❌ Storage also failed:', browserAPI.runtime.lastError);
+                    showNotification('Extension context error. Please refresh the page.', 'error');
+                    if (button) {
+                      button.innerHTML = '🔄 Sync to RollCloud';
+                      button.disabled = false;
+                    }
+                    reject(new Error('Extension context error'));
+                    return;
+                  }
+                  
+                  const profiles = result.characterProfiles || {};
+                  profiles[slotId] = characterData;
+                  
+                  browserAPI.storage.local.set({ characterProfiles: profiles }, () => {
+                    if (browserAPI.runtime.lastError) {
+                      debug.error('❌ Direct storage failed:', browserAPI.runtime.lastError);
+                      showNotification('Storage error. Please refresh the page.', 'error');
+                      if (button) {
+                        button.innerHTML = '🔄 Sync to RollCloud';
+                        button.disabled = false;
+                      }
+                      reject(new Error('Storage error'));
+                    } else {
+                      debug.log('✅ Character data synced via direct storage:', characterData.name);
+                      showNotification(`✅ ${characterData.name} synced to RollCloud! 🎲`, 'success');
+                      if (button) {
+                        button.innerHTML = '✅ Synced!';
+                        button.disabled = false;
+                        setTimeout(() => {
+                          button.innerHTML = '🔄 Sync to RollCloud';
+                        }, 2000);
+                      }
+                      
+                      // Notify popup to refresh its data
+                      try {
+                        browserAPI.runtime.sendMessage({
+                          action: 'dataSynced',
+                          slotId: slotId,
+                          characterName: characterData.name
+                        }, (response) => {
+                          // Don't worry if this fails - the main sync already worked
+                          if (browserAPI.runtime.lastError) {
+                            debug.log('Popup notification failed (non-critical):', browserAPI.runtime.lastError);
+                          } else {
+                            debug.log('✅ Popup notified successfully');
+                          }
+                        });
+                      } catch (notifyError) {
+                        debug.log('Could not notify popup (non-critical):', notifyError);
+                      }
+                      
+                      resolve();
+                    }
+                  });
+                });
+              } else {
+                debug.log('✅ Character data synced to extension:', characterData.name);
+                showNotification(`✅ ${characterData.name} synced to RollCloud! 🎲`, 'success');
+                if (button) {
+                  button.innerHTML = '✅ Synced!';
+                  button.disabled = false;
+                  setTimeout(() => {
+                    button.innerHTML = '🔄 Sync to RollCloud';
+                  }, 2000);
+                }
+                resolve();
               }
-              reject(new Error(browserAPI.runtime.lastError.message));
-            } else {
-              debug.log('✅ Character data synced to extension:', characterData.name);
-              showNotification(`✅ ${characterData.name} synced to RollCloud! 🎲`, 'success');
-              if (button) {
-                button.innerHTML = '✅ Synced!';
-                button.disabled = false;
-                setTimeout(() => {
-                  button.innerHTML = '🔄 Sync to RollCloud';
-                }, 2000);
-              }
-              resolve();
-            }
-          });
+            });
+          };
+          
+          storeData();
         });
       })
       .catch(error => {
