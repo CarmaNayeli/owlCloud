@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "RollCloud: Dice Cloud Integration for Roll20 (Experimental Sync)",
-  "version": "1.1.2.1",
-  "description": "Import D&D characters from DiceCloud to Roll20 with enhanced authentication, interactive character sheets, and GM combat tools",
+  "name": "RollCloud: DiceCloud + Roll20 + Discord Integration",
+  "version": "1.2.0",
+  "description": "Sync DiceCloud V2 characters to Roll20 with Discord turn notifications via Pip 2",
   "permissions": [
     "storage",
     "activeTab"
