@@ -127,6 +127,7 @@ async function installExtension() {
 
 function setupStep3() {
   const addBotBtn = document.getElementById('addPipBot');
+  const skipBotBtn = document.getElementById('skipPipBot');
   const continueBtn = document.getElementById('continueToStep4');
   const botAddedDiv = document.getElementById('botAdded');
 
@@ -136,6 +137,11 @@ function setupStep3() {
     setTimeout(() => {
       botAddedDiv.classList.remove('hidden');
     }, 1000);
+  });
+
+  skipBotBtn.addEventListener('click', () => {
+    // Skip directly to step 4
+    goToStep(4);
   });
 
   continueBtn.addEventListener('click', () => goToStep(4));
