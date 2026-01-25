@@ -329,25 +329,93 @@ function launchFirefox(firefoxPath, fileToOpen = null) {
 }
 
 /**
- * Install Firefox Developer Edition - opens download page
- * Returns instructions for the user to download and install manually
+ * Install Firefox Developer Edition from bundled stub installer
  */
 async function installFirefoxDeveloperEdition() {
-  const downloadUrl = 'https://www.mozilla.org/firefox/developer/';
+  try {
+    console.log('   Installing Firefox Developer Edition from stub installer...');
 
-  console.log('   Opening Firefox Developer Edition download page...');
-  console.log(`   URL: ${downloadUrl}`);
+    // Path to the bundled installer - check both dev and production paths
+    const isDev = process.env.NODE_ENV === 'development' || process.argv.includes('--dev') || !process.resourcesPath;
+    let installerPath;
 
-  // Open the download page in the default browser
-  const { shell } = require('electron');
-  await shell.openExternal(downloadUrl);
+    if (isDev) {
+      // Development: installer is in assets folder
+      installerPath = path.join(__dirname, '..', 'assets', 'FirefoxDeveloperEdition.exe');
+    } else {
+      // Production: installer is in extraResources
+      installerPath = path.join(process.resourcesPath, 'installers', 'FirefoxDeveloperEdition.exe');
+    }
 
-  return {
-    success: false,
-    openedDownloadPage: true,
-    downloadUrl,
-    message: 'Download page opened. Please install Firefox Developer Edition and restart the installer.'
-  };
+    console.log(`   Looking for installer at: ${installerPath}`);
+
+    if (!fs.existsSync(installerPath)) {
+      // Fallback: try the other path
+      const fallbackPath = isDev
+        ? path.join(process.resourcesPath || '', 'installers', 'FirefoxDeveloperEdition.exe')
+        : path.join(__dirname, '..', 'assets', 'FirefoxDeveloperEdition.exe');
+
+      console.log(`   Trying fallback path: ${fallbackPath}`);
+
+      if (fs.existsSync(fallbackPath)) {
+        installerPath = fallbackPath;
+      } else {
+        // Open download page as last resort
+        const { shell } = require('electron');
+        await shell.openExternal('https://www.mozilla.org/firefox/developer/');
+        return {
+          success: false,
+          openedDownloadPage: true,
+          downloadUrl: 'https://www.mozilla.org/firefox/developer/',
+          message: 'Installer not found. Download page opened instead.'
+        };
+      }
+    }
+
+    console.log(`   Using stub installer: ${installerPath}`);
+
+    // Run the stub installer - it will download and install Firefox Developer Edition
+    // Using spawn for better handling of the installer process
+    const { spawn } = require('child_process');
+
+    return new Promise((resolve, reject) => {
+      const installer = spawn(installerPath, [], {
+        detached: true,
+        stdio: 'ignore'
+      });
+
+      installer.unref();
+
+      // The stub installer runs and downloads Firefox in the background
+      // We return immediately and let the user wait
+      console.log('   Stub installer launched - it will download Firefox Developer Edition');
+
+      resolve({
+        success: true,
+        installing: true,
+        message: 'Firefox Developer Edition installer launched. Please wait for installation to complete, then click Retry.'
+      });
+    });
+
+  } catch (error) {
+    console.error('   Failed to install Firefox Developer Edition:', error);
+
+    // Fallback: open download page
+    try {
+      const { shell } = require('electron');
+      await shell.openExternal('https://www.mozilla.org/firefox/developer/');
+    } catch (e) {
+      // Ignore
+    }
+
+    return {
+      success: false,
+      error: error.message,
+      openedDownloadPage: true,
+      downloadUrl: 'https://www.mozilla.org/firefox/developer/',
+      message: `Installation failed: ${error.message}. Download page opened.`
+    };
+  }
 }
 /**
  * Install Firefox Extension with proper flow:

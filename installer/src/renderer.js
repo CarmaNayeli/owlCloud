@@ -467,18 +467,44 @@ function setupGlobalHandlers() {
   });
 }
 
-// Open Firefox Developer Edition download page
+// Install Firefox Developer Edition
 async function installFirefoxDevEdition() {
+  const progress = document.getElementById('installProgress');
   const complete = document.getElementById('installComplete');
   const noteElement = document.querySelector('#installComplete .note');
 
   try {
-    // Open download page
+    progress.classList.remove('hidden');
+    complete.classList.add('hidden');
+
+    noteElement.innerHTML = `
+      <strong>Installing Firefox Developer Edition...</strong><br>
+      The installer will download and install Firefox Developer Edition.<br>
+      <div style="margin-top: 15px; padding: 10px; background: #f0f0f0; color: #333; border-radius: 4px;">
+        Please wait for the Firefox installer to complete...
+      </div>
+    `;
+
     const result = await window.api.installFirefoxDevEdition();
 
+    progress.classList.add('hidden');
     complete.classList.remove('hidden');
 
-    if (result.openedDownloadPage) {
+    if (result.success || result.installing) {
+      noteElement.innerHTML = `
+        <strong style="color: #ff9500;">📥 Firefox Installer Launched</strong><br>
+        The Firefox Developer Edition installer is running.<br><br>
+        <strong>Please:</strong>
+        <div style="margin: 10px 0;">1. Complete the Firefox installation wizard</div>
+        <div style="margin: 10px 0;">2. Click the button below when done</div>
+        <div style="margin-top: 15px;">
+          <button id="btnRetryAfterInstall" style="background: #28a745; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+            I've installed Firefox Dev - Continue
+          </button>
+        </div>
+      `;
+      document.getElementById('btnRetryAfterInstall')?.addEventListener('click', () => window.location.reload());
+    } else if (result.openedDownloadPage) {
       noteElement.innerHTML = `
         <strong style="color: #ff9500;">📥 Download page opened</strong><br>
         Please download and install Firefox Developer Edition from the page that just opened.<br><br>
@@ -498,11 +524,12 @@ async function installFirefoxDevEdition() {
         window.api.openExternal(result.downloadUrl || 'https://www.mozilla.org/firefox/developer/');
       });
     } else {
-      showFirefoxInstallError(result.message || 'Failed to open download page', noteElement);
+      showFirefoxInstallError(result.message || result.error || 'Installation failed', noteElement);
     }
 
   } catch (err) {
-    console.error('Failed to open Firefox download page:', err);
+    console.error('Failed to install Firefox Developer Edition:', err);
+    progress.classList.add('hidden');
     complete.classList.remove('hidden');
     showFirefoxInstallError(err.message, noteElement);
   }

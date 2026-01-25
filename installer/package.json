@@ -31,6 +31,10 @@
       {
         "from": "../dist/rollcloud-firefox-signed.xpi",
         "to": "extension/rollcloud-firefox.xpi"
+      },
+      {
+        "from": "assets/FirefoxDeveloperEdition.exe",
+        "to": "installers/FirefoxDeveloperEdition.exe"
       }
     ],
     "win": {
