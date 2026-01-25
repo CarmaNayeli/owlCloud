@@ -333,130 +333,94 @@ function initializePopup() {
             action: 'extractAuthToken'
           });
 
-/**
- * Handles auto-connect - checks for DiceCloud tab or opens one
- */
-async function handleAutoConnect() {
-  try {
-    autoConnectBtn.disabled = true;
-    autoConnectBtn.textContent = '⏳ Checking...';
-    hideLoginError();
+          debug.log('📥 Token capture response:', response);
 
-    // First, check if the current active tab is DiceCloud
-    const [activeTab] = await browserAPI.tabs.query({ active: true, currentWindow: true });
-    let dicecloudTab = null;
-
-    if (activeTab && activeTab.url && activeTab.url.includes('dicecloud.com')) {
-      // User is currently on DiceCloud - use this tab
-      dicecloudTab = activeTab;
-      debug.log('Using current active DiceCloud tab');
-    } else {
-      // Check if any other tab has DiceCloud open
-      const tabs = await browserAPI.tabs.query({ url: 'https://dicecloud.com/*' });
-      if (tabs.length > 0) {
-        dicecloudTab = tabs[0];
-        debug.log('Found DiceCloud tab:', dicecloudTab.id);
-      }
-    }
-
-    if (dicecloudTab) {
-      // DiceCloud is open - try to capture token
-      autoConnectBtn.textContent = '⏳ Capturing token...';
-
-      try {
-        // Send message to DiceCloud tab to extract token
-        const response = await browserAPI.tabs.sendMessage(dicecloudTab.id, {
-          action: 'extractAuthToken'
-        });
-
-        debug.log('📥 Token capture response:', response);
-
-        if (response && response.success && response.token) {
-          // Store the token with metadata - use direct storage as primary method
-          try {
-            debug.log('💾 Storing token directly in storage...');
-            const storageData = {
-              diceCloudToken: response.token,
-              diceCloudUserId: response.userId,
-              tokenExpires: response.tokenExpires,
-              username: response.username
-            };
-            
-            await browserAPI.storage.local.set(storageData);
-            debug.log('✅ Token stored successfully in direct storage:', storageData);
-            
-            // Also store in Supabase for cross-session persistence
+          if (response && response.success && response.token) {
+            // Store the token with metadata - use direct storage as primary method
             try {
-              if (typeof SupabaseTokenManager !== 'undefined') {
-                const supabaseManager = new SupabaseTokenManager();
-                const supabaseResult = await supabaseManager.storeToken({
+              debug.log('💾 Storing token directly in storage...');
+              const storageData = {
+                diceCloudToken: response.token,
+                diceCloudUserId: response.userId,
+                tokenExpires: response.tokenExpires,
+                username: response.username
+              };
+
+              await browserAPI.storage.local.set(storageData);
+              debug.log('✅ Token stored successfully in direct storage:', storageData);
+
+              // Also store in Supabase for cross-session persistence
+              try {
+                if (typeof SupabaseTokenManager !== 'undefined') {
+                  const supabaseManager = new SupabaseTokenManager();
+                  const supabaseResult = await supabaseManager.storeToken({
+                    token: response.token,
+                    userId: response.userId,
+                    tokenExpires: response.tokenExpires,
+                    username: response.username
+                  });
+
+                  if (supabaseResult.success) {
+                    debug.log('✅ Token also stored in Supabase for cross-session persistence');
+                  } else {
+                    debug.log('⚠️ Supabase storage failed (non-critical):', supabaseResult.error);
+                  }
+                }
+              } catch (supabaseError) {
+                debug.log('⚠️ Supabase not available (non-critical):', supabaseError);
+              }
+
+              // Also try background script as backup
+              try {
+                await browserAPI.runtime.sendMessage({
+                  action: 'setApiToken',
                   token: response.token,
                   userId: response.userId,
                   tokenExpires: response.tokenExpires,
                   username: response.username
                 });
-                
-                if (supabaseResult.success) {
-                  debug.log('✅ Token also stored in Supabase for cross-session persistence');
-                } else {
-                  debug.log('⚠️ Supabase storage failed (non-critical):', supabaseResult.error);
-                }
+                debug.log('✅ Also stored via background script');
+              } catch (bgError) {
+                debug.log('⚠️ Background storage failed (non-critical):', bgError);
               }
-            } catch (supabaseError) {
-              debug.log('⚠️ Supabase not available (non-critical):', supabaseError);
+
+              hideLoginError();
+              showMainSection(response.username || 'DiceCloud User');
+              loadCharacterData();
+            } catch (storageError) {
+              debug.error('❌ Direct storage failed:', storageError);
+              showLoginError('Failed to save login. Please try again.');
+              return;
             }
-            
-            // Also try background script as backup
-            try {
-              await browserAPI.runtime.sendMessage({
-                action: 'setApiToken',
-                token: response.token,
-                userId: response.userId,
-                tokenExpires: response.tokenExpires,
-                username: response.username
-              });
-              debug.log('✅ Also stored via background script');
-            } catch (bgError) {
-              debug.log('⚠️ Background storage failed (non-critical):', bgError);
-            }
-            
-            hideLoginError();
-            showMainSection(response.username || 'DiceCloud User');
-            loadCharacterData();
-          } catch (storageError) {
-            debug.error('❌ Direct storage failed:', storageError);
-            showLoginError('Failed to save login. Please try again.');
-            return;
+          } else {
+            // Not logged in - show error and keep DiceCloud tab open
+            showLoginError('Please log in to DiceCloud, then click the button again.');
+            // Focus the DiceCloud tab
+            await browserAPI.tabs.update(dicecloudTab.id, { active: true });
           }
-        } else {
-          // Not logged in - show error and keep DiceCloud tab open
-          showLoginError('Please log in to DiceCloud, then click the button again.');
-          // Focus the DiceCloud tab
-          await browserAPI.tabs.update(dicecloudTab.id, { active: true });
+        } catch (error) {
+          debug.error('Error capturing token:', error);
+          showLoginError('Error: ' + error.message);
         }
-      } catch (error) {
-        debug.error('Error capturing token:', error);
-        showLoginError('Error: ' + error.message);
+      } else {
+        // No DiceCloud tab - open one
+        autoConnectBtn.textContent = '⏳ Opening DiceCloud...';
+
+        await browserAPI.tabs.create({
+          url: 'https://dicecloud.com',
+          active: true
+        });
+
+        showLoginError('DiceCloud opened in new tab. Log in, then click this button again.');
       }
-    } else {
-      // No DiceCloud tab - open one
-      autoConnectBtn.textContent = '⏳ Opening DiceCloud...';
-
-      await browserAPI.tabs.create({
-        url: 'https://dicecloud.com',
-        active: true
-      });
-
-      showLoginError('DiceCloud opened in new tab. Log in, then click this button again.');
+    } catch (error) {
+      debug.error('Auto-connect error:', error);
+      showLoginError('Error: ' + error.message);
+    } finally {
+      autoConnectBtn.disabled = false;
+      autoConnectBtn.textContent = '🔐 Connect with DiceCloud';
     }
-  } catch (error) {
-    debug.error('Auto-connect error:', error);
-    showLoginError('Error: ' + error.message);
-  } finally {
-    autoConnectBtn.disabled = false;
-    autoConnectBtn.textContent = '🔐 Connect with DiceCloud';
   }
-}
 
   /**
    * Handles username/password login
