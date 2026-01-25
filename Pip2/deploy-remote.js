@@ -1,0 +1,89 @@
+/**
+ * Remote Deployment Helper
+ * Prepares the bot for remote deployment on Render.com
+ */
+
+import { config } from 'dotenv';
+import { REST, Routes } from 'discord.js';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import { readdirSync } from 'fs';
+
+config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+console.log('🚀 Pip2 Remote Deployment Setup\n');
+
+// Check environment variables
+const requiredVars = ['DISCORD_TOKEN', 'DISCORD_CLIENT_ID', 'DISCORD_GUILD_ID'];
+const missingVars = requiredVars.filter(varName => !process.env[varName]);
+
+if (missingVars.length > 0) {
+  console.log('❌ Missing required environment variables:');
+  missingVars.forEach(varName => console.log(`   - ${varName}`));
+  console.log('\nPlease set these in your .env file or Render dashboard.');
+  process.exit(1);
+}
+
+console.log('✅ Environment variables configured');
+
+// Load and deploy commands
+const commands = [];
+const commandsPath = join(__dirname, 'src', 'commands');
+const commandFiles = readdirSync(commandsPath).filter(file => file.endsWith('.js'));
+
+console.log(`\n📋 Loading ${commandFiles.length} commands...`);
+
+for (const file of commandFiles) {
+  try {
+    const filePath = join(commandsPath, file);
+    const command = await import(`file://${filePath}`);
+
+    if ('data' in command.default && 'execute' in command.default) {
+      commands.push(command.default.data.toJSON());
+      console.log(`✅ ${command.default.data.name}`);
+    } else {
+      console.log(`❌ ${file}: Missing data or execute`);
+    }
+  } catch (error) {
+    console.log(`❌ ${file}: ${error.message}`);
+  }
+}
+
+// Deploy commands to Discord
+const rest = new REST().setToken(process.env.DISCORD_TOKEN);
+
+(async () => {
+  try {
+    console.log(`\n🌐 Deploying ${commands.length} commands to Discord...`);
+    
+    const data = await rest.put(
+      Routes.applicationGuildCommands(
+        process.env.DISCORD_CLIENT_ID, 
+        process.env.DISCORD_GUILD_ID
+      ),
+      { body: commands },
+    );
+
+    console.log(`✅ Successfully deployed ${data.length} commands!`);
+    
+    console.log('\n🎯 Next Steps:');
+    console.log('1. Push code to GitHub');
+    console.log('2. Deploy to Render.com (see DEPLOYMENT_CHECKLIST.md)');
+    console.log('3. Bot will be online and commands ready!');
+    
+    console.log('\n📋 Deployed Commands:');
+    data.forEach(cmd => console.log(`   /${cmd.name}`));
+    
+  } catch (error) {
+    console.error('❌ Deployment failed:', error);
+    
+    if (error.code === 50001) {
+      console.log('\n💡 Fix: Ensure bot has "applications.commands" scope in OAuth2 URL');
+    } else if (error.code === 10013) {
+      console.log('\n💡 Fix: Ensure bot is invited to the server with proper permissions');
+    }
+  }
+})();

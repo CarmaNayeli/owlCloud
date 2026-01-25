@@ -7,7 +7,9 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
-    "deploy": "node src/deploy-commands.js"
+    "deploy": "node src/deploy-commands.js",
+    "deploy-remote": "node deploy-remote.js",
+    "debug": "node debug-commands.js"
   },
   "keywords": [
     "discord",

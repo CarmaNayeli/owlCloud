@@ -12,5 +12,9 @@ services:
         sync: false  # Set this in Render dashboard
       - key: DISCORD_GUILD_ID
         sync: false  # Set this in Render dashboard
+      - key: SUPABASE_URL
+        sync: false  # Set this in Render dashboard
+      - key: SUPABASE_SERVICE_KEY
+        sync: false  # Set this in Render dashboard
       - key: NODE_ENV
         value: production
