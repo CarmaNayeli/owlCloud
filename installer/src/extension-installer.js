@@ -329,62 +329,25 @@ function launchFirefox(firefoxPath, fileToOpen = null) {
 }
 
 /**
- * Install Firefox Developer Edition from bundled installer
+ * Install Firefox Developer Edition - opens download page
+ * Returns instructions for the user to download and install manually
  */
 async function installFirefoxDeveloperEdition() {
-  try {
-    console.log('   Installing Firefox Developer Edition from bundled installer...');
+  const downloadUrl = 'https://www.mozilla.org/firefox/developer/';
 
-    // Path to the bundled installer - check both dev and production paths
-    const isDev = process.env.NODE_ENV === 'development' || process.argv.includes('--dev') || !process.resourcesPath;
-    let installerPath;
+  console.log('   Opening Firefox Developer Edition download page...');
+  console.log(`   URL: ${downloadUrl}`);
 
-    if (isDev) {
-      // Development: installer is in assets folder
-      installerPath = path.join(__dirname, '..', 'assets', 'FirefoxDeveloperEdition.exe');
-    } else {
-      // Production: installer is in extraResources
-      installerPath = path.join(process.resourcesPath, 'installers', 'FirefoxDeveloperEdition.exe');
-    }
+  // Open the download page in the default browser
+  const { shell } = require('electron');
+  await shell.openExternal(downloadUrl);
 
-    console.log(`   Looking for installer at: ${installerPath}`);
-
-    if (!fs.existsSync(installerPath)) {
-      // Fallback: try the other path
-      const fallbackPath = isDev
-        ? path.join(process.resourcesPath || '', 'installers', 'FirefoxDeveloperEdition.exe')
-        : path.join(__dirname, '..', 'assets', 'FirefoxDeveloperEdition.exe');
-
-      console.log(`   Trying fallback path: ${fallbackPath}`);
-
-      if (fs.existsSync(fallbackPath)) {
-        installerPath = fallbackPath;
-      } else {
-        throw new Error('Firefox Developer Edition installer not found');
-      }
-    }
-
-    console.log(`   Using bundled installer: ${installerPath}`);
-
-    // Run the installer silently
-    execSync(`"${installerPath}" /S`, { stdio: 'pipe', timeout: 120000 });
-
-    // Wait a bit for installation to complete
-    await new Promise(resolve => setTimeout(resolve, 3000));
-
-    // Verify installation
-    const firefoxPath = findFirefoxDeveloperEdition();
-    if (!firefoxPath) {
-      throw new Error('Firefox Developer Edition installation completed but executable not found');
-    }
-
-    console.log('   Firefox Developer Edition installed successfully!');
-    return { success: true, firefoxPath };
-
-  } catch (error) {
-    console.error('   Failed to install Firefox Developer Edition:', error);
-    throw new Error(`Failed to install Firefox Developer Edition: ${error.message}`);
-  }
+  return {
+    success: false,
+    openedDownloadPage: true,
+    downloadUrl,
+    message: 'Download page opened. Please install Firefox Developer Edition and restart the installer.'
+  };
 }
 /**
  * Install Firefox Extension with proper flow:
@@ -409,86 +372,29 @@ async function installFirefoxExtension(config) {
     let firefoxPath = findFirefoxDeveloperEdition();
 
     // ========================================================================
-    // Step 2: If not installed, install Firefox Developer Edition
+    // Step 2: If not installed, prompt user to download Firefox Developer Edition
     // ========================================================================
     if (!firefoxPath) {
       console.log('   Firefox Developer Edition not found.');
+      console.log('\n   Step 2: Firefox Developer Edition required...');
 
-      if (platform === 'win32') {
-        console.log('\n   Step 2: Installing Firefox Developer Edition...');
-
-        // Check if bundled installer exists (check both dev and production paths)
-        const devInstallerPath = path.join(__dirname, '..', 'assets', 'FirefoxDeveloperEdition.exe');
-        const prodInstallerPath = process.resourcesPath
-          ? path.join(process.resourcesPath, 'installers', 'FirefoxDeveloperEdition.exe')
-          : devInstallerPath;
-        const installerExists = fs.existsSync(devInstallerPath) || fs.existsSync(prodInstallerPath);
-
-        if (installerExists) {
-          try {
-            const installResult = await installFirefoxDeveloperEdition();
-            firefoxPath = installResult.firefoxPath || findFirefoxDeveloperEdition();
-
-            if (!firefoxPath) {
-              throw new Error('Installation completed but Firefox Developer Edition not found');
-            }
-            console.log('   ✅ Firefox Developer Edition installed successfully');
-          } catch (installError) {
-            console.error('   ❌ Failed to install Firefox Developer Edition:', installError.message);
-            // Return instructions to download manually
-            return {
-              message: 'Failed to install Firefox Developer Edition automatically.',
-              requiresRestart: false,
-              requiresManualAction: true,
-              manualInstructions: {
-                type: 'firefox_download',
-                steps: [
-                  '1. Firefox Developer Edition installation failed',
-                  '2. Please download Firefox Developer Edition manually',
-                  '3. Click the button below to download',
-                  '4. After installation, restart this installer'
-                ],
-                downloadUrl: 'https://www.mozilla.org/firefox/developer/',
-                autoInstall: false
-              }
-            };
-          }
-        } else {
-          // No bundled installer, prompt for download
-          return {
-            message: 'Firefox Developer Edition is required but not installed.',
-            requiresRestart: false,
-            requiresManualAction: true,
-            manualInstructions: {
-              type: 'firefox_download',
-              steps: [
-                '1. Firefox Developer Edition is required for unsigned extensions',
-                '2. Click "Install Firefox Developer Edition" to download and install',
-                '3. After installation, restart this installer'
-              ],
-              downloadUrl: 'https://www.mozilla.org/firefox/developer/',
-              autoInstall: true
-            }
-          };
+      // Return instructions to download - all platforms use the same approach
+      return {
+        message: 'Firefox Developer Edition is required but not installed.',
+        requiresRestart: false,
+        requiresManualAction: true,
+        manualInstructions: {
+          type: 'firefox_download',
+          steps: [
+            '1. Firefox Developer Edition is required for this extension',
+            '2. Click "Download Firefox Developer Edition" below',
+            '3. Install Firefox Developer Edition',
+            '4. Click "Retry Installation" to continue'
+          ],
+          downloadUrl: 'https://www.mozilla.org/firefox/developer/',
+          autoInstall: false
         }
-      } else {
-        // macOS/Linux - provide download instructions
-        return {
-          message: 'Firefox Developer Edition is required but not installed.',
-          requiresRestart: false,
-          requiresManualAction: true,
-          manualInstructions: {
-            type: 'firefox_download',
-            steps: [
-              '1. Firefox Developer Edition is required for unsigned extensions',
-              '2. Download it from: https://www.mozilla.org/firefox/developer/',
-              '3. After installation, restart this installer'
-            ],
-            downloadUrl: 'https://www.mozilla.org/firefox/developer/',
-            autoInstall: false
-          }
-        };
-      }
+      };
     } else {
       console.log('   ✅ Firefox Developer Edition already installed');
     }
