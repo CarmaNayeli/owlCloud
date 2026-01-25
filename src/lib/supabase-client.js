@@ -77,6 +77,9 @@ class SupabaseTokenManager {
         username: tokenData.username || 'DiceCloud User',
         user_id_dicecloud: tokenData.userId, // Store DiceCloud ID separately
         token_expires: normalizedTokenExpires,
+        discord_user_id: tokenData.discordUserId || null,
+        discord_username: tokenData.discordUsername || null,
+        discord_global_name: tokenData.discordGlobalName || null,
         browser_info: {
           userAgent: navigator.userAgent,
           authId: tokenData.authId, // Store authId in browser_info for reference
@@ -86,6 +89,9 @@ class SupabaseTokenManager {
       };
 
       debug.log('🌐 Storing with browser ID:', visitorId, 'DiceCloud ID:', tokenData.authId);
+      if (tokenData.discordUserId) {
+        debug.log('🔗 Linking Discord account:', tokenData.discordUsername);
+      }
 
       const response = await fetch(`${this.supabaseUrl}/rest/v1/${this.tableName}`, {
         method: 'POST',
@@ -118,6 +124,9 @@ class SupabaseTokenManager {
             username: tokenData.username || 'DiceCloud User',
             user_id_dicecloud: tokenData.userId,
             token_expires: normalizedTokenExpires,
+            discord_user_id: tokenData.discordUserId || null,
+            discord_username: tokenData.discordUsername || null,
+            discord_global_name: tokenData.discordGlobalName || null,
             browser_info: {
               userAgent: navigator.userAgent,
               authId: tokenData.authId,
@@ -201,7 +210,10 @@ class SupabaseTokenManager {
           token: tokenData.dicecloud_token,
           username: tokenData.username,
           userId: tokenData.user_id_dicecloud,
-          tokenExpires: tokenData.token_expires
+          tokenExpires: tokenData.token_expires,
+          discordUserId: tokenData.discord_user_id,
+          discordUsername: tokenData.discord_username,
+          discordGlobalName: tokenData.discord_global_name
         };
       } else {
         debug.log('ℹ️ No token found in Supabase for user:', userId);
@@ -238,6 +250,79 @@ class SupabaseTokenManager {
       return { success: true };
     } catch (error) {
       debug.error('❌ Failed to delete token from Supabase:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Store character data in Supabase (alias for storeCharacter)
+   * Used by popup for character cloud sync
+   */
+  async storeCharacterData(characterSyncData) {
+    try {
+      debug.log('🎭 Storing character data in cloud:', characterSyncData.characterId);
+      
+      // Extract character data from the sync payload
+      const characterData = characterSyncData.characterData;
+      
+      // Use the existing storeCharacter method
+      const result = await this.storeCharacter(characterData);
+      
+      if (result.success) {
+        debug.log('✅ Character data stored in cloud successfully');
+      } else {
+        debug.error('❌ Failed to store character data in cloud:', result.error);
+      }
+      
+      return result;
+    } catch (error) {
+      debug.error('❌ Error in storeCharacterData:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Get character data from Supabase (alias for getCharacter)
+   * Used by popup for character cloud sync
+   */
+  async getCharacterData(diceCloudUserId) {
+    try {
+      debug.log('🎭 Retrieving character data from cloud for user:', diceCloudUserId);
+      
+      // Get all characters for this user
+      const response = await fetch(
+        `${this.supabaseUrl}/rest/v1/rollcloud_characters?user_id_dicecloud=eq.${diceCloudUserId}&select=*`,
+        {
+          headers: {
+            'apikey': this.supabaseKey,
+            'Authorization': `Bearer ${this.supabaseKey}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch characters: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      // Format the response to match expected structure
+      const characters = {};
+      data.forEach(character => {
+        characters[character.dicecloud_character_id] = {
+          characterData: character,
+          timestamp: character.updated_at
+        };
+      });
+      
+      debug.log(`📦 Retrieved ${data.length} characters from cloud`);
+      return { 
+        success: true, 
+        characters: characters,
+        count: data.length
+      };
+    } catch (error) {
+      debug.error('❌ Failed to get character data:', error);
       return { success: false, error: error.message };
     }
   }

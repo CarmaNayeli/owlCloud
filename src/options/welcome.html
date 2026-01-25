@@ -252,13 +252,13 @@
     </div>
     
     <div class="actions">
-      <button class="btn btn-primary" onclick="openDiceCloud()">
+      <button id="openDiceCloudBtn" class="btn btn-primary">
         🎲 Open DiceCloud
       </button>
-      <button class="btn btn-secondary" onclick="openPopup()">
+      <button id="openPopupBtn" class="btn btn-secondary">
         📍 How to Open RollCloud
       </button>
-      <button class="btn btn-secondary" onclick="openDocs()">
+      <button id="openDocsBtn" class="btn btn-secondary">
         📚 View Documentation
       </button>
     </div>
@@ -275,28 +275,44 @@
   </div>
 
   <script>
+    // Wait for DOM to be ready
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('Welcome screen loaded');
+      
+      // Get button elements
+      const openDiceCloudBtn = document.getElementById('openDiceCloudBtn');
+      const openPopupBtn = document.getElementById('openPopupBtn');
+      const openDocsBtn = document.getElementById('openDocsBtn');
+      
+      // Add event listeners
+      if (openDiceCloudBtn) {
+        openDiceCloudBtn.addEventListener('click', openDiceCloud);
+        console.log('DiceCloud button listener added');
+      }
+      
+      if (openPopupBtn) {
+        openPopupBtn.addEventListener('click', openPopup);
+        console.log('Popup button listener added');
+      }
+      
+      if (openDocsBtn) {
+        openDocsBtn.addEventListener('click', openDocs);
+        console.log('Docs button listener added');
+      }
+    });
+
     function openPopup() {
+      console.log('Opening popup instructions');
       // Since we're in the options page, we can't directly open the popup
       // Instead, we'll show instructions and close this tab
       alert('📍 How to open RollCloud:\n\n1. Look for the RollCloud icon (🎲) in your browser toolbar\n2. Click the icon to open the popup\n3. If you don\'t see the icon:\n   - Click the puzzle piece icon in Chrome toolbar\n   - Find RollCloud and pin it to your toolbar\n\nThis tab will close now.');
       
       // Close this options tab
-      if (typeof chrome !== 'undefined' && chrome.tabs) {
-        chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-          chrome.tabs.remove(tabs[0].id);
-        });
-      } else if (typeof browser !== 'undefined' && browser.browserAction) {
-        browser.tabs.query({active: true, currentWindow: true}, function(tabs) {
-          browser.tabs.remove(tabs[0].id);
-        });
-      } else if (typeof browser !== 'undefined' && browser.action) {
-        browser.tabs.query({active: true, currentWindow: true}, function(tabs) {
-          browser.tabs.remove(tabs[0].id);
-        });
-      }
+      closeCurrentTab();
     }
     
     function openDiceCloud() {
+      console.log('Opening DiceCloud');
       // Open DiceCloud in a new tab
       const diceCloudWindow = window.open('https://dicecloud.com', '_blank');
       
@@ -307,21 +323,35 @@
     }
     
     function openDocs() {
+      console.log('Opening documentation');
       // Open documentation in a new tab
       window.open('https://github.com/CarmaNayeli/rollCloud', '_blank');
     }
     
-    // Auto-close after 15 seconds if user doesn't interact
-    let autoCloseTimer = setTimeout(() => {
+    function closeCurrentTab() {
+      // Close this options tab using browser extension APIs
       if (typeof chrome !== 'undefined' && chrome.tabs) {
         chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-          chrome.tabs.remove(tabs[0].id);
+          if (tabs && tabs[0]) {
+            chrome.tabs.remove(tabs[0].id);
+          }
         });
       } else if (typeof browser !== 'undefined' && browser.tabs) {
         browser.tabs.query({active: true, currentWindow: true}, function(tabs) {
-          browser.tabs.remove(tabs[0].id);
+          if (tabs && tabs[0]) {
+            browser.tabs.remove(tabs[0].id);
+          }
         });
+      } else {
+        // Fallback: try to close the window
+        window.close();
       }
+    }
+    
+    // Auto-close after 15 seconds if user doesn't interact
+    let autoCloseTimer = setTimeout(() => {
+      console.log('Auto-closing welcome screen');
+      closeCurrentTab();
     }, 15000);
     
     // Cancel auto-close when user interacts with the page

@@ -9,6 +9,9 @@ CREATE TABLE IF NOT EXISTS public.auth_tokens (
     username VARCHAR(255) DEFAULT 'DiceCloud User',
     user_id_dicecloud VARCHAR(255),
     token_expires TIMESTAMP WITH TIME ZONE,
+    discord_user_id VARCHAR(255),
+    discord_username VARCHAR(255),
+    discord_global_name VARCHAR(255),
     browser_info JSONB DEFAULT '{}',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -17,6 +20,7 @@ CREATE TABLE IF NOT EXISTS public.auth_tokens (
 -- Add indexes for performance
 CREATE INDEX IF NOT EXISTS idx_auth_tokens_user_id ON public.auth_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_auth_tokens_updated_at ON public.auth_tokens(updated_at);
+CREATE INDEX IF NOT EXISTS idx_auth_tokens_discord_user_id ON public.auth_tokens(discord_user_id);
 
 -- Add comments for documentation
 COMMENT ON TABLE public.auth_tokens IS 'Stores DiceCloud authentication tokens for cross-session persistence';
@@ -25,6 +29,9 @@ COMMENT ON COLUMN public.auth_tokens.dicecloud_token IS 'Encrypted DiceCloud aut
 COMMENT ON COLUMN public.auth_tokens.username IS 'DiceCloud username';
 COMMENT ON COLUMN public.auth_tokens.user_id_dicecloud IS 'DiceCloud user ID';
 COMMENT ON COLUMN public.auth_tokens.token_expires IS 'Token expiration timestamp';
+COMMENT ON COLUMN public.auth_tokens.discord_user_id IS 'Discord user ID (linked account)';
+COMMENT ON COLUMN public.auth_tokens.discord_username IS 'Discord username (linked account)';
+COMMENT ON COLUMN public.auth_tokens.discord_global_name IS 'Discord global name (display name)';
 COMMENT ON COLUMN public.auth_tokens.browser_info IS 'Browser metadata for debugging';
 
 -- Enable Row Level Security (RLS)
@@ -70,6 +77,9 @@ SELECT
     user_id,
     username,
     user_id_dicecloud,
+    discord_user_id,
+    discord_username,
+    discord_global_name,
     token_expires,
     browser_info->>'userAgent' as browser,
     browser_info->>'timestamp' as last_seen,
@@ -79,8 +89,44 @@ SELECT
         WHEN token_expires IS NOT NULL AND token_expires < NOW() THEN 'expired'
         WHEN token_expires IS NULL THEN 'no_expiry'
         ELSE 'active'
-    END as status
+    END as status,
+    CASE 
+        WHEN discord_user_id IS NOT NULL THEN 'discord_linked'
+        ELSE 'dicecloud_only'
+    END as account_type
 FROM public.auth_tokens
 ORDER BY updated_at DESC;
 
-COMMENT ON VIEW public.auth_tokens_debug IS 'Debug view for auth tokens with status information';
+COMMENT ON VIEW public.auth_tokens_debug IS 'Debug view for auth tokens with status and Discord linking information';
+
+-- Migration: Add Discord fields if they don't exist (for existing tables)
+DO $$
+BEGIN
+    -- Add discord_user_id if it doesn't exist
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'auth_tokens' AND column_name = 'discord_user_id'
+    ) THEN
+        ALTER TABLE public.auth_tokens ADD COLUMN discord_user_id VARCHAR(255);
+        CREATE INDEX IF NOT EXISTS idx_auth_tokens_discord_user_id ON public.auth_tokens(discord_user_id);
+        COMMENT ON COLUMN public.auth_tokens.discord_user_id IS 'Discord user ID (linked account)';
+    END IF;
+
+    -- Add discord_username if it doesn't exist
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'auth_tokens' AND column_name = 'discord_username'
+    ) THEN
+        ALTER TABLE public.auth_tokens ADD COLUMN discord_username VARCHAR(255);
+        COMMENT ON COLUMN public.auth_tokens.discord_username IS 'Discord username (linked account)';
+    END IF;
+
+    -- Add discord_global_name if it doesn't exist
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'auth_tokens' AND column_name = 'discord_global_name'
+    ) THEN
+        ALTER TABLE public.auth_tokens ADD COLUMN discord_global_name VARCHAR(255);
+        COMMENT ON COLUMN public.auth_tokens.discord_global_name IS 'Discord global name (display name)';
+    END IF;
+END $$;

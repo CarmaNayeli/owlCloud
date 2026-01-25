@@ -598,11 +598,18 @@ function setupStep4() {
   const copyBtn = document.getElementById('copyCode');
   const regenerateBtn = document.getElementById('regenerateCode');
   const backBtn = document.getElementById('backToStep3');
+  const skipBtn = document.getElementById('skipStep4');
 
   // Back button - stop polling and go back
   backBtn.addEventListener('click', () => {
     stopPairing();
     goToStep(3);
+  });
+
+  // Skip button - skip Discord connection and go to final step
+  skipBtn.addEventListener('click', () => {
+    stopPairing();
+    goToStep(5);
   });
 
   copyBtn.addEventListener('click', () => {
