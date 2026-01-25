@@ -27,7 +27,7 @@ header {
 header h1 {
   font-size: 2em;
   margin-bottom: 5px;
-  background: linear-gradient(135deg, #4ECDC4, #44a08d);
+  background: linear-gradient(135deg, #22c55e, #16a34a);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -66,7 +66,7 @@ header h1 {
 .step-number {
   width: 32px;
   height: 32px;
-  background: linear-gradient(135deg, #4ECDC4, #44a08d);
+  background: linear-gradient(135deg, #22c55e, #16a34a);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -116,14 +116,14 @@ header h1 {
 }
 
 .browser-btn.selected {
-  border-color: #4ECDC4;
+  border-color: #22c55e;
   background: rgba(78, 205, 196, 0.15);
 }
 
 .browser-icon {
   font-size: 2em;
   font-weight: bold;
-  color: #4ECDC4;
+  color: #22c55e;
 }
 
 .browser-name {
@@ -133,7 +133,7 @@ header h1 {
 
 /* Buttons */
 .btn {
-  background: linear-gradient(135deg, #4ECDC4, #44a08d);
+  background: linear-gradient(135deg, #22c55e, #16a34a);
   color: #fff;
   border: none;
   padding: 12px 24px;
@@ -184,7 +184,7 @@ header h1 {
 
 .btn-icon:hover {
   opacity: 1;
-  color: #4ECDC4;
+  color: #22c55e;
 }
 
 /* Progress & Status */
@@ -202,7 +202,7 @@ header h1 {
   width: 24px;
   height: 24px;
   border: 3px solid rgba(78, 205, 196, 0.2);
-  border-top-color: #4ECDC4;
+  border-top-color: #22c55e;
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -218,7 +218,7 @@ header h1 {
 }
 
 .success-text {
-  color: #4ECDC4;
+  color: #22c55e;
   font-weight: 500;
 }
 
@@ -247,7 +247,7 @@ header h1 {
 .code-display code {
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   font-size: 1.2em;
-  color: #4ECDC4;
+  color: #22c55e;
 }
 
 .code-display code span {
@@ -267,7 +267,7 @@ header h1 {
 .big-check {
   font-size: 3em;
   margin-bottom: 10px;
-  color: #4ECDC4;
+  color: #22c55e;
   font-weight: bold;
 }
 
@@ -279,7 +279,7 @@ header h1 {
 .next-steps h3 {
   font-size: 1em;
   margin-bottom: 10px;
-  color: #4ECDC4;
+  color: #22c55e;
 }
 
 .next-steps ol {
@@ -305,7 +305,7 @@ footer p {
 }
 
 footer a {
-  color: #4ECDC4;
+  color: #22c55e;
   text-decoration: none;
 }
 
