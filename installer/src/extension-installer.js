@@ -335,11 +335,33 @@ async function installFirefoxDeveloperEdition() {
   try {
     console.log('   Installing Firefox Developer Edition from bundled installer...');
 
-    // Path to the bundled installer
-    const installerPath = path.join(__dirname, '..', 'assets', 'FirefoxDeveloperEdition.exe');
+    // Path to the bundled installer - check both dev and production paths
+    const isDev = process.env.NODE_ENV === 'development' || process.argv.includes('--dev') || !process.resourcesPath;
+    let installerPath;
+
+    if (isDev) {
+      // Development: installer is in assets folder
+      installerPath = path.join(__dirname, '..', 'assets', 'FirefoxDeveloperEdition.exe');
+    } else {
+      // Production: installer is in extraResources
+      installerPath = path.join(process.resourcesPath, 'installers', 'FirefoxDeveloperEdition.exe');
+    }
+
+    console.log(`   Looking for installer at: ${installerPath}`);
 
     if (!fs.existsSync(installerPath)) {
-      throw new Error('Firefox Developer Edition installer not found in assets');
+      // Fallback: try the other path
+      const fallbackPath = isDev
+        ? path.join(process.resourcesPath || '', 'installers', 'FirefoxDeveloperEdition.exe')
+        : path.join(__dirname, '..', 'assets', 'FirefoxDeveloperEdition.exe');
+
+      console.log(`   Trying fallback path: ${fallbackPath}`);
+
+      if (fs.existsSync(fallbackPath)) {
+        installerPath = fallbackPath;
+      } else {
+        throw new Error('Firefox Developer Edition installer not found');
+      }
     }
 
     console.log(`   Using bundled installer: ${installerPath}`);
@@ -395,9 +417,14 @@ async function installFirefoxExtension(config) {
       if (platform === 'win32') {
         console.log('\n   Step 2: Installing Firefox Developer Edition...');
 
-        // Check if bundled installer exists
-        const installerPath = path.join(__dirname, '..', 'assets', 'FirefoxDeveloperEdition.exe');
-        if (fs.existsSync(installerPath)) {
+        // Check if bundled installer exists (check both dev and production paths)
+        const devInstallerPath = path.join(__dirname, '..', 'assets', 'FirefoxDeveloperEdition.exe');
+        const prodInstallerPath = process.resourcesPath
+          ? path.join(process.resourcesPath, 'installers', 'FirefoxDeveloperEdition.exe')
+          : devInstallerPath;
+        const installerExists = fs.existsSync(devInstallerPath) || fs.existsSync(prodInstallerPath);
+
+        if (installerExists) {
           try {
             const installResult = await installFirefoxDeveloperEdition();
             firefoxPath = installResult.firefoxPath || findFirefoxDeveloperEdition();
