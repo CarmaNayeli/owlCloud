@@ -3328,24 +3328,26 @@
               username: displayUsername, // Display username for UI
               authId: authId // Auth ID for database storage
             };
-            
+
             debug.log('📤 About to send response:', responseData);
-            sendResponse(responseData);
+            // Return directly for Firefox async listener compatibility
+            return responseData;
           } else {
             debug.warn('⚠️ No auth token found - user may not be logged in');
-            sendResponse({
+            // Return directly for Firefox async listener compatibility
+            return {
               success: false,
               error: 'Not logged in to DiceCloud. Please log in first.'
-            });
+            };
           }
         } catch (error) {
           debug.error('❌ Error extracting auth token:', error);
-          sendResponse({
+          // Return directly for Firefox async listener compatibility
+          return {
             success: false,
             error: 'Failed to extract token: ' + error.message
-          });
+          };
         }
-        return true; // Keep channel open for async response
 
       default:
         debug.warn('Unknown action:', request.action);

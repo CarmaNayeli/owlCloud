@@ -328,7 +328,7 @@ async function checkForUpdatesAndProceed() {
 function getBrowserName(browser) {
   const names = {
     chrome: 'Google Chrome',
-    firefox: 'Mozilla Firefox'
+    firefox: 'Firefox Developer Edition'
   };
   return names[browser] || browser;
 }
@@ -848,8 +848,8 @@ async function restartBrowser(browser) {
       if (browser === 'chrome') {
         await window.api.openExternal('chrome://restart');
       } else if (browser === 'firefox') {
-        // Firefox doesn't have a restart URL, so prompt user to restart manually
-        alert(`Please close and reopen Firefox to complete the extension installation.\n\nThe RollCloud extension will be installed automatically when Firefox restarts.`);
+        // Firefox Developer Edition doesn't have a restart URL, so prompt user to restart manually
+        alert(`Please close and reopen Firefox Developer Edition to complete the extension installation.\n\nThe RollCloud extension will be installed automatically when Firefox Developer Edition restarts.`);
       }
     } catch (error) {
       console.error('Failed to restart browser:', error);

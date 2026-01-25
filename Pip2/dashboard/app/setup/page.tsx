@@ -1,4 +1,17 @@
+'use client';
+
+import { useState } from 'react';
+
+type Tab = 'setup-guide' | 'manual-download';
+
 export default function SetupPage() {
+  const [activeTab, setActiveTab] = useState<Tab>('setup-guide');
+
+  const tabs: { id: Tab; label: string }[] = [
+    { id: 'setup-guide', label: 'Setup Guide' },
+    { id: 'manual-download', label: 'Manual Download' },
+  ];
+
   return (
     <div className="space-y-8">
       <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg shadow-xl p-8">
@@ -8,10 +21,39 @@ export default function SetupPage() {
         </p>
       </div>
 
+      {/* Tabs */}
+      <div className="border-b border-gray-200 dark:border-gray-700">
+        <nav className="flex space-x-8">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition ${
+                activeTab === tab.id
+                  ? 'border-green-500 text-green-600 dark:text-green-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'setup-guide' && <SetupGuideContent />}
+      {activeTab === 'manual-download' && <ManualDownloadContent />}
+    </div>
+  );
+}
+
+function SetupGuideContent() {
+  return (
+    <div className="space-y-8">
       {/* Step 1: Download */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-200 dark:border-gray-700">
         <div className="flex items-start space-x-4">
-          <div className="text-4xl">1️⃣</div>
+          <div className="text-4xl">1</div>
           <div className="flex-1">
             <h2 className="text-2xl font-bold mb-4">Download RollCloud</h2>
             <p className="text-gray-600 dark:text-gray-400 mb-4">
@@ -24,7 +66,7 @@ export default function SetupPage() {
                 rel="noopener noreferrer"
                 className="inline-block bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition font-semibold"
               >
-                ⬇️ Download Latest Release
+                Download Latest Release
               </a>
               <a
                 href="https://github.com/CarmaNayeli/rollCloud"
@@ -32,12 +74,12 @@ export default function SetupPage() {
                 rel="noopener noreferrer"
                 className="inline-block bg-gray-700 text-white px-6 py-3 rounded-lg hover:bg-gray-800 transition font-semibold"
               >
-                📦 View on GitHub
+                View on GitHub
               </a>
             </div>
 
             <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded p-4">
-              <h3 className="font-semibold mb-2">What's Included</h3>
+              <h3 className="font-semibold mb-2">What&apos;s Included</h3>
               <ul className="text-sm space-y-1">
                 <li>Browser extension for Roll20 + DiceCloud V2</li>
                 <li>Character sync from DiceCloud to Roll20</li>
@@ -52,7 +94,7 @@ export default function SetupPage() {
       {/* Step 2: Install Extension */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-200 dark:border-gray-700">
         <div className="flex items-start space-x-4">
-          <div className="text-4xl">2️⃣</div>
+          <div className="text-4xl">2</div>
           <div className="flex-1">
             <h2 className="text-2xl font-bold mb-4">Install the Extension</h2>
             <p className="text-gray-600 dark:text-gray-400 mb-4">
@@ -60,12 +102,12 @@ export default function SetupPage() {
             </p>
 
             <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded p-4">
-              <h3 className="font-semibold mb-2">⚠️ Supported Browsers</h3>
+              <h3 className="font-semibold mb-2">Supported Browsers</h3>
               <ul className="text-sm space-y-1">
-                <li>✅ Google Chrome</li>
-                <li>✅ Microsoft Edge</li>
-                <li>✅ Brave</li>
-                <li>✅ Other Chromium-based browsers</li>
+                <li>Google Chrome</li>
+                <li>Microsoft Edge</li>
+                <li>Brave</li>
+                <li>Other Chromium-based browsers</li>
               </ul>
             </div>
           </div>
@@ -75,7 +117,7 @@ export default function SetupPage() {
       {/* Step 3: Add Pip 2 Bot */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-200 dark:border-gray-700">
         <div className="flex items-start space-x-4">
-          <div className="text-4xl">3️⃣</div>
+          <div className="text-4xl">3</div>
           <div className="flex-1">
             <h2 className="text-2xl font-bold mb-4">Add Pip 2 to Your Server</h2>
             <p className="text-gray-600 dark:text-gray-400 mb-4">
@@ -109,7 +151,7 @@ export default function SetupPage() {
       {/* Step 4: Connect Discord */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-200 dark:border-gray-700">
         <div className="flex items-start space-x-4">
-          <div className="text-4xl">4️⃣</div>
+          <div className="text-4xl">4</div>
           <div className="flex-1">
             <h2 className="text-2xl font-bold mb-4">Pair Your Channel</h2>
             <p className="text-gray-600 dark:text-gray-400 mb-4">
@@ -141,7 +183,7 @@ export default function SetupPage() {
       {/* Step 5: Test */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-200 dark:border-gray-700">
         <div className="flex items-start space-x-4">
-          <div className="text-4xl">5️⃣</div>
+          <div className="text-4xl">5</div>
           <div className="flex-1">
             <h2 className="text-2xl font-bold mb-4">Test the Integration</h2>
             <p className="text-gray-600 dark:text-gray-400 mb-4">
@@ -162,49 +204,15 @@ export default function SetupPage() {
         </div>
       </div>
 
-      {/* Manual Installation */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-        <h2 className="text-2xl font-bold mb-4">🛠️ Manual Installation</h2>
-        <p className="text-gray-600 dark:text-gray-400 mb-4">
-          For developers or if the installer doesn't work for your setup:
-        </p>
-
-        <div className="space-y-4">
-          <div>
-            <h3 className="font-semibold mb-2">Step 1: Clone the Repository</h3>
-            <code className="block bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded text-sm overflow-x-auto">
-              git clone https://github.com/CarmaNayeli/rollCloud.git
-            </code>
-          </div>
-
-          <div>
-            <h3 className="font-semibold mb-2">Step 2: Build the Extension</h3>
-            <code className="block bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded text-sm overflow-x-auto">
-              cd rollCloud && npm install && npm run build
-            </code>
-          </div>
-
-          <div>
-            <h3 className="font-semibold mb-2">Step 3: Load in Chrome</h3>
-            <ol className="text-sm space-y-1 list-decimal list-inside text-gray-600 dark:text-gray-400">
-              <li>Open <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">chrome://extensions</code></li>
-              <li>Enable "Developer mode" (top right)</li>
-              <li>Click "Load unpacked"</li>
-              <li>Select the <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">dist</code> folder</li>
-            </ol>
-          </div>
-        </div>
-      </div>
-
       {/* Troubleshooting */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-200 dark:border-gray-700">
-        <h2 className="text-2xl font-bold mb-4">🔧 Troubleshooting</h2>
+        <h2 className="text-2xl font-bold mb-4">Troubleshooting</h2>
 
         <div className="space-y-4">
           <div>
             <h3 className="font-semibold text-red-600 dark:text-red-400">Extension not detecting DiceCloud?</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Make sure you're on dicecloud.com and refresh the page after installing.
+              Make sure you&apos;re on dicecloud.com and refresh the page after installing.
             </p>
           </div>
 
@@ -228,7 +236,7 @@ export default function SetupPage() {
 
       {/* Support */}
       <div className="bg-gradient-to-r from-green-500 to-teal-600 text-white rounded-lg shadow-lg p-6">
-        <h2 className="text-2xl font-bold mb-2">✅ All Set!</h2>
+        <h2 className="text-2xl font-bold mb-2">All Set!</h2>
         <p className="mb-4">
           Your bot should now be working. Use <code className="bg-white/20 px-2 py-1 rounded">/help</code> to see all available commands.
         </p>
@@ -245,6 +253,174 @@ export default function SetupPage() {
           >
             Pip 2 Settings
           </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ManualDownloadContent() {
+  return (
+    <div className="space-y-8">
+      {/* Direct Download Links */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+        <h2 className="text-2xl font-bold mb-4">Direct Downloads</h2>
+        <p className="text-gray-600 dark:text-gray-400 mb-6">
+          Download the RollCloud extension directly for your browser or platform.
+        </p>
+
+        <div className="grid md:grid-cols-2 gap-4 mb-6">
+          <a
+            href="https://github.com/CarmaNayeli/rollCloud/releases/latest/download/RollCloud-Setup.exe"
+            className="flex items-center gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition"
+          >
+            <span className="text-3xl">&#128187;</span>
+            <div>
+              <div className="font-semibold">Windows Installer</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">RollCloud-Setup.exe</div>
+            </div>
+          </a>
+
+          <a
+            href="https://github.com/CarmaNayeli/rollCloud/releases/latest/download/RollCloud-Setup.dmg"
+            className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition"
+          >
+            <span className="text-3xl">&#127822;</span>
+            <div>
+              <div className="font-semibold">macOS Installer</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">RollCloud-Setup.dmg</div>
+            </div>
+          </a>
+
+          <a
+            href="https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-chrome.crx"
+            className="flex items-center gap-3 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg hover:bg-yellow-100 dark:hover:bg-yellow-900/40 transition"
+          >
+            <span className="text-3xl">C</span>
+            <div>
+              <div className="font-semibold">Chrome Extension</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">rollcloud-chrome.crx</div>
+            </div>
+          </a>
+
+          <a
+            href="https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-firefox-signed.xpi"
+            className="flex items-center gap-3 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/40 transition"
+          >
+            <span className="text-3xl">F</span>
+            <div>
+              <div className="font-semibold">Firefox Extension</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">rollcloud-firefox-signed.xpi</div>
+            </div>
+          </a>
+        </div>
+
+        <a
+          href="https://github.com/CarmaNayeli/rollCloud/releases/latest"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 text-green-600 dark:text-green-400 hover:underline"
+        >
+          View all releases on GitHub
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
+        </a>
+      </div>
+
+      {/* Manual Installation from Source */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+        <h2 className="text-2xl font-bold mb-4">Build from Source</h2>
+        <p className="text-gray-600 dark:text-gray-400 mb-4">
+          For developers or if the installer doesn&apos;t work for your setup:
+        </p>
+
+        <div className="space-y-4">
+          <div>
+            <h3 className="font-semibold mb-2">Step 1: Clone the Repository</h3>
+            <code className="block bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded text-sm overflow-x-auto">
+              git clone https://github.com/CarmaNayeli/rollCloud.git
+            </code>
+          </div>
+
+          <div>
+            <h3 className="font-semibold mb-2">Step 2: Build the Extension</h3>
+            <code className="block bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded text-sm overflow-x-auto">
+              cd rollCloud && npm install && npm run build
+            </code>
+          </div>
+
+          <div>
+            <h3 className="font-semibold mb-2">Step 3: Load in Chrome</h3>
+            <ol className="text-sm space-y-1 list-decimal list-inside text-gray-600 dark:text-gray-400">
+              <li>Open <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">chrome://extensions</code></li>
+              <li>Enable &quot;Developer mode&quot; (top right)</li>
+              <li>Click &quot;Load unpacked&quot;</li>
+              <li>Select the <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">dist</code> folder</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+
+      {/* Chrome Manual Installation */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+        <h2 className="text-2xl font-bold mb-4">Chrome Manual Installation</h2>
+        <p className="text-gray-600 dark:text-gray-400 mb-4">
+          If you downloaded the .crx file directly:
+        </p>
+
+        <ol className="space-y-3 text-sm">
+          <li className="flex items-start space-x-2">
+            <span className="font-bold">1.</span>
+            <div>Open Chrome and go to <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">chrome://extensions</code></div>
+          </li>
+          <li className="flex items-start space-x-2">
+            <span className="font-bold">2.</span>
+            <div>Enable &quot;Developer mode&quot; in the top right corner</div>
+          </li>
+          <li className="flex items-start space-x-2">
+            <span className="font-bold">3.</span>
+            <div>Drag and drop the .crx file onto the extensions page</div>
+          </li>
+          <li className="flex items-start space-x-2">
+            <span className="font-bold">4.</span>
+            <div>Click &quot;Add extension&quot; when prompted</div>
+          </li>
+        </ol>
+      </div>
+
+      {/* Firefox Manual Installation */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-200 dark:border-gray-700">
+        <h2 className="text-2xl font-bold mb-4">Firefox Manual Installation</h2>
+        <p className="text-gray-600 dark:text-gray-400 mb-4">
+          If you downloaded the .xpi file directly:
+        </p>
+
+        <ol className="space-y-3 text-sm">
+          <li className="flex items-start space-x-2">
+            <span className="font-bold">1.</span>
+            <div>Open Firefox and go to <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">about:addons</code></div>
+          </li>
+          <li className="flex items-start space-x-2">
+            <span className="font-bold">2.</span>
+            <div>Click the gear icon and select &quot;Install Add-on From File...&quot;</div>
+          </li>
+          <li className="flex items-start space-x-2">
+            <span className="font-bold">3.</span>
+            <div>Select the downloaded .xpi file</div>
+          </li>
+          <li className="flex items-start space-x-2">
+            <span className="font-bold">4.</span>
+            <div>Click &quot;Add&quot; when prompted</div>
+          </li>
+        </ol>
+
+        <div className="mt-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded p-4">
+          <h3 className="font-semibold mb-2">Note: Firefox Developer Edition Recommended</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            For the best experience, we recommend using Firefox Developer Edition which supports
+            unsigned extensions for testing purposes.
+          </p>
         </div>
       </div>
     </div>
