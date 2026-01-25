@@ -1167,22 +1167,52 @@ function initializePopup() {
       setupBtn.disabled = true;
       setupBtn.textContent = '⏳ Setting up...';
 
-      // Generate pairing code
-      const code = generatePairingCode();
+      // Check for installer-provided pairing code first
+      let code = null;
+      let installerProvided = false;
+
+      try {
+        // First, request fresh code from installer via native messaging
+        debug.log('🔍 Requesting pairing code from installer...');
+        await browserAPI.runtime.sendMessage({ action: 'requestPairingCodeFromInstaller' });
+
+        // Small delay to allow native messaging response
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Check if installer provided a code
+        const stored = await browserAPI.storage.local.get(['installerPairingCode']);
+        if (stored.installerPairingCode) {
+          code = stored.installerPairingCode;
+          installerProvided = true;
+          debug.log('📥 Using installer-provided pairing code:', code);
+          // Clear the stored code so it's not reused
+          await browserAPI.storage.local.remove(['installerPairingCode']);
+        }
+      } catch (e) {
+        debug.warn('Could not check for installer pairing code:', e);
+      }
+
+      // If no installer code, generate one locally
+      if (!code) {
+        code = generatePairingCode();
+        debug.log('🎲 Generated local pairing code:', code);
+      }
 
       // Get DiceCloud user info
       const loginStatus = await browserAPI.runtime.sendMessage({ action: 'checkLoginStatus' });
       const diceCloudUsername = loginStatus.username || 'Unknown';
 
-      // Store in Supabase
-      const storeResult = await browserAPI.runtime.sendMessage({
-        action: 'createDiscordPairing',
-        code: code,
-        username: diceCloudUsername
-      });
+      // Store in Supabase (only if we generated locally - installer code already exists)
+      if (!installerProvided) {
+        const storeResult = await browserAPI.runtime.sendMessage({
+          action: 'createDiscordPairing',
+          code: code,
+          username: diceCloudUsername
+        });
 
-      if (!storeResult.success) {
-        throw new Error(storeResult.error || 'Failed to create pairing');
+        if (!storeResult.success) {
+          throw new Error(storeResult.error || 'Failed to create pairing');
+        }
       }
 
       // Show pairing state
