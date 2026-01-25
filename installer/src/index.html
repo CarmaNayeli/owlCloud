@@ -55,11 +55,17 @@
         <div id="installComplete" class="hidden">
           <p class="success-text">Extension installed successfully!</p>
           <p class="note">You may need to restart your browser for changes to take effect.</p>
-          <button id="continueToStep3" class="btn btn-primary">Continue</button>
+          <div class="button-row">
+            <button id="backToStep1" class="btn btn-secondary">Back</button>
+            <button id="continueToStep3" class="btn btn-primary">Continue</button>
+          </div>
         </div>
         <div id="installError" class="hidden">
           <p class="error-text" id="installErrorText">Installation failed</p>
-          <button id="retryInstall" class="btn btn-secondary">Retry</button>
+          <div class="button-row">
+            <button id="backToStep1FromError" class="btn btn-secondary">Back</button>
+            <button id="retryInstall" class="btn btn-primary">Retry</button>
+          </div>
         </div>
       </div>
     </section>
@@ -81,7 +87,13 @@
         <p class="note">A browser window will open. Select your Discord server and authorize the bot.</p>
         <div id="botAdded" class="hidden">
           <p class="success-text">Great! Click continue when you've added the bot.</p>
-          <button id="continueToStep4" class="btn btn-primary">Continue</button>
+          <div class="button-row">
+            <button id="backToStep2" class="btn btn-secondary">Back</button>
+            <button id="continueToStep4" class="btn btn-primary">Continue</button>
+          </div>
+        </div>
+        <div class="step-nav">
+          <button id="backToStep2Nav" class="btn btn-text">Back to Extension Install</button>
         </div>
       </div>
     </section>
@@ -99,6 +111,7 @@
           <button id="copyCode" class="btn-icon" title="Copy code">[copy]</button>
         </div>
         <div class="button-group">
+          <button id="backToStep3" class="btn btn-secondary">Back</button>
           <button id="regenerateCode" class="btn btn-secondary">
             🔄 Generate New Code
           </button>

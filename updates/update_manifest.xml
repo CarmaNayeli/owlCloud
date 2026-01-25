@@ -12,7 +12,7 @@
   4. Commit and push this file
 -->
 <gupdate xmlns='http://www.google.com/update2/response' protocol='2.0'>
-  <app appid='abcdefghijklmnopabcdefghijklmnop'>
+  <app appid='mkckngoemfjdkhcpaomdndlecolckgdj'>
     <updatecheck
       codebase='https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-chrome.crx'
       version='1.2.0' />

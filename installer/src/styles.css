@@ -220,10 +220,49 @@ header h1 {
 .button-group {
   margin: 15px 0;
   text-align: center;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
 }
 
 .button-group .btn {
-  margin: 0 5px;
+  margin: 0;
+}
+
+.button-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.button-row .btn-secondary {
+  flex: 0 0 auto;
+}
+
+.button-row .btn-primary {
+  flex: 1;
+}
+
+.step-nav {
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.btn-text {
+  background: none;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  font-size: 0.9em;
+  padding: 5px 0;
+  transition: color 0.2s;
+}
+
+.btn-text:hover {
+  color: #22c55e;
+  transform: none;
+  box-shadow: none;
 }
 
 .success-text {

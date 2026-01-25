@@ -85,9 +85,26 @@ function getBrowserName(browser) {
 function setupStep2() {
   const continueBtn = document.getElementById('continueToStep3');
   const retryBtn = document.getElementById('retryInstall');
+  const backBtn = document.getElementById('backToStep1');
+  const backBtnFromError = document.getElementById('backToStep1FromError');
 
   continueBtn.addEventListener('click', () => goToStep(3));
   retryBtn.addEventListener('click', () => installExtension());
+
+  // Back buttons
+  backBtn.addEventListener('click', () => {
+    selectedBrowser = null;
+    document.querySelectorAll('.browser-btn').forEach(btn => btn.classList.remove('selected'));
+    document.getElementById('browserStatus').textContent = '';
+    goToStep(1);
+  });
+
+  backBtnFromError.addEventListener('click', () => {
+    selectedBrowser = null;
+    document.querySelectorAll('.browser-btn').forEach(btn => btn.classList.remove('selected'));
+    document.getElementById('browserStatus').textContent = '';
+    goToStep(1);
+  });
 }
 
 async function installExtension() {
@@ -130,6 +147,8 @@ function setupStep3() {
   const skipBotBtn = document.getElementById('skipPipBot');
   const continueBtn = document.getElementById('continueToStep4');
   const botAddedDiv = document.getElementById('botAdded');
+  const backBtn = document.getElementById('backToStep2');
+  const backBtnNav = document.getElementById('backToStep2Nav');
 
   addBotBtn.addEventListener('click', async () => {
     await window.api.openDiscordInvite();
@@ -145,6 +164,15 @@ function setupStep3() {
   });
 
   continueBtn.addEventListener('click', () => goToStep(4));
+
+  // Back buttons
+  const goBackToStep2 = () => {
+    botAddedDiv.classList.add('hidden');
+    goToStep(2);
+  };
+
+  backBtn.addEventListener('click', goBackToStep2);
+  backBtnNav.addEventListener('click', goBackToStep2);
 }
 
 // ============================================================================
@@ -154,6 +182,13 @@ function setupStep3() {
 function setupStep4() {
   const copyBtn = document.getElementById('copyCode');
   const regenerateBtn = document.getElementById('regenerateCode');
+  const backBtn = document.getElementById('backToStep3');
+
+  // Back button - stop polling and go back
+  backBtn.addEventListener('click', () => {
+    stopPairing();
+    goToStep(3);
+  });
 
   copyBtn.addEventListener('click', () => {
     if (pairingCode) {
