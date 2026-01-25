@@ -45,23 +45,24 @@ class SupabaseTokenManager {
   async storeToken(tokenData) {
     try {
       debug.log('🌐 Storing token in Supabase...');
-      
-      // Use authId for database identification, display username for UI
-      const userId = tokenData.authId || this.generateUserId();
+
+      // Use browser fingerprint for consistent storage/retrieval
+      const oderId = this.generateUserId();
       const payload = {
-        user_id: userId, // Use authId for database identification
+        user_id: oderId, // Browser fingerprint for cross-session lookup
         dicecloud_token: tokenData.token,
-        username: tokenData.username || 'DiceCloud User', // Display username only
-        user_id_dicecloud: tokenData.userId,
+        username: tokenData.username || 'DiceCloud User',
+        user_id_dicecloud: tokenData.userId, // Store DiceCloud ID separately
         token_expires: tokenData.tokenExpires,
         browser_info: {
           userAgent: navigator.userAgent,
+          authId: tokenData.authId, // Store authId in browser_info for reference
           timestamp: new Date().toISOString()
         },
         updated_at: new Date().toISOString()
       };
 
-      debug.log('🌐 Storing with authId:', userId, 'and display username:', tokenData.username);
+      debug.log('🌐 Storing with browser ID:', oderId, 'DiceCloud ID:', tokenData.authId);
 
       const response = await fetch(`${this.supabaseUrl}/rest/v1/${this.tableName}`, {
         method: 'POST',
@@ -76,7 +77,7 @@ class SupabaseTokenManager {
 
       if (!response.ok) {
         // Try to update if insert fails (user already exists)
-        const updateResponse = await fetch(`${this.supabaseUrl}/rest/v1/${this.tableName}?user_id=eq.${userId}`, {
+        const updateResponse = await fetch(`${this.supabaseUrl}/rest/v1/${this.tableName}?user_id=eq.${oderId}`, {
           method: 'PATCH',
           headers: {
             'apikey': this.supabaseKey,
@@ -86,11 +87,12 @@ class SupabaseTokenManager {
           },
           body: JSON.stringify({
             dicecloud_token: tokenData.token,
-            username: tokenData.username || 'DiceCloud User', // Display username only
+            username: tokenData.username || 'DiceCloud User',
             user_id_dicecloud: tokenData.userId,
             token_expires: tokenData.tokenExpires,
             browser_info: {
               userAgent: navigator.userAgent,
+              authId: tokenData.authId,
               timestamp: new Date().toISOString()
             },
             updated_at: new Date().toISOString()
