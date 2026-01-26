@@ -416,7 +416,7 @@ class SupabaseTokenManager {
         spell_slots: characterData.spellSlots || {},
         resources: characterData.resources || [],
         conditions: characterData.conditions || [],
-        raw_dicecloud_data: characterData.rawDiceCloudData || null,
+        raw_dicecloud_data: characterData, // Store the FULL character object
         updated_at: new Date().toISOString()
       };
 
