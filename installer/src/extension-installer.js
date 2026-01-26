@@ -1734,6 +1734,67 @@ async function forceReinstallExtension(browser, config) {
   }
 }
 
+/**
+ * Restart browser to apply extension policy
+ * Closes the browser and relaunches it
+ */
+async function restartBrowser(browser) {
+  const platform = process.platform;
+
+  console.log(`Restarting ${browser}...`);
+
+  return new Promise((resolve, reject) => {
+    let killCmd, launchCmd;
+
+    if (browser === 'chrome') {
+      if (platform === 'win32') {
+        killCmd = 'taskkill /f /im chrome.exe';
+        launchCmd = 'start chrome';
+      } else if (platform === 'darwin') {
+        killCmd = 'pkill -f "Google Chrome"';
+        launchCmd = 'open -a "Google Chrome"';
+      } else {
+        killCmd = 'pkill -f chrome';
+        launchCmd = 'google-chrome &';
+      }
+    } else if (browser === 'firefox') {
+      if (platform === 'win32') {
+        killCmd = 'taskkill /f /im firefox.exe';
+        launchCmd = 'start firefox';
+      } else if (platform === 'darwin') {
+        killCmd = 'pkill -f Firefox';
+        launchCmd = 'open -a Firefox';
+      } else {
+        killCmd = 'pkill -f firefox';
+        launchCmd = 'firefox &';
+      }
+    } else {
+      return reject(new Error(`Unknown browser: ${browser}`));
+    }
+
+    // Kill browser (ignore errors if not running)
+    exec(killCmd, (killError) => {
+      if (killError) {
+        console.log(`  Browser may not have been running: ${killError.message}`);
+      }
+
+      // Wait for browser to fully close
+      setTimeout(() => {
+        // Launch browser
+        exec(launchCmd, (launchError) => {
+          if (launchError) {
+            console.error(`  Failed to launch browser: ${launchError.message}`);
+            return reject(launchError);
+          }
+
+          console.log(`  ${browser} restarted successfully`);
+          resolve({ success: true, message: `${browser} restarted` });
+        });
+      }, 2000); // Wait 2 seconds for browser to close
+    });
+  });
+}
+
 module.exports = {
   installExtension,
   uninstallExtension,
@@ -1741,5 +1802,6 @@ module.exports = {
   installFirefoxDeveloperEdition,
   checkForUpdates,
   updateExtension,
-  forceReinstallExtension
+  forceReinstallExtension,
+  restartBrowser
 };
