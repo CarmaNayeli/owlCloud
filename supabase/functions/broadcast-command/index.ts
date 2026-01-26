@@ -44,21 +44,29 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Broadcast to the pairing-specific channel
+    // Broadcast to the pairing-specific channel using Supabase Realtime
+    // The extension expects: message.event === 'broadcast' with message.payload.record
     const channelName = `rollcloud_commands:pairing:${command.pairing_id}`
-
+    
     const channel = supabase.channel(channelName)
-
-    const broadcastResult = await channel.send({
-      type: 'broadcast',
-      event: 'INSERT',
-      payload: data
-    })
-
-    console.log('Broadcast result:', broadcastResult)
-
-    // Unsubscribe from channel after sending
-    await supabase.removeChannel(channel)
+    
+    try {
+      const broadcastResult = await channel.send({
+        type: 'broadcast',
+        event: 'INSERT',
+        payload: {
+          record: data  // Extension looks for message.payload.record
+        }
+      })
+      
+      console.log('Broadcast result:', broadcastResult)
+    } catch (broadcastError) {
+      console.error('Broadcast error:', broadcastError)
+      // Don't fail the whole function if broadcast fails
+    } finally {
+      // Clean up the channel
+      await supabase.removeChannel(channel)
+    }
 
     return new Response(
       JSON.stringify({ success: true, command: data }),
