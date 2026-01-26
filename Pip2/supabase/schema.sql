@@ -11,12 +11,14 @@ CREATE TABLE IF NOT EXISTS rollcloud_pairings (
   dicecloud_user_id VARCHAR(50),
   dicecloud_username VARCHAR(100),
 
-  -- Discord info (filled in by Pip Bot after /setupmyrollcloud)
+  -- Discord info (filled in by Pip Bot after /rollcloud)
   discord_guild_id VARCHAR(20),
   discord_guild_name VARCHAR(100),
   discord_channel_id VARCHAR(20),
   discord_channel_name VARCHAR(100),
   discord_user_id VARCHAR(20),
+  discord_username VARCHAR(100),
+  discord_global_name VARCHAR(100),
 
   -- The webhook URL (filled in by Pip Bot)
   webhook_url TEXT,
@@ -215,3 +217,4 @@ $$ LANGUAGE plpgsql;
 -- Enable realtime for the turns table so Pip Bot can subscribe
 ALTER PUBLICATION supabase_realtime ADD TABLE rollcloud_turns;
 ALTER PUBLICATION supabase_realtime ADD TABLE rollcloud_commands;
+ALTER PUBLICATION supabase_realtime ADD TABLE rollcloud_pairings;

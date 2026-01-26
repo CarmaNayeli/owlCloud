@@ -248,9 +248,13 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
             // Start command polling
             startCommandPolling(request.pairingId);
           }
-          // Link Discord user ID to auth_tokens if provided
+          // Link Discord user info to auth_tokens if provided
           if (request.discordUserId && request.discordUserId !== 'null') {
-            await linkDiscordUserToAuthTokens(request.discordUserId);
+            await linkDiscordUserToAuthTokens(
+              request.discordUserId,
+              request.discordUsername,
+              request.discordGlobalName
+            );
           }
           response = { success: true };
           break;
@@ -265,7 +269,7 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
             if (stored.discordPairingId && isSupabaseConfigured()) {
               try {
                 const pairingResponse = await fetch(
-                  `${SUPABASE_URL}/rest/v1/rollcloud_pairings?id=eq.${stored.discordPairingId}&select=discord_user_id`,
+                  `${SUPABASE_URL}/rest/v1/rollcloud_pairings?id=eq.${stored.discordPairingId}&select=discord_user_id,discord_username,discord_global_name`,
                   {
                     headers: {
                       'apikey': SUPABASE_ANON_KEY,
@@ -276,8 +280,12 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 if (pairingResponse.ok) {
                   const pairings = await pairingResponse.json();
                   if (pairings.length > 0 && pairings[0].discord_user_id) {
-                    // Ensure auth_tokens has this discord_user_id
-                    await linkDiscordUserToAuthTokens(pairings[0].discord_user_id);
+                    // Ensure auth_tokens has all Discord info
+                    await linkDiscordUserToAuthTokens(
+                      pairings[0].discord_user_id,
+                      pairings[0].discord_username,
+                      pairings[0].discord_global_name
+                    );
                   }
                 }
               } catch (e) {
@@ -1246,10 +1254,13 @@ function buildDiscordMessage(payload) {
 // ============================================================================
 
 /**
- * Link Discord user ID to auth_tokens table
+ * Link Discord user info to auth_tokens table
  * This allows character sync to associate characters with Discord accounts
+ * @param {string} discordUserId - The Discord user ID
+ * @param {string} [discordUsername] - The Discord username
+ * @param {string} [discordGlobalName] - The Discord display name
  */
-async function linkDiscordUserToAuthTokens(discordUserId) {
+async function linkDiscordUserToAuthTokens(discordUserId, discordUsername, discordGlobalName) {
   if (!isSupabaseConfigured() || !discordUserId) {
     debug.warn('Cannot link Discord user - Supabase not configured or no user ID');
     return { success: false };
@@ -1271,9 +1282,21 @@ async function linkDiscordUserToAuthTokens(discordUserId) {
     }
     const visitorId = 'user_' + Math.abs(hash).toString(36);
 
-    debug.log('🔗 Linking Discord user to auth_tokens:', discordUserId, 'for browser:', visitorId);
+    debug.log('🔗 Linking Discord user to auth_tokens:', discordUserId, discordUsername, discordGlobalName, 'for browser:', visitorId);
 
-    // Update auth_tokens with discord_user_id
+    // Build update payload with all available Discord fields
+    const updatePayload = {
+      discord_user_id: discordUserId,
+      updated_at: new Date().toISOString()
+    };
+    if (discordUsername) {
+      updatePayload.discord_username = discordUsername;
+    }
+    if (discordGlobalName) {
+      updatePayload.discord_global_name = discordGlobalName;
+    }
+
+    // Update auth_tokens with Discord info
     const response = await fetch(
       `${SUPABASE_URL}/rest/v1/auth_tokens?user_id=eq.${visitorId}`,
       {
@@ -1284,10 +1307,7 @@ async function linkDiscordUserToAuthTokens(discordUserId) {
           'Content-Type': 'application/json',
           'Prefer': 'return=minimal'
         },
-        body: JSON.stringify({
-          discord_user_id: discordUserId,
-          updated_at: new Date().toISOString()
-        })
+        body: JSON.stringify(updatePayload)
       }
     );
 
@@ -1457,7 +1477,7 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
       if (!discordUserId && payload.user_id_dicecloud) {
         try {
           const pairingResponse = await fetch(
-            `${SUPABASE_URL}/rest/v1/rollcloud_pairings?dicecloud_user_id=eq.${payload.user_id_dicecloud}&status=eq.connected&select=discord_user_id`,
+            `${SUPABASE_URL}/rest/v1/rollcloud_pairings?dicecloud_user_id=eq.${payload.user_id_dicecloud}&status=eq.connected&select=discord_user_id,discord_username,discord_global_name`,
             {
               headers: {
                 'apikey': SUPABASE_ANON_KEY,
@@ -1471,7 +1491,11 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
               discordUserId = pairings[0].discord_user_id;
               debug.log('✅ Found Discord user ID from pairings:', discordUserId);
               // Also update auth_tokens so future lookups are faster
-              await linkDiscordUserToAuthTokens(discordUserId);
+              await linkDiscordUserToAuthTokens(
+                discordUserId,
+                pairings[0].discord_username,
+                pairings[0].discord_global_name
+              );
             }
           }
         } catch (error) {
@@ -1485,7 +1509,7 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
           const stored = await browserAPI.storage.local.get(['discordPairingId']);
           if (stored.discordPairingId) {
             const pairingResponse = await fetch(
-              `${SUPABASE_URL}/rest/v1/rollcloud_pairings?id=eq.${stored.discordPairingId}&select=discord_user_id`,
+              `${SUPABASE_URL}/rest/v1/rollcloud_pairings?id=eq.${stored.discordPairingId}&select=discord_user_id,discord_username,discord_global_name`,
               {
                 headers: {
                   'apikey': SUPABASE_ANON_KEY,
@@ -1498,8 +1522,12 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
               if (pairings.length > 0 && pairings[0].discord_user_id) {
                 discordUserId = pairings[0].discord_user_id;
                 debug.log('✅ Found Discord user ID from stored pairing:', discordUserId);
-                // Also update auth_tokens
-                await linkDiscordUserToAuthTokens(discordUserId);
+                // Also update auth_tokens with all Discord info
+                await linkDiscordUserToAuthTokens(
+                  discordUserId,
+                  pairings[0].discord_username,
+                  pairings[0].discord_global_name
+                );
               }
             }
           }
@@ -1623,6 +1651,154 @@ function isSupabaseConfigured() {
          SUPABASE_ANON_KEY !== 'your-anon-key';
 }
 
+// ============================================================================
+// Supabase Realtime Subscription for Pairing Updates
+// ============================================================================
+
+let realtimeSocket = null;
+let realtimeHeartbeat = null;
+let currentPairingCode = null;
+
+/**
+ * Subscribe to Realtime updates for a pairing code
+ * When the Discord bot completes the pairing, we'll get notified immediately
+ */
+function subscribeToRealtimePairing(pairingCode) {
+  if (!isSupabaseConfigured()) {
+    debug.warn('Cannot subscribe to Realtime - Supabase not configured');
+    return;
+  }
+
+  // Store the pairing code we're watching
+  currentPairingCode = pairingCode;
+
+  // Close existing connection if any
+  if (realtimeSocket) {
+    realtimeSocket.close();
+  }
+
+  // Extract project ref from URL
+  const projectRef = SUPABASE_URL.replace('https://', '').split('.')[0];
+  const wsUrl = `wss://${projectRef}.supabase.co/realtime/v1/websocket?apikey=${SUPABASE_ANON_KEY}&vsn=1.0.0`;
+
+  debug.log('🔌 Connecting to Supabase Realtime for pairing:', pairingCode);
+
+  try {
+    realtimeSocket = new WebSocket(wsUrl);
+
+    realtimeSocket.onopen = () => {
+      debug.log('✅ Realtime WebSocket connected');
+
+      // Send join message to subscribe to pairing updates
+      const joinMessage = {
+        topic: `realtime:public:rollcloud_pairings:pairing_code=eq.${pairingCode}`,
+        event: 'phx_join',
+        payload: {
+          config: {
+            broadcast: { self: false },
+            presence: { key: '' },
+            postgres_changes: [{
+              event: 'UPDATE',
+              schema: 'public',
+              table: 'rollcloud_pairings',
+              filter: `pairing_code=eq.${pairingCode}`
+            }]
+          }
+        },
+        ref: '1'
+      };
+      realtimeSocket.send(JSON.stringify(joinMessage));
+
+      // Start heartbeat to keep connection alive
+      realtimeHeartbeat = setInterval(() => {
+        if (realtimeSocket && realtimeSocket.readyState === WebSocket.OPEN) {
+          realtimeSocket.send(JSON.stringify({
+            topic: 'phoenix',
+            event: 'heartbeat',
+            payload: {},
+            ref: Date.now().toString()
+          }));
+        }
+      }, 30000);
+    };
+
+    realtimeSocket.onmessage = async (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        debug.log('📨 Realtime message:', message.event);
+
+        // Handle postgres_changes events
+        if (message.event === 'postgres_changes' && message.payload?.data?.record) {
+          const record = message.payload.data.record;
+
+          // Check if pairing was completed
+          if (record.status === 'connected' && record.discord_user_id) {
+            debug.log('🎉 Pairing completed via Realtime! Discord user:', record.discord_user_id);
+
+            // Update auth_tokens with full Discord info
+            await linkDiscordUserToAuthTokens(
+              record.discord_user_id,
+              record.discord_username,
+              record.discord_global_name
+            );
+
+            // Notify popup that pairing is complete
+            try {
+              await browserAPI.runtime.sendMessage({
+                action: 'pairingComplete',
+                discordUserId: record.discord_user_id,
+                discordUsername: record.discord_username,
+                discordGlobalName: record.discord_global_name,
+                webhookUrl: record.webhook_url,
+                serverName: record.discord_guild_name,
+                pairingId: record.id
+              });
+            } catch (e) {
+              // Popup might not be open
+              debug.log('Could not notify popup (probably not open)');
+            }
+
+            // Clean up subscription
+            unsubscribeFromRealtimePairing();
+          }
+        }
+      } catch (e) {
+        debug.warn('Error processing Realtime message:', e);
+      }
+    };
+
+    realtimeSocket.onerror = (error) => {
+      debug.warn('Realtime WebSocket error:', error);
+    };
+
+    realtimeSocket.onclose = () => {
+      debug.log('🔌 Realtime WebSocket closed');
+      if (realtimeHeartbeat) {
+        clearInterval(realtimeHeartbeat);
+        realtimeHeartbeat = null;
+      }
+    };
+  } catch (error) {
+    debug.error('Failed to connect to Realtime:', error);
+  }
+}
+
+/**
+ * Unsubscribe from Realtime updates
+ */
+function unsubscribeFromRealtimePairing() {
+  if (realtimeSocket) {
+    realtimeSocket.close();
+    realtimeSocket = null;
+  }
+  if (realtimeHeartbeat) {
+    clearInterval(realtimeHeartbeat);
+    realtimeHeartbeat = null;
+  }
+  currentPairingCode = null;
+  debug.log('🔌 Unsubscribed from Realtime pairing updates');
+}
+
 /**
  * Create a Discord pairing code in Supabase
  */
@@ -1656,6 +1832,11 @@ async function createDiscordPairing(code, diceCloudUsername, diceCloudUserId) {
 
     if (response.ok) {
       debug.log('✅ Discord pairing created:', code, 'for DiceCloud user:', diceCloudUserId);
+
+      // Subscribe to Realtime updates for this pairing code
+      // This will notify us immediately when the Discord bot completes the pairing
+      subscribeToRealtimePairing(code);
+
       return { success: true, code };
     } else {
       const error = await response.text();
@@ -1700,7 +1881,9 @@ async function checkDiscordPairing(code) {
             webhookUrl: pairing.webhook_url,
             serverName: pairing.discord_guild_name,
             pairingId: pairing.id, // Return pairing ID for command polling
-            discordUserId: pairing.discord_user_id // Return Discord user ID to link to auth_tokens
+            discordUserId: pairing.discord_user_id, // Return Discord user ID to link to auth_tokens
+            discordUsername: pairing.discord_username,
+            discordGlobalName: pairing.discord_global_name
           };
         } else {
           return { success: true, connected: false };
