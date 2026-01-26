@@ -208,159 +208,63 @@
     <p class="subtitle">DiceCloud + Roll20 + Discord Integration</p>
     
     <div class="instructions">
-      <h3>🚀 Getting Started</h3>
-      
+      <h3>Getting Started</h3>
+
       <div class="step">
         <div class="step-number">1</div>
         <div class="step-content">
-          <h4>🎲 Go to DiceCloud</h4>
-          <p>Navigate to <a href="https://dicecloud.com" target="_blank">dicecloud.com</a> and open your character sheet</p>
+          <h4>Sync Your Character</h4>
+          <p>Open <a href="https://dicecloud.com" target="_blank">dicecloud.com</a>, go to your character sheet, then click the RollCloud icon in your toolbar and click "Refresh Characters"</p>
         </div>
       </div>
-      
+
       <div class="step">
         <div class="step-number">2</div>
         <div class="step-content">
-          <h4>🔄 Sync Your Character</h4>
-          <p>Click the RollCloud icon in your browser toolbar, then click "🔄 Sync from Dice Cloud"</p>
+          <h4>Open Roll20</h4>
+          <p>Go to your <a href="https://roll20.net" target="_blank">Roll20</a> game. Click "Show Character Sheet" in the popup to see your character overlay</p>
         </div>
       </div>
-      
+
       <div class="step">
         <div class="step-number">3</div>
         <div class="step-content">
-          <h4>🎯 Open Roll20</h4>
-          <p>Go to your Roll20 campaign and refresh the page to see your synced character sheet</p>
-        </div>
-      </div>
-      
-      <div class="step">
-        <div class="step-number">4</div>
-        <div class="step-content">
-          <h4>📋 Show Character Sheet</h4>
-          <p>Click "📋 Show Character Sheet" in the RollCloud popup to display your character overlay</p>
-        </div>
-      </div>
-      
-      <div class="step">
-        <div class="step-number">5</div>
-        <div class="step-content">
-          <h4>💬 Connect to Discord</h4>
-          <p>Expand "Discord Integration" in the popup and follow the setup instructions for turn notifications</p>
+          <h4>Connect Discord (Optional)</h4>
+          <p>In the popup, expand "Discord Integration" and click "Setup Discord". You'll get a 6-character code to type in your Discord channel with <code>/rollcloud CODE</code></p>
         </div>
       </div>
     </div>
-    
+
     <div class="actions">
       <button id="openDiceCloudBtn" class="btn btn-primary">
-        🎲 Open DiceCloud
-      </button>
-      <button id="openPopupBtn" class="btn btn-secondary">
-        📍 How to Open RollCloud
+        Open DiceCloud
       </button>
       <button id="openDocsBtn" class="btn btn-secondary">
-        📚 View Documentation
+        View Documentation
       </button>
     </div>
-    
+
     <div class="note">
-      <strong>💡 Quick Tips:</strong>
-      <ul style="text-align: left; margin: 10px 0;">
-        <li>Click the RollCloud icon in your browser toolbar to access the popup anytime</li>
-        <li>Character data syncs FROM DiceCloud, but dice rolls happen IN Roll20</li>
-        <li>Using the installer? Return to the installer after setup to complete the installation</li>
-        <li>Need help? Join our Discord community for support</li>
-      </ul>
+      <strong>Tip:</strong> Click the RollCloud icon in your browser toolbar to open the popup anytime!
     </div>
   </div>
 
   <script>
-    // Wait for DOM to be ready
     document.addEventListener('DOMContentLoaded', function() {
-      console.log('Welcome screen loaded');
-      
-      // Get button elements
       const openDiceCloudBtn = document.getElementById('openDiceCloudBtn');
-      const openPopupBtn = document.getElementById('openPopupBtn');
       const openDocsBtn = document.getElementById('openDocsBtn');
-      
-      // Add event listeners
-      if (openDiceCloudBtn) {
-        openDiceCloudBtn.addEventListener('click', openDiceCloud);
-        console.log('DiceCloud button listener added');
-      }
-      
-      if (openPopupBtn) {
-        openPopupBtn.addEventListener('click', openPopup);
-        console.log('Popup button listener added');
-      }
-      
-      if (openDocsBtn) {
-        openDocsBtn.addEventListener('click', openDocs);
-        console.log('Docs button listener added');
-      }
-    });
 
-    function openPopup() {
-      console.log('Opening popup instructions');
-      // Since we're in the options page, we can't directly open the popup
-      // Instead, we'll show instructions and close this tab
-      alert('📍 How to open RollCloud:\n\n1. Look for the RollCloud icon (🎲) in your browser toolbar\n2. Click the icon to open the popup\n3. If you don\'t see the icon:\n   - Click the puzzle piece icon in Chrome toolbar\n   - Find RollCloud and pin it to your toolbar\n\nThis tab will close now.');
-      
-      // Close this options tab
-      closeCurrentTab();
-    }
-    
-    function openDiceCloud() {
-      console.log('Opening DiceCloud');
-      // Open DiceCloud in a new tab
-      const diceCloudWindow = window.open('https://dicecloud.com', '_blank');
-      
-      // Give a brief moment for the tab to open, then show guidance
-      setTimeout(() => {
-        alert('🎲 DiceCloud opened in a new tab!\n\nNext steps:\n1. Log in to DiceCloud\n2. Open your character sheet\n3. Come back to this tab and continue setup\n\nOr click the RollCloud icon in your toolbar to start syncing!');
-      }, 500);
-    }
-    
-    function openDocs() {
-      console.log('Opening documentation');
-      // Open documentation in a new tab
-      window.open('https://github.com/CarmaNayeli/rollCloud', '_blank');
-    }
-    
-    function closeCurrentTab() {
-      // Close this options tab using browser extension APIs
-      if (typeof chrome !== 'undefined' && chrome.tabs) {
-        chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-          if (tabs && tabs[0]) {
-            chrome.tabs.remove(tabs[0].id);
-          }
+      if (openDiceCloudBtn) {
+        openDiceCloudBtn.addEventListener('click', function() {
+          window.open('https://dicecloud.com', '_blank');
         });
-      } else if (typeof browser !== 'undefined' && browser.tabs) {
-        browser.tabs.query({active: true, currentWindow: true}, function(tabs) {
-          if (tabs && tabs[0]) {
-            browser.tabs.remove(tabs[0].id);
-          }
-        });
-      } else {
-        // Fallback: try to close the window
-        window.close();
       }
-    }
-    
-    // Auto-close after 15 seconds if user doesn't interact
-    let autoCloseTimer = setTimeout(() => {
-      console.log('Auto-closing welcome screen');
-      closeCurrentTab();
-    }, 15000);
-    
-    // Cancel auto-close when user interacts with the page
-    document.addEventListener('click', () => {
-      clearTimeout(autoCloseTimer);
-    });
-    
-    document.addEventListener('keydown', () => {
-      clearTimeout(autoCloseTimer);
+
+      if (openDocsBtn) {
+        openDocsBtn.addEventListener('click', function() {
+          window.open('https://github.com/CarmaNayeli/rollCloud', '_blank');
+        });
+      }
     });
   </script>
 </body>
