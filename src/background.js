@@ -1695,11 +1695,19 @@ async function checkDiscordCharacterIntegration(characterName, characterId) {
   try {
     debug.log(`🔍 Checking Discord integration for character: ${characterName} (${characterId})`);
     
-    // Get Discord webhook settings to find the bot's server
+    // Check for both webhook and pairing-based integration
     const webhookResult = await getDiscordWebhookSettings();
+    const pairingResult = await browserAPI.storage.local.get(['discordPairingId', 'discordPairingCode']);
     
-    if (!webhookResult.webhookUrl || !webhookResult.enabled) {
-      debug.log('❌ Discord integration not configured - no webhook found');
+    debug.log(`🔍 Webhook result:`, { hasUrl: !!webhookResult.webhookUrl, enabled: webhookResult.enabled });
+    debug.log(`🔍 Pairing result:`, { hasPairingId: !!pairingResult.discordPairingId, hasCode: !!pairingResult.discordPairingCode });
+    
+    // Check if either webhook or pairing is configured
+    const hasWebhookIntegration = webhookResult.webhookUrl && webhookResult.enabled;
+    const hasPairingIntegration = pairingResult.discordPairingId || pairingResult.discordPairingCode;
+    
+    if (!hasWebhookIntegration && !hasPairingIntegration) {
+      debug.log('❌ Discord integration not configured - no webhook or pairing found');
       return {
         success: true,
         found: false,
@@ -1707,36 +1715,38 @@ async function checkDiscordCharacterIntegration(characterName, characterId) {
         message: 'Discord integration not configured'
       };
     }
-
-    // Extract Discord server info from webhook URL
-    // Webhook URL format: https://discord.com/api/webhooks/{bot_id}/{token}
-    const webhookUrl = new URL(webhookResult.webhookUrl);
-    const botId = webhookUrl.pathname.split('/')[2];
     
-    debug.log(`🤖 Checking with bot ID: ${botId} for character: ${characterName}`);
+    let serverName = webhookResult.serverName;
     
-    // Call the pip-bot's character status API
-    // This would need to be implemented as an API endpoint in the pip-bot
-    // For now, we'll simulate by checking if we have a Discord webhook configured
-    // and if the character data exists in our local storage
+    if (hasWebhookIntegration) {
+      // Extract Discord server info from webhook URL
+      // Webhook URL format: https://discord.com/api/webhooks/{bot_id}/{token}
+      const webhookUrl = new URL(webhookResult.webhookUrl);
+      const botId = webhookUrl.pathname.split('/')[2];
+      
+      debug.log(`🤖 Checking with bot ID: ${botId} for character: ${characterName}`);
+    } else if (hasPairingIntegration) {
+      debug.log(`🤖 Checking with pairing system for character: ${characterName}`);
+      serverName = 'Discord Server (Paired)';
+    }
     
     // Get active character data to compare
     const characterData = await getActiveCharacterData();
     
     if (characterData && characterData.character_name === characterName) {
-      debug.log(`✅ Character ${characterName} found in local storage and matches Discord webhook`);
+      debug.log(`✅ Character ${characterName} found in local storage and matches Discord integration`);
       
       return {
         success: true,
         found: true,
-        serverName: webhookResult.serverName || 'Unknown Server',
-        message: `Character ${characterName} is active in Discord server: ${webhookResult.serverName || 'Unknown Server'}`,
+        serverName: serverName || 'Unknown Server',
+        message: `Character ${characterName} is active in Discord server: ${serverName || 'Unknown Server'}`,
         characterData: {
           name: characterData.character_name,
           race: characterData.race,
           class: characterData.class,
           level: characterData.level,
-          discordServer: webhookResult.serverName
+          discordServer: serverName
         }
       };
     } else {

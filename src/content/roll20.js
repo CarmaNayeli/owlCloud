@@ -1870,8 +1870,16 @@ ${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗
     const previousState = gmModeEnabled;
     gmModeEnabled = enabled !== undefined ? enabled : !gmModeEnabled;
 
+    debug.log(`👑 toggleGMMode called with enabled=${enabled}, previousState=${previousState}, newState=${gmModeEnabled}`);
+
     if (!gmPanel) {
+      debug.log('👑 Creating GM panel...');
       createGMPanel();
+    }
+
+    if (!gmPanel) {
+      debug.error('❌ Failed to create GM panel!');
+      return;
     }
 
     gmPanel.style.display = gmModeEnabled ? 'block' : 'none';
@@ -1883,6 +1891,27 @@ ${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗
       debug.log('🔍 GM Panel offsetHeight:', gmPanel.offsetHeight);
       debug.log('🔍 GM Panel computed display:', window.getComputedStyle(gmPanel).display);
       debug.log('🔍 GM Panel parent:', gmPanel.parentElement);
+      debug.log('🔍 GM Panel style:', gmPanel.style.cssText);
+      
+      // Check if panel is in viewport
+      const rect = gmPanel.getBoundingClientRect();
+      debug.log('🔍 GM Panel bounding rect:', rect);
+      debug.log('🔍 Is panel in viewport:', rect.width > 0 && rect.height > 0);
+      
+      // Force visibility check
+      setTimeout(() => {
+        debug.log('🔍 Delayed check - GM Panel display:', window.getComputedStyle(gmPanel).display);
+        debug.log('🔍 Delayed check - GM Panel visible:', gmPanel.offsetWidth > 0);
+        
+        // Try to force visibility if needed
+        if (gmPanel.offsetWidth === 0) {
+          debug.warn('⚠️ GM Panel has zero width, trying to force visibility...');
+          gmPanel.style.visibility = 'visible';
+          gmPanel.style.opacity = '1';
+          gmPanel.style.display = 'block !important';
+          debug.log('🔍 Forced visibility styles applied');
+        }
+      }, 100);
     }
 
     // Visual feedback - enhance glow when active
@@ -2684,27 +2713,20 @@ ${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗
       debug.log(`🔍 No recent turn announcement found for ${characterName}`);
       
     } catch (error) {
-      debug.warn('⚠️ Error checking recent chat for turn:', error);
+      debug.error('Error checking recent chat for current turn:', error);
     }
   }
 
-  /**
-   * Listen for messages to toggle GM mode and post chat messages
-   */
+  // Listen for messages to toggle GM mode and post chat messages
   window.addEventListener('message', (event) => {
+    debug.log('📨 Received message:', event.data);
+    
     if (event.data && event.data.action === 'toggleGMMode') {
+      debug.log('👑 Processing toggleGMMode message:', event.data.enabled);
       toggleGMMode(event.data.enabled);
     } else if (event.data && event.data.action === 'postChatMessageFromPopup') {
       // Post message from character sheet popup to Roll20 chat
       postChatMessage(event.data.message);
-      debug.log(`📨 Posted message from popup: ${event.data.message}`);
-    } else if (event.data && event.data.action === 'registerPopup') {
-      // Register popup from character sheet (CORS-safe fallback)
-      // Find the popup window that sent this message
-      if (event.source && event.data.characterName) {
-        characterPopups[event.data.characterName] = event.source;
-        debug.log(`✅ Registered popup via postMessage: ${event.data.characterName}`);
-      }
     } else if (event.data && event.data.action === 'checkCurrentTurn') {
       // Check if it's currently this character's turn by examining recent chat
       if (event.data.characterName) {
