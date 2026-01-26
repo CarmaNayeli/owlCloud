@@ -4,7 +4,9 @@ A browser extension that integrates Dice Cloud with Roll20. I built this to make
 
 **🎲 Version 1.2.3 - Latest Release**
 
-**Quick Download:** [Firefox](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-firefox.zip) | [Chrome](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-chrome.zip) | [Safari](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-safari.zip)
+**Manual Install:** [Firefox](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-firefox-signed.xpi) | [Chrome](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-chrome.zip) | [Safari](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-safari.zip)
+
+**Windows Installer (Chrome + Firefox Dev):** [Download Installer](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/RollCloud-Setup.exe)
 
 ### 📋 What's New
 
