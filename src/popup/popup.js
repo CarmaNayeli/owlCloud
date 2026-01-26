@@ -50,9 +50,20 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 function initializePopup() {
+  // Set version from manifest
+  try {
+    const manifest = browserAPI.runtime.getManifest();
+    const versionDisplay = document.getElementById('versionDisplay');
+    if (versionDisplay && manifest.version) {
+      versionDisplay.textContent = `v${manifest.version}`;
+    }
+  } catch (e) {
+    console.log('Could not read manifest version:', e);
+  }
+
   // Check if this is an experimental build
   checkExperimentalBuild();
-  
+
   // DOM Elements - Sections
   const loginSection = document.getElementById('loginSection');
   const mainSection = document.getElementById('mainSection');
@@ -255,10 +266,10 @@ function initializePopup() {
                 const supabaseManager = new SupabaseTokenManager();
                 const userId = supabaseManager.generateUserId();
                 debug.log('🔍 Using user ID for Supabase lookup:', userId);
-                
+
                 const supabaseResult = await supabaseManager.retrieveToken();
                 debug.log('📥 Supabase retrieval result:', supabaseResult);
-                
+
                 if (supabaseResult.success) {
                   debug.log('✅ Found token in Supabase, restoring to local storage...');
                   // Store token locally for faster access
@@ -282,6 +293,9 @@ function initializePopup() {
                   debug.log('ℹ️ No token found in Supabase');
                   showLoginSection();
                 }
+              } else {
+                debug.log('❌ Supabase not available, showing login');
+                showLoginSection();
               }
             } catch (error) {
               debug.error('❌ Error retrieving from Supabase:', error);
@@ -1777,7 +1791,12 @@ function initializePopup() {
         }
         
         if (versionDisplay) {
-          versionDisplay.textContent = 'v1.1.2.1 - Experimental Sync';
+          try {
+            const manifest = browserAPI.runtime.getManifest();
+            versionDisplay.textContent = `v${manifest.version} - Experimental Sync`;
+          } catch (e) {
+            versionDisplay.textContent = 'Experimental Sync';
+          }
         }
         
         if (experimentalInstructions) {

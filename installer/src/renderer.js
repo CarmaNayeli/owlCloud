@@ -258,12 +258,17 @@ async function checkForUpdatesAndProceed() {
               statusText.innerHTML = `
                 <div style="color: #28a745;">✅ Extension uninstalled!</div>
                 <div style="font-size: 0.9em; margin-top: 5px;">${result.message}</div>
+                <div style="font-size: 0.85em; margin-top: 5px; color: #666;">Restart your browser to complete the removal.</div>
                 <div style="margin-top: 10px;">
-                  <button id="btnContinueAfterUninstall" class="btn btn-primary">
+                  <button id="btnRestartAfterUninstall" class="btn btn-primary">
+                    Restart Browser
+                  </button>
+                  <button id="btnContinueAfterUninstall" class="btn btn-secondary" style="margin-left: 10px;">
                     Continue Setup
                   </button>
                 </div>
               `;
+              document.getElementById('btnRestartAfterUninstall').addEventListener('click', () => restartBrowser(selectedBrowser));
               document.getElementById('btnContinueAfterUninstall').addEventListener('click', () => goToStep(3));
             } else {
               statusText.innerHTML = `
@@ -747,15 +752,19 @@ function showFirefoxInstallError(errorMsg, noteElement) {
 async function restartBrowser(browser) {
   const browserName = getBrowserName(browser);
 
-  // Show confirmation dialog
-  const confirmed = confirm(`The ${browserName} extension policy has been installed.\n\nYou must restart ${browserName} for the extension to be installed.\n\nWould you like instructions on how to restart?`);
+  const confirmed = confirm(`This will close and reopen ${browserName} to apply changes.\n\nMake sure you've saved any work in ${browserName} before continuing.\n\nRestart ${browserName} now?`);
 
   if (confirmed) {
-    // Show manual restart instructions for both browsers
-    // chrome://restart only works from within Chrome, not externally
-    alert(`Please close and reopen ${browserName} to complete the extension installation.\n\nThe RollCloud extension will be installed automatically when ${browserName} restarts.\n\nTip: Make sure to close ALL ${browserName} windows, including any in the system tray.`);
-  } else {
-    // User cancelled - don't do anything
-    console.log('User cancelled browser restart');
+    try {
+      const result = await window.api.restartBrowser(browser);
+      if (result.success) {
+        alert(`${browserName} has been restarted.\n\nThe RollCloud extension should now be active.`);
+      } else {
+        alert(`Could not restart ${browserName} automatically.\n\nPlease close and reopen ${browserName} manually.\n\nTip: Make sure to close ALL ${browserName} windows, including any in the system tray.`);
+      }
+    } catch (error) {
+      console.error('Browser restart error:', error);
+      alert(`Could not restart ${browserName} automatically.\n\nPlease close and reopen ${browserName} manually.\n\nTip: Make sure to close ALL ${browserName} windows, including any in the system tray.`);
+    }
   }
 }
