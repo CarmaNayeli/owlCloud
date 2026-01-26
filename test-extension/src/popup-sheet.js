@@ -677,6 +677,12 @@ function buildSheet(data) {
   debug.log('📊 Character data received:', data);
   debug.log('✨ Spell slots data:', data.spellSlots);
 
+  // Ensure death saves are initialized at the very beginning
+  if (!data.deathSaves) {
+    data.deathSaves = { successes: 0, failures: 0 };
+    debug.log('🔧 Fixed undefined deathSaves in buildSheet');
+  }
+
   // Safety check: Ensure critical DOM elements exist before building
   const charNameEl = document.getElementById('char-name');
   if (!charNameEl) {
@@ -799,6 +805,13 @@ function buildSheet(data) {
   // Death Saves
   const deathSavesDisplay = document.getElementById('death-saves-display');
   const deathSavesValue = document.getElementById('death-saves-value');
+  
+  // Double-check death saves initialization (defensive programming)
+  if (!data.deathSaves) {
+    data.deathSaves = { successes: 0, failures: 0 };
+    debug.log('🔧 Emergency deathSaves fix in buildSheet');
+  }
+  
   const deathSaves = data.deathSaves || { successes: 0, failures: 0 };
   deathSavesValue.innerHTML = `
     <span style="color: var(--accent-success);">✓${deathSaves.successes || 0}</span> /
