@@ -5,11 +5,18 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
-// Create Supabase client for broadcast
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-
 // Helper to build topic name
 const topicName = (id, short) => `topic:${id}:${short}`;
+
+// Lazy Supabase client creation
+let supabase = null;
+
+function getSupabaseClient() {
+  if (!supabase && SUPABASE_URL && SUPABASE_SERVICE_KEY) {
+    supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+  }
+  return supabase;
+}
 
 /**
  * Parse dice notation (e.g., "2d6+3", "1d20", "3d10-2")
@@ -915,7 +922,7 @@ async function sendRollToExtension(interaction, rollData) {
     }
 
     // Create broadcast channel for this pairing's rolls
-    const channel = supabase.channel(topicName(pairing.id, 'rolls'), {
+    const channel = getSupabaseClient().channel(topicName(pairing.id, 'rolls'), {
       config: { 
         broadcast: { 
           self: true, 
