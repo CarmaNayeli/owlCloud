@@ -271,7 +271,10 @@ async function checkForUpdatesAndProceed() {
                   </button>
                 </div>
               `;
-              document.getElementById('btnReinstallAfterUninstall').addEventListener('click', () => goToStep(2));
+              document.getElementById('btnReinstallAfterUninstall').addEventListener('click', async () => {
+                await restartBrowser(selectedBrowser);
+                goToStep(2);
+              });
               document.getElementById('btnContinueAfterUninstall').addEventListener('click', () => goToStep(3));
               document.getElementById('btnQuitAfterUninstall').addEventListener('click', () => window.api.quitApp());
             } else {
