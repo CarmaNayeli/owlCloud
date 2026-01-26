@@ -267,8 +267,8 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
               currentPairingId: request.pairingId,
               discordPairingId: request.pairingId
             });
-            // Start command polling
-            startCommandPolling(request.pairingId);
+            // Subscribe to command realtime
+            subscribeToCommandRealtime(request.pairingId);
           }
           // Link Discord user info to auth_tokens if provided
           if (request.discordUserId && request.discordUserId !== 'null') {
@@ -2005,8 +2005,8 @@ function subscribeToRealtimePairing(pairingCode) {
                 discordPairingId: record.id
               });
 
-              // Start command polling
-              startCommandPolling(record.id);
+              // Subscribe to command realtime
+              subscribeToCommandRealtime(record.id);
               debug.log('✅ Discord webhook and pairing ID saved from Realtime');
             }
 
@@ -2169,64 +2169,165 @@ async function checkDiscordPairing(code) {
 }
 
 // ============================================================================
-// Discord Command Polling (Discord → Extension → Roll20)
+// Discord Command Realtime Subscription (Discord → Extension → Roll20)
 // ============================================================================
 
-let commandPollInterval = null;
+let commandRealtimeSocket = null;
+let commandRealtimeHeartbeat = null;
 let currentPairingId = null;
-const COMMAND_POLL_INTERVAL_MS = 2000; // Poll every 2 seconds
+let commandRealtimeReconnectTimeout = null;
 
 /**
- * Start polling for Discord commands
- * Called when webhook is connected and user is in Roll20
+ * Subscribe to Realtime command inserts for this pairing.
+ * Replaces polling — commands arrive instantly via WebSocket.
  */
-async function startCommandPolling(pairingId) {
-  if (commandPollInterval) {
-    debug.log('Command polling already active');
-    return;
-  }
-
+async function subscribeToCommandRealtime(pairingId) {
   if (!pairingId) {
-    // Try to get pairing ID from storage
     const settings = await browserAPI.storage.local.get(['discordPairingId']);
     pairingId = settings.discordPairingId;
   }
 
   if (!pairingId) {
-    debug.warn('No pairing ID available for command polling');
+    debug.warn('No pairing ID available for command subscription');
     return;
   }
+
+  if (!isSupabaseConfigured()) {
+    debug.warn('Supabase not configured — cannot subscribe to commands');
+    return;
+  }
+
+  // If already subscribed with same pairing, skip
+  if (commandRealtimeSocket && commandRealtimeSocket.readyState === WebSocket.OPEN && currentPairingId === pairingId) {
+    debug.log('Command realtime already connected for pairing:', pairingId);
+    return;
+  }
+
+  // Tear down any existing connection first
+  unsubscribeFromCommandRealtime();
 
   currentPairingId = pairingId;
-  debug.log('🎧 Starting Discord command polling for pairing:', pairingId);
 
-  // Poll immediately, then set interval
-  await pollForCommands();
-  commandPollInterval = setInterval(pollForCommands, COMMAND_POLL_INTERVAL_MS);
-}
+  const projectRef = SUPABASE_URL.replace('https://', '').split('.')[0];
+  const wsUrl = `wss://${projectRef}.supabase.co/realtime/v1/websocket?apikey=${SUPABASE_ANON_KEY}&vsn=1.0.0`;
 
-/**
- * Stop polling for Discord commands
- */
-function stopCommandPolling() {
-  if (commandPollInterval) {
-    clearInterval(commandPollInterval);
-    commandPollInterval = null;
-    debug.log('🔇 Stopped Discord command polling');
+  debug.log('🔌 Connecting to Supabase Realtime for commands, pairing:', pairingId);
+
+  try {
+    commandRealtimeSocket = new WebSocket(wsUrl);
+
+    commandRealtimeSocket.onopen = () => {
+      debug.log('✅ Command Realtime WebSocket connected');
+
+      // Subscribe to INSERT events on rollcloud_commands for this pairing
+      const joinMessage = {
+        topic: `realtime:public:rollcloud_commands:pairing_id=eq.${pairingId}`,
+        event: 'phx_join',
+        payload: {
+          config: {
+            broadcast: { self: false },
+            presence: { key: '' },
+            postgres_changes: [{
+              event: 'INSERT',
+              schema: 'public',
+              table: 'rollcloud_commands',
+              filter: `pairing_id=eq.${pairingId}`
+            }]
+          }
+        },
+        ref: 'cmd_1'
+      };
+      commandRealtimeSocket.send(JSON.stringify(joinMessage));
+
+      // Heartbeat every 30 s to keep connection alive
+      commandRealtimeHeartbeat = setInterval(() => {
+        if (commandRealtimeSocket && commandRealtimeSocket.readyState === WebSocket.OPEN) {
+          commandRealtimeSocket.send(JSON.stringify({
+            topic: 'phoenix',
+            event: 'heartbeat',
+            payload: {},
+            ref: 'cmd_hb_' + Date.now()
+          }));
+        }
+      }, 30000);
+
+      // Also drain any pending commands that arrived while we were disconnected
+      drainPendingCommands();
+    };
+
+    commandRealtimeSocket.onmessage = async (event) => {
+      try {
+        const message = JSON.parse(event.data);
+
+        if (message.event === 'postgres_changes' && message.payload?.data?.record) {
+          const record = message.payload.data.record;
+
+          // Only act on pending commands for our pairing
+          if (record.status === 'pending' && record.pairing_id === currentPairingId) {
+            debug.log('📥 Realtime command received:', record.command_type, record.id);
+            await executeCommand(record);
+          }
+        }
+      } catch (e) {
+        debug.warn('Error processing command Realtime message:', e);
+      }
+    };
+
+    commandRealtimeSocket.onerror = (error) => {
+      debug.warn('Command Realtime WebSocket error:', error);
+    };
+
+    commandRealtimeSocket.onclose = () => {
+      debug.log('🔌 Command Realtime WebSocket closed');
+      if (commandRealtimeHeartbeat) {
+        clearInterval(commandRealtimeHeartbeat);
+        commandRealtimeHeartbeat = null;
+      }
+
+      // Auto-reconnect after 5 seconds if we still have a pairing
+      if (currentPairingId) {
+        debug.log('⏳ Scheduling command realtime reconnect in 5 s...');
+        commandRealtimeReconnectTimeout = setTimeout(() => {
+          if (currentPairingId) {
+            subscribeToCommandRealtime(currentPairingId);
+          }
+        }, 5000);
+      }
+    };
+  } catch (error) {
+    debug.error('Failed to connect to command Realtime:', error);
   }
 }
 
 /**
- * Poll Supabase for pending commands
+ * Unsubscribe from command Realtime updates
  */
-async function pollForCommands() {
-  if (!isSupabaseConfigured() || !currentPairingId) {
-    return;
+function unsubscribeFromCommandRealtime() {
+  if (commandRealtimeReconnectTimeout) {
+    clearTimeout(commandRealtimeReconnectTimeout);
+    commandRealtimeReconnectTimeout = null;
   }
+  if (commandRealtimeSocket) {
+    commandRealtimeSocket.close();
+    commandRealtimeSocket = null;
+  }
+  if (commandRealtimeHeartbeat) {
+    clearInterval(commandRealtimeHeartbeat);
+    commandRealtimeHeartbeat = null;
+  }
+  debug.log('🔇 Unsubscribed from command Realtime');
+}
+
+/**
+ * Drain any pending commands that may have arrived while disconnected.
+ * Called once on (re-)connect to catch anything missed.
+ */
+async function drainPendingCommands() {
+  if (!isSupabaseConfigured() || !currentPairingId) return;
 
   try {
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/rollcloud_commands?pairing_id=eq.${currentPairingId}&status=eq.pending&order=created_at.asc&limit=5`,
+      `${SUPABASE_URL}/rest/v1/rollcloud_commands?pairing_id=eq.${currentPairingId}&status=eq.pending&order=created_at.asc&limit=10`,
       {
         headers: {
           'apikey': SUPABASE_ANON_KEY,
@@ -2236,21 +2337,19 @@ async function pollForCommands() {
     );
 
     if (!response.ok) {
-      debug.warn('Failed to poll for commands:', response.status);
+      debug.warn('Failed to drain pending commands:', response.status);
       return;
     }
 
     const commands = await response.json();
-
     if (commands.length > 0) {
-      debug.log(`📥 Received ${commands.length} command(s) from Discord`);
-
+      debug.log(`📥 Draining ${commands.length} pending command(s)`);
       for (const command of commands) {
         await executeCommand(command);
       }
     }
   } catch (error) {
-    debug.error('Command poll error:', error);
+    debug.error('Drain pending commands error:', error);
   }
 }
 
@@ -2485,16 +2584,16 @@ async function storePairingId(pairingId) {
   debug.log('Stored pairing ID:', pairingId);
 }
 
-// Auto-start polling when extension loads and webhook is configured
+// Auto-start command realtime subscription when extension loads and webhook is configured
 (async () => {
   try {
     const settings = await browserAPI.storage.local.get(['discordWebhookEnabled', 'discordPairingId']);
     if (settings.discordWebhookEnabled && settings.discordPairingId) {
-      debug.log('Auto-starting command polling...');
-      await startCommandPolling(settings.discordPairingId);
+      debug.log('Auto-starting command realtime subscription...');
+      await subscribeToCommandRealtime(settings.discordPairingId);
     }
   } catch (error) {
-    debug.warn('Failed to auto-start command polling:', error);
+    debug.warn('Failed to auto-start command realtime:', error);
   }
 })();
 
