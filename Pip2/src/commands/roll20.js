@@ -75,31 +75,14 @@ export default {
 
       const pairing = pairings[0];
       
-      // Get active character from RollCloud character options
-      const optionsResponse = await fetch(
-        `${SUPABASE_URL}/rest/v1/rollcloud_character_options?pairing_id=eq.${pairing.id}&status=eq.active&select=*&order=updated_at.desc&limit=1`,
-        {
-          headers: {
-            'apikey': SUPABASE_SERVICE_KEY,
-            'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
-          }
-        }
-      );
-
-      let activeCharacter = null;
-      if (optionsResponse.ok) {
-        const options = await optionsResponse.json();
-        if (options.length > 0) {
-          activeCharacter = options[0];
-        }
-      }
-
-      // If no active character found, try to get the requested character
-      let targetCharacter = activeCharacter;
-      if (!targetCharacter && characterName) {
-        // Search for the requested character in dicecloud_characters
+      // Get active character using the same logic as /character command
+      let targetCharacter = null;
+      
+      if (characterName) {
+        // Search for the requested character (same logic as /character command)
+        const encodedName = encodeURIComponent(characterName);
         const characterResponse = await fetch(
-          `${SUPABASE_URL}/rest/v1/dicecloud_characters?user_id=eq.${pairing.dicecloud_user_id}&name=ilike.*${characterName}*&select=*&order=updated_at.desc&limit=1`,
+          `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${interaction.user.id}&character_name=ilike.*${encodedName}*&select=*&order=updated_at.desc&limit=1`,
           {
             headers: {
               'apikey': SUPABASE_SERVICE_KEY,
@@ -110,15 +93,91 @@ export default {
 
         if (characterResponse.ok) {
           const characters = await characterResponse.json();
+          
+          console.log(`🔍 /roll20 Character search for "${characterName}" (discord_user_id=${interaction.user.id}):`, {
+            matchCount: characters.length,
+            matches: characters.map(m => ({ id: m.id, name: m.character_name, discord_user_id: m.discord_user_id }))
+          });
+          
           if (characters.length > 0) {
             targetCharacter = {
-              character_name: characters[0].name,
+              character_name: characters[0].character_name,
               dicecloud_character_id: characters[0].id,
               level: characters[0].level,
               race: characters[0].race,
               class: characters[0].class,
-              status: 'inactive' // Not active in Roll20
+              status: characters[0].is_active ? 'active' : 'inactive'
             };
+          }
+        } else {
+          console.error(`❌ /roll20 Character search failed: ${characterResponse.status}`);
+        }
+      } else {
+        // Get active character (same logic as /character command)
+        const activeCharacterResponse = await fetch(
+          `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${interaction.user.id}&is_active=eq.true&select=*&limit=1`,
+          {
+            headers: {
+              'apikey': SUPABASE_SERVICE_KEY,
+              'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+            }
+          }
+        );
+
+        if (activeCharacterResponse.ok) {
+          const activeCharacters = await activeCharacterResponse.json();
+          
+          console.log(`🔍 /roll20 Active character search (discord_user_id=${interaction.user.id}):`, {
+            matchCount: activeCharacters.length,
+            matches: activeCharacters.map(m => ({ id: m.id, name: m.character_name, discord_user_id: m.discord_user_id }))
+          });
+          
+          if (activeCharacters.length > 0) {
+            targetCharacter = {
+              character_name: activeCharacters[0].character_name,
+              dicecloud_character_id: activeCharacters[0].id,
+              level: activeCharacters[0].level,
+              race: activeCharacters[0].race,
+              class: activeCharacters[0].class,
+              status: 'active'
+            };
+          }
+        } else {
+          console.error(`❌ /roll20 Active character search failed: ${activeCharacterResponse.status}`);
+        }
+
+        // If no active character, get most recently updated
+        if (!targetCharacter) {
+          const recentCharacterResponse = await fetch(
+            `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${interaction.user.id}&select=*&order=updated_at.desc&limit=1`,
+            {
+              headers: {
+                'apikey': SUPABASE_SERVICE_KEY,
+                'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+              }
+            }
+          );
+
+          if (recentCharacterResponse.ok) {
+            const recentCharacters = await recentCharacterResponse.json();
+            
+            console.log(`🔍 /roll20 Recent character search (discord_user_id=${interaction.user.id}):`, {
+              matchCount: recentCharacters.length,
+              matches: recentCharacters.map(m => ({ id: m.id, name: m.character_name, discord_user_id: m.discord_user_id }))
+            });
+            
+            if (recentCharacters.length > 0) {
+              targetCharacter = {
+                character_name: recentCharacters[0].character_name,
+                dicecloud_character_id: recentCharacters[0].id,
+                level: recentCharacters[0].level,
+                race: recentCharacters[0].race,
+                class: recentCharacters[0].class,
+                status: recentCharacters[0].is_active ? 'active' : 'inactive'
+              };
+            }
+          } else {
+            console.error(`❌ /roll20 Recent character search failed: ${recentCharacterResponse.status}`);
           }
         }
       }

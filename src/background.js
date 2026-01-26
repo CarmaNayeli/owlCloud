@@ -1731,7 +1731,7 @@ async function checkDiscordCharacterIntegration(characterName, characterId) {
     }
     
     // Get active character data to compare
-    const characterData = await getActiveCharacterData();
+    const characterData = await getCharacterData();
     
     if (characterData && characterData.character_name === characterName) {
       debug.log(`✅ Character ${characterName} found in local storage and matches Discord integration`);

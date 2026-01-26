@@ -13,6 +13,7 @@ export default {
           { name: 'RollCloud Setup', value: 'rollcloud' },
           { name: 'Character Commands', value: 'characters' },
           { name: 'Rolling Dice', value: 'rolling' },
+          { name: 'Discord Integration', value: 'discord' },
           { name: 'All Commands', value: 'all' }
         )
     ),
@@ -31,6 +32,9 @@ export default {
       case 'rolling':
         embed = buildRollingHelp();
         break;
+      case 'discord':
+        embed = buildDiscordHelp();
+        break;
       case 'all':
         embed = buildAllCommandsHelp();
         break;
@@ -47,7 +51,7 @@ function buildMainHelp() {
     .setColor(0x4ECDC4)
     .setTitle('🎲 Pip Bot Help')
     .setDescription(
-      'A D&D companion bot with RollCloud integration.\n\n' +
+      'A comprehensive D&D companion bot with RollCloud integration.\n\n' +
       'Use `/help topic:<name>` for detailed help on specific features.'
     )
     .addFields(
@@ -57,6 +61,8 @@ function buildMainHelp() {
           '`/rollcloud <code>` - Link your Discord to RollCloud\n' +
           '`/characters` - List your synced characters\n' +
           '`/character [name]` - View/set active character\n' +
+          '`/roll20 [character]` - Check Roll20 connection status\n' +
+          '`/webhook [action]` - Show Discord webhook status\n' +
           '*Use `/help topic:RollCloud Setup` for setup guide*',
         inline: false
       },
@@ -78,15 +84,26 @@ function buildMainHelp() {
         inline: false
       },
       {
-        name: '⚙️ Other Commands',
+        name: '🔗 Discord Integration',
+        value:
+          '`/webhook status` - Check webhook configuration\n' +
+          '`/webhook url` - Get webhook URL\n' +
+          '`/webhook test` - Test webhook functionality\n' +
+          '*Use `/help topic:Discord Integration` for details*',
+        inline: false
+      },
+      {
+        name: '⚙️ Utility & Admin',
         value:
           '`/ping` - Check bot latency\n' +
           '`/changelog view` - View Dice Cat updates\n' +
-          '`/disconnect` - Remove RollCloud from channel',
+          '`/disconnect` - Remove RollCloud from channel\n' +
+          '`/ticket` - Create support tickets\n' +
+          '`/reactionrole` - Manage reaction roles',
         inline: false
       }
     )
-    .setFooter({ text: 'Pip Bot • Dice Cat Community' });
+    .setFooter({ text: 'Pip Bot • Dice Cat Community • 19 commands available' });
 }
 
 function buildRollCloudHelp() {
@@ -237,58 +254,135 @@ function buildRollingHelp() {
     .setFooter({ text: 'Character checks require an active character - use /character to set one!' });
 }
 
+function buildDiscordHelp() {
+  return new EmbedBuilder()
+    .setColor(0x9B59B6)
+    .setTitle('🔗 Discord Integration Help')
+    .setDescription('Commands for managing Discord webhooks and Roll20 integration.')
+    .addFields(
+      {
+        name: '/webhook status',
+        value:
+          'Shows comprehensive Discord webhook status.\n\n' +
+          'Displays:\n' +
+          '• Connection status and server details\n' +
+          '• Webhook URL (hidden for safety)\n' +
+          '• Integration type (webhook vs pairing)\n' +
+          '• Server and channel information\n' +
+          '• Pairing ID and connection date',
+        inline: false
+      },
+      {
+        name: '/webhook url',
+        value:
+          'Shows just the Discord webhook URL.\n\n' +
+          'Features:\n' +
+          '• URL hidden to prevent accidental clicks\n' +
+          '• Copy instructions for easy use\n' +
+          '• Server and channel context\n' +
+          '• Safe URL sharing format',
+        inline: false
+      },
+      {
+        name: '/webhook test',
+        value:
+          'Tests the Discord webhook functionality.\n\n' +
+          'Sends a test message with:\n' +
+          '• User and server information\n' +
+          '• Timestamp and status\n' +
+          '• Success/failure reporting\n' +
+          '• Detailed error information',
+        inline: false
+      },
+      {
+        name: '/roll20 [character]',
+        value:
+          'Check Roll20 connection status for your character.\n\n' +
+          'Shows:\n' +
+          '• Roll20 connection status\n' +
+          '• Character details and level\n' +
+          '• Discord server information\n' +
+          '• Available features when connected\n' +
+          '• Troubleshooting guidance when not connected',
+        inline: false
+      },
+      {
+        name: '🔧 Troubleshooting',
+        value:
+          '**Webhook Issues:**\n' +
+          '• Use `/webhook status` to check configuration\n' +
+          '• Use `/webhook test` to verify functionality\n' +
+          '• Check server permissions for webhooks\n\n' +
+          '**Roll20 Issues:**\n' +
+          '• Use `/roll20` to check connection status\n' +
+          '• Ensure Roll20 tab is open with character selected\n' +
+          '• Verify RollCloud extension is installed',
+        inline: false
+      }
+    )
+    .setFooter({ text: 'Discord integration requires RollCloud extension and proper setup!' });
+}
+
 function buildAllCommandsHelp() {
   return new EmbedBuilder()
     .setColor(0x3498DB)
-    .setTitle('📋 All Commands')
-    .setDescription('Complete list of Pip Bot commands.')
+    .setTitle('📋 All Pip Bot Commands')
+    .setDescription('Complete list of all 19 available commands.')
     .addFields(
       {
-        name: '🎮 RollCloud',
+        name: '🎮 RollCloud Integration',
         value:
           '`/rollcloud <code>` - Link Discord to RollCloud extension\n' +
+          '`/characters` - List your synced characters\n' +
+          '`/character [name]` - View or set active character\n' +
+          '`/roll20 [character]` - Check Roll20 connection status\n' +
+          '`/webhook [action]` - Manage Discord webhooks\n' +
           '`/disconnect` - Remove RollCloud from this channel',
         inline: false
       },
       {
-        name: '🎭 Characters',
+        name: '📜 Character Management',
         value:
-          '`/characters` - List your synced characters\n' +
-          '`/character [name]` - View or set active character\n' +
           '`/sheet [section]` - View full character sheet\n' +
-          '`/stats <stat>` - Quick stat lookup',
+          '`/stats <stat>` - Quick stat lookup\n' +
+          'Sections: overview, abilities, skills, spells, resources',
         inline: false
       },
       {
-        name: '🎲 Dice',
+        name: '🎲 Dice Rolling',
         value:
           '`/roll <dice> [check] [advantage] [disadvantage]` - Roll dice\n' +
-          '`/coin [count]` - Flip coins',
+          '`/coin [count]` - Flip coins\n' +
+          'Supports character modifiers and ability checks',
         inline: false
       },
       {
-        name: '📋 Changelog',
+        name: '📋 Information & Updates',
         value:
           '`/changelog view` - View latest Dice Cat updates\n' +
-          '`/changelog post` - Post to channel (Admin)',
-        inline: false
-      },
-      {
-        name: '🎭 Reaction Roles (Admin)',
-        value:
-          '`/reactionrole create` - Create reaction role message\n' +
-          '`/reactionrole add` - Add role to message\n' +
-          '`/reactionrole list` - List roles on message\n' +
-          '`/reactionrole remove` - Remove role from message',
-        inline: false
-      },
-      {
-        name: '⚙️ Utility',
-        value:
+          '`/changelog post` - Post to channel (Admin)\n' +
           '`/ping` - Check bot latency\n' +
           '`/help [topic]` - Show this help',
         inline: false
+      },
+      {
+        name: '🎭 Server Management',
+        value:
+          '`/reactionrole create` - Create reaction role message\n' +
+          '`/reactionrole add/remove` - Manage roles\n' +
+          '`/reactionrole list` - List roles on message\n' +
+          '`/ticket` - Create support tickets',
+        inline: false
+      },
+      {
+        name: '🔧 Testing & Diagnostics',
+        value:
+          '`/testdbconnection` - Test database connectivity\n' +
+          '`/testdiscordlink` - Test Discord connection\n' +
+          '`/testpairing` - Test RollCloud pairing\n' +
+          '`/mydiscordinfo` - Show your Discord user info',
+        inline: false
       }
     )
-    .setFooter({ text: 'Pip Bot • Dice Cat Community' });
+    .setFooter({ text: 'Pip Bot • Dice Cat Community • 19 commands available' });
 }
