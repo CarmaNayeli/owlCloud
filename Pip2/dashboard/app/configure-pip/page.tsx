@@ -233,11 +233,24 @@ export default function ConfigurePip() {
       const response = await fetch(`/api/discord/bot-in-server/${serverId}`);
       if (response.ok) {
         const data = await response.json();
+        console.log(`🔍 Bot check result for ${serverId}:`, data);
+        
+        // Show error details if available
+        if (data.error) {
+          console.warn(`⚠️ Bot check error: ${data.error}`);
+          setError(`Bot detection error: ${data.error}`);
+        }
+        
         return data.botPresent;
+      } else {
+        const errorText = await response.text();
+        console.error(`❌ Bot check API error (${response.status}):`, errorText);
+        setError(`API error: ${response.status}`);
+        return false;
       }
-      return false;
     } catch (error) {
       console.error('Error checking bot presence:', error);
+      setError('Network error checking bot status');
       return false;
     }
   };
@@ -252,7 +265,8 @@ export default function ConfigurePip() {
       // Permissions: VIEW_CHANNEL (1024) + SEND_MESSAGES (2048) + MANAGE_ROLES (268435456) +
       // MANAGE_CHANNELS (16) + MANAGE_MESSAGES (8192) + EMBED_LINKS (16384) +
       // ATTACH_FILES (32768) + READ_MESSAGE_HISTORY (65536) + USE_APPLICATION_COMMANDS (2147483648)
-      const permissions = '2416168072';
+      // Total: 2415928072 (corrected calculation)
+      const permissions = '2415928072';
 
       const inviteUrl = `https://discord.com/oauth2/authorize?client_id=${clientId}&permissions=${permissions}&scope=bot%20applications.commands&guild_id=${serverId}`;
       
@@ -492,7 +506,7 @@ export default function ConfigurePip() {
                   You can invite Pip to any Discord server where you have admin permissions.
                 </p>
                 <button
-                  onClick={() => window.open(`https://discord.com/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID || process.env.DISCORD_CLIENT_ID || 'YOUR_BOT_CLIENT_ID'}&permissions=8&scope=bot%20applications.commands`, '_blank')}
+                  onClick={() => window.open(`https://discord.com/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID || process.env.DISCORD_CLIENT_ID || 'YOUR_BOT_CLIENT_ID'}&permissions=2416168072&scope=bot%20applications.commands`, '_blank')}
                   className="bg-[#5865F2] hover:bg-[#4752C4] text-white px-4 py-2 rounded-lg font-medium transition"
                 >
                   Invite Pip to Server
