@@ -1747,17 +1747,19 @@ async function checkDiscordCharacterIntegration(characterName, characterId) {
     
     // Get active character data to compare
     const characterData = await getCharacterData();
-    
-    if (characterData && characterData.character_name === characterName) {
+    // Handle both DiceCloud format (name) and database format (character_name)
+    const activeCharacterName = characterData?.character_name || characterData?.name;
+
+    if (characterData && activeCharacterName === characterName) {
       debug.log(`✅ Character ${characterName} found in local storage and matches Discord integration`);
-      
+
       return {
         success: true,
         found: true,
         serverName: serverName || 'Unknown Server',
         message: `Character ${characterName} is active in Discord server: ${serverName || 'Unknown Server'}`,
         characterData: {
-          name: characterData.character_name,
+          name: activeCharacterName,
           race: characterData.race,
           class: characterData.class,
           level: characterData.level,
@@ -1766,14 +1768,14 @@ async function checkDiscordCharacterIntegration(characterName, characterId) {
       };
     } else {
       debug.log(`❌ Character ${characterName} not found in local storage or doesn't match active character`);
-      
+
       return {
         success: true,
         found: false,
         serverName: null,
         message: `Character ${characterName} is not currently active in Discord`,
         availableCharacter: characterData ? {
-          name: characterData.character_name,
+          name: activeCharacterName,
           race: characterData.race,
           class: characterData.class,
           level: characterData.level
