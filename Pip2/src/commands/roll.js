@@ -237,9 +237,11 @@ async function sendRollToExtension(interaction, rollData) {
     });
 
     if (!commandResponse.ok) {
-      console.error('Failed to create roll command:', commandResponse.status);
+      const errorBody = await commandResponse.text().catch(() => 'no body');
+      console.error('Failed to create roll command:', commandResponse.status, errorBody);
+      console.error('Payload was:', JSON.stringify(commandPayload));
       return await interaction.reply({
-        content: '❌ Failed to send roll to extension.',
+        content: `❌ Failed to send roll to extension. (${commandResponse.status})`,
         flags: 64 // ephemeral
       });
     }

@@ -141,9 +141,11 @@ export default {
       });
 
       if (!commandResponse.ok) {
-        console.error('Failed to create use command:', commandResponse.status);
+        const errorBody = await commandResponse.text().catch(() => 'no body');
+        console.error('Failed to create use command:', commandResponse.status, errorBody);
+        console.error('Payload was:', JSON.stringify(commandPayload));
         return await interaction.reply({
-          content: '❌ Failed to send action to extension.',
+          content: `❌ Failed to send action to extension. (${commandResponse.status})`,
           flags: 64
         });
       }
