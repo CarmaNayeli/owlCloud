@@ -377,7 +377,10 @@ class SupabaseTokenManager {
           }
         }
       } else {
-        // No pairing code provided - try to get Discord user ID from auth_tokens
+        // No pairing code provided - try to get Discord user ID from auth_tokens or pairings
+        let discordUserId = null;
+
+        // First, check auth_tokens
         try {
           const authResponse = await fetch(
             `${this.supabaseUrl}/rest/v1/auth_tokens?user_id=eq.${this.generateUserId()}&select=discord_user_id`,
@@ -391,18 +394,44 @@ class SupabaseTokenManager {
           if (authResponse.ok) {
             const authTokens = await authResponse.json();
             if (authTokens.length > 0 && authTokens[0].discord_user_id) {
-              payload.discord_user_id = authTokens[0].discord_user_id;
-              debug.log('✅ Found Discord user ID from auth_tokens:', authTokens[0].discord_user_id);
-            } else {
-              // No Discord user ID found - use a placeholder
-              payload.discord_user_id = 'not_linked';
-              debug.log('⚠️ No Discord user ID found, using placeholder');
+              discordUserId = authTokens[0].discord_user_id;
+              debug.log('✅ Found Discord user ID from auth_tokens:', discordUserId);
             }
           }
         } catch (error) {
-          // If we can't get Discord user ID, use a placeholder
+          debug.log('⚠️ Failed to check auth_tokens for Discord user ID:', error.message);
+        }
+
+        // If not in auth_tokens, check pairings table for this DiceCloud user
+        if (!discordUserId && payload.user_id_dicecloud) {
+          try {
+            const pairingResponse = await fetch(
+              `${this.supabaseUrl}/rest/v1/rollcloud_pairings?dicecloud_user_id=eq.${payload.user_id_dicecloud}&status=eq.connected&select=discord_user_id`,
+              {
+                headers: {
+                  'apikey': this.supabaseKey,
+                  'Authorization': `Bearer ${this.supabaseKey}`
+                }
+              }
+            );
+            if (pairingResponse.ok) {
+              const pairings = await pairingResponse.json();
+              if (pairings.length > 0 && pairings[0].discord_user_id) {
+                discordUserId = pairings[0].discord_user_id;
+                debug.log('✅ Found Discord user ID from pairings:', discordUserId);
+              }
+            }
+          } catch (error) {
+            debug.log('⚠️ Failed to check pairings for Discord user ID:', error.message);
+          }
+        }
+
+        // Set the discord_user_id or use placeholder
+        if (discordUserId) {
+          payload.discord_user_id = discordUserId;
+        } else {
           payload.discord_user_id = 'not_linked';
-          debug.log('⚠️ Failed to get Discord user ID, using placeholder:', error.message);
+          debug.log('⚠️ No Discord user ID found, using placeholder');
         }
       }
 
