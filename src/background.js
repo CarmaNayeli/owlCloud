@@ -428,6 +428,9 @@ async function setApiToken(token, userId = null, tokenExpires = null, username =
 
     await browserAPI.storage.local.set(storageData);
 
+    // Clear the explicitly logged out flag since user is now logging in
+    await browserAPI.storage.local.remove('explicitlyLoggedOut');
+
     debug.log('Successfully stored API token');
     return { success: true };
   } catch (error) {
@@ -505,6 +508,8 @@ async function checkLoginStatus() {
  */
 async function logout() {
   try {
+    // Set flag first to prevent autoRefreshToken from re-saving the token
+    await browserAPI.storage.local.set({ explicitlyLoggedOut: true });
     await browserAPI.storage.local.remove(['diceCloudToken', 'diceCloudUserId', 'tokenExpires', 'username']);
     debug.log('Logged out successfully');
   } catch (error) {

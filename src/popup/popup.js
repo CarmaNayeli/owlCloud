@@ -263,6 +263,13 @@ function initializePopup() {
             showMainSection();
           } else {
             debug.log('❌ No token found in storage, checking Supabase...');
+            // Check if user explicitly logged out - don't restore from Supabase in that case
+            const { explicitlyLoggedOut } = await browserAPI.storage.local.get('explicitlyLoggedOut');
+            if (explicitlyLoggedOut) {
+              debug.log('⏭️ Skipping Supabase restoration: user explicitly logged out');
+              showLoginSection();
+              return;
+            }
             // Try Supabase for cross-session persistence
             try {
               if (typeof SupabaseTokenManager !== 'undefined') {
@@ -284,6 +291,8 @@ function initializePopup() {
                     diceCloudUserId: supabaseResult.userId,
                     authId: supabaseResult.authId || supabaseResult.userId
                   });
+                  // Clear explicitly logged out flag since user is restoring session
+                  await browserAPI.storage.local.remove('explicitlyLoggedOut');
                   // Restore character data from local storage
                   const localProfiles = await browserAPI.storage.local.get(['profiles']);
                   if (localProfiles.profiles) {
@@ -322,12 +331,19 @@ function initializePopup() {
           showMainSection();
         } else {
           debug.log('❌ No token found in storage, checking Supabase...');
+          // Check if user explicitly logged out - don't restore from Supabase in that case
+          const { explicitlyLoggedOut } = await browserAPI.storage.local.get('explicitlyLoggedOut');
+          if (explicitlyLoggedOut) {
+            debug.log('⏭️ Skipping Supabase restoration (error fallback): user explicitly logged out');
+            showLoginSection();
+            return;
+          }
           // Try Supabase for cross-session persistence
           try {
             if (typeof SupabaseTokenManager !== 'undefined') {
               const supabaseManager = new SupabaseTokenManager();
               const supabaseResult = await supabaseManager.retrieveToken();
-              
+
               if (supabaseResult.success) {
                 debug.log('✅ Found token in Supabase (error fallback), restoring to local storage...');
                 // Store token locally for faster access
@@ -336,6 +352,8 @@ function initializePopup() {
                   username: supabaseResult.username,
                   tokenExpires: supabaseResult.tokenExpires
                 });
+                // Clear explicitly logged out flag since user is restoring session
+                await browserAPI.storage.local.remove('explicitlyLoggedOut');
                 showMainSection();
               } else {
                 debug.log('❌ No token found in Supabase, showing login');
@@ -443,6 +461,8 @@ function initializePopup() {
               };
 
               await browserAPI.storage.local.set(storageData);
+              // Clear explicitly logged out flag since user is logging in
+              await browserAPI.storage.local.remove('explicitlyLoggedOut');
               debug.log('✅ Token stored successfully in direct storage:', storageData);
 
               // Also store in Supabase for cross-session persistence

@@ -5387,6 +5387,13 @@
   // Auto-extract and save auth token when on DiceCloud
   async function autoRefreshToken() {
     try {
+      // Check if user explicitly logged out - don't auto-refresh in that case
+      const { explicitlyLoggedOut } = await browserAPI.storage.local.get('explicitlyLoggedOut');
+      if (explicitlyLoggedOut) {
+        debug.log('⏭️ Skipping auto-refresh: user explicitly logged out');
+        return;
+      }
+
       const loginToken = localStorage.getItem('Meteor.loginToken');
       const userId = localStorage.getItem('Meteor.userId');
 
