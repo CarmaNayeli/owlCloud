@@ -1,5 +1,8 @@
 import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 
+// Import the storeCharacterOptions function
+import { storeCharacterOptions } from './roll.js';
+
 // Supabase config - set via environment variables
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
@@ -82,6 +85,26 @@ export default {
         channelName: interaction.channel.name,
         userId: interaction.user.id
       });
+
+      // 3.5. Store character options for autocomplete
+      // Get character data to store options
+      const characterResponse = await fetch(
+        `${SUPABASE_URL}/rest/v1/dicecloud_characters?user_id=eq.${pairing.dicecloud_user_id}&select=*&order=updated_at.desc&limit=1`,
+        {
+          headers: {
+            'apikey': SUPABASE_SERVICE_KEY,
+            'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+          }
+        }
+      );
+
+      if (characterResponse.ok) {
+        const characters = await characterResponse.json();
+        if (characters.length > 0) {
+          const characterData = characters[0];
+          await storeCharacterOptions(pairing.id, characterData);
+        }
+      }
 
       // 4. Send success message
       const embed = new EmbedBuilder()

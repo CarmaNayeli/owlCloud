@@ -209,6 +209,56 @@ $$ LANGUAGE plpgsql;
 
 
 -- ============================================================================
+-- RollCloud Character Options Table
+-- Stores autocomplete options for Discord commands
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS rollcloud_character_options (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+  -- Link to the pairing
+  pairing_id UUID REFERENCES rollcloud_pairings(id) ON DELETE CASCADE,
+
+  -- Character identification
+  character_id VARCHAR(50) NOT NULL,
+  character_name VARCHAR(100) NOT NULL,
+  meteor_character_id VARCHAR(50),
+
+  -- Available options for autocomplete
+  ability_checks JSONB DEFAULT '[]', -- ["Strength Check", "Dexterity Check", ...]
+  saving_throws JSONB DEFAULT '[]', -- ["Strength Save", "Dexterity Save", ...]
+  skills JSONB DEFAULT '[]', -- ["Perception Check", "Stealth Check", ...]
+  attacks JSONB DEFAULT '[]', -- ["Attack: Longsword", "Attack: Shortbow", ...]
+  spell_attacks JSONB DEFAULT '[]', -- ["Spell Attack: Fireball", "Spell Attack: Magic Missile", ...]
+  special JSONB DEFAULT '[]', -- ["Initiative", ...]
+
+  -- Status and timestamps
+  status VARCHAR(20) DEFAULT 'active', -- active, inactive
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Fast lookups for autocomplete
+CREATE INDEX IF NOT EXISTS idx_character_options_pairing 
+  ON rollcloud_character_options(pairing_id, status);
+
+-- RLS Policies
+ALTER TABLE rollcloud_character_options ENABLE ROW LEVEL SECURITY;
+
+-- Allow anonymous read (extension needs to read options)
+CREATE POLICY "Allow anonymous read character options" ON rollcloud_character_options
+  FOR SELECT USING (true);
+
+-- Allow anonymous insert (Pip Bot creates options when pairing)
+CREATE POLICY "Allow anonymous insert character options" ON rollcloud_character_options
+  FOR INSERT WITH CHECK (true);
+
+-- Allow anonymous update (Pip Bot updates options when character changes)
+CREATE POLICY "Allow anonymous update character options" ON rollcloud_character_options
+  FOR UPDATE USING (true);
+
+
+-- ============================================================================
 -- RollCloud Rolls Table
 -- Enables Discord → Extension roll communication for real-time Roll20 integration
 -- ============================================================================
@@ -289,3 +339,4 @@ $$ LANGUAGE plpgsql;
 ALTER PUBLICATION supabase_realtime ADD TABLE rollcloud_turns;
 ALTER PUBLICATION supabase_realtime ADD TABLE rollcloud_commands;
 ALTER PUBLICATION supabase_realtime ADD TABLE rollcloud_rolls;
+ALTER PUBLICATION supabase_realtime ADD TABLE rollcloud_character_options;

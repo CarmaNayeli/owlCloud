@@ -247,62 +247,95 @@ export default {
   async autocomplete(interaction) {
     try {
       const focusedValue = interaction.options.getFocused();
-      const characterData = await getCharacterData(interaction.user.id);
-
       const choices = [];
 
-      // Add ability scores
-      const abilities = ['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma'];
-      const abilityNames = ['Strength', 'Dexterity', 'Constitution', 'Intelligence', 'Wisdom', 'Charisma'];
+      // Get stored character options from Supabase
+      const storedOptions = await getStoredCharacterOptions(interaction.user.id);
       
-      abilities.forEach((ability, index) => {
-        if (abilityNames[index].toLowerCase().includes(focusedValue.toLowerCase())) {
-          choices.push({ name: `${abilityNames[index]} Check`, value: ability });
-          choices.push({ name: `${abilityNames[index]} Save`, value: `${ability} save` });
-        }
-      });
+      if (storedOptions) {
+        // Add ability checks from stored options
+        storedOptions.ability_checks.forEach(option => {
+          if (option.toLowerCase().includes(focusedValue.toLowerCase())) {
+            const ability = option.replace(' Check', '').toLowerCase();
+            choices.push({ name: option, value: ability });
+          }
+        });
 
-      // Add skills
-      const skills = [
-        'athletics', 'acrobatics', 'sleight of hand', 'stealth',
-        'arcana', 'history', 'investigation', 'nature', 'religion',
-        'animal handling', 'insight', 'medicine', 'perception', 'survival',
-        'deception', 'intimidation', 'performance', 'persuasion'
-      ];
+        // Add saving throws from stored options
+        storedOptions.saving_throws.forEach(option => {
+          if (option.toLowerCase().includes(focusedValue.toLowerCase())) {
+            const ability = option.replace(' Save', '').toLowerCase();
+            choices.push({ name: option, value: `${ability} save` });
+          }
+        });
 
-      skills.forEach(skill => {
-        if (skill.toLowerCase().includes(focusedValue.toLowerCase())) {
-          choices.push({ name: `${skill.charAt(0).toUpperCase() + skill.slice(1)} Check`, value: skill });
-        }
-      });
+        // Add skills from stored options
+        storedOptions.skills.forEach(option => {
+          if (option.toLowerCase().includes(focusedValue.toLowerCase())) {
+            const skill = option.replace(' Check', '').toLowerCase();
+            choices.push({ name: option, value: skill });
+          }
+        });
 
-      // Add attack options if character data is available
-      if (characterData) {
-        // Add weapon attacks
-        if (characterData.equipment) {
-          const weapons = characterData.equipment.filter(item => 
-            item.type === 'weapon' || item.name.toLowerCase().includes('sword') || 
-            item.name.toLowerCase().includes('axe') || item.name.toLowerCase().includes('bow')
-          );
+        // Add attacks from stored options
+        storedOptions.attacks.forEach(option => {
+          if (option.toLowerCase().includes(focusedValue.toLowerCase())) {
+            const weaponName = option.replace('Attack: ', '');
+            choices.push({ name: `⚔️ ${option}`, value: `attack:${weaponName}` });
+          }
+        });
+
+        // Add spell attacks from stored options
+        storedOptions.spell_attacks.forEach(option => {
+          if (option.toLowerCase().includes(focusedValue.toLowerCase())) {
+            const spellName = option.replace('Spell Attack: ', '');
+            choices.push({ name: `🔮 ${option}`, value: `spell_attack:${spellName}` });
+          }
+        });
+
+        // Add special options (like Initiative)
+        storedOptions.special.forEach(option => {
+          if (option.toLowerCase().includes(focusedValue.toLowerCase())) {
+            choices.push({ name: option, value: option.toLowerCase() });
+          }
+        });
+      } else {
+        // Fallback to live generation if no stored options
+        const characterData = await getCharacterData(interaction.user.id);
+        
+        if (characterData) {
+          // Generate options from character data (existing logic)
+          const abilities = ['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma'];
+          const abilityNames = ['Strength', 'Dexterity', 'Constitution', 'Intelligence', 'Wisdom', 'Charisma'];
           
-          weapons.forEach(weapon => {
-            if (weapon.name.toLowerCase().includes(focusedValue.toLowerCase())) {
-              choices.push({ name: `⚔️ Attack: ${weapon.name}`, value: `attack:${weapon.name}` });
+          abilities.forEach((ability, index) => {
+            if (abilityNames[index].toLowerCase().includes(focusedValue.toLowerCase())) {
+              choices.push({ name: `${abilityNames[index]} Check`, value: ability });
+              choices.push({ name: `${abilityNames[index]} Save`, value: `${ability} save` });
             }
           });
-        }
 
-        // Add spell attacks
-        if (characterData.spells) {
-          const attackSpells = characterData.spells.filter(spell => 
-            spell.damage || spell.level > 0
-          );
-          
-          attackSpells.forEach(spell => {
-            if (spell.name.toLowerCase().includes(focusedValue.toLowerCase())) {
-              choices.push({ name: `🔮 Spell Attack: ${spell.name}`, value: `spell_attack:${spell.name}` });
+          const skills = [
+            'athletics', 'acrobatics', 'sleight of hand', 'stealth',
+            'arcana', 'history', 'investigation', 'nature', 'religion',
+            'animal handling', 'insight', 'medicine', 'perception', 'survival',
+            'deception', 'intimidation', 'performance', 'persuasion'
+          ];
+
+          skills.forEach(skill => {
+            if (skill.toLowerCase().includes(focusedValue.toLowerCase())) {
+              choices.push({ name: `${skill.charAt(0).toUpperCase() + skill.slice(1)} Check`, value: skill });
             }
           });
+
+          // Add Initiative (special case)
+          if ('initiative'.includes(focusedValue.toLowerCase())) {
+            const initiativeBonus = characterData.initiative_bonus || Math.floor((characterData.ability_scores?.dexterity || 10 - 10) / 2);
+            choices.push({ 
+              name: `🎯 Initiative (${initiativeBonus >= 0 ? '+' : ''}${initiativeBonus})`, 
+              value: 'initiative' 
+            });
+          }
         }
       }
 
@@ -385,6 +418,60 @@ async function tryAbilityCheck(discordUserId, input, options = {}) {
   }
 
   const inputLower = input.toLowerCase();
+  
+  // Check for initiative (special case)
+  if (inputLower === 'initiative') {
+    const initiativeBonus = characterData.initiative_bonus || Math.floor((characterData.ability_scores?.dexterity || 10 - 10) / 2);
+    
+    const roll1 = Math.floor(Math.random() * 20) + 1;
+    const roll2 = Math.floor(Math.random() * 20) + 1;
+    
+    let finalRoll, rollDescription, rolls;
+    
+    if (advantage === 'advantage') {
+      finalRoll = Math.max(roll1, roll2);
+      rollDescription = `Advantage: [${roll1}, ${roll2}] → **${finalRoll}**`;
+      rolls = [roll1, roll2];
+    } else if (advantage === 'disadvantage') {
+      finalRoll = Math.min(roll1, roll2);
+      rollDescription = `Disadvantage: [${roll1}, ${roll2}] → **${finalRoll}**`;
+      rolls = [roll1, roll2];
+    } else {
+      finalRoll = roll1;
+      rollDescription = `Roll: **${finalRoll}**`;
+      rolls = [roll1];
+    }
+
+    const total = finalRoll + initiativeBonus;
+
+    const embed = new EmbedBuilder()
+      .setColor(0xFFD700) // Gold for initiative
+      .setTitle(`🎯 ${characterData.name} - Initiative`)
+      .setDescription(`${rollDescription} ${initiativeBonus >= 0 ? '+' : ''}${initiativeBonus} = **${total}**`)
+      .addFields(
+        { name: 'Initiative Bonus', value: `${initiativeBonus >= 0 ? '+' : ''}${initiativeBonus}`, inline: true },
+        { name: 'Roll Type', value: 'Initiative Check', inline: true }
+      )
+      .setFooter({ text: `${characterData.name} • Initiative Roll` })
+      .setTimestamp();
+
+    return { 
+      isCheck: true, 
+      embed: embed,
+      type: 'initiative',
+      formula: `1d20${initiativeBonus >= 0 ? '+' : ''}${initiativeBonus}(initiative)`,
+      result: {
+        total: total,
+        rolls: rolls,
+        modifier: initiativeBonus
+      },
+      character: {
+        name: characterData.name,
+        id: characterData.id,
+        advantage: advantage || 'normal'
+      }
+    };
+  }
   
   // Check for attack rolls
   if (inputLower.startsWith('attack:')) {
@@ -987,6 +1074,171 @@ async function markRollAsTimeout(discordMessageId) {
     console.error('Error marking roll as timeout:', error);
   }
 }
+
+/**
+ * Get stored character options from Supabase
+ */
+async function getStoredCharacterOptions(discordUserId) {
+  try {
+    // Get the user's RollCloud pairing
+    const pairingResponse = await fetch(
+      `${SUPABASE_URL}/rest/v1/rollcloud_pairings?discord_user_id=eq.${discordUserId}&status=eq.connected&select=*`,
+      {
+        headers: {
+          'apikey': SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+        }
+      }
+    );
+
+    if (!pairingResponse.ok) {
+      console.error('Failed to lookup user pairing for autocomplete options');
+      return null;
+    }
+
+    const pairings = await pairingResponse.json();
+    
+    if (pairings.length === 0) {
+      return null;
+    }
+
+    const pairing = pairings[0];
+
+    // Get stored character options
+    const optionsResponse = await fetch(
+      `${SUPABASE_URL}/rest/v1/rollcloud_character_options?pairing_id=eq.${pairing.id}&status=eq.active&select=*&order=updated_at.desc&limit=1`,
+      {
+        headers: {
+          'apikey': SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+        }
+      }
+    );
+
+    if (!optionsResponse.ok) {
+      console.error('Failed to lookup stored character options');
+      return null;
+    }
+
+    const options = await optionsResponse.json();
+    return options.length > 0 ? options[0] : null;
+
+  } catch (error) {
+    console.error('Error getting stored character options:', error);
+    return null;
+  }
+}
+
+/**
+ * Store character options in Supabase for autocomplete
+ */
+async function storeCharacterOptions(pairingId, characterData) {
+  try {
+    // Generate options from character data
+    const abilityScores = characterData.ability_scores || {};
+    const skills = characterData.skills || {};
+    const equipment = characterData.equipment || [];
+    const spells = characterData.spells || [];
+    
+    // Generate ability checks
+    const abilityNames = ['Strength', 'Dexterity', 'Constitution', 'Intelligence', 'Wisdom', 'Charisma'];
+    const abilityChecks = abilityNames.map(name => `${name} Check`);
+    
+    // Generate saving throws
+    const savingThrows = abilityNames.map(name => `${name} Save`);
+    
+    // Generate skill checks
+    const skillList = [
+      'athletics', 'acrobatics', 'sleight of hand', 'stealth',
+      'arcana', 'history', 'investigation', 'nature', 'religion',
+      'animal handling', 'insight', 'medicine', 'perception', 'survival',
+      'deception', 'intimidation', 'performance', 'persuasion'
+    ];
+    const skillChecks = skillList.map(skill => `${skill.charAt(0).toUpperCase() + skill.slice(1)} Check`);
+    
+    // Generate attacks
+    const weapons = equipment.filter(item => 
+      item.type === 'weapon' || item.name.toLowerCase().includes('sword') || 
+      item.name.toLowerCase().includes('axe') || item.name.toLowerCase().includes('bow')
+    );
+    const attacks = weapons.map(weapon => `Attack: ${weapon.name}`);
+    
+    // Generate spell attacks
+    const attackSpells = spells.filter(spell => spell.damage || spell.level > 0);
+    const spellAttacks = attackSpells.map(spell => `Spell Attack: ${spell.name}`);
+    
+    // Generate special options
+    const initiativeBonus = characterData.initiative_bonus || Math.floor((abilityScores.dexterity || 10 - 10) / 2);
+    const special = [`Initiative (${initiativeBonus >= 0 ? '+' : ''}${initiativeBonus})`];
+
+    // Check if options already exist
+    const existingResponse = await fetch(
+      `${SUPABASE_URL}/rest/v1/rollcloud_character_options?pairing_id=eq.${pairingId}&character_id=eq.${characterData.id}&select=id`,
+      {
+        headers: {
+          'apikey': SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+        }
+      }
+    );
+
+    const optionsData = {
+      pairing_id: pairingId,
+      character_id: characterData.id,
+      character_name: characterData.name,
+      meteor_character_id: characterData.meteor_character_id,
+      ability_checks: abilityChecks,
+      saving_throws: savingThrows,
+      skills: skillChecks,
+      attacks: attacks,
+      spell_attacks: spellAttacks,
+      special: special,
+      updated_at: new Date().toISOString()
+    };
+
+    if (existingResponse.ok) {
+      const existing = await existingResponse.json();
+      
+      if (existing.length > 0) {
+        // Update existing options
+        await fetch(
+          `${SUPABASE_URL}/rest/v1/rollcloud_character_options?id=eq.${existing[0].id}`,
+          {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': SUPABASE_SERVICE_KEY,
+              'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+            },
+            body: JSON.stringify(optionsData)
+          }
+        );
+      } else {
+        // Insert new options
+        await fetch(
+          `${SUPABASE_URL}/rest/v1/rollcloud_character_options`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': SUPABASE_SERVICE_KEY,
+              'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+            },
+            body: JSON.stringify(optionsData)
+          }
+        );
+      }
+    }
+
+    console.log(`✅ Stored character options for ${characterData.name}`);
+
+  } catch (error) {
+    console.error('Error storing character options:', error);
+  }
+}
+
+// Export the storeCharacterOptions function for use in other commands
+export { storeCharacterOptions };
 
 /**
  * Roll an attack with a weapon
