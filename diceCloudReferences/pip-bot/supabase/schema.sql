@@ -209,9 +209,78 @@ $$ LANGUAGE plpgsql;
 
 
 -- ============================================================================
+-- RollCloud Rolls Table
+-- Enables Discord → Extension roll communication for real-time Roll20 integration
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS rollcloud_rolls (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
+  -- Link to the pairing (identifies which extension should receive this)
+  pairing_id UUID REFERENCES rollcloud_pairings(id) ON DELETE CASCADE,
+
+  -- Discord context
+  discord_user_id VARCHAR(20) NOT NULL,
+  discord_username VARCHAR(100),
+  discord_message_id VARCHAR(20),
+
+  -- Roll details
+  roll_type VARCHAR(50) NOT NULL, -- 'dice', 'ability_check', 'skill_check', 'saving_throw', 'spell_attack'
+  roll_formula VARCHAR(100) NOT NULL, -- e.g., '1d20+5', '2d6', '1d20+7(stealth)'
+  roll_result JSONB NOT NULL, -- { "total": 23, "rolls": [15, 8], "modifier": 0 }
+  
+  -- Character context (if available)
+  character_name VARCHAR(100),
+  character_id VARCHAR(50),
+  ability_score VARCHAR(20), -- 'strength', 'dexterity', etc.
+  skill_name VARCHAR(50), -- 'perception', 'stealth', etc.
+  advantage_type VARCHAR(20), -- 'normal', 'advantage', 'disadvantage'
+
+  -- Status tracking
+  status VARCHAR(20) DEFAULT 'pending', -- pending, delivered, failed
+  error_message TEXT DEFAULT NULL,
+
+  -- Timestamps
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  delivered_at TIMESTAMPTZ DEFAULT NULL,
+  expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '5 minutes')
+);
+
+-- Fast lookups for extension polling (pending rolls for a pairing)
+CREATE INDEX IF NOT EXISTS idx_rolls_pending
+  ON rollcloud_rolls(pairing_id, status, created_at)
+  WHERE status = 'pending';
+
+-- RLS Policies
+ALTER TABLE rollcloud_rolls ENABLE ROW LEVEL SECURITY;
+
+-- Allow anonymous read (extension polls for pending rolls)
+CREATE POLICY "Allow anonymous read rolls" ON rollcloud_rolls
+  FOR SELECT USING (true);
+
+-- Allow anonymous insert (Pip Bot creates rolls from Discord commands)
+CREATE POLICY "Allow anonymous insert rolls" ON rollcloud_rolls
+  FOR INSERT WITH CHECK (true);
+
+-- Allow anonymous update (extension marks rolls as delivered)
+CREATE POLICY "Allow anonymous update rolls" ON rollcloud_rolls
+  FOR UPDATE USING (true);
+
+-- Cleanup expired rolls (run periodically)
+CREATE OR REPLACE FUNCTION cleanup_expired_rolls()
+RETURNS void AS $$
+BEGIN
+  DELETE FROM rollcloud_rolls
+  WHERE status = 'pending' AND expires_at < NOW();
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- ============================================================================
 -- Enable Realtime for Pip Bot
 -- ============================================================================
 
 -- Enable realtime for the turns table so Pip Bot can subscribe
 ALTER PUBLICATION supabase_realtime ADD TABLE rollcloud_turns;
 ALTER PUBLICATION supabase_realtime ADD TABLE rollcloud_commands;
+ALTER PUBLICATION supabase_realtime ADD TABLE rollcloud_rolls;

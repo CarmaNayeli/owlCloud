@@ -92,6 +92,23 @@ export default {
         // Roll a generic d20 check with character's proficiency bonus
         const result = rollCharacterCheck(characterData, { advantage, checkType });
         await interaction.editReply({ embeds: [result.embed] });
+
+        // Send real-time message to RollCloud extension
+        await sendRollToExtension(interaction, {
+          type: 'ability_check',
+          formula: '1d20+' + (characterData.proficiency_bonus || 2),
+          result: {
+            total: result.total,
+            rolls: result.rolls,
+            modifier: characterData.proficiency_bonus || 2
+          },
+          character: {
+            name: characterData.name,
+            id: characterData.id,
+            ability: 'generic',
+            advantage: advantage || 'normal'
+          }
+        });
         return;
       }
 
@@ -100,6 +117,16 @@ export default {
       
       if (checkResult.isCheck) {
         await interaction.editReply({ embeds: [checkResult.embed] });
+
+        // Send real-time message to RollCloud extension
+        if (checkResult.character) {
+          await sendRollToExtension(interaction, {
+            type: checkResult.type,
+            formula: checkResult.formula,
+            result: checkResult.result,
+            character: checkResult.character
+          });
+        }
         return;
       }
 
@@ -157,6 +184,19 @@ export default {
         .setTimestamp();
 
       await interaction.editReply({ embeds: [embed] });
+
+      // Send real-time message to RollCloud extension
+      await sendRollToExtension(interaction, {
+        type: 'dice',
+        formula: diceNotation,
+        result: {
+          total,
+          rolls,
+          sum,
+          modifier
+        },
+        character: null
+      });
 
     } catch (error) {
       console.error('Roll command error:', error);
@@ -296,7 +336,23 @@ async function tryAbilityCheck(discordUserId, input, options = {}) {
     
     if (abilities.includes(ability)) {
       const result = rollSavingThrow(characterData, ability, { advantage });
-      return { isCheck: true, embed: result.embed };
+      return { 
+        isCheck: true, 
+        embed: result.embed,
+        type: 'saving_throw',
+        formula: `1d20${result.modifier >= 0 ? '+' : ''}${result.modifier}(${ability} save)`,
+        result: {
+          total: result.total,
+          rolls: result.rolls,
+          modifier: result.modifier
+        },
+        character: {
+          name: characterData.name,
+          id: characterData.id,
+          ability: ability,
+          advantage: advantage || 'normal'
+        }
+      };
     }
   }
 
@@ -304,7 +360,23 @@ async function tryAbilityCheck(discordUserId, input, options = {}) {
   const abilities = ['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma'];
   if (abilities.includes(inputLower)) {
     const result = rollAbilityCheck(characterData, inputLower, { advantage });
-    return { isCheck: true, embed: result.embed };
+    return { 
+      isCheck: true, 
+      embed: result.embed,
+      type: 'ability_check',
+      formula: `1d20${result.modifier >= 0 ? '+' : ''}${result.modifier}(${inputLower})`,
+      result: {
+        total: result.total,
+        rolls: result.rolls,
+        modifier: result.modifier
+      },
+      character: {
+        name: characterData.name,
+        id: characterData.id,
+        ability: inputLower,
+        advantage: advantage || 'normal'
+      }
+    };
   }
 
   // Check for skill checks
@@ -317,7 +389,23 @@ async function tryAbilityCheck(discordUserId, input, options = {}) {
 
   if (skills.includes(inputLower)) {
     const result = rollSkillCheck(characterData, inputLower, { advantage });
-    return { isCheck: true, embed: result.embed };
+    return { 
+      isCheck: true, 
+      embed: result.embed,
+      type: 'skill_check',
+      formula: `1d20${result.modifier >= 0 ? '+' : ''}${result.modifier}(${inputLower})`,
+      result: {
+        total: result.total,
+        rolls: result.rolls,
+        modifier: result.modifier
+      },
+      character: {
+        name: characterData.name,
+        id: characterData.id,
+        skill: inputLower,
+        advantage: advantage || 'normal'
+      }
+    };
   }
 
   return { isCheck: false };
@@ -333,17 +421,20 @@ function rollCharacterCheck(character, options = {}) {
   const roll1 = Math.floor(Math.random() * 20) + 1;
   const roll2 = Math.floor(Math.random() * 20) + 1;
   
-  let finalRoll, rollDescription;
+  let finalRoll, rollDescription, rolls;
   
   if (advantage === 'advantage') {
     finalRoll = Math.max(roll1, roll2);
     rollDescription = `Advantage: [${roll1}, ${roll2}] → **${finalRoll}**`;
+    rolls = [roll1, roll2];
   } else if (advantage === 'disadvantage') {
     finalRoll = Math.min(roll1, roll2);
     rollDescription = `Disadvantage: [${roll1}, ${roll2}] → **${finalRoll}**`;
+    rolls = [roll1, roll2];
   } else {
     finalRoll = roll1;
     rollDescription = `Roll: **${finalRoll}**`;
+    rolls = [roll1];
   }
 
   const total = finalRoll + proficiencyBonus;
@@ -359,7 +450,7 @@ function rollCharacterCheck(character, options = {}) {
     .setFooter({ text: `${character.name} • D20 Check` })
     .setTimestamp();
 
-  return { embed };
+  return { embed, total, rolls, modifier: proficiencyBonus };
 }
 
 /**
@@ -376,17 +467,20 @@ function rollAbilityCheck(character, ability, options = {}) {
   const roll1 = Math.floor(Math.random() * 20) + 1;
   const roll2 = Math.floor(Math.random() * 20) + 1;
   
-  let finalRoll, rollDescription;
+  let finalRoll, rollDescription, rolls;
   
   if (advantage === 'advantage') {
     finalRoll = Math.max(roll1, roll2);
     rollDescription = `Advantage: [${roll1}, ${roll2}] → **${finalRoll}**`;
+    rolls = [roll1, roll2];
   } else if (advantage === 'disadvantage') {
     finalRoll = Math.min(roll1, roll2);
     rollDescription = `Disadvantage: [${roll1}, ${roll2}] → **${finalRoll}**`;
+    rolls = [roll1, roll2];
   } else {
     finalRoll = roll1;
     rollDescription = `Roll: **${finalRoll}**`;
+    rolls = [roll1];
   }
 
   const total = finalRoll + modifier;
@@ -402,7 +496,7 @@ function rollAbilityCheck(character, ability, options = {}) {
     .setFooter({ text: `${character.name} • ${ability.charAt(0).toUpperCase() + ability.slice(1)} Check` })
     .setTimestamp();
 
-  return { embed };
+  return { embed, total, rolls, modifier };
 }
 
 /**
@@ -447,17 +541,20 @@ function rollSkillCheck(character, skill, options = {}) {
   const roll1 = Math.floor(Math.random() * 20) + 1;
   const roll2 = Math.floor(Math.random() * 20) + 1;
   
-  let finalRoll, rollDescription;
+  let finalRoll, rollDescription, rolls;
   
   if (advantage === 'advantage') {
     finalRoll = Math.max(roll1, roll2);
     rollDescription = `Advantage: [${roll1}, ${roll2}] → **${finalRoll}**`;
+    rolls = [roll1, roll2];
   } else if (advantage === 'disadvantage') {
     finalRoll = Math.min(roll1, roll2);
     rollDescription = `Disadvantage: [${roll1}, ${roll2}] → **${finalRoll}**`;
+    rolls = [roll1, roll2];
   } else {
     finalRoll = roll1;
     rollDescription = `Roll: **${finalRoll}**`;
+    rolls = [roll1];
   }
 
   const total = finalRoll + totalModifier;
@@ -475,7 +572,7 @@ function rollSkillCheck(character, skill, options = {}) {
     .setFooter({ text: `${character.name} • ${skill.charAt(0).toUpperCase() + skill.slice(1)} Check` })
     .setTimestamp();
 
-  return { embed };
+  return { embed, total, rolls, modifier: totalModifier };
 }
 
 /**
@@ -496,17 +593,20 @@ function rollSavingThrow(character, ability, options = {}) {
   const roll1 = Math.floor(Math.random() * 20) + 1;
   const roll2 = Math.floor(Math.random() * 20) + 1;
   
-  let finalRoll, rollDescription;
+  let finalRoll, rollDescription, rolls;
   
   if (advantage === 'advantage') {
     finalRoll = Math.max(roll1, roll2);
     rollDescription = `Advantage: [${roll1}, ${roll2}] → **${finalRoll}**`;
+    rolls = [roll1, roll2];
   } else if (advantage === 'disadvantage') {
     finalRoll = Math.min(roll1, roll2);
     rollDescription = `Disadvantage: [${roll1}, ${roll2}] → **${finalRoll}**`;
+    rolls = [roll1, roll2];
   } else {
     finalRoll = roll1;
     rollDescription = `Roll: **${finalRoll}**`;
+    rolls = [roll1];
   }
 
   const total = finalRoll + totalModifier;
@@ -524,5 +624,96 @@ function rollSavingThrow(character, ability, options = {}) {
     .setFooter({ text: `${character.name} • ${ability.charAt(0).toUpperCase() + ability.slice(1)} Save` })
     .setTimestamp();
 
-  return { embed };
+  return { embed, total, rolls, modifier: totalModifier };
+}
+
+/**
+ * Send roll data to RollCloud extension via Supabase
+ */
+async function sendRollToExtension(interaction, rollData) {
+  try {
+    // Get the user's RollCloud pairing
+    const pairingResponse = await fetch(
+      `${SUPABASE_URL}/rest/v1/rollcloud_pairings?discord_user_id=eq.${interaction.user.id}&status=eq.connected&select=*`,
+      {
+        headers: {
+          'apikey': SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+        }
+      }
+    );
+
+    if (!pairingResponse.ok) {
+      console.error('Failed to lookup user pairing for roll');
+      return;
+    }
+
+    const pairings = await pairingResponse.json();
+    
+    if (pairings.length === 0) {
+      console.log('No RollCloud pairing found for user, skipping extension notification');
+      return;
+    }
+
+    const pairing = pairings[0];
+
+    // Insert roll data into Supabase
+    const rollInsert = {
+      pairing_id: pairing.id,
+      discord_user_id: interaction.user.id,
+      discord_username: interaction.user.displayName,
+      discord_message_id: interaction.id,
+      roll_type: rollData.type,
+      roll_formula: rollData.formula,
+      roll_result: rollData.result,
+      character_name: rollData.character?.name || null,
+      character_id: rollData.character?.id || null,
+      ability_score: rollData.character?.ability || rollData.character?.skill || null,
+      skill_name: rollData.character?.skill || null,
+      advantage_type: rollData.character?.advantage || 'normal',
+      status: 'pending'
+    };
+
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/rollcloud_rolls`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify(rollInsert)
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error('Failed to insert roll data:', error);
+      return;
+    }
+
+    const result = await response.json();
+    console.log(`🎲 Roll sent to extension: ${rollData.formula} = ${rollData.result.total} (ID: ${result[0].id})`);
+
+    // Update pairing activity
+    await fetch(
+      `${SUPABASE_URL}/rest/v1/rollcloud_pairings?id=eq.${pairing.id}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+        },
+        body: JSON.stringify({
+          last_activity: new Date().toISOString()
+        })
+      }
+    );
+
+  } catch (error) {
+    console.error('Error sending roll to extension:', error);
+  }
 }
