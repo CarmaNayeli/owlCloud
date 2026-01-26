@@ -14,7 +14,7 @@
 <gupdate xmlns='http://www.google.com/update2/response' protocol='2.0'>
   <app appid='mkckngoemfjdkhcpaomdndlecolckgdj'>
     <updatecheck
-      codebase='https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-chrome.crx'
+      codebase='https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-chrome-signed.crx'
       version='1.2.3' />
   </app>
 </gupdate>
