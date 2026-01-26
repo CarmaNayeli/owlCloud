@@ -497,6 +497,69 @@
         debug.warn('⚠️ diceCloudSync not available (not experimental build?)');
         sendResponse({ success: false, error: 'Sync not available' });
       }
+    } else if (request.action === 'useActionFromDiscord') {
+      debug.log('⚔️ Received useActionFromDiscord:', request);
+      const actionName = request.actionName || 'Unknown Action';
+      const commandData = request.commandData || {};
+      const charName = commandData.character_name || 'Character';
+
+      // If the action has a damage roll or attack bonus, roll it
+      const actionData = commandData.action_data || {};
+      if (actionData.damageRoll || actionData.attackBonus) {
+        const rollFormula = actionData.attackBonus
+          ? `1d20+${actionData.attackBonus}`
+          : actionData.damageRoll;
+        const msg = formatRollForRoll20({
+          name: `${charName} - ${actionName}`,
+          formula: rollFormula,
+          characterName: charName
+        });
+        postChatMessage(msg);
+      } else {
+        postChatMessage(`&{template:default} {{name=${charName} uses ${actionName}}}`);
+      }
+      sendResponse({ success: true });
+    } else if (request.action === 'castSpellFromDiscord') {
+      debug.log('🔮 Received castSpellFromDiscord:', request);
+      const spellName = request.spellName || 'Unknown Spell';
+      const spellData = request.spellData || {};
+      const charName = spellData.character_name || 'Character';
+      const spell = spellData.spell_data || {};
+      const castLevel = spellData.cast_level;
+
+      // If the spell has a damage roll, roll it
+      if (spell.damageRoll) {
+        const msg = formatRollForRoll20({
+          name: `${charName} casts ${spellName}`,
+          formula: spell.damageRoll,
+          characterName: charName
+        });
+        postChatMessage(msg);
+      } else if (spell.healingRoll) {
+        const msg = formatRollForRoll20({
+          name: `${charName} casts ${spellName}`,
+          formula: spell.healingRoll,
+          characterName: charName
+        });
+        postChatMessage(msg);
+      } else {
+        // Announce-only spell (buff, utility, etc.)
+        let desc = `&{template:default} {{name=${charName} casts ${spellName}}}`;
+        if (castLevel) desc += ` {{Level=${castLevel}}}`;
+        postChatMessage(desc);
+      }
+      sendResponse({ success: true });
+    } else if (request.action === 'useAbilityFromDiscord') {
+      debug.log('✨ Received useAbilityFromDiscord:', request);
+      const abilityName = request.abilityName || 'Unknown Ability';
+      const abilityData = request.abilityData || {};
+      const charName = abilityData.character_name || 'Character';
+      postChatMessage(`&{template:default} {{name=${charName} uses ${abilityName}}}`);
+      sendResponse({ success: true });
+    } else if (request.action === 'endTurnFromDiscord') {
+      debug.log('⏭️ Received endTurnFromDiscord');
+      postChatMessage('/e ends their turn.');
+      sendResponse({ success: true });
     }
   });
 

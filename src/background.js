@@ -2287,6 +2287,10 @@ async function executeCommand(command) {
         result = await executeUseAbilityCommand(command);
         break;
 
+      case 'cast':
+        result = await executeCastCommand(command);
+        break;
+
       default:
         result = { success: false, error: `Unknown command type: ${command.command_type}` };
     }
@@ -2407,6 +2411,29 @@ async function executeUseAbilityCommand(command) {
   }
 
   return { success: true, message: `Used ability: ${action_name}` };
+}
+
+/**
+ * Execute a cast spell command from Discord
+ */
+async function executeCastCommand(command) {
+  const { action_name, command_data } = command;
+
+  const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
+
+  for (const tab of tabs) {
+    try {
+      await browserAPI.tabs.sendMessage(tab.id, {
+        action: 'castSpellFromDiscord',
+        spellName: action_name,
+        spellData: command_data
+      });
+    } catch (err) {
+      debug.warn(`Failed to send cast to tab ${tab.id}:`, err);
+    }
+  }
+
+  return { success: true, message: `Cast spell: ${action_name}` };
 }
 
 /**
