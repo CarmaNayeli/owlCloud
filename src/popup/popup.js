@@ -1508,11 +1508,21 @@ function initializePopup() {
             action: 'setDiscordWebhook',
             webhookUrl: result.webhookUrl,
             enabled: true,
-            serverName: result.serverName
+            serverName: result.serverName,
+            pairingId: result.pairingId, // For command polling
+            discordUserId: result.discordUserId // Link to auth_tokens
           });
 
           showDiscordConnected(result.serverName);
           showDiscordStatus('Connected to Discord!', 'success');
+
+          // Re-sync character to cloud with the new Discord user ID
+          debug.log('🔄 Re-syncing character to cloud with Discord user ID');
+          try {
+            await handleSyncCharacterToCloud();
+          } catch (e) {
+            debug.warn('Could not re-sync character after Discord link:', e);
+          }
         }
       } catch (error) {
         debug.error('Pairing poll error:', error);

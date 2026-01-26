@@ -153,29 +153,42 @@ function SetupGuideContent() {
         <div className="flex items-start space-x-4">
           <div className="text-4xl">4</div>
           <div className="flex-1">
-            <h2 className="text-2xl font-bold mb-4">Pair Your Channel</h2>
+            <h2 className="text-2xl font-bold mb-4">Connect Discord from the Popup</h2>
             <p className="text-gray-600 dark:text-gray-400 mb-4">
-              Use the <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">/rollcloud pair</code> command in Discord to link a channel to your DiceCloud character.
+              Link your Discord channel to receive turn notifications.
             </p>
 
             <ol className="space-y-3 text-sm">
               <li className="flex items-start space-x-2">
                 <span className="font-bold">1.</span>
-                <div>Open Discord and go to your game channel</div>
+                <div>Click the RollCloud icon in your browser toolbar to open the popup</div>
               </li>
               <li className="flex items-start space-x-2">
                 <span className="font-bold">2.</span>
-                <div>Type <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">/rollcloud pair</code></div>
+                <div>Expand <strong>&quot;Discord Integration&quot;</strong> and click <strong>&quot;Setup Discord&quot;</strong></div>
               </li>
               <li className="flex items-start space-x-2">
                 <span className="font-bold">3.</span>
-                <div>Enter your DiceCloud character ID</div>
+                <div>You&apos;ll see a 6-character code (e.g., <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">ABC123</code>)</div>
               </li>
               <li className="flex items-start space-x-2">
                 <span className="font-bold">4.</span>
-                <div>Combat turns will now post to this channel!</div>
+                <div>In Discord, type <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">/rollcloud YOUR-CODE</code> in your game channel</div>
+              </li>
+              <li className="flex items-start space-x-2">
+                <span className="font-bold">5.</span>
+                <div>The popup will show &quot;Connected!&quot; and combat turns will post to that channel</div>
               </li>
             </ol>
+
+            <div className="mt-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded p-4">
+              <h3 className="font-semibold mb-2">How it works</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                The pairing code links your browser extension to a specific Discord channel.
+                When it&apos;s your turn in combat, notifications will appear in that channel with
+                action buttons you can tap from your phone!
+              </p>
+            </div>
           </div>
         </div>
       </div>
