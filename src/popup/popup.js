@@ -597,7 +597,9 @@ function initializePopup() {
       const profilesResponse = await browserAPI.runtime.sendMessage({ action: 'getAllCharacterProfiles' });
       const profiles = profilesResponse.success ? profilesResponse.profiles : {};
 
-      // Get the active character
+      // Get the active character ID (profile key) and data
+      const storageResult = await browserAPI.storage.local.get(['activeCharacterId']);
+      const activeCharacterId = storageResult.activeCharacterId;
       const activeResponse = await browserAPI.runtime.sendMessage({ action: 'getCharacterData' });
       const activeCharacter = activeResponse.success ? activeResponse.data : null;
 
@@ -612,7 +614,7 @@ function initializePopup() {
           const option = document.createElement('option');
           option.value = id;
           option.textContent = `${char.name || 'Unknown'} (${char.class || 'No Class'} ${char.level || '?'})`;
-          if (activeCharacter && (char.characterId === activeCharacter.characterId || char._id === activeCharacter._id || id === (activeCharacter.characterId || activeCharacter._id))) {
+          if (id === activeCharacterId || (activeCharacter && (char.characterId === activeCharacter.characterId || char._id === activeCharacter._id || id === (activeCharacter.characterId || activeCharacter._id)))) {
             option.selected = true;
           }
           characterSelect.appendChild(option);
