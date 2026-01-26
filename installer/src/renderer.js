@@ -259,17 +259,21 @@ async function checkForUpdatesAndProceed() {
                 <div style="color: #28a745;">✅ Extension uninstalled!</div>
                 <div style="font-size: 0.9em; margin-top: 5px;">${result.message}</div>
                 <div style="font-size: 0.85em; margin-top: 5px; color: #666;">Restart your browser to complete the removal.</div>
-                <div style="margin-top: 10px;">
-                  <button id="btnRestartAfterUninstall" class="btn btn-primary">
-                    Restart Browser
+                <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+                  <button id="btnReinstallAfterUninstall" class="btn btn-primary">
+                    Reinstall Extension
                   </button>
-                  <button id="btnContinueAfterUninstall" class="btn btn-secondary" style="margin-left: 10px;">
-                    Continue Setup
+                  <button id="btnContinueAfterUninstall" class="btn btn-secondary">
+                    Continue to Next Step
+                  </button>
+                  <button id="btnQuitAfterUninstall" class="btn btn-secondary">
+                    Quit
                   </button>
                 </div>
               `;
-              document.getElementById('btnRestartAfterUninstall').addEventListener('click', () => restartBrowser(selectedBrowser));
+              document.getElementById('btnReinstallAfterUninstall').addEventListener('click', () => goToStep(2));
               document.getElementById('btnContinueAfterUninstall').addEventListener('click', () => goToStep(3));
+              document.getElementById('btnQuitAfterUninstall').addEventListener('click', () => window.api.quitApp());
             } else {
               statusText.innerHTML = `
                 <div style="color: #dc3545;">❌ Uninstall failed</div>
