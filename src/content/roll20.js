@@ -296,6 +296,26 @@
   }
 
   /**
+   * Get color emoji for character notification color (matches popup-sheet getColoredBanner)
+   */
+  function getColorEmoji(color) {
+    const colorEmojiMap = {
+      '#3498db': '🔵', // Blue
+      '#e74c3c': '🔴', // Red
+      '#27ae60': '🟢', // Green
+      '#9b59b6': '🟣', // Purple
+      '#e67e22': '🟠', // Orange
+      '#1abc9c': '🔷', // Teal/Cyan
+      '#e91e63': '🩷', // Pink
+      '#f1c40f': '🟡', // Yellow
+      '#95a5a6': '⚪', // Grey
+      '#34495e': '⚫', // Black
+      '#8b4513': '🟤'  // Brown
+    };
+    return colorEmojiMap[color] || '🔵';
+  }
+
+  /**
    * Formats roll data for Roll20 chat display with fancy template
    */
   function formatRollForRoll20(rollData) {
@@ -536,9 +556,13 @@
       const charName = spellData.character_name || 'Character';
       const spell = spellData.spell_data || {};
       const castLevel = spellData.cast_level || spell.level;
+      const notificationColor = spellData.notification_color || '#3498db';
 
-      // Build spell announcement message (matches popup-sheet announceSpellDescription)
-      let announcement = `&{template:default} {{name=${charName} casts ${spellName}!}}`;
+      // Get color emoji banner (matches popup-sheet getColoredBanner)
+      const colorEmoji = getColorEmoji(notificationColor);
+
+      // Build spell announcement message (matches popup-sheet announceSpellDescription exactly)
+      let announcement = `&{template:default} {{name=${colorEmoji} ${charName} casts ${spell.name || spellName}!}}`;
 
       // Add spell level and school
       if (spell.level && spell.level > 0) {
@@ -546,13 +570,19 @@
         if (spell.school) levelText += ` ${spell.school}`;
         announcement += ` {{Level=${levelText}}}`;
       } else if (spell.school) {
-        announcement += ` {{School=${spell.school} cantrip}}`;
+        announcement += ` {{Level=${spell.school} cantrip}}`;
       }
 
-      // Add casting details
+      // Add casting details (matches popup-sheet announceSpellDescription)
+      if (spell.castingTime) announcement += ` {{Casting Time=${spell.castingTime}}}`;
       if (spell.range) announcement += ` {{Range=${spell.range}}}`;
-      if (spell.duration && spell.duration !== 'Instantaneous') announcement += ` {{Duration=${spell.duration}}}`;
-      if (spell.concentration) announcement += ` {{Concentration=Yes}}`;
+      if (spell.duration) announcement += ` {{Duration=${spell.duration}}}`;
+      if (spell.components) announcement += ` {{Components=${spell.components}}}`;
+
+      // Add description (matches popup-sheet announceSpellDescription)
+      if (spell.description) {
+        announcement += ` {{Description=${spell.description}}}`;
+      }
 
       // Post the announcement
       postChatMessage(announcement);
@@ -561,7 +591,7 @@
       if (spell.attackRoll && spell.attackRoll !== '(none)') {
         setTimeout(() => {
           const attackMsg = formatRollForRoll20({
-            name: `${spellName} - Attack`,
+            name: `${spell.name || spellName} - Attack`,
             formula: spell.attackRoll,
             characterName: charName
           });
@@ -569,14 +599,22 @@
         }, 100);
       }
 
-      // Roll damage(s) from damageRolls array
+      // Roll damage(s) from damageRolls array (matches popup-sheet getSpellOptions)
       if (spell.damageRolls && Array.isArray(spell.damageRolls) && spell.damageRolls.length > 0) {
         spell.damageRolls.forEach((roll, index) => {
           if (roll.damage) {
             setTimeout(() => {
               const damageType = roll.damageType || 'damage';
               const isHealing = damageType.toLowerCase() === 'healing';
-              const rollName = isHealing ? `${spellName} - Healing` : `${spellName} - ${damageType}`;
+              const isTempHP = damageType.toLowerCase().includes('temp');
+              let rollName;
+              if (isHealing) {
+                rollName = `${spell.name || spellName} - Healing`;
+              } else if (isTempHP) {
+                rollName = `${spell.name || spellName} - Temp HP`;
+              } else {
+                rollName = `${spell.name || spellName} - ${damageType}`;
+              }
               const damageMsg = formatRollForRoll20({
                 name: rollName,
                 formula: roll.damage,
@@ -590,8 +628,10 @@
         // Fallback to single damage field for backward compatibility
         setTimeout(() => {
           const damageType = spell.damageType || 'damage';
+          const isHealing = damageType.toLowerCase() === 'healing';
+          const rollName = isHealing ? `${spell.name || spellName} - Healing` : `${spell.name || spellName} - ${damageType}`;
           const damageMsg = formatRollForRoll20({
-            name: `${spellName} - ${damageType}`,
+            name: rollName,
             formula: spell.damage,
             characterName: charName
           });
@@ -606,9 +646,13 @@
       const abilityData = request.abilityData || {};
       const charName = abilityData.character_name || 'Character';
       const action = abilityData.action_data || {};
+      const notificationColor = abilityData.notification_color || '#3498db';
 
-      // Build action announcement
-      let announcement = `&{template:default} {{name=${charName} uses ${abilityName}!}}`;
+      // Get color emoji banner (matches popup-sheet getColoredBanner)
+      const colorEmoji = getColorEmoji(notificationColor);
+
+      // Build action announcement (matches popup-sheet announceAction)
+      let announcement = `&{template:default} {{name=${colorEmoji} ${charName} uses ${action.name || abilityName}!}}`;
 
       // Add action type
       if (action.actionType) {
@@ -620,6 +664,11 @@
         announcement += ` {{Range=${action.range}}}`;
       }
 
+      // Add description if available
+      if (action.description) {
+        announcement += ` {{Description=${action.description}}}`;
+      }
+
       // Post the announcement
       postChatMessage(announcement);
 
@@ -628,7 +677,7 @@
         setTimeout(() => {
           const attackFormula = action.attackRoll || `1d20+${action.attackBonus}`;
           const attackMsg = formatRollForRoll20({
-            name: `${abilityName} - Attack`,
+            name: `${action.name || abilityName} - Attack`,
             formula: attackFormula,
             characterName: charName
           });
@@ -641,8 +690,10 @@
         setTimeout(() => {
           const damageFormula = action.damageRoll || action.damage;
           const damageType = action.damageType || 'damage';
+          const isHealing = damageType.toLowerCase() === 'healing';
+          const rollName = isHealing ? `${action.name || abilityName} - Healing` : `${action.name || abilityName} - ${damageType}`;
           const damageMsg = formatRollForRoll20({
-            name: `${abilityName} - ${damageType}`,
+            name: rollName,
             formula: damageFormula,
             characterName: charName
           });
