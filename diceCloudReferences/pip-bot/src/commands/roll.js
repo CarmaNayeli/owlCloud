@@ -1,8 +1,15 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { createClient } from '@supabase/supabase-js';
 
 // Supabase config - set via environment variables
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+
+// Create Supabase client for broadcast
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+
+// Helper to build topic name
+const topicName = (id, short) => `topic:${id}:${short}`;
 
 /**
  * Parse dice notation (e.g., "2d6+3", "1d20", "3d10-2")
@@ -141,7 +148,7 @@ export default {
 
         // Send real-time message to RollCloud extension (unless forced Discord only)
         if (!forceDiscord && checkResult.character) {
-          await sendRollToExtension(interaction, {
+          const rollId = await sendRollToExtension(interaction, {
             type: checkResult.type,
             formula: checkResult.formula,
             result: checkResult.result,
@@ -152,7 +159,9 @@ export default {
           });
 
           // Wait for Roll20 response with timeout
-          await waitForRoll20Response(interaction, checkResult.result.total);
+          if (rollId) {
+            await waitForRoll20Response(interaction, checkResult.result.total, rollId);
+          }
         }
         return;
       }
@@ -214,7 +223,7 @@ export default {
 
       // Send real-time message to RollCloud extension (unless forced Discord only)
       if (!forceDiscord) {
-        await sendRollToExtension(interaction, {
+        const rollId = await sendRollToExtension(interaction, {
           type: 'dice',
           formula: diceNotation,
           result: {
@@ -227,7 +236,9 @@ export default {
         });
 
         // Wait for Roll20 response with timeout
-        await waitForRoll20Response(interaction, total);
+        if (rollId) {
+          await waitForRoll20Response(interaction, total, rollId);
+        }
       }
 
     } catch (error) {
@@ -818,7 +829,7 @@ function rollSavingThrow(character, ability, options = {}) {
 }
 
 /**
- * Send roll data to RollCloud extension via Supabase
+ * Send roll data to RollCloud extension via Supabase broadcast
  */
 async function sendRollToExtension(interaction, rollData) {
   try {
@@ -868,7 +879,77 @@ async function sendRollToExtension(interaction, rollData) {
       }
     }
 
-    // Insert roll data into Supabase
+    // Create broadcast channel for this pairing's rolls
+    const channel = supabase.channel(topicName(pairing.id, 'rolls'), {
+      config: { 
+        broadcast: { 
+          self: true, 
+          ack: true 
+        }, 
+        private: true 
+      }
+    });
+
+    // Prepare roll payload
+    const rollPayload = {
+      id: crypto.randomUUID(), // Generate unique ID for this roll
+      pairing_id: pairing.id,
+      discord_user_id: interaction.user.id,
+      discord_username: interaction.user.displayName,
+      discord_message_id: interaction.id,
+      roll_type: rollData.type,
+      roll_formula: rollData.formula,
+      roll_result: rollData.result,
+      character_name: rollData.character?.name || null,
+      character_id: rollData.character?.id || null,
+      meteor_character_id: meteorCharacterId,
+      ability_score: rollData.character?.ability || rollData.character?.skill || null,
+      skill_name: rollData.character?.skill || null,
+      spell_name: rollData.character?.spellName || null,
+      weapon_name: rollData.character?.weaponName || null,
+      advantage_type: rollData.character?.advantage || 'normal',
+      status: 'pending',
+      created_at: new Date().toISOString()
+    };
+
+    // Subscribe to channel and send broadcast
+    return new Promise((resolve) => {
+      channel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log(`Subscribed to ${channel.topic}`);
+          
+          // Send the roll broadcast
+          channel.send({
+            type: 'broadcast',
+            event: 'INSERT',
+            payload: rollPayload
+          }).then(resp => {
+            console.log('🎲 Roll broadcast sent:', resp);
+            console.log(`🎲 Roll sent to extension: ${rollData.formula} = ${rollData.result.total} (ID: ${rollPayload.id})`);
+            resolve(rollPayload.id);
+          }).catch(error => {
+            console.error('Failed to send roll broadcast:', error);
+            resolve(null);
+          });
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('Channel error, falling back to REST');
+          resolve(sendRollToExtensionREST(interaction, rollData, pairing, meteorCharacterId));
+        }
+      });
+    });
+
+  } catch (error) {
+    console.error('Error sending roll to extension via broadcast:', error);
+    return null;
+  }
+}
+
+/**
+ * Fallback REST method for sending roll data
+ */
+async function sendRollToExtensionREST(interaction, rollData, pairing, meteorCharacterId) {
+  try {
+    // Insert roll data into Supabase via REST
     const rollInsert = {
       pairing_id: pairing.id,
       discord_user_id: interaction.user.id,
@@ -904,13 +985,13 @@ async function sendRollToExtension(interaction, rollData) {
 
     if (!response.ok) {
       const error = await response.text();
-      console.error('Failed to insert roll data:', error);
+      console.error('Failed to insert roll data via REST:', error);
       return null;
     }
 
     const result = await response.json();
     const rollId = result[0].id;
-    console.log(`🎲 Roll sent to extension: ${rollData.formula} = ${rollData.result.total} (ID: ${rollId})`);
+    console.log(`🎲 Roll sent via REST fallback: ${rollData.formula} = ${rollData.result.total} (ID: ${rollId})`);
 
     // Update pairing activity
     await fetch(
@@ -931,7 +1012,7 @@ async function sendRollToExtension(interaction, rollData) {
     return rollId;
 
   } catch (error) {
-    console.error('Error sending roll to extension:', error);
+    console.error('Error sending roll to extension via REST:', error);
     return null;
   }
 }
