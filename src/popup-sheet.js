@@ -8208,9 +8208,33 @@ function initColorPalette() {
 
       // Save to storage
       saveCharacterData();
+      
+      // Sync to Supabase if available
+      syncColorToSupabase(newColor);
+      
       showNotification(`🎨 Notification color changed to ${e.target.title}!`);
     });
   });
+}
+
+// Sync color selection to Supabase
+async function syncColorToSupabase(color) {
+  try {
+    // Send message to background script to sync to Supabase
+    const response = await browserAPI.runtime.sendMessage({
+      action: 'syncCharacterColor',
+      characterId: characterData.id,
+      color: color
+    });
+    
+    if (response && response.success) {
+      debug.log('🎨 Color synced to Supabase successfully');
+    } else {
+      debug.warn('⚠️ Failed to sync color to Supabase:', response?.error);
+    }
+  } catch (error) {
+    debug.warn('⚠️ Error syncing color to Supabase:', error);
+  }
 }
 
 // Debounce timer for sync messages
