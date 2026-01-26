@@ -247,17 +247,12 @@ export default function ConfigurePip() {
     try {
       // Generate Discord OAuth2 invite URL with proper permissions
       const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID || process.env.DISCORD_CLIENT_ID || 'YOUR_BOT_CLIENT_ID';
-      const permissions = [
-        'VIEW_CHANNEL',
-        'SEND_MESSAGES',
-        'USE_APPLICATION_COMMANDS',
-        'MANAGE_ROLES',
-        'MANAGE_CHANNELS',
-        'MANAGE_MESSAGES',
-        'EMBED_LINKS',
-        'ATTACH_FILES',
-        'READ_MESSAGE_HISTORY'
-      ].join('%20');
+
+      // Calculate permissions as numeric value (Discord requires an integer, not permission names)
+      // Permissions: VIEW_CHANNEL (1024) + SEND_MESSAGES (2048) + MANAGE_ROLES (268435456) +
+      // MANAGE_CHANNELS (16) + MANAGE_MESSAGES (8192) + EMBED_LINKS (16384) +
+      // ATTACH_FILES (32768) + READ_MESSAGE_HISTORY (65536) + USE_APPLICATION_COMMANDS (2147483648)
+      const permissions = '2416168072';
 
       const inviteUrl = `https://discord.com/oauth2/authorize?client_id=${clientId}&permissions=${permissions}&scope=bot%20applications.commands&guild_id=${serverId}`;
       
