@@ -15,24 +15,29 @@
     try {
       // Find the chat input textarea
       const chatInput = document.querySelector('#textchat-input textarea');
-      if (chatInput) {
-        chatInput.value = message;
-        chatInput.focus();
-
-        // Trigger the send button
-        const sendButton = document.querySelector('#textchat-input .btn');
-        if (sendButton) {
-          sendButton.click();
-          debug.log('✅ Message posted to Roll20 chat:', message);
-          return true;
-        } else {
-          debug.error('❌ Could not find Roll20 chat send button');
-          return false;
-        }
-      } else {
-        debug.error('❌ Could not find Roll20 chat input');
+      if (!chatInput) {
+        debug.error('❌ Could not find Roll20 chat input textarea (#textchat-input textarea)');
         return false;
       }
+
+      debug.log('📝 Setting chat input value:', message.substring(0, 80) + (message.length > 80 ? '...' : ''));
+      chatInput.focus();
+      chatInput.value = message;
+
+      // Dispatch input event so Roll20/jQuery recognizes the value change
+      chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+      chatInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+      // Trigger the send button
+      const sendButton = document.querySelector('#textchat-input .btn');
+      if (!sendButton) {
+        debug.error('❌ Could not find Roll20 chat send button (#textchat-input .btn)');
+        return false;
+      }
+
+      sendButton.click();
+      debug.log('✅ Message posted to Roll20 chat');
+      return true;
     } catch (error) {
       debug.error('❌ Error posting to Roll20 chat:', error);
       return false;
@@ -43,11 +48,16 @@
    * Handles roll messages from Dice Cloud
    */
   function handleDiceCloudRoll(rollData) {
-    debug.log('🎲 Handling Dice Cloud roll:', rollData);
+    debug.log('🎲 Handling roll:', rollData);
+    debug.log('🎲 Roll data keys:', Object.keys(rollData || {}));
+    if (rollData.source === 'discord') {
+      debug.log('📡 Roll originated from Discord command');
+    }
 
     // Use pre-formatted message if it exists (for spells, actions, etc.)
     // Otherwise format the roll data
     const formattedMessage = rollData.message || formatRollForRoll20(rollData);
+    debug.log('🎲 Formatted message:', formattedMessage);
 
     const success = postChatMessage(formattedMessage);
 
