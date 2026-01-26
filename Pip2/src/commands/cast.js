@@ -124,6 +124,10 @@ export default {
 
       const pairing = pairings[0];
 
+      // Get notification color from character data
+      const rawData = character.raw_dicecloud_data || {};
+      const notificationColor = (typeof rawData === 'object' ? rawData.notificationColor : null) || '#3498db';
+
       // Create cast command in Supabase
       const commandPayload = {
         pairing_id: pairing.id,
@@ -137,6 +141,7 @@ export default {
           cast_level: castLevel || spellLevel,
           character_name: character.character_name,
           character_id: character.id,
+          notification_color: notificationColor,
           spell_data: spell
         },
         status: 'pending'
