@@ -230,6 +230,7 @@ async function completePairing(code, discordInfo) {
   const pairingData = await pairingResponse.json();
   
   // Now, update the auth_tokens table with Discord info
+  // First try to find existing record by dicecloud_user_id, then by user_id
   if (pairingData.length > 0 && pairingData[0].dicecloud_user_id) {
     try {
       await updateAuthTokensWithDiscordInfo(pairingData[0].dicecloud_user_id, discordInfo);
@@ -247,8 +248,95 @@ async function completePairing(code, discordInfo) {
  * Update auth_tokens table with Discord information
  */
 async function updateAuthTokensWithDiscordInfo(dicecloudUserId, discordInfo) {
-  const response = await fetch(
-    `${SUPABASE_URL}/rest/v1/auth_tokens?user_id_dicecloud=eq.${dicecloudUserId}`,
+  // Try multiple ways to find the existing record
+  
+  // Method 1: Find by dicecloud_user_id (most reliable)
+  let response = await fetch(
+    `${SUPABASE_URL}/rest/v1/auth_tokens?user_id_dicecloud=eq.${dicecloudUserId}&select=id`,
+    {
+      headers: {
+        'apikey': SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+      }
+    }
+  );
+
+  let targetRecord = null;
+  if (response.ok) {
+    const data = await response.json();
+    if (data.length > 0) {
+      targetRecord = data[0];
+      console.log(`Found existing record by dicecloud_user_id: ${targetRecord.id}`);
+    }
+  }
+
+  // Method 2: If not found, try to find the most recent record with the same dicecloud_token
+  if (!targetRecord) {
+    // Get the dicecloud_token from the pairing to find matching auth_tokens
+    const pairingResponse = await fetch(
+      `${SUPABASE_URL}/rest/v1/rollcloud_pairings?dicecloud_user_id=eq.${dicecloudUserId}&select=dicecloud_token&limit=1`,
+      {
+        headers: {
+          'apikey': SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+        }
+      }
+    );
+
+    if (pairingResponse.ok) {
+      const pairingData = await pairingResponse.json();
+      if (pairingData.length > 0) {
+        const token = pairingData[0].dicecloud_token;
+        
+        const tokenResponse = await fetch(
+          `${SUPABASE_URL}/rest/v1/auth_tokens?dicecloud_token=eq.${token}&select=id&order=updated_at.desc&limit=1`,
+          {
+            headers: {
+              'apikey': SUPABASE_SERVICE_KEY,
+              'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+            }
+          }
+        );
+
+        if (tokenResponse.ok) {
+          const tokenData = await tokenResponse.json();
+          if (tokenData.length > 0) {
+            targetRecord = tokenData[0];
+            console.log(`Found existing record by dicecloud_token: ${targetRecord.id}`);
+          }
+        }
+      }
+    }
+  }
+
+  // Method 3: If still not found, find the most recent record for this user
+  if (!targetRecord) {
+    const recentResponse = await fetch(
+      `${SUPABASE_URL}/rest/v1/auth_tokens?order=updated_at.desc&limit=1&select=id`,
+      {
+        headers: {
+          'apikey': SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+        }
+      }
+    );
+
+    if (recentResponse.ok) {
+      const recentData = await recentResponse.json();
+      if (recentData.length > 0) {
+        targetRecord = recentData[0];
+        console.log(`Using most recent record: ${targetRecord.id}`);
+      }
+    }
+  }
+
+  if (!targetRecord) {
+    throw new Error('Could not find any auth_tokens record to update');
+  }
+
+  // Update the found record
+  const updateResponse = await fetch(
+    `${SUPABASE_URL}/rest/v1/auth_tokens?id=eq.${targetRecord.id}`,
     {
       method: 'PATCH',
       headers: {
@@ -266,10 +354,11 @@ async function updateAuthTokensWithDiscordInfo(dicecloudUserId, discordInfo) {
     }
   );
 
-  if (!response.ok) {
-    const errorText = await response.text();
+  if (!updateResponse.ok) {
+    const errorText = await updateResponse.text();
     throw new Error(`Failed to update auth_tokens: ${errorText}`);
   }
 
-  return response;
+  console.log(`✅ Successfully updated auth_tokens record ${targetRecord.id} with Discord info`);
+  return updateResponse;
 }
