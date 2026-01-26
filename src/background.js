@@ -233,9 +233,16 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
           // Also set the pairing ID for command polling if provided
           if (request.pairingId) {
             currentPairingId = request.pairingId;
-            await browserAPI.storage.local.set({ currentPairingId: request.pairingId });
+            await browserAPI.storage.local.set({
+              currentPairingId: request.pairingId,
+              discordPairingId: request.pairingId
+            });
             // Start command polling
             startCommandPolling(request.pairingId);
+          }
+          // Link Discord user ID to auth_tokens if provided
+          if (request.discordUserId && request.discordUserId !== 'null') {
+            await linkDiscordUserToAuthTokens(request.discordUserId);
           }
           response = { success: true };
           break;
@@ -1074,6 +1081,114 @@ function buildDiscordMessage(payload) {
 }
 
 // ============================================================================
+// Discord User Linking
+// ============================================================================
+
+/**
+ * Link Discord user ID to auth_tokens table
+ * This allows character sync to associate characters with Discord accounts
+ */
+async function linkDiscordUserToAuthTokens(discordUserId) {
+  if (!isSupabaseConfigured() || !discordUserId) {
+    debug.warn('Cannot link Discord user - Supabase not configured or no user ID');
+    return { success: false };
+  }
+
+  try {
+    // Generate browser fingerprint (same as SupabaseTokenManager)
+    const browserFingerprint = [
+      navigator.userAgent,
+      navigator.language,
+      screen.width + 'x' + screen.height,
+      new Date().getTimezoneOffset()
+    ].join('|');
+    let hash = 0;
+    for (let i = 0; i < browserFingerprint.length; i++) {
+      const char = browserFingerprint.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    const visitorId = 'user_' + Math.abs(hash).toString(36);
+
+    debug.log('🔗 Linking Discord user to auth_tokens:', discordUserId, 'for browser:', visitorId);
+
+    // Update auth_tokens with discord_user_id
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/auth_tokens?user_id=eq.${visitorId}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify({
+          discord_user_id: discordUserId,
+          updated_at: new Date().toISOString()
+        })
+      }
+    );
+
+    if (response.ok) {
+      debug.log('✅ Discord user linked to auth_tokens');
+
+      // Also update any existing characters with this user's DiceCloud ID
+      const authResult = await browserAPI.storage.local.get(['diceCloudUserId']);
+      if (authResult.diceCloudUserId) {
+        await linkDiscordUserToCharacters(discordUserId, authResult.diceCloudUserId);
+      }
+
+      return { success: true };
+    } else {
+      const errorText = await response.text();
+      debug.error('❌ Failed to link Discord user:', response.status, errorText);
+      return { success: false, error: errorText };
+    }
+  } catch (error) {
+    debug.error('❌ Error linking Discord user:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Update existing characters with the Discord user ID
+ */
+async function linkDiscordUserToCharacters(discordUserId, diceCloudUserId) {
+  if (!isSupabaseConfigured()) return;
+
+  try {
+    debug.log('🔗 Linking Discord user to existing characters:', discordUserId);
+
+    // Update characters that have user_id_dicecloud matching but discord_user_id is 'not_linked'
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/rollcloud_characters?user_id_dicecloud=eq.${diceCloudUserId}&discord_user_id=eq.not_linked`,
+      {
+        method: 'PATCH',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify({
+          discord_user_id: discordUserId,
+          updated_at: new Date().toISOString()
+        })
+      }
+    );
+
+    if (response.ok) {
+      debug.log('✅ Updated existing characters with Discord user ID');
+    } else {
+      debug.warn('⚠️ Could not update existing characters:', response.status);
+    }
+  } catch (error) {
+    debug.warn('⚠️ Error updating existing characters:', error);
+  }
+}
+
+// ============================================================================
 // Character Cloud Sync to Supabase
 // ============================================================================
 
@@ -1364,7 +1479,8 @@ async function checkDiscordPairing(code) {
             connected: true,
             webhookUrl: pairing.webhook_url,
             serverName: pairing.discord_guild_name,
-            pairingId: pairing.id // Return pairing ID for command polling
+            pairingId: pairing.id, // Return pairing ID for command polling
+            discordUserId: pairing.discord_user_id // Return Discord user ID to link to auth_tokens
           };
         } else {
           return { success: true, connected: false };
