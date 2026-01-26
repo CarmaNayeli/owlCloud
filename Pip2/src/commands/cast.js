@@ -142,15 +142,14 @@ export default {
         status: 'pending'
       };
 
-      const commandResponse = await fetch(`${SUPABASE_URL}/rest/v1/rollcloud_commands`, {
+      // Call Edge Function to insert and broadcast (same as /roll command)
+      const commandResponse = await fetch(`${SUPABASE_URL}/functions/v1/broadcast-command`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'apikey': SUPABASE_SERVICE_KEY,
-          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
-          'Prefer': 'return=minimal'
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
         },
-        body: JSON.stringify(commandPayload)
+        body: JSON.stringify({ command: commandPayload })
       });
 
       if (!commandResponse.ok) {
