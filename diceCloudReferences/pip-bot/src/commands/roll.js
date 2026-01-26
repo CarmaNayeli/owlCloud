@@ -93,6 +93,9 @@ export default {
     const target = interaction.options.getString('target');
     const forceDiscord = interaction.options.getBoolean('force_discord') || false;
 
+    console.log(`🎲 /roll command executed by ${interaction.user.displayName} (${interaction.user.id})`);
+    console.log(`📝 Parameters: dice="${diceNotation}", advantage="${advantage}", check_type="${checkType}", target="${target}", force_discord=${forceDiscord}`);
+
     await interaction.deferReply();
 
     try {
@@ -129,19 +132,29 @@ export default {
 
         // Send real-time message to RollCloud extension (unless forced Discord only)
         if (!forceDiscord && checkResult.character) {
+          console.log(`🎯 Attempting Roll20 integration for ${checkResult.character.name}`);
           const rollId = await sendRollToExtension(interaction, {
             type: checkResult.type,
             formula: checkResult.formula,
             result: checkResult.result,
-            character: {
-              ...checkResult.character,
-              target: target
-            }
+            character: checkResult.character,
+            target: target
           });
+
+          console.log(`📤 Roll sent to extension with ID: ${rollId}`);
 
           // Wait for Roll20 response with timeout
           if (rollId) {
+            console.log(`⏳ Waiting for Roll20 response for roll ${rollId}`);
             await waitForRoll20Response(interaction, checkResult.result.total, rollId);
+          } else {
+            console.log(`❌ Failed to send roll to extension - no roll ID returned`);
+          }
+        } else {
+          if (forceDiscord) {
+            console.log(`⚠️ Roll20 integration skipped (force_discord=true)`);
+          } else if (!checkResult.character) {
+            console.log(`⚠️ Roll20 integration skipped (no character found)`);
           }
         }
         return;
@@ -211,6 +224,7 @@ export default {
 
       // Send real-time message to RollCloud extension (unless forced Discord only)
       if (!forceDiscord) {
+        console.log(`🎯 Attempting Roll20 integration for generic dice roll: ${diceNotation}`);
         const rollId = await sendRollToExtension(interaction, {
           type: 'dice',
           formula: diceNotation,
@@ -223,10 +237,17 @@ export default {
           character: null
         });
 
+        console.log(`📤 Generic roll sent to extension with ID: ${rollId}`);
+
         // Wait for Roll20 response with timeout
         if (rollId) {
+          console.log(`⏳ Waiting for Roll20 response for generic roll ${rollId}`);
           await waitForRoll20Response(interaction, total, rollId);
+        } else {
+          console.log(`❌ Failed to send generic roll to extension - no roll ID returned`);
         }
+      } else {
+        console.log(`⚠️ Roll20 integration skipped for generic roll (force_discord=true)`);
       }
 
     } catch (error) {
@@ -833,8 +854,12 @@ function rollSavingThrow(character, ability, options = {}) {
  * Send roll data to RollCloud extension via Supabase broadcast
  */
 async function sendRollToExtension(interaction, rollData) {
+  console.log(`📡 Sending roll to extension for ${interaction.user.displayName}`);
+  console.log(`📊 Roll data:`, JSON.stringify(rollData, null, 2));
+  
   try {
     // Get the user's RollCloud pairing
+    console.log(`🔍 Looking up pairing for Discord user ID: ${interaction.user.id}`);
     const pairingResponse = await fetch(
       `${SUPABASE_URL}/rest/v1/rollcloud_pairings?discord_user_id=eq.${interaction.user.id}&status=eq.connected&select=*`,
       {
@@ -846,18 +871,27 @@ async function sendRollToExtension(interaction, rollData) {
     );
 
     if (!pairingResponse.ok) {
-      console.error('Failed to lookup user pairing for roll');
+      console.error(`❌ Failed to lookup user pairing - HTTP ${pairingResponse.status}`);
       return null;
     }
 
     const pairings = await pairingResponse.json();
+    console.log(`📋 Found ${pairings.length} pairings for user ${interaction.user.id}`);
     
     if (pairings.length === 0) {
-      console.log('No RollCloud pairing found for user, skipping extension notification');
+      console.log(`⚠️ No active pairing found for user ${interaction.user.id}`);
       return null;
     }
 
     const pairing = pairings[0];
+    console.log(`✅ Using pairing: ${pairing.id} (channel: ${pairing.channel_id})`);
+    console.log(`🔗 Pairing details:`, {
+      id: pairing.id,
+      channel_id: pairing.channel_id,
+      discord_user_id: pairing.discord_user_id,
+      meteor_character_id: pairing.meteor_character_id,
+      created_at: pairing.created_at
+    });
 
     // Get character data to include Meteor ID
     let meteorCharacterId = null;
