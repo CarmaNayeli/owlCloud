@@ -240,15 +240,14 @@ async function completePairing(code, discordInfo) {
 
   const pairingData = await pairingResponse.json();
   
-  // Now, update the auth_tokens table with Discord info
-  // First try to find existing record by dicecloud_user_id, then by user_id
+  // Send Discord linking info to extension via webhook instead of direct database update
   if (pairingData.length > 0 && pairingData[0].dicecloud_user_id) {
     try {
-      await updateAuthTokensWithDiscordInfo(pairingData[0].dicecloud_user_id, discordInfo);
-      console.log(`Updated auth_tokens for DiceCloud user: ${pairingData[0].dicecloud_user_id}`);
-    } catch (authError) {
-      console.error('Failed to update auth_tokens with Discord info:', authError);
-      // Don't fail the pairing if auth_tokens update fails
+      await sendDiscordLinkToExtension(pairingData[0].dicecloud_user_id, discordInfo);
+      console.log(`Sent Discord linking info to extension for: ${pairingData[0].dicecloud_user_id}`);
+    } catch (webhookError) {
+      console.error('Failed to send Discord linking to extension:', webhookError);
+      // Don't fail the pairing if webhook fails
     }
   }
 
@@ -256,15 +255,12 @@ async function completePairing(code, discordInfo) {
 }
 
 /**
- * Update auth_tokens table with Discord information
+ * Send Discord linking information to extension via webhook
  */
-async function updateAuthTokensWithDiscordInfo(dicecloudUserId, discordInfo) {
-  // Use a more efficient approach - find by dicecloud_user_id first, then fallback
-  console.log(`🔍 Looking for auth_tokens record for DiceCloud user: ${dicecloudUserId}`);
-  
-  // Primary method: Find by dicecloud_user_id (most reliable and fastest)
-  let response = await fetch(
-    `${SUPABASE_URL}/rest/v1/auth_tokens?user_id_dicecloud=eq.${dicecloudUserId}&select=id`,
+async function sendDiscordLinkToExtension(dicecloudUserId, discordInfo) {
+  // Find the pairing to get the webhook URL
+  const pairingResponse = await fetch(
+    `${SUPABASE_URL}/rest/v1/rollcloud_pairings?dicecloud_user_id=eq.${dicecloudUserId}&select=webhook_url&limit=1`,
     {
       headers: {
         'apikey': SUPABASE_SERVICE_KEY,
@@ -273,66 +269,42 @@ async function updateAuthTokensWithDiscordInfo(dicecloudUserId, discordInfo) {
     }
   );
 
-  let targetRecord = null;
-  if (response.ok) {
-    const data = await response.json();
-    if (data.length > 0) {
-      targetRecord = data[0];
-      console.log(`✅ Found existing record by dicecloud_user_id: ${targetRecord.id}`);
-    }
+  if (!pairingResponse.ok) {
+    throw new Error(`Failed to find pairing webhook: ${pairingResponse.status}`);
   }
 
-  // Fallback: Find the most recent record if primary method fails
-  if (!targetRecord) {
-    console.log(`⚠️ Primary lookup failed, trying most recent record fallback`);
-    const recentResponse = await fetch(
-      `${SUPABASE_URL}/rest/v1/auth_tokens?order=updated_at.desc&limit=1&select=id,user_id_dicecloud`,
-      {
-        headers: {
-          'apikey': SUPABASE_SERVICE_KEY,
-          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
-        }
-      }
-    );
-
-    if (recentResponse.ok) {
-      const recentData = await recentResponse.json();
-      if (recentData.length > 0) {
-        targetRecord = recentData[0];
-        console.log(`⚠️ Using most recent record: ${targetRecord.id} (user_id_dicecloud: ${targetRecord.user_id_dicecloud})`);
-      }
-    }
+  const pairingData = await pairingResponse.json();
+  if (pairingData.length === 0 || !pairingData[0].webhook_url) {
+    throw new Error('No webhook URL found for pairing');
   }
 
-  if (!targetRecord) {
-    throw new Error('Could not find any auth_tokens record to update');
+  const webhookUrl = pairingData[0].webhook_url;
+
+  // Send Discord linking message to extension
+  const linkMessage = {
+    action: 'discordLink',
+    dicecloudUserId: dicecloudUserId,
+    discordInfo: {
+      userId: discordInfo.userId,
+      username: discordInfo.username,
+      globalName: discordInfo.globalName
+    },
+    timestamp: new Date().toISOString()
+  };
+
+  const response = await fetch(webhookUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(linkMessage)
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to send Discord link to extension: ${errorText}`);
   }
 
-  // Update the found record
-  const updateResponse = await fetch(
-    `${SUPABASE_URL}/rest/v1/auth_tokens?id=eq.${targetRecord.id}`,
-    {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SUPABASE_SERVICE_KEY,
-        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
-        'Prefer': 'return=minimal'
-      },
-      body: JSON.stringify({
-        discord_user_id: discordInfo.userId,
-        discord_username: discordInfo.username,
-        discord_global_name: discordInfo.globalName,
-        updated_at: new Date().toISOString()
-      })
-    }
-  );
-
-  if (!updateResponse.ok) {
-    const errorText = await updateResponse.text();
-    throw new Error(`Failed to update auth_tokens: ${errorText}`);
-  }
-
-  console.log(`✅ Successfully updated auth_tokens record ${targetRecord.id} with Discord info`);
-  return updateResponse;
+  console.log(`✅ Discord linking info sent to extension via webhook`);
+  return response;
 }

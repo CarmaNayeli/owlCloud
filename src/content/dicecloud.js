@@ -3095,6 +3095,18 @@
           });
         return true;
 
+      case 'discordLink':
+        // Handle Discord linking from bot
+        handleDiscordLink(request.dicecloudUserId, request.discordInfo)
+          .then(() => {
+            sendResponse({ success: true });
+          })
+          .catch((error) => {
+            debug.error('Error handling Discord link:', error);
+            sendResponse({ success: false, error: error.message });
+          });
+        return true;
+
       case 'showSyncButton':
         // Show the sync button
         const syncButton = document.getElementById('dc-sync-btn');
@@ -5279,6 +5291,53 @@
         // Re-throw to propagate error to caller
         throw error;
       });
+  }
+
+  /**
+   * Handle Discord linking from bot - update Supabase with Discord information
+   */
+  async function handleDiscordLink(dicecloudUserId, discordInfo) {
+    debug.log(`🔗 Handling Discord link for user: ${dicecloudUserId}`);
+    debug.log(`👤 Discord info:`, discordInfo);
+
+    try {
+      // Get the current user's DiceCloud token
+      const tokenResponse = await browserAPI.runtime.sendMessage({ action: 'getApiToken' });
+      if (!tokenResponse.success || !tokenResponse.token) {
+        throw new Error('Not logged in to DiceCloud');
+      }
+
+      // Use SupabaseTokenManager to update the auth_tokens table
+      const { SupabaseTokenManager } = await import('./lib/supabase-client.js');
+      const tokenManager = new SupabaseTokenManager();
+
+      // Find the auth_tokens record to update
+      const authRecords = await tokenManager.getAuthTokens(dicecloudUserId);
+      if (!authRecords || authRecords.length === 0) {
+        throw new Error('No auth_tokens record found for user');
+      }
+
+      // Update the record with Discord information
+      const updateData = {
+        discord_user_id: discordInfo.userId,
+        discord_username: discordInfo.username,
+        discord_global_name: discordInfo.globalName,
+        updated_at: new Date().toISOString()
+      };
+
+      const success = await tokenManager.updateAuthTokens(dicecloudUserId, updateData);
+      if (!success) {
+        throw new Error('Failed to update auth_tokens with Discord info');
+      }
+
+      debug.log(`✅ Successfully updated Discord link for user: ${dicecloudUserId}`);
+      showNotification('🔗 Discord account linked successfully!', 'success');
+
+    } catch (error) {
+      debug.error('❌ Error handling Discord link:', error);
+      showNotification('Failed to link Discord account', 'error');
+      throw error;
+    }
   }
 
   // Initialize

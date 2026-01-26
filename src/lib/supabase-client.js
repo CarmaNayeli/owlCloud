@@ -513,6 +513,64 @@ class SupabaseTokenManager {
       return { success: false, error: error.message };
     }
   }
+
+  /**
+   * Get auth tokens by DiceCloud user ID
+   */
+  async getAuthTokens(dicecloudUserId) {
+    try {
+      const response = await fetch(
+        `${this.supabaseUrl}/rest/v1/auth_tokens?user_id_dicecloud=eq.${dicecloudUserId}&select=*`,
+        {
+          headers: {
+            'apikey': this.supabaseKey,
+            'Authorization': `Bearer ${this.supabaseKey}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to get auth tokens: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      debug.error('❌ Failed to get auth tokens:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update auth tokens with Discord information
+   */
+  async updateAuthTokens(dicecloudUserId, updateData) {
+    try {
+      const response = await fetch(
+        `${this.supabaseUrl}/rest/v1/auth_tokens?user_id_dicecloud=eq.${dicecloudUserId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'apikey': this.supabaseKey,
+            'Authorization': `Bearer ${this.supabaseKey}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify(updateData)
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to update auth tokens: ${errorText}`);
+      }
+
+      debug.log('✅ Auth tokens updated successfully');
+      return true;
+    } catch (error) {
+      debug.error('❌ Failed to update auth tokens:', error);
+      throw error;
+    }
+  }
 }
 
 // Export for use in other modules
