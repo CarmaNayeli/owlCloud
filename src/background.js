@@ -533,32 +533,17 @@ async function logout() {
  */
 async function storeCharacterData(characterData, slotId) {
   try {
-    // Normalize database-format fields to extension format
-    // Cloud sync stores raw Supabase records with different field names
-    if (characterData.character_name !== undefined && characterData.name === undefined) {
-      characterData.name = characterData.character_name;
-    }
-    if (characterData.dicecloud_character_id !== undefined && characterData.characterId === undefined) {
-      characterData.characterId = characterData.dicecloud_character_id;
-      if (!characterData._id) {
-        characterData._id = characterData.dicecloud_character_id;
-      }
-    }
-    // Avoid using Supabase UUID as the DiceCloud creature ID
-    // Database records have `id` as Supabase UUID and `dicecloud_character_id` as the real ID
-    if (characterData.discord_user_id !== undefined && characterData.dicecloud_character_id !== undefined) {
-      // This is a database record - replace the Supabase UUID `id` with the DiceCloud ID
-      characterData.id = characterData.dicecloud_character_id;
-    }
-
+    // CRITICAL: Preserve the exact data structure from DiceCloud
+    // Do NOT transform field names - this breaks consistency with database storage
+    
     // Use slotId if provided, otherwise fall back to character ID from the data
-    const storageId = slotId || characterData.characterId || characterData._id || 'default';
+    const storageId = slotId || characterData.id || characterData._id || 'default';
 
     // Get existing profiles
     const result = await browserAPI.storage.local.get(['characterProfiles', 'activeCharacterId']);
     const characterProfiles = result.characterProfiles || {};
 
-    // Store this character's data
+    // Store this character's data EXACTLY as received
     characterProfiles[storageId] = characterData;
 
     // Only update activeCharacterId if slotId was explicitly provided
@@ -767,10 +752,11 @@ async function getCharacterDataFromDatabase(characterId) {
       return fullCharacter;
     }
 
-    // Fallback: Convert database format to expected character data format
-    // This handles older records that only have individual fields (for Discord)
-    debug.log('⚠️ No raw_dicecloud_data found, falling back to individual fields');
+    // Fallback: Return database record with minimal transformation
+    // This should rarely be used since raw_dicecloud_data should always be present
+    debug.log('⚠️ No raw_dicecloud_data found, using database fields directly');
     const characterData = {
+      // Use the exact database field names to maintain consistency
       id: dbCharacter.dicecloud_character_id,
       name: dbCharacter.character_name,
       race: dbCharacter.race,
@@ -793,7 +779,8 @@ async function getCharacterDataFromDatabase(characterId) {
       spellSlots: dbCharacter.spell_slots,
       resources: dbCharacter.resources,
       conditions: dbCharacter.conditions,
-      rawDiceCloudData: null,
+      // Preserve the raw database record for debugging
+      rawDiceCloudData: dbCharacter,
       source: 'database',
       lastUpdated: dbCharacter.updated_at
     };
