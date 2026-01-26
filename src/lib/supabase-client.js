@@ -163,12 +163,15 @@ class SupabaseTokenManager {
           username: tokenData.username || 'DiceCloud User',
           user_id_dicecloud: tokenData.userId,
           token_expires: normalizedTokenExpires,
+          session_id: sessionId, // Update session ID to match local storage
           browser_info: {
             userAgent: navigator.userAgent,
             authId: tokenData.authId,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            sessionId: sessionId
           },
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          last_seen: new Date().toISOString()
         };
 
         // Only include Discord fields if provided, to avoid overwriting existing data with null
