@@ -227,20 +227,69 @@ export default function ConfigurePip() {
       setLoading(false);
     }
   };
-
-  // Rate limiting for bot checks
 const botCheckQueue: Promise<boolean>[] = [];
-const BOT_CHECK_DELAY = 100; // 100ms between requests
+const BOT_CHECK_DELAY = 1000; // 1 second between requests (increased from 100ms)
+
+// Global cache for bot guilds
+let botGuildsCache: { data: any[], timestamp: number } | null = null;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+// Function to fetch bot guilds once and cache them
+const fetchBotGuilds = async (): Promise<any[]> => {
+  const now = Date.now();
+  
+  // Return cached data if available and not expired
+  if (botGuildsCache && (now - botGuildsCache.timestamp) < CACHE_DURATION) {
+    console.log(`📋 Using cached bot guilds data (${botGuildsCache.data.length} guilds)`);
+    return botGuildsCache.data;
+  }
+
+  // Fetch fresh data
+  console.log('🔄 Fetching fresh bot guilds data from Discord API');
+  
+  const botToken = process.env.DISCORD_TOKEN || process.env.DISCORD_BOT_TOKEN;
+  
+  if (!botToken) {
+    console.error('❌ No Discord bot token found');
+    return [];
+  }
+
+  const response = await fetch('https://discord.com/api/users/@me/guilds', {
+    headers: {
+      'Authorization': `Bot ${botToken}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    console.error('❌ Bot API error:', response.status, response.statusText);
+    return [];
+  }
+
+  const botGuilds = await response.json();
+  console.log(`📊 Bot is in ${botGuilds.length} servers`);
+  
+  // Update cache
+  botGuildsCache = {
+    data: botGuilds,
+    timestamp: now
+  };
+  
+  return botGuilds;
+};
 
 const checkBotInServerWithRateLimit = async (serverId: string): Promise<boolean> => {
   // Add to queue
   const promise = new Promise<boolean>((resolve) => {
     setTimeout(async () => {
       try {
-        const result = await checkBotInServer(serverId);
-        resolve(result);
+        // Get bot guilds from cache or fetch fresh data
+        const botGuilds = await fetchBotGuilds();
+        const botInServer = botGuilds.some((guild: any) => guild.id === serverId);
+        console.log(`🔍 Bot in server ${serverId}: ${botInServer}`);
+        resolve(botInServer);
       } catch (error) {
-        console.error(`Error in rate-limited bot check for ${serverId}:`, error);
+        console.error(`Error checking bot presence for ${serverId}:`, error);
         resolve(false);
       }
     }, botCheckQueue.length * BOT_CHECK_DELAY);
@@ -249,34 +298,6 @@ const checkBotInServerWithRateLimit = async (serverId: string): Promise<boolean>
   botCheckQueue.push(promise);
   return promise;
 };
-
-const checkBotInServer = async (serverId: string): Promise<boolean> => {
-    try {
-      // Check if bot is in server via API
-      const response = await fetch(`/api/discord/bot-in-server/${serverId}`);
-      if (response.ok) {
-        const data = await response.json();
-        console.log(`🔍 Bot check result for ${serverId}:`, data);
-        
-        // Show error details if available
-        if (data.error) {
-          console.warn(`⚠️ Bot check error: ${data.error}`);
-          setError(`Bot detection error: ${data.error}`);
-        }
-        
-        return data.botPresent;
-      } else {
-        const errorText = await response.text();
-        console.error(`❌ Bot check API error (${response.status}):`, errorText);
-        setError(`API error: ${response.status}`);
-        return false;
-      }
-    } catch (error) {
-      console.error('Error checking bot presence:', error);
-      setError('Network error checking bot status');
-      return false;
-    }
-  };
 
   const inviteBot = async (serverId: string) => {
     setInviting(serverId);
@@ -315,7 +336,7 @@ const checkBotInServer = async (serverId: string): Promise<boolean> => {
   const checkBotAndCreateInstance = async (serverId: string) => {
     try {
       // Check if bot is now in server
-      const botInServer = await checkBotInServer(serverId);
+      const botInServer = await checkBotInServerWithRateLimit(serverId);
       
       if (botInServer) {
         // Find the server details
