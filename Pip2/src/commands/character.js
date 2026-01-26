@@ -21,12 +21,23 @@ export default {
     ),
 
   async execute(interaction) {
+    console.log('🎭 /character command received:', {
+      user: interaction.user.id,
+      username: interaction.user.username,
+      options: {
+        name: interaction.options.getString('name'),
+        user: interaction.options.getUser('user')?.id
+      }
+    });
+
     await interaction.deferReply({ flags: 64 }); // ephemeral
 
     try {
       const characterName = interaction.options.getString('name');
       const targetUser = interaction.options.getUser('user') || interaction.user;
       const isOwnCharacter = targetUser.id === interaction.user.id;
+
+      console.log('🎭 Processing:', { characterName, targetUserId: targetUser.id, isOwnCharacter });
 
       // If name provided and it's the user's own character, set it as active
       if (characterName && isOwnCharacter) {
