@@ -638,7 +638,15 @@ async function getAllCharacterProfiles() {
     // Get local profiles first
     const localResult = await browserAPI.storage.local.get(['characterProfiles']);
     const localProfiles = localResult.characterProfiles || {};
-    
+
+    // Normalize local profiles: ensure 'name' field exists (database uses character_name)
+    for (const id of Object.keys(localProfiles)) {
+      const profile = localProfiles[id];
+      if (profile.character_name && !profile.name) {
+        profile.name = profile.character_name;
+      }
+    }
+
     // Try to get database characters if SupabaseTokenManager is available
     let databaseCharacters = {};
     try {
