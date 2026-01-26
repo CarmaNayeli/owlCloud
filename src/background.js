@@ -2297,16 +2297,27 @@ async function executeCommand(command) {
 async function executeRollCommand(command) {
   const { action_name, command_data } = command;
 
-  // Build roll string from command data
+  // Build roll data from command data
   const rollString = command_data.roll_string || `/roll 1d20`;
   const rollName = action_name || command_data.roll_name || 'Discord Roll';
-
-  // Send to Roll20
-  await sendRollToAllRoll20Tabs({
+  
+  // Build comprehensive roll data for Roll20
+  const rollData = {
     formula: rollString,
     name: rollName,
-    source: 'discord'
-  });
+    source: 'discord',
+    characterName: command_data.character_name,
+    characterId: command_data.character_id,
+    checkType: command_data.check_type,
+    advantage: command_data.advantage,
+    disadvantage: command_data.disadvantage,
+    count: command_data.count,
+    sides: command_data.sides,
+    modifier: command_data.modifier
+  };
+
+  // Send to Roll20
+  await sendRollToAllRoll20Tabs(rollData);
 
   return { success: true, message: `Rolled ${rollName}` };
 }

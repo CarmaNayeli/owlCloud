@@ -287,11 +287,31 @@
    * Formats roll data for Roll20 chat display with fancy template
    */
   function formatRollForRoll20(rollData) {
-    const { name, formula, result } = rollData;
+    const { name, formula, characterName, advantage, disadvantage, checkType } = rollData;
+
+    // Handle advantage/disadvantage for d20 rolls
+    let rollFormula = formula;
+    let rollType = '';
+    
+    if ((advantage || disadvantage) && formula.includes('d20')) {
+      if (advantage && !disadvantage) {
+        rollFormula = formula.replace('1d20', '2d20kh1'); // 2d20 keep highest
+        rollType = ' (Advantage)';
+      } else if (disadvantage && !advantage) {
+        rollFormula = formula.replace('1d20', '2d20kl1'); // 2d20 keep lowest  
+        rollType = ' (Disadvantage)';
+      }
+    }
+
+    // Build character display name
+    let displayName = name;
+    if (characterName && !name.includes(characterName)) {
+      displayName = `${characterName} - ${name}`;
+    }
 
     // Use Roll20's template system with inline rolls for fancy formatting
     // [[formula]] creates an inline roll that Roll20 will calculate
-    return `&{template:default} {{name=${name}}} {{Roll=[[${formula}]]}}`;
+    return `&{template:default} {{name=${displayName}${rollType}}} {{Roll=[[${rollFormula}]]}}`;
   }
 
   /**

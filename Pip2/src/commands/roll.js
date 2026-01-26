@@ -20,8 +20,8 @@ export default {
     .addStringOption(option =>
       option
         .setName('dice')
-        .setDescription('Dice notation (2d6+3) OR check type')
-        .setRequired(true)
+        .setDescription('Dice notation (2d6+3) - leave empty when using check option')
+        .setRequired(false)
     )
     .addStringOption(option =>
       option
@@ -77,7 +77,15 @@ export default {
       return await rollCharacterCheck(interaction, checkType, advantage, disadvantage);
     }
 
-    // Otherwise, roll plain dice
+    // If no dice input provided, show help
+    if (!diceInput) {
+      return await interaction.reply({
+        content: '❌ Please provide either:\n• **Dice notation**: `/roll 2d6+3`\n• **Character check**: `/roll check:strength`\n\nUse `/roll help` for more examples.',
+        flags: 64 // ephemeral
+      });
+    }
+
+    // Otherwise, send plain dice roll to extension
     const parsed = parseDiceNotation(diceInput);
 
     if (!parsed) {
@@ -96,20 +104,17 @@ export default {
       });
     }
 
-    const rolls = rollDice(count, sides);
-    const sum = rolls.reduce((a, b) => a + b, 0);
-    const total = sum + modifier;
-
-    const embed = new EmbedBuilder()
-      .setColor(0x4ECDC4)
-      .setTitle(`🎲 ${interaction.user.displayName} rolled ${diceInput}`)
-      .setDescription(
-        (rolls.length <= 20 ? `[${rolls.join(', ')}]` : `${count} dice rolled`) +
-        `\n\n**Total: ${total}**` +
-        (modifier !== 0 ? ` (${sum} ${modifier > 0 ? '+' : ''}${modifier})` : '')
-      );
-
-    await interaction.reply({ embeds: [embed] });
+    // Send roll command to extension via Supabase
+    await sendRollToExtension(interaction, {
+      rollString: diceInput,
+      count,
+      sides,
+      modifier,
+      advantage,
+      disadvantage,
+      rollName: `Roll ${diceInput}`,
+      checkType: null
+    });
   }
 };
 
@@ -123,65 +128,143 @@ async function rollCharacterCheck(interaction, checkType, advantage, disadvantag
     });
   }
 
-  // Determine the modifier
+  // Determine the modifier and roll name
   let modifier = 0;
-  let checkName = checkType;
+  let rollName = checkType;
 
   if (checkType.endsWith('_save')) {
     // Saving throw
     const ability = checkType.replace('_save', '');
     modifier = character.saves?.[ability] || character.attribute_mods?.[ability] || 0;
-    checkName = `${ability.charAt(0).toUpperCase() + ability.slice(1)} Save`;
+    rollName = `${ability.charAt(0).toUpperCase() + ability.slice(1)} Save`;
   } else if (checkType === 'initiative') {
     modifier = character.initiative || character.attribute_mods?.dexterity || 0;
-    checkName = 'Initiative';
+    rollName = 'Initiative';
   } else if (SKILL_ABILITIES[checkType]) {
     // Skill check
     modifier = character.skills?.[checkType] || character.attribute_mods?.[SKILL_ABILITIES[checkType]] || 0;
-    checkName = checkType.replace(/([A-Z])/g, ' $1').trim();
-    checkName = checkName.charAt(0).toUpperCase() + checkName.slice(1);
+    rollName = checkType.replace(/([A-Z])/g, ' $1').trim();
+    rollName = rollName.charAt(0).toUpperCase() + rollName.slice(1);
   } else {
     // Ability check
     modifier = character.attribute_mods?.[checkType] || 0;
-    checkName = `${checkType.charAt(0).toUpperCase() + checkType.slice(1)} Check`;
+    rollName = `${checkType.charAt(0).toUpperCase() + checkType.slice(1)} Check`;
   }
 
-  // Roll the d20
-  let rolls = [rollDice(1, 20)[0]];
-  let roll = rolls[0];
-  let rollType = '';
+  // Send character check to extension via Supabase
+  await sendRollToExtension(interaction, {
+    rollString: `1d20${modifier >= 0 ? '+' : ''}${modifier}`,
+    count: 1,
+    sides: 20,
+    modifier,
+    advantage,
+    disadvantage,
+    rollName: `${character.character_name} - ${rollName}`,
+    checkType,
+    characterName: character.character_name,
+    characterId: character.id
+  });
+}
 
-  if (advantage && !disadvantage) {
-    const roll2 = rollDice(1, 20)[0];
-    rolls.push(roll2);
-    roll = Math.max(rolls[0], roll2);
-    rollType = ' (Advantage)';
-  } else if (disadvantage && !advantage) {
-    const roll2 = rollDice(1, 20)[0];
-    rolls.push(roll2);
-    roll = Math.min(rolls[0], roll2);
-    rollType = ' (Disadvantage)';
+async function sendRollToExtension(interaction, rollData) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+    return await interaction.reply({
+      content: '❌ Extension integration not available. Supabase configuration is missing.',
+      flags: 64 // ephemeral
+    });
   }
 
-  const total = roll + modifier;
-  const isCrit = roll === 20;
-  const isFail = roll === 1;
+  try {
+    // Get user's pairing
+    const pairingResponse = await fetch(
+      `${SUPABASE_URL}/rest/v1/rollcloud_pairings?discord_user_id=eq.${interaction.user.id}&status=eq.connected&select=*`,
+      {
+        headers: {
+          'apikey': SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+        }
+      }
+    );
 
-  const formatMod = (m) => m >= 0 ? `+${m}` : `${m}`;
+    if (!pairingResponse.ok) {
+      return await interaction.reply({
+        content: '❌ Failed to check extension connection.',
+        flags: 64 // ephemeral
+      });
+    }
 
-  const embed = new EmbedBuilder()
-    .setColor(isCrit ? 0x2ECC71 : isFail ? 0xE74C3C : 0x4ECDC4)
-    .setTitle(`🎲 ${character.character_name} - ${checkName}${rollType}`)
-    .setDescription(
-      (rolls.length > 1 ? `Rolls: [${rolls.join(', ')}] → **${roll}**\n` : `Roll: **${roll}**\n`) +
-      `Modifier: ${formatMod(modifier)}\n\n` +
-      `**Total: ${total}**` +
-      (isCrit ? ' 🌟 NAT 20!' : '') +
-      (isFail ? ' 💀 NAT 1!' : '')
-    )
-    .setFooter({ text: `${character.class || 'Unknown'} Lv ${character.level}` });
+    const pairings = await pairingResponse.json();
+    
+    if (pairings.length === 0) {
+      return await interaction.reply({
+        content: '❌ No extension connection found. Use `/rollcloud <code>` to connect your extension.',
+        flags: 64 // ephemeral
+      });
+    }
 
-  await interaction.reply({ embeds: [embed] });
+    const pairing = pairings[0];
+
+    // Create roll command in Supabase
+    const commandPayload = {
+      pairing_id: pairing.id,
+      command_type: 'roll',
+      action_name: rollData.rollName,
+      command_data: {
+        roll_string: rollData.rollString,
+        roll_name: rollData.rollName,
+        check_type: rollData.checkType,
+        character_name: rollData.characterName,
+        character_id: rollData.characterId,
+        advantage: rollData.advantage,
+        disadvantage: rollData.disadvantage,
+        count: rollData.count,
+        sides: rollData.sides,
+        modifier: rollData.modifier
+      },
+      status: 'pending',
+      created_at: new Date().toISOString()
+    };
+
+    const commandResponse = await fetch(`${SUPABASE_URL}/rest/v1/rollcloud_commands`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify(commandPayload)
+    });
+
+    if (!commandResponse.ok) {
+      console.error('Failed to create roll command:', commandResponse.status);
+      return await interaction.reply({
+        content: '❌ Failed to send roll to extension.',
+        flags: 64 // ephemeral
+      });
+    }
+
+    // Acknowledge the roll command
+    const embed = new EmbedBuilder()
+      .setColor(0x4ECDC4)
+      .setTitle('🎲 Roll Sent to Roll20')
+      .setDescription(`**${rollData.rollName}**\n\nThe roll has been sent to your Roll20 extension and will appear in the chat.`)
+      .addFields(
+        { name: 'Roll Formula', value: rollData.rollString, inline: true },
+        { name: 'Character', value: rollData.characterName || 'Plain Dice', inline: true }
+      )
+      .setFooter({ text: 'RollCloud Extension Integration' })
+      .setTimestamp();
+
+    await interaction.reply({ embeds: [embed] });
+
+  } catch (error) {
+    console.error('Error sending roll to extension:', error);
+    await interaction.reply({
+      content: '❌ Failed to send roll to extension. Please try again.',
+      flags: 64 // ephemeral
+    });
+  }
 }
 
 function parseDiceNotation(notation) {
