@@ -179,7 +179,7 @@ export default function ConfigurePip() {
       console.log('📊 Received servers:', userServers.length);
       
       // First filter to only admin servers
-      const adminServers = userServers.filter(server => 
+      const adminServers = userServers.filter((server: DiscordServer) => 
         server.permissions.includes('ADMINISTRATOR') || 
         server.permissions.includes('MANAGE_GUILD')
       );
