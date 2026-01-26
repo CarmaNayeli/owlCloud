@@ -349,6 +349,7 @@ function initializePopup() {
   function showMainSection() {
     loginSection.classList.add('hidden');
     mainSection.classList.remove('hidden');
+    loadCharacterData();
   }
 
   /**
@@ -640,6 +641,20 @@ function initializePopup() {
 
       // Show sync character button when a character is selected
       syncCharacterToCloudBtn.classList.remove('hidden');
+
+      // If this is a database character (db- prefix), copy it to local storage first
+      if (selectedId.startsWith('db-')) {
+        const profilesResponse = await browserAPI.runtime.sendMessage({ action: 'getAllCharacterProfiles' });
+        const profiles = profilesResponse.success ? profilesResponse.profiles : {};
+        const dbChar = profiles[selectedId];
+        if (dbChar) {
+          await browserAPI.runtime.sendMessage({
+            action: 'storeCharacterData',
+            data: dbChar,
+            slotId: selectedId
+          });
+        }
+      }
 
       // Set this character as active
       await browserAPI.runtime.sendMessage({

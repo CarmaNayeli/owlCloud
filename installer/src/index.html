@@ -18,7 +18,7 @@
     <section id="step1" class="step active">
       <div class="step-header">
         <span class="step-number">1</span>
-        <h2>Choose Your Browser</h2>
+        <h2>Install or Update</h2>
       </div>
       <div class="step-content">
         <p>Select the browser you use for Roll20:</p>
@@ -94,41 +94,8 @@
       </div>
     </section>
 
-    <!-- Step 4: Connect -->
+    <!-- Step 4: Done -->
     <section id="step4" class="step">
-      <div class="step-header">
-        <span class="step-number">4</span>
-        <h2>Connect to Discord</h2>
-      </div>
-      <div class="step-content">
-        <p>In Discord, use this command in any channel where Pip 2 is present:</p>
-        <div class="code-display">
-          <code>/rollcloud <span id="pairingCode">------</span></code>
-          <button id="copyCode" class="btn-icon" title="Copy code">[copy]</button>
-        </div>
-        <div class="button-group">
-          <button id="backToStep3" class="btn btn-secondary">Back</button>
-          <button id="regenerateCode" class="btn btn-secondary">
-            🔄 Generate New Code
-          </button>
-          <button id="skipStep4" class="btn btn-secondary">
-            ⏭️ Skip This Step
-          </button>
-        </div>
-        <div id="waitingForConnection" class="progress-container">
-          <div class="spinner"></div>
-          <p>Waiting for connection... <span id="countdown"></span></p>
-        </div>
-        <div id="connectionComplete" class="hidden">
-          <p class="success-text">Connected!</p>
-          <p>Server: <strong id="connectedServer">-</strong></p>
-          <p>Channel: <strong id="connectedChannel">-</strong></p>
-        </div>
-      </div>
-    </section>
-
-    <!-- Step 5: Done -->
-    <section id="step5" class="step">
       <div class="step-header">
         <span class="step-number">+</span>
         <h2>Setup Complete!</h2>
@@ -148,7 +115,7 @@
           </ol>
         </div>
         <button id="finishSetup" class="btn btn-primary btn-large">Finish Setup</button>
-        <p class="note">You can safely delete this installer - you won't need it again.</p>
+        <p class="note">Keep this installer handy for future updates.</p>
       </div>
     </section>
 
