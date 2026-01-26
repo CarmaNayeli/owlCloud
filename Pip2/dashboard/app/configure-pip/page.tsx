@@ -234,7 +234,7 @@ const BOT_CHECK_DELAY = 1000; // 1 second between requests (increased from 100ms
 let botGuildsCache: { data: any[], timestamp: number } | null = null;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-// Function to fetch bot guilds once and cache them
+// Function to fetch bot guilds via backend API
 const fetchBotGuilds = async (): Promise<any[]> => {
   const now = Date.now();
   
@@ -244,38 +244,36 @@ const fetchBotGuilds = async (): Promise<any[]> => {
     return botGuildsCache.data;
   }
 
-  // Fetch fresh data
-  console.log('🔄 Fetching fresh bot guilds data from Discord API');
+  // Fetch fresh data via backend API
+  console.log('🔄 Fetching bot guilds data via backend API');
   
-  const botToken = process.env.DISCORD_TOKEN || process.env.DISCORD_BOT_TOKEN;
-  
-  if (!botToken) {
-    console.error('❌ No Discord bot token found');
+  try {
+    const response = await fetch('/api/discord/bot-guilds');
+    if (!response.ok) {
+      console.error('❌ Backend API error:', response.status, response.statusText);
+      return [];
+    }
+    
+    const data = await response.json();
+    if (!data.success) {
+      console.error('❌ Backend API error:', data.error);
+      return [];
+    }
+    
+    const botGuilds = data.guilds || [];
+    console.log(`📊 Bot is in ${botGuilds.length} servers`);
+    
+    // Update cache
+    botGuildsCache = {
+      data: botGuilds,
+      timestamp: now
+    };
+    
+    return botGuilds;
+  } catch (error) {
+    console.error('❌ Error fetching bot guilds via backend:', error);
     return [];
   }
-
-  const response = await fetch('https://discord.com/api/users/@me/guilds', {
-    headers: {
-      'Authorization': `Bot ${botToken}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    console.error('❌ Bot API error:', response.status, response.statusText);
-    return [];
-  }
-
-  const botGuilds = await response.json();
-  console.log(`📊 Bot is in ${botGuilds.length} servers`);
-  
-  // Update cache
-  botGuildsCache = {
-    data: botGuilds,
-    timestamp: now
-  };
-  
-  return botGuilds;
 };
 
 const checkBotInServerWithRateLimit = async (serverId: string): Promise<boolean> => {
