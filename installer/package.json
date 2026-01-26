@@ -1,6 +1,6 @@
 {
   "name": "rollcloud-setup",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "RollCloud Enterprise Extension Installer",
   "main": "src/main.js",
   "scripts": {

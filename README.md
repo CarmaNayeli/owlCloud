@@ -1,12 +1,18 @@
 # RollCloud: Dice Cloud Integration for Roll20
 
-A browser extension that integrates Dice Cloud with Roll20. Import D&D character data using the DiceCloud REST API, use interactive character sheets with click-to-roll functionality, and manage combat with GM tools.
+A browser extension that integrates Dice Cloud with Roll20. I built this to make importing D&D characters seamless - just click a button and your character data appears in Roll20 with interactive dice rolling and combat management.
 
-**🎲 Version 1.2.2 - Firefox Developer Edition Support**
+**🎲 Version 1.2.3 - Latest Release**
 
 **Quick Download:** [Firefox](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-firefox.zip) | [Chrome](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-chrome.zip) | [Safari](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-safari.zip)
 
-### 📋 Recent Changes
+### 📋 What's New
+
+**Version 1.2.3**
+- **Updated Documentation**: Consistent version references across all files
+- **Personal Touch**: Refined documentation with solo developer voice
+- **Bug Fixes**: Resolved version inconsistencies and improved user experience
+- **Performance**: Optimized extension loading and error handling
 
 **Version 1.2.2**
 - **Firefox Developer Edition Support**: Bundled Firefox Developer Edition installer for seamless unsigned extension installation
@@ -31,7 +37,7 @@ A browser extension that integrates Dice Cloud with Roll20. Import D&D character
 ## Features
 
 ### Character Import
-- **API-Powered**: Uses DiceCloud's official REST API for data extraction
+- **API-Powered**: I use DiceCloud's official REST API to get your character data
 - **Smart Parsing**: Leverages DiceCloud's standardized variable names
 - **Secure Authentication**: Login with DiceCloud credentials (stored locally)
 - **Auto-Connect**: Automatically extracts authentication token from logged-in session
@@ -57,8 +63,8 @@ A browser extension that integrates Dice Cloud with Roll20. Import D&D character
 - **Discord Integration**: Real-time turn and combat updates in Discord
 
 ### Discord Integration
-- **Real-Time Combat Updates**: Turn changes and action economy updates posted to Discord
-- **Pip Bot Connection**: Connect with the Pip Bot for seamless Discord integration
+- **Real-Time Combat Updates**: I send turn changes and action economy updates to your Discord
+- **Pip Bot Connection**: I built Pip Bot to handle Discord integration seamlessly
 - **One-Click Setup**: Generate connection code in extension, enter in Discord
 - **Web Dashboard**: Manage integration and view status at [pip-bot.vercel.app](https://pip-bot.vercel.app)
 - **Server Management**: Support for multiple Discord servers
@@ -82,7 +88,7 @@ A browser extension that integrates Dice Cloud with Roll20. Import D&D character
 Download the pre-built extension for your browser:
 
 #### 🦊 Firefox
-[**Download RollCloud for Firefox**](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-firefox-v1.2.0.zip)
+[**Download RollCloud for Firefox**](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-firefox.zip)
 
 1. **Download** the Firefox ZIP file
 2. **Extract** the ZIP file to a folder
@@ -92,7 +98,7 @@ Download the pre-built extension for your browser:
 6. **Done!** The RollCloud icon appears in your toolbar
 
 #### 🌐 Chrome / Edge / Brave
-[**Download RollCloud for Chrome**](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-chrome-v1.2.0.zip)
+[**Download RollCloud for Chrome**](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-chrome.zip)
 
 1. **Download** the Chrome ZIP file
 2. **Extract** the ZIP file to a folder
@@ -102,7 +108,7 @@ Download the pre-built extension for your browser:
 6. **Done!** The RollCloud icon appears in your toolbar
 
 #### 🧭 Safari
-[**Download RollCloud for Safari**](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-safari-v1.2.0.zip)
+[**Download RollCloud for Safari**](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-safari.zip)
 
 **Requirements:**
 - macOS with Safari 14.0 or later
@@ -308,7 +314,7 @@ If you encounter any issues:
 2. Verify you're on the correct Dice Cloud/Roll20 pages
 3. Try clearing the extension data and re-extracting
 4. Open an issue on GitHub with details about your problem
-5. **If all else fails, message me on Discord @Carmabella**
+5. **If all else fails, message me on Discord @Carmabella - I'm a solo dev and I'll help you out!**
 
 ---
 
