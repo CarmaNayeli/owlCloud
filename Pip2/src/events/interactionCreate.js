@@ -22,12 +22,16 @@ export default {
 };
 
 async function handleCommand(interaction) {
+  console.log(`📥 Received command: /${interaction.commandName} from ${interaction.user.username} (${interaction.user.id})`);
+
   const command = interaction.client.commands.get(interaction.commandName);
 
   if (!command) {
     console.error(`No command matching ${interaction.commandName} was found.`);
     return;
   }
+
+  console.log(`📦 Found command handler for: ${interaction.commandName}`);
 
   try {
     await command.execute(interaction);
