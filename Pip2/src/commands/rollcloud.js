@@ -227,6 +227,8 @@ async function completePairing(code, discordInfo) {
         discord_channel_id: discordInfo.channelId,
         discord_channel_name: discordInfo.channelName,
         discord_user_id: discordInfo.userId,
+        discord_username: discordInfo.username,
+        discord_global_name: discordInfo.globalName,
         status: 'connected',
         connected_at: new Date().toISOString()
       })
