@@ -253,6 +253,12 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
         case 'setDiscordWebhook': {
           // Use request.enabled if provided, otherwise default to true when URL is provided
           const enabled = request.enabled !== undefined ? request.enabled : !!request.webhookUrl;
+          debug.log('📝 setDiscordWebhook called:', {
+            webhookUrl: request.webhookUrl ? `${request.webhookUrl.substring(0, 50)}...` : '(empty)',
+            enabled,
+            serverName: request.serverName,
+            pairingId: request.pairingId
+          });
           await setDiscordWebhookSettings(request.webhookUrl, enabled, request.serverName);
           // Also set the pairing ID for command polling if provided
           if (request.pairingId) {
@@ -1073,8 +1079,19 @@ async function setDiscordWebhookSettings(webhookUrl, enabled = true, serverName 
     if (serverName) {
       settings.discordServerName = serverName;
     }
+    debug.log('📝 Saving Discord webhook settings:', {
+      webhookUrl: webhookUrl ? `${webhookUrl.substring(0, 50)}...` : '(empty)',
+      enabled,
+      serverName
+    });
     await browserAPI.storage.local.set(settings);
-    debug.log('Discord webhook settings saved:', { enabled, hasUrl: !!webhookUrl, serverName });
+
+    // Verify storage was successful
+    const verification = await browserAPI.storage.local.get(['discordWebhookUrl', 'discordWebhookEnabled']);
+    debug.log('✅ Discord webhook settings verified:', {
+      storedUrl: verification.discordWebhookUrl ? `${verification.discordWebhookUrl.substring(0, 50)}...` : '(empty)',
+      storedEnabled: verification.discordWebhookEnabled
+    });
   } catch (error) {
     debug.error('Failed to save Discord webhook settings:', error);
     throw error;
