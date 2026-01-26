@@ -2236,18 +2236,13 @@ async function subscribeToCommandRealtime(pairingId) {
     commandRealtimeSocket.onopen = () => {
       debug.log('✅ Command Realtime WebSocket connected');
 
-      // Subscribe to broadcast events on private channel for this pairing
-      // Using Broadcast approach (recommended) instead of postgres_changes
-      const topic = `realtime:rollcloud_commands:pairing:${pairingId}`;
+      // Subscribe to broadcast channel - topic must match DB trigger exactly
+      // DB trigger broadcasts to: rollcloud_commands:pairing:<pairing_id>
+      const topic = `rollcloud_commands:pairing:${pairingId}`;
       const joinMessage = {
         topic: topic,
         event: 'phx_join',
-        payload: {
-          config: {
-            broadcast: { self: false, ack: false },
-            presence: { key: '' }
-          }
-        },
+        payload: {},
         ref: 'cmd_1'
       };
       debug.log('📤 Sending join message:', JSON.stringify(joinMessage));
@@ -2293,26 +2288,14 @@ async function subscribeToCommandRealtime(pairingId) {
         }
 
         // Handle broadcast events (from DB trigger using realtime.broadcast_changes)
-        // Event will be 'INSERT', 'UPDATE', or 'DELETE' from the trigger
-        const isBroadcast = message.event === 'broadcast' ||
-                            message.event === 'INSERT' ||
-                            message.event === 'UPDATE';
+        if (message.event === 'broadcast') {
+          const record = message.payload?.record ?? message.payload?.new ?? message.payload;
 
-        if (isBroadcast) {
-          // Get record from broadcast payload - try various locations
-          const record = message.payload?.record ||
-                        message.payload?.new ||
-                        message.payload?.payload?.record ||
-                        message.payload?.payload?.new ||
-                        message.payload;
-
-          debug.log('📥 Broadcast received! Event:', message.event, 'Record:', JSON.stringify(record).substring(0, 300));
+          debug.log('📥 Broadcast received! Record:', JSON.stringify(record).substring(0, 300));
 
           if (record && record.status === 'pending') {
             debug.log('📥 Realtime command received:', record.command_type, record.id);
             await executeCommand(record);
-          } else if (record && record.id) {
-            debug.log('⏭️ Skipping command - status:', record.status);
           }
         }
       } catch (e) {
