@@ -61,6 +61,10 @@ function buildMainHelp() {
           '`/rollcloud <code>` - Link your Discord to RollCloud\n' +
           '`/characters` - List your synced characters\n' +
           '`/character [name]` - View/set active character\n' +
+          '`/spells [level] [search]` - List your character\'s spells\n' +
+          '`/actions [type] [search]` - List your character\'s actions\n' +
+          '`/cast <spell> [target] [level]` - Cast a spell in Roll20\n' +
+          '`/use <action> [target]` - Use an action in Roll20\n' +
           '`/roll20 [character]` - Check Roll20 connection status\n' +
           '`/webhook [action]` - Show Discord webhook status\n' +
           '*Use `/help topic:RollCloud Setup` for setup guide*',
@@ -71,6 +75,10 @@ function buildMainHelp() {
         value:
           '`/sheet [section]` - Full character sheet\n' +
           '`/stats <stat>` - Quick stat lookup\n' +
+          '`/spells [level] [search]` - List your character\'s spells\n' +
+          '`/actions [type] [search]` - List your character\'s actions\n' +
+          '`/cast <spell> [target] [level]` - Cast a spell in Roll20\n' +
+          '`/use <action> [target]` - Use an action in Roll20\n' +
           '*Use `/help topic:Character Commands` for details*',
         inline: false
       },
@@ -194,6 +202,54 @@ function buildCharacterHelp() {
         value:
           'Quick lookup for a single stat.\n\n' +
           '**Options:** HP, AC, Initiative, STR, DEX, CON, INT, WIS, CHA, Perception, Stealth, Athletics, Spell Slots',
+        inline: false
+      },
+      {
+        name: '/spells [level] [search]',
+        value:
+          'List your character\'s spells.\n\n' +
+          '**Level Filter:** Cantrips, Level 1-9\n' +
+          '**Search:** Find spells by name\n\n' +
+          'Examples:\n' +
+          '`/spells` - All spells\n' +
+          '`/spells level:1` - Level 1 spells\n' +
+          '`/spells search:fire` - Fire spells',
+        inline: false
+      },
+      {
+        name: '/actions [type] [search]',
+        value:
+          'List your character\'s actions and attacks.\n\n' +
+          '**Type Filter:** Actions, Attacks, Features, Legendary, Lair\n' +
+          '**Search:** Find actions by name\n\n' +
+          'Examples:\n' +
+          '`/actions` - All actions\n' +
+          '`/actions type:attack` - Attacks only\n' +
+          '`/actions search:strike` - Actions with "strike"',
+        inline: false
+      },
+      {
+        name: '/cast <spell> [target] [level]',
+        value:
+          'Cast a spell in Roll20.\n\n' +
+          '**Spell:** Spell name (autocomplete)\n' +
+          '**Target:** Optional target\n' +
+          '**Level:** For upcasting (1-9)\n\n' +
+          'Examples:\n' +
+          '`/cast Fireball` - Cast Fireball\n' +
+          '`/cast Fireball target:Goblins` - Target goblins\n' +
+          '`/cast Fireball level:5` - Upcast to level 5',
+        inline: false
+      },
+      {
+        name: '/use <action> [target]',
+        value:
+          'Use an action or ability in Roll20.\n\n' +
+          '**Action:** Action name (autocomplete)\n' +
+          '**Target:** Optional target\n\n' +
+          'Examples:\n' +
+          '`/use "Great Weapon Master"` - Use action\n' +
+          '`/use Sneak_Attack target:Guard` - Target guard',
         inline: false
       }
     )
