@@ -2237,9 +2237,8 @@ async function subscribeToCommandRealtime(pairingId) {
       debug.log('✅ Command Realtime WebSocket connected');
 
       // Subscribe to INSERT events on rollcloud_commands for this pairing
-      // Topic format: realtime:schema:table (filter goes in postgres_changes config only)
-      // TESTING: Removed filter to check if Realtime works at all
-      const topic = `realtime:public:rollcloud_commands`;
+      // Channel name: realtime:<channel> - channel matches Supabase Dashboard
+      const topic = `realtime:rollcloud_commands`;
       const joinMessage = {
         topic: topic,
         event: 'phx_join',
@@ -2250,8 +2249,8 @@ async function subscribeToCommandRealtime(pairingId) {
             postgres_changes: [{
               event: 'INSERT',
               schema: 'public',
-              table: 'rollcloud_commands'
-              // filter temporarily removed for testing
+              table: 'rollcloud_commands',
+              filter: `pairing_id=eq.${pairingId}`
             }]
           }
         },
