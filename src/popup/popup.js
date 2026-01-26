@@ -1683,7 +1683,15 @@ function initializePopup() {
         if (response.found) {
           showDiscordStatus(`✅ ${currentCharacter.name} is active in Discord server: ${response.serverName}`, 'success');
         } else {
-          showDiscordStatus(`❌ ${currentCharacter.name} is not currently active in any Discord server`, 'warning');
+          let message = `❌ ${currentCharacter.name} is not currently active in any Discord server`;
+          
+          if (response.message === 'Discord integration not configured') {
+            message = `❌ Discord integration not configured. Please set up Discord integration first.`;
+          } else if (response.availableCharacter && response.availableCharacter.name !== currentCharacter.name) {
+            message = `❌ ${currentCharacter.name} is not active. Currently active: ${response.availableCharacter.name} (Level ${response.availableCharacter.level} ${response.availableCharacter.race} ${response.availableCharacter.class})`;
+          }
+          
+          showDiscordStatus(message, 'warning');
         }
       } else {
         showDiscordStatus(`Error checking integration: ${response.error}`, 'error');
