@@ -213,18 +213,12 @@ async function buildAll() {
   const version = packageJson.version;
 
   // Files to copy to releases (for GitHub release uploads)
+  // Non-versioned names only — version is in the GitHub release tag
   const releaseFiles = [
-    // Chrome signed CRX - both versioned and non-versioned names for compatibility
-    { src: 'rollcloud-chrome-signed.crx', dest: `rollcloud-chrome-${version}.crx` },
     { src: 'rollcloud-chrome-signed.crx', dest: 'rollcloud-chrome-signed.crx' },
-    { src: 'rollcloud-chrome-signed.id', dest: `rollcloud-chrome-${version}.id` },
-    // Firefox XPI - both versioned and non-versioned names
-    { src: 'rollcloud-firefox-signed.xpi', dest: `rollcloud-firefox-${version}.xpi` },
+    { src: 'rollcloud-chrome-signed.id', dest: 'rollcloud-chrome-signed.id' },
     { src: 'rollcloud-firefox-signed.xpi', dest: 'rollcloud-firefox-signed.xpi' },
-    // ZIP files for manual installation - versioned and non-versioned
-    { src: 'rollcloud-chrome.zip', dest: `rollcloud-chrome-${version}.zip` },
     { src: 'rollcloud-chrome.zip', dest: 'rollcloud-chrome.zip' },
-    { src: 'rollcloud-firefox.zip', dest: `rollcloud-firefox-${version}.zip` },
     { src: 'rollcloud-firefox.zip', dest: 'rollcloud-firefox.zip' },
   ];
 
@@ -347,8 +341,8 @@ async function buildAll() {
   console.log(`       Extensions:`);
   console.log(`         - rollcloud-chrome-signed.crx (for enterprise policy install)`);
   console.log(`         - rollcloud-firefox-signed.xpi (for Firefox install)`);
-  console.log(`         - rollcloud-chrome-${version}.zip (for manual Chrome install)`);
-  console.log(`         - rollcloud-firefox-${version}.zip (for manual Firefox install)`);
+  console.log(`         - rollcloud-chrome.zip (for manual Chrome install)`);
+  console.log(`         - rollcloud-firefox.zip (for manual Firefox install)`);
   if (!skipInstaller) {
     console.log(`       Installers:`);
     console.log(`         - RollCloud-Setup.exe (Windows installer)`);

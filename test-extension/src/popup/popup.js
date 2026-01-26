@@ -40,9 +40,20 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializePopup() {
+  // Set version from manifest
+  try {
+    const manifest = browserAPI.runtime.getManifest();
+    const versionDisplay = document.getElementById('versionDisplay');
+    if (versionDisplay && manifest.version) {
+      versionDisplay.textContent = `v${manifest.version}`;
+    }
+  } catch (e) {
+    console.log('Could not read manifest version:', e);
+  }
+
   // Check if this is an experimental build
   checkExperimentalBuild();
-  
+
   // DOM Elements - Sections
   const loginSection = document.getElementById('loginSection');
   const mainSection = document.getElementById('mainSection');
@@ -1057,7 +1068,12 @@ function initializePopup() {
         }
         
         if (versionDisplay) {
-          versionDisplay.textContent = 'v1.1.2.1 - Experimental Sync';
+          try {
+            const manifest = browserAPI.runtime.getManifest();
+            versionDisplay.textContent = `v${manifest.version} - Experimental Sync`;
+          } catch (e) {
+            versionDisplay.textContent = 'Experimental Sync';
+          }
         }
         
         if (experimentalInstructions) {

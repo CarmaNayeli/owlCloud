@@ -171,7 +171,7 @@ For enterprise support, see the deployment guide or contact IT department.
 ---
 
 Built: ${new Date().toISOString()}
-Version: 1.2.0
+Version: ${require(path.join(ROOT_DIR, 'package.json')).version}
 `;
 
     fs.writeFileSync(path.join(enterpriseDir, 'README.md'), enterpriseReadme);

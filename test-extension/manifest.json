@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "RollCloud: DiceCloud + Roll20 + Discord Integration",
-  "version": "1.2.0",
+  "version": "1.2.3",
   "description": "Sync DiceCloud V2 characters to Roll20 with Discord turn notifications via Pip 2",
   "permissions": [
     "storage",
