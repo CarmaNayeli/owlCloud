@@ -1563,12 +1563,27 @@ function initializePopup() {
           code: code
         });
 
+        debug.log('📥 Pairing check result:', {
+          success: result.success,
+          connected: result.connected,
+          hasWebhookUrl: !!result.webhookUrl,
+          webhookUrlPreview: result.webhookUrl ? `${result.webhookUrl.substring(0, 50)}...` : '(empty)',
+          serverName: result.serverName,
+          pairingId: result.pairingId
+        });
+
         if (result.success && result.connected && result.webhookUrl) {
           // Connected! Save webhook and update UI
           clearInterval(pairingPollInterval);
           pairingPollInterval = null;
 
-          await browserAPI.runtime.sendMessage({
+          debug.log('🔗 Saving Discord webhook from pairing:', {
+            webhookUrl: result.webhookUrl ? `${result.webhookUrl.substring(0, 50)}...` : '(empty)',
+            serverName: result.serverName,
+            pairingId: result.pairingId
+          });
+
+          const setResult = await browserAPI.runtime.sendMessage({
             action: 'setDiscordWebhook',
             webhookUrl: result.webhookUrl,
             enabled: true,
@@ -1576,6 +1591,8 @@ function initializePopup() {
             pairingId: result.pairingId, // For command polling
             discordUserId: result.discordUserId // Link to auth_tokens
           });
+
+          debug.log('📝 setDiscordWebhook response:', setResult);
 
           showDiscordConnected(result.serverName);
           showDiscordStatus('Connected to Discord!', 'success');
