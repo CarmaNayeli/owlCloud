@@ -1980,7 +1980,23 @@ function subscribeToRealtimePairing(pairingCode) {
               record.discord_global_name
             );
 
-            // Notify popup that pairing is complete
+            // IMPORTANT: Save webhook settings directly - don't rely on popup being open
+            if (record.webhook_url) {
+              debug.log('📝 Saving webhook URL from Realtime:', record.webhook_url.substring(0, 50) + '...');
+              await setDiscordWebhookSettings(record.webhook_url, true, record.discord_guild_name);
+
+              // Also save pairing ID for command polling
+              await browserAPI.storage.local.set({
+                currentPairingId: record.id,
+                discordPairingId: record.id
+              });
+
+              // Start command polling
+              startCommandPolling(record.id);
+              debug.log('✅ Discord webhook and pairing ID saved from Realtime');
+            }
+
+            // Notify popup that pairing is complete (if it's open)
             try {
               await browserAPI.runtime.sendMessage({
                 action: 'pairingComplete',
@@ -1992,7 +2008,7 @@ function subscribeToRealtimePairing(pairingCode) {
                 pairingId: record.id
               });
             } catch (e) {
-              // Popup might not be open
+              // Popup might not be open - but webhook is already saved above
               debug.log('Could not notify popup (probably not open)');
             }
 
