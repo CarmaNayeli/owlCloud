@@ -302,27 +302,17 @@ const checkBotInServerWithRateLimit = async (serverId: string): Promise<boolean>
   const inviteBot = async (serverId: string) => {
     setInviting(serverId);
     try {
-      // Generate Discord OAuth2 invite URL with proper permissions
-      const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID || process.env.DISCORD_CLIENT_ID || 'YOUR_BOT_CLIENT_ID';
-
-      // Calculate permissions as numeric value (Discord requires an integer, not permission names)
-      // Permissions: VIEW_CHANNEL (1024) + SEND_MESSAGES (2048) + MANAGE_ROLES (268435456) +
-      // MANAGE_CHANNELS (16) + MANAGE_MESSAGES (8192) + EMBED_LINKS (16384) +
-      // ATTACH_FILES (32768) + READ_MESSAGE_HISTORY (65536) + USE_APPLICATION_COMMANDS (2147483648)
-      // Total: 2415928072 (corrected calculation)
-      const permissions = '2415928072';
-
-      const inviteUrl = `https://discord.com/oauth2/authorize?client_id=${clientId}&permissions=${permissions}&scope=bot%20applications.commands&guild_id=${serverId}`;
+      // Use the same working invite URL from the setup page
+      const inviteUrl = "https://discord.com/api/oauth2/authorize?client_id=1464771468452827380&permissions=536870912&scope=bot%20applications.commands";
       
       // Open Discord authorization in new tab
       window.open(inviteUrl, '_blank');
       
       // Show user feedback
-      alert(`Discord authorization opened in a new tab!\n\nPlease authorize Pip to join the server, then this page will automatically set up your instance.`);
+      alert(`Discord authorization opened in a new tab!\n\nPlease authorize Pip to join the server, then refresh this page to see the updated status.`);
       
-      // Poll to check if bot was added and create instance
+      // Don't poll for server addition - just refresh after a delay
       setTimeout(async () => {
-        await checkBotAndCreateInstance(serverId);
         loadServers(); // Refresh server list
         setInviting(null);
       }, 5000);
@@ -549,12 +539,14 @@ const checkBotInServerWithRateLimit = async (serverId: string): Promise<boolean>
                 <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">
                   You can invite Pip to any Discord server where you have admin permissions.
                 </p>
-                <button
-                  onClick={() => window.open(`https://discord.com/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID || process.env.DISCORD_CLIENT_ID || 'YOUR_BOT_CLIENT_ID'}&permissions=2416168072&scope=bot%20applications.commands`, '_blank')}
+                <a
+                  href="https://discord.com/api/oauth2/authorize?client_id=1464771468452827380&permissions=536870912&scope=bot%20applications.commands"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="bg-[#5865F2] hover:bg-[#4752C4] text-white px-4 py-2 rounded-lg font-medium transition"
                 >
                   Invite Pip to Server
-                </button>
+                </a>
               </div>
               <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 border border-green-200 dark:border-green-800">
                 <h4 className="font-semibold text-green-900 dark:text-green-100 mb-2">Create a new server</h4>
