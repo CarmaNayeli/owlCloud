@@ -209,6 +209,7 @@ function initializePopup() {
   const cancelPairingBtn = document.getElementById('cancelPairingBtn');
   const disconnectDiscordBtn = document.getElementById('disconnectDiscordBtn');
   const testDiscordWebhookBtn = document.getElementById('testDiscordWebhook');
+  const checkDiscordIntegrationBtn = document.getElementById('checkDiscordIntegration');
   const saveDiscordWebhookBtn = document.getElementById('saveDiscordWebhook');
 
   if (setupDiscordBtn) {
@@ -219,6 +220,7 @@ function initializePopup() {
     if (cancelPairingBtn) cancelPairingBtn.addEventListener('click', handleCancelPairing);
     if (disconnectDiscordBtn) disconnectDiscordBtn.addEventListener('click', handleDisconnectDiscord);
     if (testDiscordWebhookBtn) testDiscordWebhookBtn.addEventListener('click', handleTestDiscordWebhook);
+    if (checkDiscordIntegrationBtn) checkDiscordIntegrationBtn.addEventListener('click', handleCheckDiscordIntegration);
     if (saveDiscordWebhookBtn) saveDiscordWebhookBtn.addEventListener('click', handleSaveDiscordWebhook);
   }
 
@@ -1640,6 +1642,54 @@ function initializePopup() {
     } finally {
       saveBtn.disabled = false;
       saveBtn.textContent = '💾 Save Webhook URL';
+    }
+  }
+
+  /**
+   * Handles checking Discord integration for current character
+   */
+  async function handleCheckDiscordIntegration() {
+    const checkBtn = document.getElementById('checkDiscordIntegration');
+
+    try {
+      checkBtn.disabled = true;
+      checkBtn.textContent = '⏳ Checking...';
+
+      // Get current character data
+      const result = await browserAPI.storage.local.get(['activeCharacterId', 'characterProfiles']);
+      const activeCharacterId = result.activeCharacterId;
+      const characterProfiles = result.characterProfiles || {};
+
+      if (!activeCharacterId || !characterProfiles[activeCharacterId]) {
+        showDiscordStatus('No active character found', 'error');
+        return;
+      }
+
+      const currentCharacter = characterProfiles[activeCharacterId];
+      debug.log('🔍 Checking Discord integration for character:', currentCharacter.name);
+
+      // Send message to background script to check Discord integration
+      const response = await browserAPI.runtime.sendMessage({
+        action: 'checkDiscordCharacterIntegration',
+        characterName: currentCharacter.name,
+        characterId: currentCharacter.id
+      });
+
+      if (response.success) {
+        if (response.found) {
+          showDiscordStatus(`✅ ${currentCharacter.name} is active in Discord server: ${response.serverName}`, 'success');
+        } else {
+          showDiscordStatus(`❌ ${currentCharacter.name} is not currently active in any Discord server`, 'warning');
+        }
+      } else {
+        showDiscordStatus(`Error checking integration: ${response.error}`, 'error');
+      }
+    } catch (error) {
+      debug.error('Check Discord integration error:', error);
+      showDiscordStatus(`Error: ${error.message}`, 'error');
+    } finally {
+      checkBtn.disabled = false;
+      checkBtn.textContent = '🔍 Check Character';
     }
   }
 

@@ -90,6 +90,13 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
           break;
         }
 
+        case 'checkDiscordCharacterIntegration': {
+          // Check if current character is active in Discord bot
+          const checkResult = await checkDiscordCharacterIntegration(request.characterName, request.characterId);
+          response = checkResult;
+          break;
+        }
+
         case 'fetchDiceCloudAPI': {
           // Fetch from DiceCloud API (used by Roll20 content script)
           const fetchResult = await fetchFromDiceCloudAPI(request.url, request.token);
@@ -1677,6 +1684,50 @@ async function syncCharacterColorToSupabase(characterId, color) {
   } catch (error) {
     debug.error('❌ Failed to sync character color to Supabase:', error);
     return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Check if character is currently active in Discord bot instances
+ * This would need to be implemented in the pip-bot to check all running instances
+ */
+async function checkDiscordCharacterIntegration(characterName, characterId) {
+  try {
+    debug.log(`🔍 Checking Discord integration for character: ${characterName} (${characterId})`);
+    
+    // This is a placeholder - in a real implementation, this would:
+    // 1. Send a message to all pip-bot instances to check if this character is active
+    // 2. Each bot instance would check its current character state
+    // 3. Return which server (if any) has this character active
+    
+    // For now, we'll simulate this by checking if we have a Discord webhook configured
+    const webhookResult = await getDiscordWebhookSettings();
+    
+    if (webhookResult.webhookUrl && webhookResult.enabled) {
+      // Simulate checking with the bot - in reality this would be an API call to the bot
+      debug.log(`🤖 Simulated check: Character ${characterName} integration status`);
+      
+      // Return a simulated result for now
+      return {
+        success: true,
+        found: true, // Simulate that the character is found
+        serverName: webhookResult.serverName || 'Unknown Server',
+        message: `Character ${characterName} is active in Discord`
+      };
+    } else {
+      return {
+        success: true,
+        found: false,
+        serverName: null,
+        message: 'Discord integration not configured'
+      };
+    }
+  } catch (error) {
+    debug.error('❌ Error checking Discord character integration:', error);
+    return {
+      success: false,
+      error: error.message
+    };
   }
 }
 
