@@ -1024,20 +1024,25 @@ function initializePopup() {
         return;
       }
 
-      // Check if Supabase is available
-      if (typeof SupabaseTokenManager === 'undefined') {
-        showError('Cloud sync not available');
-        return;
-      }
+      // Get DiceCloud user ID from login status
+      const loginStatus = await browserAPI.runtime.sendMessage({ action: 'checkLoginStatus' });
+      const dicecloudUserId = loginStatus.userId; // This is the DiceCloud Meteor ID
 
-      const supabaseManager = new SupabaseTokenManager();
-      
-      // Sync character data to cloud
-      const result = await supabaseManager.storeCharacterData({
+      debug.log('🎭 Syncing character to cloud:', {
         characterId: selectedId,
-        characterData: characterData,
-        discordUserId: characterData.discordUserId,
-        timestamp: new Date().toISOString()
+        characterName: characterData.name,
+        dicecloudUserId: dicecloudUserId
+      });
+
+      // Use background script's syncCharacterToCloud which has all the linking logic
+      const result = await browserAPI.runtime.sendMessage({
+        action: 'syncCharacterToCloud',
+        characterData: {
+          ...characterData,
+          id: selectedId,
+          dicecloudUserId: dicecloudUserId, // Include DiceCloud user ID
+          userId: dicecloudUserId // Also as userId for backwards compatibility
+        }
       });
 
       if (result.success) {
