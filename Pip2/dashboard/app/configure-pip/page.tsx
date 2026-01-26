@@ -178,25 +178,26 @@ export default function ConfigurePip() {
       const userServers = await response.json();
       console.log('📊 Received servers:', userServers.length);
       
-      // Check which servers have the bot
-      const serversWithBotStatus = await Promise.all(
-        userServers.map(async (server: DiscordServer) => {
-          // Check if bot is in server
-          const botInServer = await checkBotInServer(server.id);
-          return { ...server, botMember: botInServer };
-        })
-      );
-      
-      // Filter to only show servers where user has admin permissions
-      const adminServers = serversWithBotStatus.filter(server => 
+      // First filter to only admin servers
+      const adminServers = userServers.filter(server => 
         server.permissions.includes('ADMINISTRATOR') || 
         server.permissions.includes('MANAGE_GUILD')
       );
       
       console.log('👑 Admin servers:', adminServers.length);
-      console.log('📋 All servers:', userServers.length);
       
-      setServers(adminServers);
+      // Then check which admin servers have the bot (with rate limiting)
+      const serversWithBotStatus = await Promise.all(
+        adminServers.map(async (server: DiscordServer) => {
+          // Check if bot is in server (with rate limiting)
+          const botInServer = await checkBotInServerWithRateLimit(server.id);
+          return { ...server, botMember: botInServer };
+        })
+      );
+      
+      console.log('📋 Admin servers with bot status:', serversWithBotStatus.length);
+      
+      setServers(serversWithBotStatus);
       setCommands(mockCommands);
     } catch (error: unknown) {
       console.error('Error loading servers:', error);
@@ -227,7 +228,29 @@ export default function ConfigurePip() {
     }
   };
 
-  const checkBotInServer = async (serverId: string): Promise<boolean> => {
+  // Rate limiting for bot checks
+const botCheckQueue: Promise<boolean>[] = [];
+const BOT_CHECK_DELAY = 100; // 100ms between requests
+
+const checkBotInServerWithRateLimit = async (serverId: string): Promise<boolean> => {
+  // Add to queue
+  const promise = new Promise<boolean>((resolve) => {
+    setTimeout(async () => {
+      try {
+        const result = await checkBotInServer(serverId);
+        resolve(result);
+      } catch (error) {
+        console.error(`Error in rate-limited bot check for ${serverId}:`, error);
+        resolve(false);
+      }
+    }, botCheckQueue.length * BOT_CHECK_DELAY);
+  });
+  
+  botCheckQueue.push(promise);
+  return promise;
+};
+
+const checkBotInServer = async (serverId: string): Promise<boolean> => {
     try {
       // Check if bot is in server via API
       const response = await fetch(`/api/discord/bot-in-server/${serverId}`);
