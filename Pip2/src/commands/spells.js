@@ -60,11 +60,23 @@ export default {
       }
 
       // Parse spells from character data
-      const spells = parseSpells(character.raw_dicecloud_data || '{}');
-      
+      const rawData = character.raw_dicecloud_data || '{}';
+      const spells = parseSpells(rawData);
+
+      // Debug logging to help diagnose missing spells
+      console.log(`📚 Parsing spells for ${character.character_name}:`, {
+        hasRawData: !!character.raw_dicecloud_data,
+        rawDataType: typeof rawData,
+        spellCount: spells?.length || 0
+      });
+
       if (!spells || spells.length === 0) {
+        // Provide helpful message about potential sync issues
+        const syncHint = character.updated_at
+          ? `\nLast synced: ${new Date(character.updated_at).toLocaleString()}`
+          : '\n*Note: Character may need to be re-synced from DiceCloud.*';
         return await interaction.editReply({
-          content: `❌ **${character.character_name}** doesn't have any spells.`,
+          content: `❌ **${character.character_name}** doesn't have any spells.${syncHint}\n\n*If you recently added spells in DiceCloud, try syncing your character again using the extension.*`,
           flags: 64
         });
       }

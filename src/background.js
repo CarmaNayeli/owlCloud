@@ -68,10 +68,19 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
       switch (request.action) {
         case 'storeCharacterData':
           await storeCharacterData(request.data, request.slotId);
-          // Also sync to Supabase if cloud sync is enabled
-          if (request.syncToCloud && typeof SupabaseTokenManager !== 'undefined') {
-            const supabase = new SupabaseTokenManager();
-            await supabase.storeCharacter(request.data, request.pairingCode);
+          // Auto-sync to Supabase if Discord is connected (for Discord bot commands)
+          // This ensures spells/actions are always available to Discord commands
+          try {
+            if (typeof SupabaseTokenManager !== 'undefined') {
+              const webhookSettings = await browserAPI.storage.local.get(['discordWebhookEnabled', 'discordUserId']);
+              const shouldAutoSync = request.syncToCloud || webhookSettings.discordWebhookEnabled || webhookSettings.discordUserId;
+              if (shouldAutoSync) {
+                debug.log('☁️ Auto-syncing character to cloud (Discord connected)');
+                await storeCharacterToCloud(request.data, request.pairingCode);
+              }
+            }
+          } catch (syncError) {
+            debug.warn('⚠️ Auto-sync to cloud failed (non-fatal):', syncError.message);
           }
           response = { success: true };
           break;
