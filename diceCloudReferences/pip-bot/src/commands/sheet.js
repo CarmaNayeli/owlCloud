@@ -48,10 +48,39 @@ export default {
             .setDescription(
               'Could not find a character for your Discord account.\n\n' +
               '**To link your character:**\n' +
-              '1. Use the RollCloud extension\n' +
-              '2. Connect it to this server with `/rollcloud [code]`\n' +
-              '3. Your character will be automatically linked'
+              '1. Open RollCloud extension\n' +
+              '2. Expand "Discord Integration"\n' +
+              '3. Click "Setup Discord"\n' +
+              '4. Use `/rollcloud <code>` in Discord'
             )
+          ]
+        });
+        return;
+      }
+
+      // Check if Roll20 is active with this character
+      const roll20Status = await checkRoll20Status(interaction.user.id, characterData.name);
+      
+      if (!roll20Status.isActive) {
+        await interaction.editReply({
+          embeds: [new EmbedBuilder()
+            .setColor(0xFFA500) // Orange for warning
+            .setTitle('⚠️ No Roll20 Active')
+            .setDescription(`No Roll20 tab is currently active with character: **${characterData.name}**\n\nPlease open Roll20 and select this character to use the sheet command.`)
+            .addFields(
+              { 
+                name: 'Character Found', 
+                value: `**${characterData.name}** (Level ${characterData.level || '?'} ${characterData.race || '?'} ${characterData.class || '?'})`, 
+                inline: false 
+              },
+              {
+                name: 'Required Action',
+                value: 'Open Roll20 → Select this character → Try `/sheet` again',
+                inline: false
+              }
+            )
+            .setFooter({ text: 'RollCloud Character Sheet' })
+            .setTimestamp()
           ]
         });
         return;
@@ -392,4 +421,70 @@ function formatEquipment(equipment) {
     const quantity = item.quantity > 1 ? ` (${item.quantity})` : '';
     return `• ${item.name}${quantity}`;
   }).join('\n') + (equipment.length > 15 ? `\n\n*...and ${equipment.length - 15} more items*` : '');
+}
+
+/**
+ * Check if Roll20 is active with the specified character
+ */
+async function checkRoll20Status(discordUserId, characterName) {
+  try {
+    // Get the user's RollCloud pairing
+    const pairingResponse = await fetch(
+      `${SUPABASE_URL}/rest/v1/rollcloud_pairings?discord_user_id=eq.${discordUserId}&status=eq.connected&select=*`,
+      {
+        headers: {
+          'apikey': SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+        }
+      }
+    );
+
+    if (!pairingResponse.ok) {
+      console.error('Failed to check Roll20 status - pairing lookup failed');
+      return { isActive: false, error: 'Failed to lookup pairing' };
+    }
+
+    const pairings = await pairingResponse.json();
+    
+    if (pairings.length === 0) {
+      return { isActive: false, error: 'No pairing found' };
+    }
+
+    const pairing = pairings[0];
+
+    // Get stored character options to see what's currently active
+    const optionsResponse = await fetch(
+      `${SUPABASE_URL}/rest/v1/rollcloud_character_options?pairing_id=eq.${pairing.id}&status=eq.active&select=*&order=updated_at.desc&limit=1`,
+      {
+        headers: {
+          'apikey': SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+        }
+      }
+    );
+
+    if (!optionsResponse.ok) {
+      console.error('Failed to check Roll20 status - character options lookup failed');
+      return { isActive: false, error: 'Failed to lookup character options' };
+    }
+
+    const options = await optionsResponse.json();
+    
+    // Check if any active character matches the requested character
+    const activeCharacter = options.length > 0 ? options[0] : null;
+    
+    if (activeCharacter && activeCharacter.character_name === characterName) {
+      return { isActive: true, character: activeCharacter };
+    } else {
+      return { 
+        isActive: false, 
+        activeCharacter: activeCharacter,
+        requestedCharacter: characterName
+      };
+    }
+
+  } catch (error) {
+    console.error('Error checking Roll20 status:', error);
+    return { isActive: false, error: error.message };
+  }
 }
