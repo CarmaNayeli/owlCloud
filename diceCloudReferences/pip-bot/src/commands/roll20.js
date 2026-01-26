@@ -21,6 +21,23 @@ export default {
     try {
       const characterName = interaction.options.getString('character');
 
+      // Check if Supabase is available
+      if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+        await interaction.editReply({
+          embeds: [new EmbedBuilder()
+            .setColor(0xE74C3C)
+            .setTitle('❌ Configuration Error')
+            .setDescription('Roll20 status check is not available. Supabase configuration is missing.')
+            .addFields({
+              name: 'Required Setup',
+              value: '1. Set SUPABASE_URL and SUPABASE_SERVICE_KEY environment variables\n2. Restart the bot\n3. Try /roll20 again',
+              inline: false
+            })
+          ]
+        });
+        return;
+      }
+
       // Get the user's RollCloud pairing
       const pairingResponse = await fetch(
         `${SUPABASE_URL}/rest/v1/rollcloud_pairings?discord_user_id=eq.${interaction.user.id}&status=eq.connected&select=*`,

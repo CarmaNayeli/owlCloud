@@ -54,7 +54,7 @@ export default function ConfigurePip() {
     },
     {
       name: 'character',
-      description: 'Set your active character for rolls',
+      description: 'Check character status and Discord integration',
       category: 'RollCloud',
       defaultPermissions: ['USE_APPLICATION_COMMANDS'],
       enabled: true
@@ -67,8 +67,36 @@ export default function ConfigurePip() {
       enabled: true
     },
     {
+      name: 'roll20',
+      description: 'Check Roll20 connection status',
+      category: 'RollCloud',
+      defaultPermissions: ['USE_APPLICATION_COMMANDS'],
+      enabled: true
+    },
+    {
       name: 'sheet',
-      description: 'View character sheet information',
+      description: 'View detailed character sheet information',
+      category: 'RollCloud',
+      defaultPermissions: ['USE_APPLICATION_COMMANDS'],
+      enabled: true
+    },
+    {
+      name: 'roll',
+      description: 'Roll dice or make ability checks from your character sheet',
+      category: 'RollCloud',
+      defaultPermissions: ['USE_APPLICATION_COMMANDS'],
+      enabled: true
+    },
+    {
+      name: 'use',
+      description: 'Use character abilities and spells',
+      category: 'RollCloud',
+      defaultPermissions: ['USE_APPLICATION_COMMANDS'],
+      enabled: true
+    },
+    {
+      name: 'cast',
+      description: 'Cast spells from your character sheet',
       category: 'RollCloud',
       defaultPermissions: ['USE_APPLICATION_COMMANDS'],
       enabled: true
@@ -77,13 +105,6 @@ export default function ConfigurePip() {
       name: 'stats',
       description: 'Quick stat lookup and rolls',
       category: 'RollCloud',
-      defaultPermissions: ['USE_APPLICATION_COMMANDS'],
-      enabled: true
-    },
-    {
-      name: 'roll',
-      description: 'Roll dice with modifiers',
-      category: 'Utility',
       defaultPermissions: ['USE_APPLICATION_COMMANDS'],
       enabled: true
     },
@@ -97,6 +118,13 @@ export default function ConfigurePip() {
     {
       name: 'help',
       description: 'Show help information',
+      category: 'Utility',
+      defaultPermissions: ['USE_APPLICATION_COMMANDS'],
+      enabled: true
+    },
+    {
+      name: 'coin',
+      description: 'Flip a coin for random decisions',
       category: 'Utility',
       defaultPermissions: ['USE_APPLICATION_COMMANDS'],
       enabled: true
