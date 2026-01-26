@@ -101,13 +101,14 @@ export default {
         await interaction.editReply({
           embeds: [new EmbedBuilder()
             .setColor(0x3498DB)
-            .setTitle('🎲 Roll Command')
-            .setDescription('Please provide dice notation or use the autocomplete to select an ability check.')
+            .setTitle('🎲 Roll Command Help')
+            .setDescription('The `dice` parameter is optional! Use the autocomplete or provide dice notation directly.')
             .addFields(
-              { name: 'Examples', value: '`/roll 1d20+5`\n`/roll 2d6`\n`/roll perception` (use autocomplete)', inline: false },
-              { name: 'Ability Checks', value: 'Use the autocomplete on the "dice" parameter to see available checks from your character, or type dice notation directly.', inline: false }
+              { name: '🎯 Using Autocomplete (Recommended)', value: 'Type `/roll` and click the dice parameter to see available ability checks from your character', inline: false },
+              { name: '📝 Direct Input', value: '`/roll 1d20+5`\n`/roll 2d6`\n`/roll 3d10-2`', inline: false },
+              { name: '⚡ Quick Examples', value: '`/roll perception` (use autocomplete)\n`/roll strength save`\n`/roll initiative`', inline: false }
             )
-            .setFooter({ text: 'Link your character with `/rollcloud [code]` to use ability checks from your sheet' })
+            .setFooter({ text: '💡 Tip: Link your character with `/rollcloud [code]` to use ability checks from your sheet' })
           ]
         });
         return;
