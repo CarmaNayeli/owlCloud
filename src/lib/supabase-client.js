@@ -92,9 +92,6 @@ class SupabaseTokenManager {
       const visitorId = this.generateUserId();
       const sessionId = this.generateSessionId();
 
-      // Store current session ID locally for conflict detection
-      await this.storeCurrentSession(sessionId);
-
       // Check for existing sessions with different tokens
       const conflictCheck = await this.checkForTokenConflicts(visitorId, tokenData.token);
       
@@ -205,6 +202,9 @@ class SupabaseTokenManager {
         }
       }
 
+      // Store session ID locally AFTER database update succeeds to avoid race condition
+      await this.storeCurrentSession(sessionId);
+
       debug.log('✅ Token stored in Supabase successfully');
       return { success: true };
     } catch (error) {
@@ -262,6 +262,12 @@ class SupabaseTokenManager {
             await this.deleteToken();
             return { success: false, error: 'Token expired' };
           }
+        }
+
+        // Restore session ID locally to match database for session validity checks
+        if (tokenData.session_id) {
+          await this.storeCurrentSession(tokenData.session_id);
+          debug.log('💾 Restored session ID from Supabase:', tokenData.session_id);
         }
 
         debug.log('✅ Token retrieved from Supabase');
