@@ -83,6 +83,13 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
           break;
         }
 
+        case 'syncCharacterColor': {
+          // Sync character color to Supabase
+          const syncResult = await syncCharacterColorToSupabase(request.characterId, request.color);
+          response = syncResult;
+          break;
+        }
+
         case 'fetchDiceCloudAPI': {
           // Fetch from DiceCloud API (used by Roll20 content script)
           const fetchResult = await fetchFromDiceCloudAPI(request.url, request.token);
@@ -1621,6 +1628,54 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
     return { success: true };
   } catch (error) {
     debug.error('❌ Failed to store character in Supabase:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Sync character color to Supabase
+ * Updates only the notification_color field for a specific character
+ */
+async function syncCharacterColorToSupabase(characterId, color) {
+  if (!isSupabaseConfigured()) {
+    debug.warn('Supabase not configured - color sync unavailable');
+    return {
+      success: false,
+      error: 'Color sync not available. Supabase not configured.',
+      supabaseNotConfigured: true
+    };
+  }
+
+  try {
+    debug.log('🎨 Syncing character color to Supabase:', characterId, color);
+
+    // Update only the notification_color field
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/rollcloud_characters?dicecloud_character_id=eq.${characterId}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify({
+          notification_color: color
+        })
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      debug.error('❌ Failed to sync color to Supabase:', response.status, errorText);
+      return { success: false, error: `Sync failed: ${response.status}` };
+    }
+
+    debug.log('✅ Character color synced to Supabase successfully');
+    return { success: true };
+  } catch (error) {
+    debug.error('❌ Failed to sync character color to Supabase:', error);
     return { success: false, error: error.message };
   }
 }

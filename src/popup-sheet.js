@@ -853,7 +853,12 @@ function buildSheet(data) {
   document.getElementById('char-class').textContent = data.class || 'Unknown';
   document.getElementById('char-level').textContent = data.level || 1;
   document.getElementById('char-race').textContent = raceName;
-  document.getElementById('char-hit-dice').textContent = `${data.hitDice.current}/${data.hitDice.max} ${data.hitDice.type}`;
+  // Defensive initialization for hitDice
+  if (!data.hitDice) {
+    data.hitDice = { current: 0, max: 0, type: 'd6' };
+  }
+  
+  document.getElementById('char-hit-dice').textContent = `${data.hitDice.current || 0}/${data.hitDice.max || 0} ${data.hitDice.type || 'd6'}`;
 
   // Layer 2: AC, Speed, Proficiency, Death Saves, Inspiration
   document.getElementById('char-ac').textContent = calculateTotalAC();
@@ -894,6 +899,12 @@ function buildSheet(data) {
 
   // Layer 3: Hit Points
   const hpValue = document.getElementById('hp-value');
+  
+  // Defensive initialization for hitPoints
+  if (!data.hitPoints) {
+    data.hitPoints = { current: 0, max: 0, temporaryHP: 0 };
+  }
+  
   hpValue.textContent = `${data.hitPoints.current}${data.temporaryHP > 0 ? `+${data.temporaryHP}` : ''} / ${data.hitPoints.max}`;
 
   // Initiative
@@ -934,7 +945,7 @@ function buildSheet(data) {
   inspirationNew.addEventListener('click', toggleInspiration);
 
   // Update HP display color based on percentage
-  const hpPercent = (data.hitPoints.current / data.hitPoints.max) * 100;
+  const hpPercent = data.hitPoints && data.hitPoints.max > 0 ? (data.hitPoints.current / data.hitPoints.max) * 100 : 0;
   // Use the new hpDisplayNew element we just created above
   if (hpPercent > 50) {
     hpDisplayNew.style.background = 'var(--accent-success)';
@@ -1003,30 +1014,26 @@ function buildSheet(data) {
 
   // Actions & Attacks
   const actionsContainer = document.getElementById('actions-container');
-  if (data.actions && data.actions.length > 0) {
+  if (data.actions && Array.isArray(data.actions) && data.actions.length > 0) {
     buildActionsDisplay(actionsContainer, data.actions);
   } else {
     actionsContainer.innerHTML = '<p style="text-align: center; color: #666;">No actions available</p>';
   }
 
   // Companions (Animal Companions, Familiars, Summons, etc.)
-  if (data.companions && data.companions.length > 0) {
+  if (data.companions && Array.isArray(data.companions) && data.companions.length > 0) {
     buildCompanionsDisplay(data.companions);
   } else {
     // Hide companions section if character has no companions
-    const companionsSection = document.getElementById('companions-section');
-    const companionsContainer = document.getElementById('companions-container');
+    const companionsSection = document.getElementById('companions-container');
     if (companionsSection) {
       companionsSection.style.display = 'none';
-    }
-    if (companionsContainer) {
-      companionsContainer.innerHTML = '';
     }
   }
 
   // Inventory & Equipment
   const inventoryContainer = document.getElementById('inventory-container');
-  if (data.inventory && data.inventory.length > 0) {
+  if (data.inventory && Array.isArray(data.inventory) && data.inventory.length > 0) {
     buildInventoryDisplay(inventoryContainer, data.inventory);
   } else {
     inventoryContainer.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No items in inventory</p>';
@@ -1034,11 +1041,11 @@ function buildSheet(data) {
 
   // Spells - organized by source then level
   const spellsContainer = document.getElementById('spells-container');
-  if (data.spells && data.spells.length > 0) {
+  if (data.spells && Array.isArray(data.spells) && data.spells.length > 0) {
     buildSpellsBySource(spellsContainer, data.spells);
     expandSectionByContainerId('spells-container');
   } else {
-    spellsContainer.innerHTML = '<p style="text-align: center; color: #666;">No spells available</p>';
+    spellsContainer.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No spells prepared</p>';
     // Collapse the section when empty
     collapseSectionByContainerId('spells-container');
   }
@@ -1054,7 +1061,7 @@ function buildSheet(data) {
   }
   
   // Sync conditions from Dicecloud (if any were detected as active)
-  if (data.conditions && data.conditions.length > 0) {
+  if (data.conditions && Array.isArray(data.conditions) && data.conditions.length > 0) {
     debug.log('✨ Syncing conditions from Dicecloud:', data.conditions);
     data.conditions.forEach(condition => {
       // Map Dicecloud condition names to our effect names
@@ -8201,9 +8208,33 @@ function initColorPalette() {
 
       // Save to storage
       saveCharacterData();
+      
+      // Sync to Supabase if available
+      syncColorToSupabase(newColor);
+      
       showNotification(`🎨 Notification color changed to ${e.target.title}!`);
     });
   });
+}
+
+// Sync color selection to Supabase
+async function syncColorToSupabase(color) {
+  try {
+    // Send message to background script to sync to Supabase
+    const response = await browserAPI.runtime.sendMessage({
+      action: 'syncCharacterColor',
+      characterId: characterData.id,
+      color: color
+    });
+    
+    if (response && response.success) {
+      debug.log('🎨 Color synced to Supabase successfully');
+    } else {
+      debug.warn('⚠️ Failed to sync color to Supabase:', response?.error);
+    }
+  } catch (error) {
+    debug.warn('⚠️ Error syncing color to Supabase:', error);
+  }
 }
 
 // Debounce timer for sync messages
