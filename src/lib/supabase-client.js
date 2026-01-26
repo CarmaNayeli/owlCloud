@@ -757,6 +757,9 @@ class SupabaseTokenManager {
         return { valid: false, reason: 'conflict_detected', conflict: sessionConflict };
       }
 
+      // Update last_seen timestamp to keep session alive
+      await this.updateSessionHeartbeat(currentSessionId);
+
       // Verify session still exists in Supabase with same token
       const userId = this.generateUserId();
       const response = await fetch(
@@ -789,6 +792,36 @@ class SupabaseTokenManager {
     } catch (error) {
       debug.error('❌ Error checking session validity:', error);
       return { valid: true }; // Assume valid on error to avoid false logouts
+    }
+  }
+
+  /**
+   * Update session heartbeat to keep session alive
+   */
+  async updateSessionHeartbeat(sessionId) {
+    try {
+      const userId = this.generateUserId();
+      const response = await fetch(
+        `${this.supabaseUrl}/rest/v1/${this.tableName}?user_id=eq.${userId}&session_id=eq.${sessionId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'apikey': this.supabaseKey,
+            'Authorization': `Bearer ${this.supabaseKey}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify({
+            last_seen: new Date().toISOString()
+          })
+        }
+      );
+
+      if (!response.ok) {
+        debug.error('❌ Failed to update session heartbeat:', response.status);
+      }
+    } catch (error) {
+      debug.error('❌ Error updating session heartbeat:', error);
     }
   }
 
