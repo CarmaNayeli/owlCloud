@@ -221,9 +221,11 @@ async function buildAll() {
     // Firefox XPI - both versioned and non-versioned names
     { src: 'rollcloud-firefox-signed.xpi', dest: `rollcloud-firefox-${version}.xpi` },
     { src: 'rollcloud-firefox-signed.xpi', dest: 'rollcloud-firefox-signed.xpi' },
-    // ZIP files for manual installation
+    // ZIP files for manual installation - versioned and non-versioned
     { src: 'rollcloud-chrome.zip', dest: `rollcloud-chrome-${version}.zip` },
+    { src: 'rollcloud-chrome.zip', dest: 'rollcloud-chrome.zip' },
     { src: 'rollcloud-firefox.zip', dest: `rollcloud-firefox-${version}.zip` },
+    { src: 'rollcloud-firefox.zip', dest: 'rollcloud-firefox.zip' },
   ];
 
   let copiedCount = 0;
@@ -256,12 +258,8 @@ async function buildAll() {
 
       for (const file of installerFiles) {
         const srcPath = path.join(installerDistDir, file);
-        // Rename to include version and standardize name
-        let destName = file;
-        if (file.includes('Setup')) {
-          // Windows installer: "RollCloud Setup 1.2.3.exe" -> "RollCloud-Setup-1.2.3.exe"
-          destName = file.replace(/\s+/g, '-');
-        }
+        // Rename to standardize name (replace spaces with dashes)
+        let destName = file.replace(/\s+/g, '-');
         const destPath = path.join(RELEASES_DIR, destName);
 
         fs.copyFileSync(srcPath, destPath);
@@ -269,6 +267,17 @@ async function buildAll() {
         const size = (stats.size / (1024 * 1024)).toFixed(1);
         console.log(`   ✅ ${destName} (${size} MB)`);
         copiedCount++;
+
+        // Also create non-versioned copy for "latest" links
+        // e.g., "RollCloud-Setup-1.2.3.exe" -> "RollCloud-Setup.exe"
+        const ext = path.extname(destName);
+        const nonVersionedName = destName.replace(/-\d+\.\d+\.\d+/, '') ;
+        if (nonVersionedName !== destName) {
+          const nonVersionedPath = path.join(RELEASES_DIR, nonVersionedName);
+          fs.copyFileSync(srcPath, nonVersionedPath);
+          console.log(`   ✅ ${nonVersionedName} (${size} MB) [latest link]`);
+          copiedCount++;
+        }
       }
     } else {
       console.log('   ⚠️ installer/dist/ not found, skipping installer files');
