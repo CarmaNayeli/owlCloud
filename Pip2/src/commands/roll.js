@@ -83,7 +83,7 @@ export default {
     if (!parsed) {
       return await interaction.reply({
         content: '❌ Invalid dice notation! Use format like: `2d6`, `1d20+5`, `3d10-2`\n\nOr use the `check` option for character-based rolls.',
-        ephemeral: true
+        flags: 64 // ephemeral
       });
     }
 
@@ -92,7 +92,7 @@ export default {
     if (count > 100 || sides > 1000) {
       return await interaction.reply({
         content: '❌ Dice limits: max 100 dice, max 1000 sides.',
-        ephemeral: true
+        flags: 64 // ephemeral
       });
     }
 
@@ -119,7 +119,7 @@ async function rollCharacterCheck(interaction, checkType, advantage, disadvantag
   if (!character) {
     return await interaction.reply({
       content: '❌ No active character. Use `/character <name>` to set one, or use plain dice notation.',
-      ephemeral: true
+      flags: 64 // ephemeral
     });
   }
 

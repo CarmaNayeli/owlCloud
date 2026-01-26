@@ -9,7 +9,7 @@ export default {
     .setDescription('List all your synced characters'),
 
   async execute(interaction) {
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: 64 });
 
     try {
       const characters = await getCharactersByUser(interaction.user.id);

@@ -30,7 +30,7 @@ export default {
     ),
 
   async execute(interaction) {
-    await interaction.deferReply();
+    await interaction.deferReply({ flags: 64 }); // ephemeral
 
     try {
       const stat = interaction.options.getString('stat');

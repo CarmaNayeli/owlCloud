@@ -21,7 +21,7 @@ export default {
     ),
 
   async execute(interaction) {
-    await interaction.deferReply();
+    await interaction.deferReply({ flags: 64 }); // ephemeral
 
     try {
       const characterName = interaction.options.getString('name');

@@ -36,12 +36,12 @@ export default {
         .setFooter({ text: 'Copy these values to update your auth_tokens record' })
         .setTimestamp();
 
-      await interaction.reply({ embeds: [embed], ephemeral: true });
+      await interaction.reply({ embeds: [embed], flags: 64 }); // ephemeral
     } catch (error) {
       console.error('Error getting Discord info:', error);
       await interaction.reply({
         content: '❌ Failed to get Discord information',
-        ephemeral: true
+        flags: 64 // ephemeral
       });
     }
   }

@@ -32,7 +32,7 @@ export default {
     const code = interaction.options.getString('code').toUpperCase();
     const action = interaction.options.getString('action');
 
-    await interaction.deferReply();
+    await interaction.deferReply({ flags: 64 }); // ephemeral
 
     try {
       console.log(`Testing ${action} for code: ${code}`);

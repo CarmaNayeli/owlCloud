@@ -7,7 +7,7 @@ export default {
 
   async execute(interaction) {
     try {
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: 64 });
 
       // Check if Supabase credentials are available
       const SUPABASE_URL = process.env.SUPABASE_URL;

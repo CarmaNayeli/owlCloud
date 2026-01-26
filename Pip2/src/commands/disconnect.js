@@ -27,7 +27,7 @@ export default {
 
     const deleteWebhook = interaction.options.getBoolean('delete_webhook') ?? true;
 
-    await interaction.deferReply();
+    await interaction.deferReply({ flags: 64 }); // ephemeral
 
     try {
       const guildId = interaction.guild.id;
