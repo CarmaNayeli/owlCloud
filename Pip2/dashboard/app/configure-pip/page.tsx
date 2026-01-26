@@ -178,25 +178,26 @@ export default function ConfigurePip() {
       const userServers = await response.json();
       console.log('📊 Received servers:', userServers.length);
       
-      // Check which servers have the bot
+      // First filter to only admin servers
+      const adminServers = userServers.filter(server => 
+        server.permissions.includes('ADMINISTRATOR') || 
+        server.permissions.includes('MANAGE_GUILD')
+      );
+      
+      console.log('👑 Admin servers:', adminServers.length);
+      
+      // Then check which admin servers have the bot (with rate limiting)
       const serversWithBotStatus = await Promise.all(
-        userServers.map(async (server: DiscordServer) => {
+        adminServers.map(async (server: DiscordServer) => {
           // Check if bot is in server (with rate limiting)
           const botInServer = await checkBotInServerWithRateLimit(server.id);
           return { ...server, botMember: botInServer };
         })
       );
       
-      // Filter to only show servers where user has admin permissions
-      const adminServers = serversWithBotStatus.filter(server => 
-        server.permissions.includes('ADMINISTRATOR') || 
-        server.permissions.includes('MANAGE_GUILD')
-      );
+      console.log('📋 Admin servers with bot status:', serversWithBotStatus.length);
       
-      console.log('👑 Admin servers:', adminServers.length);
-      console.log('📋 All servers:', userServers.length);
-      
-      setServers(adminServers);
+      setServers(serversWithBotStatus);
       setCommands(mockCommands);
     } catch (error: unknown) {
       console.error('Error loading servers:', error);
