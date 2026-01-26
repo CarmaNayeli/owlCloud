@@ -20,7 +20,7 @@ export default {
   async execute(interaction) {
     const code = interaction.options.getString('code').toUpperCase();
 
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: 64 }); // 64 = ephemeral (fixed deprecation warning)
 
     try {
       console.log(`User ${interaction.user.tag} pairing with code: ${code}`);
@@ -139,13 +139,24 @@ export default {
     } catch (error) {
       console.error('RollCloud setup error:', error);
 
-      await interaction.editReply({
-        embeds: [new EmbedBuilder()
-          .setColor(0xE74C3C)
-          .setTitle('❌ Setup Failed')
-          .setDescription(`Something went wrong: ${error.message}`)
-        ]
-      });
+      // Handle Discord interaction timeouts/expired errors
+      if (error.code === 10062 || error.message.includes('Unknown interaction') || error.message.includes('already acknowledged')) {
+        console.log('⚠️ Discord interaction expired, cannot reply to user');
+        return; // Don't try to editReply if interaction is expired
+      }
+
+      try {
+        await interaction.editReply({
+          embeds: [new EmbedBuilder()
+            .setColor(0xE74C3C)
+            .setTitle('❌ Setup Failed')
+            .setDescription(`Something went wrong: ${error.message}`)
+          ]
+        });
+      } catch (replyError) {
+        console.error('Failed to send error reply:', replyError);
+        // Interaction is probably expired, nothing we can do
+      }
     }
   }
 };
@@ -248,9 +259,10 @@ async function completePairing(code, discordInfo) {
  * Update auth_tokens table with Discord information
  */
 async function updateAuthTokensWithDiscordInfo(dicecloudUserId, discordInfo) {
-  // Try multiple ways to find the existing record
+  // Use a more efficient approach - find by dicecloud_user_id first, then fallback
+  console.log(`🔍 Looking for auth_tokens record for DiceCloud user: ${dicecloudUserId}`);
   
-  // Method 1: Find by dicecloud_user_id (most reliable)
+  // Primary method: Find by dicecloud_user_id (most reliable and fastest)
   let response = await fetch(
     `${SUPABASE_URL}/rest/v1/auth_tokens?user_id_dicecloud=eq.${dicecloudUserId}&select=id`,
     {
@@ -266,53 +278,15 @@ async function updateAuthTokensWithDiscordInfo(dicecloudUserId, discordInfo) {
     const data = await response.json();
     if (data.length > 0) {
       targetRecord = data[0];
-      console.log(`Found existing record by dicecloud_user_id: ${targetRecord.id}`);
+      console.log(`✅ Found existing record by dicecloud_user_id: ${targetRecord.id}`);
     }
   }
 
-  // Method 2: If not found, try to find the most recent record with the same dicecloud_token
+  // Fallback: Find the most recent record if primary method fails
   if (!targetRecord) {
-    // Get the dicecloud_token from the pairing to find matching auth_tokens
-    const pairingResponse = await fetch(
-      `${SUPABASE_URL}/rest/v1/rollcloud_pairings?dicecloud_user_id=eq.${dicecloudUserId}&select=dicecloud_token&limit=1`,
-      {
-        headers: {
-          'apikey': SUPABASE_SERVICE_KEY,
-          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
-        }
-      }
-    );
-
-    if (pairingResponse.ok) {
-      const pairingData = await pairingResponse.json();
-      if (pairingData.length > 0) {
-        const token = pairingData[0].dicecloud_token;
-        
-        const tokenResponse = await fetch(
-          `${SUPABASE_URL}/rest/v1/auth_tokens?dicecloud_token=eq.${token}&select=id&order=updated_at.desc&limit=1`,
-          {
-            headers: {
-              'apikey': SUPABASE_SERVICE_KEY,
-              'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
-            }
-          }
-        );
-
-        if (tokenResponse.ok) {
-          const tokenData = await tokenResponse.json();
-          if (tokenData.length > 0) {
-            targetRecord = tokenData[0];
-            console.log(`Found existing record by dicecloud_token: ${targetRecord.id}`);
-          }
-        }
-      }
-    }
-  }
-
-  // Method 3: If still not found, find the most recent record for this user
-  if (!targetRecord) {
+    console.log(`⚠️ Primary lookup failed, trying most recent record fallback`);
     const recentResponse = await fetch(
-      `${SUPABASE_URL}/rest/v1/auth_tokens?order=updated_at.desc&limit=1&select=id`,
+      `${SUPABASE_URL}/rest/v1/auth_tokens?order=updated_at.desc&limit=1&select=id,user_id_dicecloud`,
       {
         headers: {
           'apikey': SUPABASE_SERVICE_KEY,
@@ -325,7 +299,7 @@ async function updateAuthTokensWithDiscordInfo(dicecloudUserId, discordInfo) {
       const recentData = await recentResponse.json();
       if (recentData.length > 0) {
         targetRecord = recentData[0];
-        console.log(`Using most recent record: ${targetRecord.id}`);
+        console.log(`⚠️ Using most recent record: ${targetRecord.id} (user_id_dicecloud: ${targetRecord.user_id_dicecloud})`);
       }
     }
   }
