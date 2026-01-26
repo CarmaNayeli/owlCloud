@@ -240,14 +240,14 @@ async function completePairing(code, discordInfo) {
 
   const pairingData = await pairingResponse.json();
   
-  // Send Discord linking info to extension via webhook instead of direct database update
+  // Update auth_tokens table with Discord user info
   if (pairingData.length > 0 && pairingData[0].dicecloud_user_id) {
     try {
-      await sendDiscordLinkToExtension(pairingData[0].dicecloud_user_id, discordInfo);
-      console.log(`Sent Discord linking info to extension for: ${pairingData[0].dicecloud_user_id}`);
-    } catch (webhookError) {
-      console.error('Failed to send Discord linking to extension:', webhookError);
-      // Don't fail the pairing if webhook fails
+      await updateAuthTokensWithDiscordInfo(pairingData[0].dicecloud_user_id, discordInfo);
+      console.log(`Updated auth_tokens with Discord info for: ${pairingData[0].dicecloud_user_id}`);
+    } catch (updateError) {
+      console.error('Failed to update auth_tokens with Discord info:', updateError);
+      // Don't fail the pairing if update fails - the pairing itself succeeded
     }
   }
 
@@ -255,56 +255,35 @@ async function completePairing(code, discordInfo) {
 }
 
 /**
- * Send Discord linking information to extension via webhook
+ * Update auth_tokens table with Discord user information
  */
-async function sendDiscordLinkToExtension(dicecloudUserId, discordInfo) {
-  // Find the pairing to get the webhook URL
-  const pairingResponse = await fetch(
-    `${SUPABASE_URL}/rest/v1/rollcloud_pairings?dicecloud_user_id=eq.${dicecloudUserId}&select=webhook_url&limit=1`,
+async function updateAuthTokensWithDiscordInfo(dicecloudUserId, discordInfo) {
+  // Directly update the auth_tokens table where user_id_dicecloud matches
+  const response = await fetch(
+    `${SUPABASE_URL}/rest/v1/auth_tokens?user_id_dicecloud=eq.${dicecloudUserId}`,
     {
+      method: 'PATCH',
       headers: {
+        'Content-Type': 'application/json',
         'apikey': SUPABASE_SERVICE_KEY,
-        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
-      }
+        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+        'Prefer': 'return=representation'
+      },
+      body: JSON.stringify({
+        discord_user_id: discordInfo.userId,
+        discord_username: discordInfo.username,
+        discord_global_name: discordInfo.globalName,
+        updated_at: new Date().toISOString()
+      })
     }
   );
 
-  if (!pairingResponse.ok) {
-    throw new Error(`Failed to find pairing webhook: ${pairingResponse.status}`);
-  }
-
-  const pairingData = await pairingResponse.json();
-  if (pairingData.length === 0 || !pairingData[0].webhook_url) {
-    throw new Error('No webhook URL found for pairing');
-  }
-
-  const webhookUrl = pairingData[0].webhook_url;
-
-  // Send Discord linking message to extension
-  const linkMessage = {
-    action: 'discordLink',
-    dicecloudUserId: dicecloudUserId,
-    discordInfo: {
-      userId: discordInfo.userId,
-      username: discordInfo.username,
-      globalName: discordInfo.globalName
-    },
-    timestamp: new Date().toISOString()
-  };
-
-  const response = await fetch(webhookUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(linkMessage)
-  });
-
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Failed to send Discord link to extension: ${errorText}`);
+    throw new Error(`Failed to update auth_tokens with Discord info: ${errorText}`);
   }
 
-  console.log(`✅ Discord linking info sent to extension via webhook`);
-  return response;
+  const data = await response.json();
+  console.log(`✅ Updated auth_tokens with Discord info for DiceCloud user: ${dicecloudUserId} (${data.length} row(s) updated)`);
+  return data;
 }
