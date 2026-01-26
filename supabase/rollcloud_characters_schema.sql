@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS public.rollcloud_characters (
     spell_slots JSONB,                           -- Spell slot information
     resources JSONB,                             -- Class features/resources
     conditions JSONB,                            -- Status conditions
+    raw_dicecloud_data JSONB,                    -- Full raw data from DiceCloud API for debugging/fallback
     pairing_id UUID REFERENCES public.rollcloud_pairings(id) ON DELETE SET NULL,  -- Discord pairing reference
     discord_user_id VARCHAR(255),               -- Discord user ID (linked account)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -65,6 +66,7 @@ COMMENT ON COLUMN public.rollcloud_characters.skills IS 'Skill proficiencies';
 COMMENT ON COLUMN public.rollcloud_characters.spell_slots IS 'Spell slot information';
 COMMENT ON COLUMN public.rollcloud_characters.resources IS 'Class features/resources';
 COMMENT ON COLUMN public.rollcloud_characters.conditions IS 'Status conditions';
+COMMENT ON COLUMN public.rollcloud_characters.raw_dicecloud_data IS 'Full raw data from DiceCloud API for debugging and fallback';
 COMMENT ON COLUMN public.rollcloud_characters.pairing_id IS 'Discord pairing reference for bot commands';
 COMMENT ON COLUMN public.rollcloud_characters.discord_user_id IS 'Discord user ID for linked accounts';
 COMMENT ON COLUMN public.rollcloud_characters.created_at IS 'When the character was first stored';

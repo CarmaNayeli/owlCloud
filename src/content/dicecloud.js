@@ -437,7 +437,13 @@
       conditions: [],  // Active conditions (Guidance, Bless, etc.) that affect rolls
       kingdom: {},
       army: {},
-      otherVariables: {}
+      otherVariables: {},
+      // Store raw API data for debugging and fallback
+      rawDiceCloudData: {
+        creature: creature,
+        variables: variables,
+        properties: properties
+      }
     };
 
     // Extract ability scores (use total to include all effects, fallback to value)

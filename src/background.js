@@ -759,6 +759,7 @@ async function getCharacterDataFromDatabase(characterId) {
       spellSlots: dbCharacter.spell_slots,
       resources: dbCharacter.resources,
       conditions: dbCharacter.conditions,
+      rawDiceCloudData: dbCharacter.raw_dicecloud_data,
       source: 'database',
       lastUpdated: dbCharacter.updated_at
     };
@@ -1476,6 +1477,7 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
       spell_slots: characterData.spellSlots || {},
       resources: characterData.resources || [],
       conditions: characterData.conditions || [],
+      raw_dicecloud_data: characterData.rawDiceCloudData || null,
       updated_at: new Date().toISOString()
     };
 
