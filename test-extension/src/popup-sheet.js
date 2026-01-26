@@ -672,6 +672,18 @@ function setAdvantageState(state) {
   showNotification(`🎲 ${state === 'advantage' ? 'Advantage' : state === 'disadvantage' ? 'Disadvantage' : 'Normal'} rolls selected`);
 }
 
+// Helper function for setting active character (backup if runtime message fails)
+async function setActiveCharacter(characterId) {
+  try {
+    await browserAPI.storage.local.set({ 
+      activeCharacterId: characterId 
+    });
+    console.log(`✅ Set active character: ${characterId}`);
+  } catch (error) {
+    console.error('❌ Failed to set active character:', error);
+  }
+}
+
 function buildSheet(data) {
   debug.log('Building character sheet...');
   debug.log('📊 Character data received:', data);
@@ -4083,7 +4095,7 @@ function showHPModal() {
       const actualHealing = characterData.hitPoints.current - oldHP;
 
       // Reset death saves on healing
-      if (actualHealing > 0 && characterData.deathSaves && (characterData.deathSaves.successes > 0 || characterData.deathSaves.failures > 0)) {
+      if (actualHealing > 0 && characterData.deathSaves && (characterData.deathSaves?.successes > 0 || characterData.deathSaves?.failures > 0)) {
         if (!characterData.deathSaves) characterData.deathSaves = { successes: 0, failures: 0 };
         characterData.deathSaves.successes = 0;
         characterData.deathSaves.failures = 0;
@@ -4498,35 +4510,35 @@ function showDeathSavesModal() {
     if (rollResult === 20) {
       // Natural 20: regain 1 HP (represented as 2 successes in death saves)
       if (!characterData.deathSaves) characterData.deathSaves = { successes: 0, failures: 0 };
-      if (characterData.deathSaves.successes < 3) {
+      if (characterData.deathSaves?.successes < 3) {
         characterData.deathSaves.successes += 2;
         if (characterData.deathSaves.successes > 3) characterData.deathSaves.successes = 3;
       }
-      message = `💚 NAT 20! Death Save Success x2 (${characterData.deathSaves.successes}/3)`;
+      message = `💚 NAT 20! Death Save Success x2 (${characterData.deathSaves?.successes}/3)`;
       isSuccess = true;
     } else if (rollResult === 1) {
       // Natural 1: counts as 2 failures
       if (!characterData.deathSaves) characterData.deathSaves = { successes: 0, failures: 0 };
-      if (characterData.deathSaves.failures < 3) {
+      if (characterData.deathSaves?.failures < 3) {
         characterData.deathSaves.failures += 2;
         if (characterData.deathSaves.failures > 3) characterData.deathSaves.failures = 3;
       }
-      message = `💀 NAT 1! Death Save Failure x2 (${characterData.deathSaves.failures}/3)`;
+      message = `💀 NAT 1! Death Save Failure x2 (${characterData.deathSaves?.failures}/3)`;
     } else if (rollResult >= 10) {
       // Success
       if (!characterData.deathSaves) characterData.deathSaves = { successes: 0, failures: 0 };
-      if (characterData.deathSaves.successes < 3) {
+      if (characterData.deathSaves?.successes < 3) {
         characterData.deathSaves.successes++;
       }
-      message = `✓ Death Save Success (${characterData.deathSaves.successes}/3)`;
+      message = `✓ Death Save Success (${characterData.deathSaves?.successes}/3)`;
       isSuccess = true;
     } else {
       // Failure
       if (!characterData.deathSaves) characterData.deathSaves = { successes: 0, failures: 0 };
-      if (characterData.deathSaves.failures < 3) {
+      if (characterData.deathSaves?.failures < 3) {
         characterData.deathSaves.failures++;
       }
-      message = `✗ Death Save Failure (${characterData.deathSaves.failures}/3)`;
+      message = `✗ Death Save Failure (${characterData.deathSaves?.failures}/3)`;
     }
 
     // Save updated death saves
@@ -4544,10 +4556,10 @@ function showDeathSavesModal() {
   // Add success button
   document.getElementById('add-success').addEventListener('click', () => {
     if (!characterData.deathSaves) characterData.deathSaves = { successes: 0, failures: 0 };
-    if (characterData.deathSaves.successes < 3) {
+    if (characterData.deathSaves?.successes < 3) {
       characterData.deathSaves.successes++;
       saveCharacterData();
-      showNotification(`✓ Death Save Success (${characterData.deathSaves.successes}/3)`);
+      showNotification(`✓ Death Save Success (${characterData.deathSaves?.successes}/3)`);
       buildSheet(characterData);
       modal.remove();
     }
@@ -4556,10 +4568,10 @@ function showDeathSavesModal() {
   // Add failure button
   document.getElementById('add-failure').addEventListener('click', () => {
     if (!characterData.deathSaves) characterData.deathSaves = { successes: 0, failures: 0 };
-    if (characterData.deathSaves.failures < 3) {
+    if (characterData.deathSaves?.failures < 3) {
       characterData.deathSaves.failures++;
       saveCharacterData();
-      showNotification(`✗ Death Save Failure (${characterData.deathSaves.failures}/3)`);
+      showNotification(`✗ Death Save Failure (${characterData.deathSaves?.failures}/3)`);
       buildSheet(characterData);
       modal.remove();
     }
