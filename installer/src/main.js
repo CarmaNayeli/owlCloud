@@ -1,8 +1,12 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
+const https = require('https');
 const { installExtension, uninstallExtension, isExtensionInstalled, installFirefoxDeveloperEdition } = require('./extension-installer');
 const { sendPairingCodeToExtension } = require('./native-messaging');
 const { generatePairingCode, createPairing, createPairingAndSend, checkPairing } = require('./pairing');
+
+// Get installer version from package.json
+const INSTALLER_VERSION = require('../package.json').version;
 
 // Extension and bot configuration
 const CONFIG = {
@@ -16,6 +20,62 @@ const CONFIG = {
 };
 
 let mainWindow;
+
+/**
+ * Check if installer version matches the latest GitHub release
+ * Shows a warning dialog if versions don't match
+ */
+async function checkVersionMismatch() {
+  return new Promise((resolve) => {
+    const options = {
+      hostname: 'api.github.com',
+      path: '/repos/CarmaNayeli/rollCloud/releases/latest',
+      headers: {
+        'User-Agent': 'RollCloud-Installer'
+      }
+    };
+
+    https.get(options, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const release = JSON.parse(data);
+          const latestVersion = release.tag_name?.replace(/^v/, '') || null;
+
+          if (latestVersion && latestVersion !== INSTALLER_VERSION) {
+            console.log(`⚠️ Version mismatch: Installer v${INSTALLER_VERSION}, GitHub v${latestVersion}`);
+
+            dialog.showMessageBox({
+              type: 'warning',
+              title: 'Installer Version Mismatch',
+              message: `This installer (v${INSTALLER_VERSION}) doesn't match the latest release (v${latestVersion}).\n\nPlease open a GitHub issue or contact Carmabella on Discord - they probably forgot to update the installer! 😅`,
+              buttons: ['Continue Anyway', 'Close'],
+              defaultId: 0,
+              cancelId: 1
+            }).then(result => {
+              if (result.response === 1) {
+                app.quit();
+                resolve(false);
+              } else {
+                resolve(true);
+              }
+            });
+          } else {
+            console.log(`✅ Installer version matches: v${INSTALLER_VERSION}`);
+            resolve(true);
+          }
+        } catch (e) {
+          console.log('⚠️ Could not check version (offline or API error)');
+          resolve(true); // Continue anyway if we can't check
+        }
+      });
+    }).on('error', () => {
+      console.log('⚠️ Could not check version (network error)');
+      resolve(true); // Continue anyway if network fails
+    });
+  });
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -44,7 +104,12 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(async () => {
+  const shouldContinue = await checkVersionMismatch();
+  if (shouldContinue) {
+    createWindow();
+  }
+});
 
 app.on('window-all-closed', () => {
   app.quit();
