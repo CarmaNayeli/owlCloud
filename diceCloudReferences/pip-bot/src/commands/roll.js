@@ -62,14 +62,29 @@ export default {
           { name: 'Ability Check', value: 'ability' },
           { name: 'Skill Check', value: 'skill' },
           { name: 'Saving Throw', value: 'save' },
-          { name: 'Attack Roll', value: 'attack' }
+          { name: 'Attack Roll', value: 'attack' },
+          { name: 'Spell Attack', value: 'spell_attack' }
         )
+    )
+    .addStringOption(option =>
+      option
+        .setName('target')
+        .setDescription('Target for attacks or spells (optional)')
+        .setRequired(false)
+    )
+    .addBooleanOption(option =>
+      option
+        .setName('force_discord')
+        .setDescription('Force Discord-only roll (skip Roll20 integration)')
+        .setRequired(false)
     ),
 
   async execute(interaction) {
     const diceNotation = interaction.options.getString('dice');
     const advantage = interaction.options.getString('advantage');
     const checkType = interaction.options.getString('check_type');
+    const target = interaction.options.getString('target');
+    const forceDiscord = interaction.options.getBoolean('force_discord') || false;
 
     await interaction.deferReply();
 
@@ -93,22 +108,28 @@ export default {
         const result = rollCharacterCheck(characterData, { advantage, checkType });
         await interaction.editReply({ embeds: [result.embed] });
 
-        // Send real-time message to RollCloud extension
-        await sendRollToExtension(interaction, {
-          type: 'ability_check',
-          formula: '1d20+' + (characterData.proficiency_bonus || 2),
-          result: {
-            total: result.total,
-            rolls: result.rolls,
-            modifier: characterData.proficiency_bonus || 2
-          },
-          character: {
-            name: characterData.name,
-            id: characterData.id,
-            ability: 'generic',
-            advantage: advantage || 'normal'
-          }
-        });
+        // Send real-time message to RollCloud extension (unless forced Discord only)
+        if (!forceDiscord) {
+          await sendRollToExtension(interaction, {
+            type: 'ability_check',
+            formula: '1d20+' + (characterData.proficiency_bonus || 2),
+            result: {
+              total: result.total,
+              rolls: result.rolls,
+              modifier: characterData.proficiency_bonus || 2
+            },
+            character: {
+              name: characterData.name,
+              id: characterData.id,
+              meteorId: characterData.meteor_character_id,
+              ability: 'generic',
+              advantage: advantage || 'normal'
+            }
+          });
+
+          // Wait for Roll20 response with timeout
+          await waitForRoll20Response(interaction, result.total);
+        }
         return;
       }
 
@@ -118,14 +139,20 @@ export default {
       if (checkResult.isCheck) {
         await interaction.editReply({ embeds: [checkResult.embed] });
 
-        // Send real-time message to RollCloud extension
-        if (checkResult.character) {
+        // Send real-time message to RollCloud extension (unless forced Discord only)
+        if (!forceDiscord && checkResult.character) {
           await sendRollToExtension(interaction, {
             type: checkResult.type,
             formula: checkResult.formula,
             result: checkResult.result,
-            character: checkResult.character
+            character: {
+              ...checkResult.character,
+              target: target
+            }
           });
+
+          // Wait for Roll20 response with timeout
+          await waitForRoll20Response(interaction, checkResult.result.total);
         }
         return;
       }
@@ -185,18 +212,23 @@ export default {
 
       await interaction.editReply({ embeds: [embed] });
 
-      // Send real-time message to RollCloud extension
-      await sendRollToExtension(interaction, {
-        type: 'dice',
-        formula: diceNotation,
-        result: {
-          total,
-          rolls,
-          sum,
-          modifier
-        },
-        character: null
-      });
+      // Send real-time message to RollCloud extension (unless forced Discord only)
+      if (!forceDiscord) {
+        await sendRollToExtension(interaction, {
+          type: 'dice',
+          formula: diceNotation,
+          result: {
+            total,
+            rolls,
+            sum,
+            modifier
+          },
+          character: null
+        });
+
+        // Wait for Roll20 response with timeout
+        await waitForRoll20Response(interaction, total);
+      }
 
     } catch (error) {
       console.error('Roll command error:', error);
@@ -216,11 +248,6 @@ export default {
     try {
       const focusedValue = interaction.options.getFocused();
       const characterData = await getCharacterData(interaction.user.id);
-
-      if (!characterData) {
-        await interaction.respond([]);
-        return;
-      }
 
       const choices = [];
 
@@ -248,6 +275,36 @@ export default {
           choices.push({ name: `${skill.charAt(0).toUpperCase() + skill.slice(1)} Check`, value: skill });
         }
       });
+
+      // Add attack options if character data is available
+      if (characterData) {
+        // Add weapon attacks
+        if (characterData.equipment) {
+          const weapons = characterData.equipment.filter(item => 
+            item.type === 'weapon' || item.name.toLowerCase().includes('sword') || 
+            item.name.toLowerCase().includes('axe') || item.name.toLowerCase().includes('bow')
+          );
+          
+          weapons.forEach(weapon => {
+            if (weapon.name.toLowerCase().includes(focusedValue.toLowerCase())) {
+              choices.push({ name: `⚔️ Attack: ${weapon.name}`, value: `attack:${weapon.name}` });
+            }
+          });
+        }
+
+        // Add spell attacks
+        if (characterData.spells) {
+          const attackSpells = characterData.spells.filter(spell => 
+            spell.damage || spell.level > 0
+          );
+          
+          attackSpells.forEach(spell => {
+            if (spell.name.toLowerCase().includes(focusedValue.toLowerCase())) {
+              choices.push({ name: `🔮 Spell Attack: ${spell.name}`, value: `spell_attack:${spell.name}` });
+            }
+          });
+        }
+      }
 
       // Add common dice notations
       const commonDice = ['1d20', '1d20+5', '2d6', '1d8+4', '1d10+2'];
@@ -329,6 +386,52 @@ async function tryAbilityCheck(discordUserId, input, options = {}) {
 
   const inputLower = input.toLowerCase();
   
+  // Check for attack rolls
+  if (inputLower.startsWith('attack:')) {
+    const weaponName = inputLower.replace('attack:', '').trim();
+    const result = rollAttack(characterData, weaponName, { advantage });
+    return { 
+      isCheck: true, 
+      embed: result.embed,
+      type: 'attack',
+      formula: result.formula,
+      result: {
+        total: result.total,
+        rolls: result.rolls,
+        modifier: result.modifier
+      },
+      character: {
+        name: characterData.name,
+        id: characterData.id,
+        weaponName: weaponName,
+        advantage: advantage || 'normal'
+      }
+    };
+  }
+
+  // Check for spell attack rolls
+  if (inputLower.startsWith('spell_attack:')) {
+    const spellName = inputLower.replace('spell_attack:', '').trim();
+    const result = rollSpellAttack(characterData, spellName, { advantage });
+    return { 
+      isCheck: true, 
+      embed: result.embed,
+      type: 'spell_attack',
+      formula: result.formula,
+      result: {
+        total: result.total,
+        rolls: result.rolls,
+        modifier: result.modifier
+      },
+      character: {
+        name: characterData.name,
+        id: characterData.id,
+        spellName: spellName,
+        advantage: advantage || 'normal'
+      }
+    };
+  }
+
   // Check for saving throws
   if (inputLower.includes('save')) {
     const ability = inputLower.replace(' save', '').trim();
@@ -645,17 +748,38 @@ async function sendRollToExtension(interaction, rollData) {
 
     if (!pairingResponse.ok) {
       console.error('Failed to lookup user pairing for roll');
-      return;
+      return null;
     }
 
     const pairings = await pairingResponse.json();
     
     if (pairings.length === 0) {
       console.log('No RollCloud pairing found for user, skipping extension notification');
-      return;
+      return null;
     }
 
     const pairing = pairings[0];
+
+    // Get character data to include Meteor ID
+    let meteorCharacterId = null;
+    if (rollData.character?.id) {
+      const characterResponse = await fetch(
+        `${SUPABASE_URL}/rest/v1/dicecloud_characters?id=eq.${rollData.character.id}&select=meteor_character_id`,
+        {
+          headers: {
+            'apikey': SUPABASE_SERVICE_KEY,
+            'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+          }
+        }
+      );
+      
+      if (characterResponse.ok) {
+        const characters = await characterResponse.json();
+        if (characters.length > 0) {
+          meteorCharacterId = characters[0].meteor_character_id;
+        }
+      }
+    }
 
     // Insert roll data into Supabase
     const rollInsert = {
@@ -668,8 +792,11 @@ async function sendRollToExtension(interaction, rollData) {
       roll_result: rollData.result,
       character_name: rollData.character?.name || null,
       character_id: rollData.character?.id || null,
+      meteor_character_id: meteorCharacterId,
       ability_score: rollData.character?.ability || rollData.character?.skill || null,
       skill_name: rollData.character?.skill || null,
+      spell_name: rollData.character?.spellName || null,
+      weapon_name: rollData.character?.weaponName || null,
       advantage_type: rollData.character?.advantage || 'normal',
       status: 'pending'
     };
@@ -691,11 +818,12 @@ async function sendRollToExtension(interaction, rollData) {
     if (!response.ok) {
       const error = await response.text();
       console.error('Failed to insert roll data:', error);
-      return;
+      return null;
     }
 
     const result = await response.json();
-    console.log(`🎲 Roll sent to extension: ${rollData.formula} = ${rollData.result.total} (ID: ${result[0].id})`);
+    const rollId = result[0].id;
+    console.log(`🎲 Roll sent to extension: ${rollData.formula} = ${rollData.result.total} (ID: ${rollId})`);
 
     // Update pairing activity
     await fetch(
@@ -713,7 +841,362 @@ async function sendRollToExtension(interaction, rollData) {
       }
     );
 
+    return rollId;
+
   } catch (error) {
     console.error('Error sending roll to extension:', error);
+    return null;
   }
+}
+
+/**
+ * Wait for Roll20 response with timeout fallback
+ */
+async function waitForRoll20Response(interaction, originalTotal) {
+  const timeout = 30000; // 30 seconds timeout
+  const startTime = Date.now();
+  
+  // Get the roll ID from the interaction (we'll need to modify sendRollToExtension to return this)
+  let rollId = null;
+  
+  const checkInterval = setInterval(async () => {
+    try {
+      // Query Supabase for the roll status
+      const response = await fetch(
+        `${SUPABASE_URL}/rest/v1/rollcloud_rolls?discord_message_id=eq.${interaction.id}&select=*&order=created_at.desc&limit=1`,
+        {
+          headers: {
+            'apikey': SUPABASE_SERVICE_KEY,
+            'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+          }
+        }
+      );
+
+      if (response.ok) {
+        const rolls = await response.json();
+        if (rolls.length > 0) {
+          const roll = rolls[0];
+          
+          if (roll.status === 'delivered' && roll.roll20_result) {
+            // Roll20 processed successfully
+            clearInterval(checkInterval);
+            console.log(`✅ Roll20 response received for roll ${roll.id}`);
+            
+            // Update Discord message with Roll20 result
+            await updateDiscordMessageWithRoll20Result(interaction, roll.roll20_result, originalTotal);
+            return;
+          }
+          
+          if (roll.status === 'failed' || roll.status === 'timeout') {
+            // Roll20 failed, show fallback
+            clearInterval(checkInterval);
+            console.log(`❌ Roll20 failed for roll ${roll.id}: ${roll.error_message}`);
+            
+            await updateDiscordMessageWithFallback(interaction, roll.error_message || 'Roll20 integration failed');
+            return;
+          }
+        }
+      }
+      
+      // Check timeout
+      if (Date.now() - startTime > timeout) {
+        clearInterval(checkInterval);
+        console.log(`⏰ Roll20 timeout for roll ${interaction.id}`);
+        
+        // Mark as timeout in database
+        await markRollAsTimeout(interaction.id);
+        
+        await updateDiscordMessageWithFallback(interaction, 'Roll20 integration timed out - using Discord roll result');
+      }
+    } catch (error) {
+      console.error('Error checking Roll20 response:', error);
+    }
+  }, 1000); // Check every second
+}
+
+/**
+ * Update Discord message with Roll20 result
+ */
+async function updateDiscordMessageWithRoll20Result(interaction, roll20Result, originalTotal) {
+  try {
+    const embed = new EmbedBuilder()
+      .setColor(0x00FF00) // Green for success
+      .setTitle(`🎲 ${interaction.user.displayName} - Roll20 Result`)
+      .setDescription(`**Roll20 Total: ${roll20Result.total}**`)
+      .addFields(
+        { name: 'Discord Roll', value: `**${originalTotal}**`, inline: true },
+        { name: 'Roll20 Roll', value: `**${roll20Result.total}**`, inline: true },
+        { name: 'Roll20 Formula', value: roll20Result.formula || 'N/A', inline: false }
+      )
+      .setFooter({ text: 'Roll20 integration successful' })
+      .setTimestamp();
+
+    if (roll20Result.rolls) {
+      embed.addFields({
+        name: 'Roll20 Dice',
+        value: `[${roll20Result.rolls.join(', ')}]`,
+        inline: false
+      });
+    }
+
+    await interaction.editReply({ embeds: [embed] });
+  } catch (error) {
+    console.error('Error updating Discord message with Roll20 result:', error);
+  }
+}
+
+/**
+ * Update Discord message with fallback message
+ */
+async function updateDiscordMessageWithFallback(interaction, fallbackMessage) {
+  try {
+    const embed = new EmbedBuilder()
+      .setColor(0xFFA500) // Orange for warning
+      .setTitle(`🎲 ${interaction.user.displayName} - Discord Roll Only`)
+      .setDescription(fallbackMessage)
+      .setFooter({ text: 'Roll20 integration unavailable - using Discord roll result' })
+      .setTimestamp();
+
+    await interaction.editReply({ embeds: [embed] });
+  } catch (error) {
+    console.error('Error updating Discord message with fallback:', error);
+  }
+}
+
+/**
+ * Mark roll as timeout in database
+ */
+async function markRollAsTimeout(discordMessageId) {
+  try {
+    await fetch(
+      `${SUPABASE_URL}/rest/v1/rollcloud_rolls?discord_message_id=eq.${discordMessageId}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+        },
+        body: JSON.stringify({
+          status: 'timeout',
+          error_message: 'Roll20 integration timed out after 30 seconds'
+        })
+      }
+    );
+  } catch (error) {
+    console.error('Error marking roll as timeout:', error);
+  }
+}
+
+/**
+ * Roll an attack with a weapon
+ */
+function rollAttack(character, weaponName, options = {}) {
+  const { advantage } = options;
+  const abilityScores = character.ability_scores || {};
+  const proficiencyBonus = character.proficiency_bonus || 2;
+  
+  // Find the weapon in equipment
+  const weapon = character.equipment?.find(item => 
+    item.name.toLowerCase().includes(weaponName.toLowerCase())
+  );
+  
+  if (!weapon) {
+    // Default to strength-based attack if weapon not found
+    const strengthMod = Math.floor((abilityScores.strength || 10 - 10) / 2);
+    const attackBonus = strengthMod + proficiencyBonus;
+    
+    const roll1 = Math.floor(Math.random() * 20) + 1;
+    const roll2 = Math.floor(Math.random() * 20) + 1;
+    
+    let finalRoll, rollDescription, rolls;
+    
+    if (advantage === 'advantage') {
+      finalRoll = Math.max(roll1, roll2);
+      rollDescription = `Advantage: [${roll1}, ${roll2}] → **${finalRoll}**`;
+      rolls = [roll1, roll2];
+    } else if (advantage === 'disadvantage') {
+      finalRoll = Math.min(roll1, roll2);
+      rollDescription = `Disadvantage: [${roll1}, ${roll2}] → **${finalRoll}**`;
+      rolls = [roll1, roll2];
+    } else {
+      finalRoll = roll1;
+      rollDescription = `Roll: **${finalRoll}**`;
+      rolls = [roll1];
+    }
+
+    const total = finalRoll + attackBonus;
+
+    const embed = new EmbedBuilder()
+      .setColor(0xE74C3C)
+      .setTitle(`⚔️ ${character.name} - ${weaponName} Attack`)
+      .setDescription(`${rollDescription} ${attackBonus >= 0 ? '+' : ''}${attackBonus} = **${total}**`)
+      .addFields(
+        { name: 'Attack Bonus', value: `${strengthMod >= 0 ? '+' : ''}${strengthMod} (STR) + ${proficiencyBonus} (prof)`, inline: true },
+        { name: 'Weapon', value: weaponName, inline: true }
+      )
+      .setFooter({ text: `${character.name} • Attack Roll` })
+      .setTimestamp();
+
+    return { 
+      embed, 
+      total, 
+      rolls, 
+      modifier: attackBonus,
+      formula: `1d20${attackBonus >= 0 ? '+' : ''}${attackBonus}(${weaponName} attack)`
+    };
+  }
+
+  // Use weapon properties if found
+  const ability = weapon.ability || 'strength';
+  const abilityMod = Math.floor((abilityScores[ability] || 10 - 10) / 2);
+  const attackBonus = abilityMod + proficiencyBonus + (weapon.attack_bonus || 0);
+  
+  const roll1 = Math.floor(Math.random() * 20) + 1;
+  const roll2 = Math.floor(Math.random() * 20) + 1;
+  
+  let finalRoll, rollDescription, rolls;
+  
+  if (advantage === 'advantage') {
+    finalRoll = Math.max(roll1, roll2);
+    rollDescription = `Advantage: [${roll1}, ${roll2}] → **${finalRoll}**`;
+    rolls = [roll1, roll2];
+  } else if (advantage === 'disadvantage') {
+    finalRoll = Math.min(roll1, roll2);
+    rollDescription = `Disadvantage: [${roll1}, ${roll2}] → **${finalRoll}**`;
+    rolls = [roll1, roll2];
+  } else {
+    finalRoll = roll1;
+    rollDescription = `Roll: **${finalRoll}**`;
+    rolls = [roll1];
+  }
+
+  const total = finalRoll + attackBonus;
+
+  const embed = new EmbedBuilder()
+    .setColor(0xE74C3C)
+    .setTitle(`⚔️ ${character.name} - ${weapon.name} Attack`)
+    .setDescription(`${rollDescription} ${attackBonus >= 0 ? '+' : ''}${attackBonus} = **${total}**`)
+    .addFields(
+      { name: 'Attack Bonus', value: `${abilityMod >= 0 ? '+' : ''}${abilityMod} (${ability.toUpperCase()}) + ${proficiencyBonus} (prof)${weapon.attack_bonus ? ` + ${weapon.attack_bonus}` : ''}`, inline: true },
+      { name: 'Damage', value: weapon.damage || 'N/A', inline: true },
+      { name: 'Properties', value: weapon.properties || 'None', inline: true }
+    )
+    .setFooter({ text: `${character.name} • Attack Roll` })
+    .setTimestamp();
+
+  return { 
+    embed, 
+    total, 
+    rolls, 
+    modifier: attackBonus,
+    formula: `1d20${attackBonus >= 0 ? '+' : ''}${attackBonus}(${weapon.name} attack)`
+  };
+}
+
+/**
+ * Roll a spell attack
+ */
+function rollSpellAttack(character, spellName, options = {}) {
+  const { advantage } = options;
+  const abilityScores = character.ability_scores || {};
+  const proficiencyBonus = character.proficiency_bonus || 2;
+  
+  // Find the spell
+  const spell = character.spells?.find(s => 
+    s.name.toLowerCase().includes(spellName.toLowerCase())
+  );
+  
+  if (!spell) {
+    // Default to spellcasting ability if spell not found
+    const spellcastingAbility = character.spellcasting_ability || 'intelligence';
+    const abilityMod = Math.floor((abilityScores[spellcastingAbility] || 10 - 10) / 2);
+    const attackBonus = abilityMod + proficiencyBonus + (character.spell_attack_bonus || 0);
+    
+    const roll1 = Math.floor(Math.random() * 20) + 1;
+    const roll2 = Math.floor(Math.random() * 20) + 1;
+    
+    let finalRoll, rollDescription, rolls;
+    
+    if (advantage === 'advantage') {
+      finalRoll = Math.max(roll1, roll2);
+      rollDescription = `Advantage: [${roll1}, ${roll2}] → **${finalRoll}**`;
+      rolls = [roll1, roll2];
+    } else if (advantage === 'disadvantage') {
+      finalRoll = Math.min(roll1, roll2);
+      rollDescription = `Disadvantage: [${roll1}, ${roll2}] → **${finalRoll}**`;
+      rolls = [roll1, roll2];
+    } else {
+      finalRoll = roll1;
+      rollDescription = `Roll: **${finalRoll}**`;
+      rolls = [roll1];
+    }
+
+    const total = finalRoll + attackBonus;
+
+    const embed = new EmbedBuilder()
+      .setColor(0x9B59B6)
+      .setTitle(`🔮 ${character.name} - ${spellName} Spell Attack`)
+      .setDescription(`${rollDescription} ${attackBonus >= 0 ? '+' : ''}${attackBonus} = **${total}**`)
+      .addFields(
+        { name: 'Attack Bonus', value: `${abilityMod >= 0 ? '+' : ''}${abilityMod} (${spellcastingAbility.toUpperCase()}) + ${proficiencyBonus} (prof)`, inline: true },
+        { name: 'Spell Level', value: spell?.level || 'Unknown', inline: true }
+      )
+      .setFooter({ text: `${character.name} • Spell Attack` })
+      .setTimestamp();
+
+    return { 
+      embed, 
+      total, 
+      rolls, 
+      modifier: attackBonus,
+      formula: `1d20${attackBonus >= 0 ? '+' : ''}${attackBonus}(${spellName} spell attack)`
+    };
+  }
+
+  // Use spell properties if found
+  const spellcastingAbility = spell.spellcasting_ability || character.spellcasting_ability || 'intelligence';
+  const abilityMod = Math.floor((abilityScores[spellcastingAbility] || 10 - 10) / 2);
+  const attackBonus = abilityMod + proficiencyBonus + (character.spell_attack_bonus || 0);
+  
+  const roll1 = Math.floor(Math.random() * 20) + 1;
+  const roll2 = Math.floor(Math.random() * 20) + 1;
+  
+  let finalRoll, rollDescription, rolls;
+  
+  if (advantage === 'advantage') {
+    finalRoll = Math.max(roll1, roll2);
+    rollDescription = `Advantage: [${roll1}, ${roll2}] → **${finalRoll}**`;
+    rolls = [roll1, roll2];
+  } else if (advantage === 'disadvantage') {
+    finalRoll = Math.min(roll1, roll2);
+    rollDescription = `Disadvantage: [${roll1}, ${roll2}] → **${finalRoll}**`;
+    rolls = [roll1, roll2];
+  } else {
+    finalRoll = roll1;
+    rollDescription = `Roll: **${finalRoll}**`;
+    rolls = [roll1];
+  }
+
+  const total = finalRoll + attackBonus;
+
+  const embed = new EmbedBuilder()
+    .setColor(0x9B59B6)
+    .setTitle(`🔮 ${character.name} - ${spell.name} Spell Attack`)
+    .setDescription(`${rollDescription} ${attackBonus >= 0 ? '+' : ''}${attackBonus} = **${total}**`)
+    .addFields(
+      { name: 'Attack Bonus', value: `${abilityMod >= 0 ? '+' : ''}${abilityMod} (${spellcastingAbility.toUpperCase()}) + ${proficiencyBonus} (prof)`, inline: true },
+      { name: 'Spell Level', value: spell.level || 'Cantrip', inline: true },
+      { name: 'Damage', value: spell.damage || 'N/A', inline: true }
+    )
+    .setFooter({ text: `${character.name} • Spell Attack` })
+    .setTimestamp();
+
+  return { 
+    embed, 
+    total, 
+    rolls, 
+    modifier: attackBonus,
+    formula: `1d20${attackBonus >= 0 ? '+' : ''}${attackBonus}(${spell.name} spell attack)`
+  };
 }

@@ -225,25 +225,30 @@ CREATE TABLE IF NOT EXISTS rollcloud_rolls (
   discord_message_id VARCHAR(20),
 
   -- Roll details
-  roll_type VARCHAR(50) NOT NULL, -- 'dice', 'ability_check', 'skill_check', 'saving_throw', 'spell_attack'
+  roll_type VARCHAR(50) NOT NULL, -- 'dice', 'ability_check', 'skill_check', 'saving_throw', 'spell_attack', 'attack'
   roll_formula VARCHAR(100) NOT NULL, -- e.g., '1d20+5', '2d6', '1d20+7(stealth)'
   roll_result JSONB NOT NULL, -- { "total": 23, "rolls": [15, 8], "modifier": 0 }
   
   -- Character context (if available)
   character_name VARCHAR(100),
   character_id VARCHAR(50),
+  meteor_character_id VARCHAR(50), -- DiceCloud Meteor ID for Roll20 integration
   ability_score VARCHAR(20), -- 'strength', 'dexterity', etc.
   skill_name VARCHAR(50), -- 'perception', 'stealth', etc.
+  spell_name VARCHAR(100), -- for spell attacks
+  weapon_name VARCHAR(100), -- for weapon attacks
   advantage_type VARCHAR(20), -- 'normal', 'advantage', 'disadvantage'
 
   -- Status tracking
-  status VARCHAR(20) DEFAULT 'pending', -- pending, delivered, failed
+  status VARCHAR(20) DEFAULT 'pending', -- pending, processing, delivered, failed, timeout
   error_message TEXT DEFAULT NULL,
+  roll20_result JSONB DEFAULT NULL, -- Result from Roll20 execution
 
   -- Timestamps
   created_at TIMESTAMPTZ DEFAULT NOW(),
   delivered_at TIMESTAMPTZ DEFAULT NULL,
-  expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '5 minutes')
+  processed_at TIMESTAMPTZ DEFAULT NULL,
+  expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '30 seconds') -- Short timeout for fallback
 );
 
 -- Fast lookups for extension polling (pending rolls for a pairing)
