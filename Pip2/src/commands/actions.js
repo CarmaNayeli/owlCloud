@@ -55,11 +55,23 @@ export default {
       }
 
       // Parse actions from character data
-      const actions = parseActions(character.raw_dicecloud_data || '{}');
-      
+      const rawData = character.raw_dicecloud_data || '{}';
+      const actions = parseActions(rawData);
+
+      // Debug logging to help diagnose missing actions
+      console.log(`⚔️ Parsing actions for ${character.character_name}:`, {
+        hasRawData: !!character.raw_dicecloud_data,
+        rawDataType: typeof rawData,
+        actionCount: actions?.length || 0
+      });
+
       if (!actions || actions.length === 0) {
+        // Provide helpful message about potential sync issues
+        const syncHint = character.updated_at
+          ? `\nLast synced: ${new Date(character.updated_at).toLocaleString()}`
+          : '\n*Note: Character may need to be re-synced from DiceCloud.*';
         return await interaction.editReply({
-          content: `❌ **${character.character_name}** doesn't have any actions.`,
+          content: `❌ **${character.character_name}** doesn't have any actions.${syncHint}\n\n*If you recently added actions in DiceCloud, try syncing your character again using the extension.*`,
           flags: 64
         });
       }

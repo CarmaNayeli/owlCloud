@@ -1171,11 +1171,28 @@ function initializePopup() {
       // Get character data
       const profilesResponse = await browserAPI.runtime.sendMessage({ action: 'getAllCharacterProfiles' });
       const profiles = profilesResponse.success ? profilesResponse.profiles : {};
-      const characterData = profiles[selectedId];
+      let characterData = profiles[selectedId];
 
       if (!characterData) {
         showError('Character data not found');
         return;
+      }
+
+      // For database profiles (db- prefix), extract full character data from _fullData.raw_dicecloud_data
+      // Database profiles only contain a summary at the top level, while the full data is nested
+      if (characterData.source === 'database' && characterData._fullData) {
+        const fullData = characterData._fullData.raw_dicecloud_data;
+        if (fullData && typeof fullData === 'object') {
+          debug.log('📦 Using full character data from database raw_dicecloud_data');
+          // Merge the full data with metadata
+          characterData = {
+            ...fullData,
+            source: 'database',
+            lastUpdated: characterData.lastUpdated || characterData._fullData.updated_at
+          };
+        } else {
+          debug.warn('⚠️ Database profile missing raw_dicecloud_data, using summary only');
+        }
       }
 
       // Get DiceCloud user ID from login status
