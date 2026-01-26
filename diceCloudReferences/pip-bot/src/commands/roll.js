@@ -343,7 +343,7 @@ export default {
           
           abilities.forEach((ability, index) => {
             if (abilityNames[index].toLowerCase().includes(focusedValue.toLowerCase())) {
-              choices.push({ name: `${abilityNames[index]} Check`, value: ability });
+              choices.push({ name: `${abilityNames[index]} Check`, value: `${ability} check` });
               choices.push({ name: `${abilityNames[index]} Save`, value: `${ability} save` });
             }
           });
@@ -357,7 +357,7 @@ export default {
 
           skills.forEach(skill => {
             if (skill.toLowerCase().includes(focusedValue.toLowerCase())) {
-              choices.push({ name: `${skill.charAt(0).toUpperCase() + skill.slice(1)} Check`, value: skill });
+              choices.push({ name: `${skill.charAt(0).toUpperCase() + skill.slice(1)} Check`, value: `${skill} check` });
             }
           });
 
@@ -581,7 +581,14 @@ async function tryAbilityCheck(discordUserId, input, options = {}) {
 
   // Check for ability checks
   const abilities = ['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma'];
-  if (abilities.includes(inputLower)) {
+  
+  // Handle both "wisdom" and "wisdom check" formats
+  let abilityName = inputLower;
+  if (inputLower.includes(' check')) {
+    abilityName = inputLower.replace(' check', '').trim();
+  }
+  
+  if (abilities.includes(abilityName)) {
     const result = rollAbilityCheck(characterData, inputLower, { advantage });
     return { 
       isCheck: true, 
@@ -610,7 +617,13 @@ async function tryAbilityCheck(discordUserId, input, options = {}) {
     'deception', 'intimidation', 'performance', 'persuasion'
   ];
 
-  if (skills.includes(inputLower)) {
+  // Handle both "perception" and "perception check" formats
+  let skillName = inputLower;
+  if (inputLower.includes(' check')) {
+    skillName = inputLower.replace(' check', '').trim();
+  }
+
+  if (skills.includes(skillName)) {
     const result = rollSkillCheck(characterData, inputLower, { advantage });
     return { 
       isCheck: true, 
