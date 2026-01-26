@@ -99,28 +99,35 @@ export const authOptions: AuthOptions = {
         hasSession: !!session,
         hasToken: !!token,
         hasAccessToken: !!token.accessToken,
-        accessTokenLength: token.accessToken?.length || 0,
+        accessTokenLength: (token.accessToken as string)?.length || 0,
         discordId: token.discordId,
         sessionKeys: session ? Object.keys(session) : []
       });
-      
+
+      // Store at session level for easier API access
+      (session as any).accessToken = token.accessToken;
+      (session as any).discordId = token.discordId;
+
+      // Also store on session.user for client-side access
       if (session.user) {
         (session.user as any).discordId = token.discordId;
         (session.user as any).accessToken = token.accessToken;
         console.log('✅ Session updated:', {
           accessTokenSet: !!(session.user as any).accessToken,
           discordIdSet: !!(session.user as any).discordId,
-          accessTokenLength: (session.user as any).accessToken?.length || 0
+          sessionAccessTokenSet: !!(session as any).accessToken,
+          accessTokenLength: (token.accessToken as string)?.length || 0
         });
       }
-      
+
       console.log('👤 Session Result:', {
         hasUser: !!session?.user,
-        hasAccessToken: !!(session.user as any)?.accessToken,
-        hasDiscordId: !!(session.user as any)?.discordId,
+        hasAccessToken: !!(session as any)?.accessToken,
+        hasUserAccessToken: !!(session.user as any)?.accessToken,
+        hasDiscordId: !!(session as any)?.discordId,
         sessionKeys: Object.keys(session)
       });
-      
+
       return session;
     },
   },

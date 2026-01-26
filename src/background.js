@@ -77,13 +77,15 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
         case 'syncCharacterToCloud': {
           // Explicitly sync character to Supabase
-          if (typeof SupabaseTokenManager === 'undefined') {
-            response = { success: false, error: 'Cloud sync not available' };
-            break;
-          }
-          const supabase = new SupabaseTokenManager();
-          const syncResult = await supabase.storeCharacter(request.characterData, request.pairingCode);
+          const syncResult = await storeCharacterToCloud(request.characterData, request.pairingCode);
           response = syncResult;
+          break;
+        }
+
+        case 'fetchDiceCloudAPI': {
+          // Fetch from DiceCloud API (used by Roll20 content script)
+          const fetchResult = await fetchFromDiceCloudAPI(request.url, request.token);
+          response = fetchResult;
           break;
         }
 
@@ -1069,6 +1071,202 @@ function buildDiscordMessage(payload) {
   return {
     content: payload.message || `🎲 ${characterName || 'Unknown'}: ${type}`
   };
+}
+
+// ============================================================================
+// Character Cloud Sync to Supabase
+// ============================================================================
+
+/**
+ * Store character data in Supabase for cloud sync
+ * This allows character data to be accessed by the Discord bot
+ */
+async function storeCharacterToCloud(characterData, pairingCode = null) {
+  if (!isSupabaseConfigured()) {
+    debug.warn('Supabase not configured - character sync unavailable');
+    return {
+      success: false,
+      error: 'Cloud sync not available. Supabase not configured.',
+      supabaseNotConfigured: true
+    };
+  }
+
+  try {
+    debug.log('🎭 Storing character in Supabase:', characterData.name || characterData.id);
+
+    // Generate a browser ID for looking up auth tokens
+    const browserFingerprint = [
+      navigator.userAgent,
+      navigator.language,
+      screen.width + 'x' + screen.height,
+      new Date().getTimezoneOffset()
+    ].join('|');
+    let hash = 0;
+    for (let i = 0; i < browserFingerprint.length; i++) {
+      const char = browserFingerprint.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    const visitorId = 'user_' + Math.abs(hash).toString(36);
+
+    const payload = {
+      user_id_dicecloud: characterData.dicecloudUserId || characterData.userId || null,
+      dicecloud_character_id: characterData.id,
+      character_name: characterData.name || 'Unknown',
+      race: characterData.race || null,
+      class: characterData.class || null,
+      level: characterData.level || 1,
+      alignment: characterData.alignment || null,
+      hit_points: characterData.hitPoints || { current: 0, max: 0 },
+      armor_class: characterData.armorClass || 10,
+      speed: characterData.speed || 30,
+      initiative: characterData.initiative || 0,
+      proficiency_bonus: characterData.proficiencyBonus || 2,
+      attributes: characterData.attributes || {},
+      attribute_mods: characterData.attributeMods || {},
+      saves: characterData.saves || {},
+      skills: characterData.skills || {},
+      spell_slots: characterData.spellSlots || {},
+      resources: characterData.resources || [],
+      conditions: characterData.conditions || [],
+      updated_at: new Date().toISOString()
+    };
+
+    // If pairing code provided, look up the pairing to link
+    if (pairingCode) {
+      const pairingResponse = await fetch(
+        `${SUPABASE_URL}/rest/v1/rollcloud_pairings?pairing_code=eq.${pairingCode}&select=id,discord_user_id`,
+        {
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          }
+        }
+      );
+      if (pairingResponse.ok) {
+        const pairings = await pairingResponse.json();
+        if (pairings.length > 0) {
+          payload.pairing_id = pairings[0].id;
+          payload.discord_user_id = pairings[0].discord_user_id;
+          debug.log('✅ Linked to pairing:', pairings[0].id);
+        }
+      }
+    } else {
+      // No pairing code provided - try to get Discord user ID from auth_tokens
+      try {
+        const authResponse = await fetch(
+          `${SUPABASE_URL}/rest/v1/auth_tokens?user_id=eq.${visitorId}&select=discord_user_id`,
+          {
+            headers: {
+              'apikey': SUPABASE_ANON_KEY,
+              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            }
+          }
+        );
+        if (authResponse.ok) {
+          const authTokens = await authResponse.json();
+          if (authTokens.length > 0 && authTokens[0].discord_user_id) {
+            payload.discord_user_id = authTokens[0].discord_user_id;
+            debug.log('✅ Found Discord user ID from auth_tokens:', authTokens[0].discord_user_id);
+          } else {
+            payload.discord_user_id = 'not_linked';
+            debug.log('⚠️ No Discord user ID found, using placeholder');
+          }
+        }
+      } catch (error) {
+        payload.discord_user_id = 'not_linked';
+        debug.log('⚠️ Failed to get Discord user ID, using placeholder:', error.message);
+      }
+    }
+
+    debug.log('📤 Sending character payload to Supabase:', payload.character_name);
+
+    // Try POST first (insert)
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/rollcloud_characters`,
+      {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=merge-duplicates,return=minimal'
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      debug.log('⚠️ Character POST failed, trying PATCH:', response.status, errorText);
+
+      // Try PATCH (update) instead
+      const updateResponse = await fetch(
+        `${SUPABASE_URL}/rest/v1/rollcloud_characters?dicecloud_character_id=eq.${characterData.id}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify(payload)
+        }
+      );
+
+      if (!updateResponse.ok) {
+        const patchError = await updateResponse.text();
+        debug.error('❌ Character PATCH also failed:', updateResponse.status, patchError);
+        throw new Error(`Character update failed: ${patchError}`);
+      }
+      debug.log('✅ Character updated via PATCH');
+    } else {
+      debug.log('✅ Character inserted via POST');
+    }
+
+    debug.log('✅ Character stored in Supabase:', characterData.name);
+    return { success: true };
+  } catch (error) {
+    debug.error('❌ Failed to store character in Supabase:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Fetch data from DiceCloud API
+ * Used by Roll20 content script to get character data
+ */
+async function fetchFromDiceCloudAPI(url, token) {
+  try {
+    debug.log('🔌 Fetching from DiceCloud API:', url);
+
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: headers
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      debug.error('❌ DiceCloud API fetch failed:', response.status, errorText);
+      return { success: false, error: `API error: ${response.status}` };
+    }
+
+    const data = await response.json();
+    debug.log('✅ DiceCloud API fetch successful');
+    return { success: true, data: data };
+  } catch (error) {
+    debug.error('❌ Failed to fetch from DiceCloud API:', error);
+    return { success: false, error: error.message };
+  }
 }
 
 // ============================================================================

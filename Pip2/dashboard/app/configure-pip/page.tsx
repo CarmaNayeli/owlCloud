@@ -133,16 +133,18 @@ export default function ConfigurePip() {
   // Additional check for Discord access token
   useEffect(() => {
     if (status === 'authenticated' && session) {
-      const hasAccessToken = !!(session as any)?.accessToken;
+      // Check both session level and session.user level for access token
+      const hasAccessToken = !!(session as any)?.accessToken || !!(session as any)?.user?.accessToken;
       console.log('🔍 Session debug:', {
         hasSession: !!session,
         hasUser: !!session?.user,
         hasAccessToken: hasAccessToken,
-        accessToken: (session as any)?.accessToken ? 'present' : 'missing',
-        discordId: (session as any)?.discordId,
+        sessionAccessToken: (session as any)?.accessToken ? 'present' : 'missing',
+        userAccessToken: (session as any)?.user?.accessToken ? 'present' : 'missing',
+        discordId: (session as any)?.discordId || (session as any)?.user?.discordId,
         userName: session?.user?.name
       });
-      
+
       if (!hasAccessToken) {
         console.log('⚠️ Discord access token missing, showing error message');
         setError('Discord access token missing. Please sign in again to access your Discord servers.');
