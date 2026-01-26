@@ -556,9 +556,9 @@ async function storeCharacterData(characterData, slotId) {
       timestamp: Date.now()
     };
 
-    // If slotId was explicitly provided, set it as active
-    // If no slotId was provided but there's no active character, set this as active
-    if (slotId || !result.activeCharacterId) {
+    // Only set activeCharacterId if there's no active character currently
+    // This prevents character data updates from overwriting user's character selection
+    if (!result.activeCharacterId) {
       updates.activeCharacterId = storageId;
       debug.log(`Setting active character to: ${storageId}`);
     } else {
