@@ -258,8 +258,9 @@ async function buildAll() {
 
       for (const file of installerFiles) {
         const srcPath = path.join(installerDistDir, file);
-        // Rename to standardize name (replace spaces with dashes)
-        let destName = file.replace(/\s+/g, '-');
+        // Standardize name: replace spaces with dashes, remove version number
+        // e.g., "RollCloud Setup 1.2.3.exe" -> "RollCloud-Setup.exe"
+        let destName = file.replace(/\s+/g, '-').replace(/-\d+\.\d+\.\d+/, '');
         const destPath = path.join(RELEASES_DIR, destName);
 
         fs.copyFileSync(srcPath, destPath);
@@ -267,17 +268,6 @@ async function buildAll() {
         const size = (stats.size / (1024 * 1024)).toFixed(1);
         console.log(`   ✅ ${destName} (${size} MB)`);
         copiedCount++;
-
-        // Also create non-versioned copy for "latest" links
-        // e.g., "RollCloud-Setup-1.2.3.exe" -> "RollCloud-Setup.exe"
-        const ext = path.extname(destName);
-        const nonVersionedName = destName.replace(/-\d+\.\d+\.\d+/, '') ;
-        if (nonVersionedName !== destName) {
-          const nonVersionedPath = path.join(RELEASES_DIR, nonVersionedName);
-          fs.copyFileSync(srcPath, nonVersionedPath);
-          console.log(`   ✅ ${nonVersionedName} (${size} MB) [latest link]`);
-          copiedCount++;
-        }
       }
     } else {
       console.log('   ⚠️ installer/dist/ not found, skipping installer files');
@@ -361,9 +351,9 @@ async function buildAll() {
   console.log(`         - rollcloud-firefox-${version}.zip (for manual Firefox install)`);
   if (!skipInstaller) {
     console.log(`       Installers:`);
-    console.log(`         - RollCloud-Setup-${version}.exe (Windows installer)`);
-    console.log(`         - RollCloud-Setup-${version}.dmg (macOS installer)`);
-    console.log(`         - RollCloud-Setup-${version}.AppImage (Linux installer)`);
+    console.log(`         - RollCloud-Setup.exe (Windows installer)`);
+    console.log(`         - RollCloud-Setup.dmg (macOS installer)`);
+    console.log(`         - RollCloud-Setup.AppImage (Linux installer)`);
   }
 
   console.log('\n🎉 Build complete!\n');
