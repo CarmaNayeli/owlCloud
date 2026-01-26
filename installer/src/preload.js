@@ -14,8 +14,8 @@ contextBridge.exposeInMainWorld('api', {
   // Extension updates
   checkForUpdates: (browser) => ipcRenderer.invoke('check-for-updates', browser),
   updateExtension: (browser) => ipcRenderer.invoke('update-extension', browser),
-  // closeBrowser: (browser) => ipcRenderer.invoke('close-browser', browser),
   forceReinstallExtension: (browser) => ipcRenderer.invoke('force-reinstall-extension', browser),
+  restartBrowser: (browser) => ipcRenderer.invoke('restart-browser', browser),
 
   // Discord
   openDiscordInvite: () => ipcRenderer.invoke('open-discord-invite'),
