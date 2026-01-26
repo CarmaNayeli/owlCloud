@@ -5340,16 +5340,43 @@
     }
   }
 
+  // Auto-extract and save auth token when on DiceCloud
+  async function autoRefreshToken() {
+    try {
+      const loginToken = localStorage.getItem('Meteor.loginToken');
+      const userId = localStorage.getItem('Meteor.userId');
+
+      if (loginToken && userId) {
+        debug.log('🔄 Auto-refreshing DiceCloud auth token...');
+
+        // Save to extension storage
+        await browserAPI.storage.local.set({
+          diceCloudToken: loginToken,
+          diceCloudUserId: userId,
+          tokenExpires: localStorage.getItem('Meteor.loginTokenExpires')
+        });
+
+        debug.log('✅ Auth token auto-refreshed');
+      } else {
+        debug.log('⚠️ No auth token found in localStorage (user may not be logged in)');
+      }
+    } catch (error) {
+      debug.error('Failed to auto-refresh token:', error);
+    }
+  }
+
   // Initialize
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       debug.log('📄 DOM loaded, adding buttons...');
       addSyncButton();
       observeRollLog();
+      autoRefreshToken();
     });
   } else {
     debug.log('📄 DOM already loaded, adding buttons...');
     addSyncButton();
     observeRollLog();
+    autoRefreshToken();
   }
 })();
