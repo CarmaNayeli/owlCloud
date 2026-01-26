@@ -243,7 +243,11 @@ function initializePopup() {
   async function checkLoginStatus() {
     try {
       debug.log('🔍 Checking login status...');
-      const response = await browserAPI.runtime.sendMessage({ action: 'checkLoginStatus' });
+      // Timeout after 3s in case the service worker is unresponsive (e.g., fresh install)
+      const response = await Promise.race([
+        browserAPI.runtime.sendMessage({ action: 'checkLoginStatus' }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Service worker timeout')), 3000))
+      ]);
       debug.log('📥 Login status response:', response);
 
       if (response.success && response.loggedIn) {
