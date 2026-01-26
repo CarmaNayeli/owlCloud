@@ -344,6 +344,23 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
           break;
         }
 
+        case 'getRealtimeStatus': {
+          // Return current Realtime connection status for debugging
+          const realtimeConnected = commandRealtimeSocket && commandRealtimeSocket.readyState === WebSocket.OPEN;
+          const settings = await browserAPI.storage.local.get(['discordPairingId', 'discordWebhookEnabled']);
+          response = {
+            success: true,
+            realtimeConnected,
+            socketState: commandRealtimeSocket ? commandRealtimeSocket.readyState : null,
+            currentPairingId,
+            storedPairingId: settings.discordPairingId,
+            webhookEnabled: settings.discordWebhookEnabled,
+            supabaseConfigured: isSupabaseConfigured()
+          };
+          debug.log('Realtime status:', response);
+          break;
+        }
+
         default:
           debug.warn('Unknown action:', request.action);
           response = { success: false, error: 'Unknown action: ' + request.action };
@@ -2220,8 +2237,10 @@ async function subscribeToCommandRealtime(pairingId) {
       debug.log('✅ Command Realtime WebSocket connected');
 
       // Subscribe to INSERT events on rollcloud_commands for this pairing
+      // Topic format: realtime:schema:table (filter goes in postgres_changes config only)
+      const topic = `realtime:public:rollcloud_commands`;
       const joinMessage = {
-        topic: `realtime:public:rollcloud_commands:pairing_id=eq.${pairingId}`,
+        topic: topic,
         event: 'phx_join',
         payload: {
           config: {
@@ -2237,6 +2256,7 @@ async function subscribeToCommandRealtime(pairingId) {
         },
         ref: 'cmd_1'
       };
+      debug.log('📤 Sending join message:', JSON.stringify(joinMessage));
       commandRealtimeSocket.send(JSON.stringify(joinMessage));
 
       // Heartbeat every 30 s to keep connection alive
@@ -2259,6 +2279,25 @@ async function subscribeToCommandRealtime(pairingId) {
       try {
         const message = JSON.parse(event.data);
 
+        // Log all messages for debugging
+        debug.log('📨 Realtime message:', message.event, message.topic || '', message.payload?.status || '');
+
+        // Handle Phoenix protocol replies (subscription confirmation)
+        if (message.event === 'phx_reply') {
+          if (message.payload?.status === 'ok') {
+            debug.log('✅ Realtime subscription confirmed for topic:', message.topic || 'unknown');
+          } else {
+            debug.error('❌ Realtime subscription FAILED:', message.payload?.response || message.payload);
+          }
+          return;
+        }
+
+        // Handle system messages
+        if (message.event === 'system' && message.payload?.status === 'ok') {
+          debug.log('✅ Realtime system ready:', message.payload?.message || 'connected');
+          return;
+        }
+
         if (message.event === 'postgres_changes' && message.payload?.data?.record) {
           const record = message.payload.data.record;
 
@@ -2266,6 +2305,8 @@ async function subscribeToCommandRealtime(pairingId) {
           if (record.status === 'pending' && record.pairing_id === currentPairingId) {
             debug.log('📥 Realtime command received:', record.command_type, record.id);
             await executeCommand(record);
+          } else {
+            debug.log('⏭️ Skipping command - status:', record.status, 'pairing match:', record.pairing_id === currentPairingId);
           }
         }
       } catch (e) {
@@ -2588,9 +2629,12 @@ async function storePairingId(pairingId) {
 (async () => {
   try {
     const settings = await browserAPI.storage.local.get(['discordWebhookEnabled', 'discordPairingId']);
+    debug.log('🔄 Auto-start check - webhookEnabled:', settings.discordWebhookEnabled, 'pairingId:', settings.discordPairingId ? 'set' : 'not set');
     if (settings.discordWebhookEnabled && settings.discordPairingId) {
       debug.log('Auto-starting command realtime subscription...');
       await subscribeToCommandRealtime(settings.discordPairingId);
+    } else {
+      debug.log('⏭️ Skipping auto-start - webhook not enabled or no pairing ID');
     }
   } catch (error) {
     debug.warn('Failed to auto-start command realtime:', error);
