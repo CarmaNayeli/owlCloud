@@ -1630,8 +1630,8 @@ async function forceReinstallExtension(browser, config) {
         }
         
         // Add new policy
-        const policyValue = `"${extensionId}";${updateUrl}"`;
-        const cmd = `reg add "${regPath}" /v 1 /t REG_SZ /d ${policyValue} /f`;
+        const policyValue = `${extensionId};${updateUrl}`;
+        const cmd = `reg add "${regPath}" /v 1 /t REG_SZ /d "${policyValue}" /f`;
         
         execSync(cmd, { stdio: 'pipe' });
         console.log('  ✅ Chrome policy set successfully');

@@ -5,10 +5,6 @@
 
 // State
 let selectedBrowser = null;
-let pairingCode = null;
-let pairingPollInterval = null;
-let countdownInterval = null;
-let pairingExpiresAt = null;
 
 // DOM Elements
 const steps = {
@@ -16,7 +12,6 @@ const steps = {
   step2: document.getElementById('step2'),
   step3: document.getElementById('step3'),
   step4: document.getElementById('step4'),
-  step5: document.getElementById('step5'),
   errorState: document.getElementById('errorState')
 };
 
@@ -33,7 +28,6 @@ async function init() {
   setupStep2();
   setupStep3();
   setupStep4();
-  setupStep5();
   setupGlobalHandlers();
 }
 
@@ -574,7 +568,7 @@ function setupStep3() {
   });
 
   skipBotBtn.addEventListener('click', () => {
-    // Skip directly to step 4
+    // Skip directly to completion
     goToStep(4);
   });
 
@@ -591,157 +585,10 @@ function setupStep3() {
 }
 
 // ============================================================================
-// Step 4: Connect
+// Step 4: Done
 // ============================================================================
 
 function setupStep4() {
-  const copyBtn = document.getElementById('copyCode');
-  const regenerateBtn = document.getElementById('regenerateCode');
-  const backBtn = document.getElementById('backToStep3');
-  const skipBtn = document.getElementById('skipStep4');
-
-  // Back button - stop polling and go back
-  backBtn.addEventListener('click', () => {
-    stopPairing();
-    goToStep(3);
-  });
-
-  // Skip button - skip Discord connection and go to final step
-  skipBtn.addEventListener('click', () => {
-    stopPairing();
-    goToStep(5);
-  });
-
-  copyBtn.addEventListener('click', () => {
-    if (pairingCode) {
-      navigator.clipboard.writeText(`/rollcloud ${pairingCode}`);
-      copyBtn.textContent = '[copied]';
-      setTimeout(() => {
-        copyBtn.textContent = '[copy]';
-      }, 2000);
-    }
-  });
-
-  regenerateBtn.addEventListener('click', async () => {
-    // Disable button temporarily
-    regenerateBtn.disabled = true;
-    regenerateBtn.textContent = '🔄 Generating...';
-
-    try {
-      // Generate new pairing code
-      const codeResult = await window.api.generatePairingCode();
-      pairingCode = codeResult.code;
-
-      // Update the display
-      const codeDisplay = document.getElementById('pairingCode');
-      codeDisplay.textContent = pairingCode;
-
-      // Create new pairing in Supabase
-      await window.api.createPairing(pairingCode);
-
-      // Reset connection status
-      const waitingDiv = document.getElementById('waitingForConnection');
-      const completeDiv = document.getElementById('connectionComplete');
-      waitingDiv.classList.add('hidden');
-      completeDiv.classList.add('hidden');
-
-      // Re-enable button
-      regenerateBtn.disabled = false;
-      regenerateBtn.textContent = '🔄 Generate New Code';
-
-      // Show success feedback
-      regenerateBtn.style.backgroundColor = '#4ECDC4';
-      setTimeout(() => {
-        regenerateBtn.style.backgroundColor = '';
-      }, 1000);
-
-    } catch (error) {
-      console.error('Failed to regenerate code:', error);
-      regenerateBtn.disabled = false;
-      regenerateBtn.textContent = '🔄 Generate New Code';
-      
-      // Show error feedback
-      regenerateBtn.style.backgroundColor = '#E74C3C';
-      setTimeout(() => {
-        regenerateBtn.style.backgroundColor = '';
-      }, 1000);
-    }
-  });
-}
-
-async function startPairing() {
-  const codeDisplay = document.getElementById('pairingCode');
-  const waitingDiv = document.getElementById('waitingForConnection');
-  const completeDiv = document.getElementById('connectionComplete');
-  const countdownSpan = document.getElementById('countdown');
-
-  // Generate pairing code
-  const codeResult = await window.api.generatePairingCode();
-  pairingCode = codeResult.code;
-  codeDisplay.textContent = pairingCode;
-
-  // Create pairing in Supabase
-  try {
-    await window.api.createPairing(pairingCode);
-  } catch (err) {
-    console.error('Failed to create pairing:', err);
-    showError('Failed to create pairing code. Please check your internet connection.');
-    return;
-  }
-
-  // Start countdown (30 minutes)
-  pairingExpiresAt = Date.now() + 30 * 60 * 1000;
-
-  countdownInterval = setInterval(() => {
-    const remaining = Math.max(0, Math.floor((pairingExpiresAt - Date.now()) / 1000));
-    const mins = Math.floor(remaining / 60);
-    const secs = remaining % 60;
-    countdownSpan.textContent = `(${mins}:${secs.toString().padStart(2, '0')})`;
-
-    if (remaining <= 0) {
-      stopPairing();
-      showError('Pairing code expired. Please restart setup.');
-    }
-  }, 1000);
-
-  // Poll for connection every 3 seconds
-  pairingPollInterval = setInterval(async () => {
-    try {
-      const result = await window.api.checkPairing(pairingCode);
-
-      if (result.success && result.connected) {
-        // Connected!
-        stopPairing();
-        waitingDiv.classList.add('hidden');
-        completeDiv.classList.remove('hidden');
-        document.getElementById('connectedServer').textContent = result.serverName || 'Discord Server';
-        document.getElementById('connectedChannel').textContent = `#${result.channelName || 'channel'}`;
-
-        // Move to final step after brief delay
-        setTimeout(() => goToStep(5), 2000);
-      }
-    } catch (err) {
-      console.error('Pairing check error:', err);
-    }
-  }, 3000);
-}
-
-function stopPairing() {
-  if (pairingPollInterval) {
-    clearInterval(pairingPollInterval);
-    pairingPollInterval = null;
-  }
-  if (countdownInterval) {
-    clearInterval(countdownInterval);
-    countdownInterval = null;
-  }
-}
-
-// ============================================================================
-// Step 5: Done
-// ============================================================================
-
-function setupStep5() {
   const finishBtn = document.getElementById('finishSetup');
 
   finishBtn.addEventListener('click', async () => {
@@ -767,14 +614,11 @@ function goToStep(stepNum) {
     // Trigger step-specific actions
     if (stepNum === 2) {
       installExtension();
-    } else if (stepNum === 4) {
-      startPairing();
     }
   }
 }
 
 function showError(message) {
-  stopPairing();
   Object.values(steps).forEach(step => step.classList.remove('active'));
   steps.errorState.classList.add('active');
   steps.errorState.classList.remove('hidden');
@@ -789,13 +633,11 @@ function setupGlobalHandlers() {
   // Restart button
   document.getElementById('restartSetup').addEventListener('click', () => {
     selectedBrowser = null;
-    pairingCode = null;
-    stopPairing();
 
     // Reset all UI
     document.querySelectorAll('.browser-btn').forEach(btn => btn.classList.remove('selected'));
     document.getElementById('browserStatus').textContent = '';
-    document.getElementById('botAdded').classList.add('hidden');
+    document.getElementById('botAdded')?.classList.add('hidden');
 
     // Go back to step 1
     steps.errorState.classList.remove('active');

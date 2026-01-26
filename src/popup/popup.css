@@ -312,6 +312,10 @@ footer {
   background: white;
   cursor: pointer;
   transition: border-color 0.3s;
+  appearance: auto;
+  -webkit-appearance: menulist;
+  position: relative;
+  z-index: 10;
 }
 
 .character-dropdown:focus {
