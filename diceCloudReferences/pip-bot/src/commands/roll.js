@@ -96,55 +96,20 @@ export default {
     await interaction.deferReply();
 
     try {
-      // If no dice notation provided, try to roll from character sheet
+      // If no dice notation provided, show help message
       if (!diceNotation) {
-        const characterData = await getCharacterData(interaction.user.id);
-        
-        if (!characterData) {
-          await interaction.editReply({
-            embeds: [new EmbedBuilder()
-              .setColor(0xE74C3C)
-              .setTitle('❌ Character Not Found')
-              .setDescription('You need to link your character first. Use `/rollcloud [code]` to connect your RollCloud extension, or provide dice notation like `/roll 1d20+5`.')
-            ]
-          });
-          return;
-        }
-
-        // Roll a generic d20 check with character's proficiency bonus
-        const result = rollCharacterCheck(characterData, { advantage, checkType });
-        
-        // Add status message based on force_discord flag
-        if (forceDiscord) {
-          result.embed.setDescription(`**Rolled in Discord: ${result.total}**\n\n${result.embed.description}`);
-        } else {
-          result.embed.setDescription(`**Roll sent to Roll20**\n\n${result.embed.description}`);
-        }
-        
-        await interaction.editReply({ embeds: [result.embed] });
-
-        // Send real-time message to RollCloud extension (unless forced Discord only)
-        if (!forceDiscord) {
-          await sendRollToExtension(interaction, {
-            type: 'ability_check',
-            formula: '1d20+' + (characterData.proficiency_bonus || 2),
-            result: {
-              total: result.total,
-              rolls: result.rolls,
-              modifier: characterData.proficiency_bonus || 2
-            },
-            character: {
-              name: characterData.name,
-              id: characterData.id,
-              meteorId: characterData.meteor_character_id,
-              ability: 'generic',
-              advantage: advantage || 'normal'
-            }
-          });
-
-          // Wait for Roll20 response with timeout
-          await waitForRoll20Response(interaction, result.total);
-        }
+        await interaction.editReply({
+          embeds: [new EmbedBuilder()
+            .setColor(0x3498DB)
+            .setTitle('🎲 Roll Command')
+            .setDescription('Please provide dice notation or use the autocomplete to select an ability check.')
+            .addFields(
+              { name: 'Examples', value: '`/roll 1d20+5`\n`/roll 2d6`\n`/roll perception` (use autocomplete)', inline: false },
+              { name: 'Ability Checks', value: 'Use the autocomplete on the "dice" parameter to see available checks from your character, or type dice notation directly.', inline: false }
+            )
+            .setFooter({ text: 'Link your character with `/rollcloud [code]` to use ability checks from your sheet' })
+          ]
+        });
         return;
       }
 
