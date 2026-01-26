@@ -686,6 +686,18 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+// Helper function for setting active character (backup if runtime message fails)
+async function setActiveCharacter(characterId) {
+  try {
+    await browserAPI.storage.local.set({ 
+      activeCharacterId: characterId 
+    });
+    console.log(`✅ Set active character: ${characterId}`);
+  } catch (error) {
+    console.error('❌ Failed to set active character:', error);
+  }
+}
+
 function setAdvantageState(state) {
   advantageState = state;
 
@@ -851,6 +863,12 @@ function buildSheet(data) {
   // Death Saves
   const deathSavesDisplay = document.getElementById('death-saves-display');
   const deathSavesValue = document.getElementById('death-saves-value');
+  
+  // Defensive initialization for deathSaves
+  if (!data.deathSaves) {
+    data.deathSaves = { successes: 0, failures: 0 };
+  }
+  
   deathSavesValue.innerHTML = `
     <span style="color: var(--accent-success);">✓${data.deathSaves.successes || 0}</span> /
     <span style="color: var(--accent-danger);">✗${data.deathSaves.failures || 0}</span>
@@ -4121,7 +4139,7 @@ function showHPModal() {
       const actualHealing = characterData.hitPoints.current - oldHP;
 
       // Reset death saves on healing
-      if (actualHealing > 0 && (characterData.deathSaves.successes > 0 || characterData.deathSaves.failures > 0)) {
+      if (actualHealing > 0 && characterData.deathSaves && (characterData.deathSaves.successes > 0 || characterData.deathSaves.failures > 0)) {
         characterData.deathSaves.successes = 0;
         characterData.deathSaves.failures = 0;
         debug.log('♻️ Death saves reset due to healing');
@@ -4478,8 +4496,10 @@ function showDeathSavesModal() {
   const modalContent = document.createElement('div');
   modalContent.style.cssText = 'background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); min-width: 300px;';
 
-  const successes = characterData.deathSaves.successes || 0;
-  const failures = characterData.deathSaves.failures || 0;
+  // Defensive initialization for death saves
+  const deathSaves = characterData.deathSaves || { successes: 0, failures: 0 };
+  const successes = deathSaves.successes || 0;
+  const failures = deathSaves.failures || 0;
 
   modalContent.innerHTML = `
     <h3 style="margin: 0 0 20px 0; color: #2c3e50; text-align: center;">Death Saves</h3>
@@ -4533,6 +4553,7 @@ function showDeathSavesModal() {
 
     if (rollResult === 20) {
       // Natural 20: regain 1 HP (represented as 2 successes in death saves)
+      if (!characterData.deathSaves) characterData.deathSaves = { successes: 0, failures: 0 };
       if (characterData.deathSaves.successes < 3) {
         characterData.deathSaves.successes += 2;
         if (characterData.deathSaves.successes > 3) characterData.deathSaves.successes = 3;
@@ -4541,6 +4562,7 @@ function showDeathSavesModal() {
       isSuccess = true;
     } else if (rollResult === 1) {
       // Natural 1: counts as 2 failures
+      if (!characterData.deathSaves) characterData.deathSaves = { successes: 0, failures: 0 };
       if (characterData.deathSaves.failures < 3) {
         characterData.deathSaves.failures += 2;
         if (characterData.deathSaves.failures > 3) characterData.deathSaves.failures = 3;
@@ -4548,6 +4570,7 @@ function showDeathSavesModal() {
       message = `💀 NAT 1! Death Save Failure x2 (${characterData.deathSaves.failures}/3)`;
     } else if (rollResult >= 10) {
       // Success
+      if (!characterData.deathSaves) characterData.deathSaves = { successes: 0, failures: 0 };
       if (characterData.deathSaves.successes < 3) {
         characterData.deathSaves.successes++;
       }
@@ -4555,6 +4578,7 @@ function showDeathSavesModal() {
       isSuccess = true;
     } else {
       // Failure
+      if (!characterData.deathSaves) characterData.deathSaves = { successes: 0, failures: 0 };
       if (characterData.deathSaves.failures < 3) {
         characterData.deathSaves.failures++;
       }
@@ -4575,6 +4599,7 @@ function showDeathSavesModal() {
 
   // Add success button
   document.getElementById('add-success').addEventListener('click', () => {
+    if (!characterData.deathSaves) characterData.deathSaves = { successes: 0, failures: 0 };
     if (characterData.deathSaves.successes < 3) {
       characterData.deathSaves.successes++;
       saveCharacterData();
@@ -4586,6 +4611,7 @@ function showDeathSavesModal() {
 
   // Add failure button
   document.getElementById('add-failure').addEventListener('click', () => {
+    if (!characterData.deathSaves) characterData.deathSaves = { successes: 0, failures: 0 };
     if (characterData.deathSaves.failures < 3) {
       characterData.deathSaves.failures++;
       saveCharacterData();
@@ -4597,8 +4623,7 @@ function showDeathSavesModal() {
 
   // Reset button
   document.getElementById('reset-death-saves').addEventListener('click', () => {
-    characterData.deathSaves.successes = 0;
-    characterData.deathSaves.failures = 0;
+    characterData.deathSaves = { successes: 0, failures: 0 };
     saveCharacterData();
     showNotification('♻️ Death saves reset');
     buildSheet(characterData);
