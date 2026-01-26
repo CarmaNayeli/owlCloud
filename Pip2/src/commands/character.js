@@ -21,15 +21,7 @@ export default {
     ),
 
   async execute(interaction) {
-    console.log('🎭 /character command received:', {
-      user: interaction.user.id,
-      username: interaction.user.username,
-      options: {
-        name: interaction.options.getString('name'),
-        user: interaction.options.getUser('user')?.id
-      }
-    });
-
+    // IMPORTANT: deferReply MUST happen first - Discord only gives 3 seconds!
     await interaction.deferReply({ flags: 64 }); // ephemeral
 
     try {
@@ -37,7 +29,13 @@ export default {
       const targetUser = interaction.options.getUser('user') || interaction.user;
       const isOwnCharacter = targetUser.id === interaction.user.id;
 
-      console.log('🎭 Processing:', { characterName, targetUserId: targetUser.id, isOwnCharacter });
+      console.log('🎭 /character command:', {
+        user: interaction.user.id,
+        username: interaction.user.username,
+        characterName,
+        targetUserId: targetUser.id,
+        isOwnCharacter
+      });
 
       // If name provided and it's the user's own character, set it as active
       if (characterName && isOwnCharacter) {
