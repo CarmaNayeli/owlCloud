@@ -2279,8 +2279,8 @@ async function subscribeToCommandRealtime(pairingId) {
       try {
         const message = JSON.parse(event.data);
 
-        // Log all messages for debugging
-        debug.log('📨 Realtime message:', message.event, message.topic || '', message.payload?.status || '');
+        // Log ALL raw messages for debugging
+        debug.log('📨 RAW Realtime message:', JSON.stringify(message).substring(0, 500));
 
         // Handle Phoenix protocol replies (subscription confirmation)
         if (message.event === 'phx_reply') {
@@ -2298,14 +2298,25 @@ async function subscribeToCommandRealtime(pairingId) {
           return;
         }
 
-        if (message.event === 'postgres_changes' && message.payload?.data?.record) {
-          const record = message.payload.data.record;
+        // Handle postgres_changes - check multiple possible formats
+        const isPostgresChange = message.event === 'postgres_changes' ||
+                                  message.event === 'INSERT' ||
+                                  message.payload?.type === 'INSERT' ||
+                                  message.payload?.eventType === 'INSERT';
 
-          // Only act on pending commands for our pairing
-          if (record.status === 'pending' && record.pairing_id === currentPairingId) {
+        if (isPostgresChange) {
+          // Try to get record from various possible locations
+          const record = message.payload?.data?.record ||
+                        message.payload?.record ||
+                        message.payload?.new ||
+                        message.payload;
+
+          debug.log('📥 Postgres change detected! Record:', JSON.stringify(record).substring(0, 300));
+
+          if (record && record.status === 'pending' && record.pairing_id === currentPairingId) {
             debug.log('📥 Realtime command received:', record.command_type, record.id);
             await executeCommand(record);
-          } else {
+          } else if (record) {
             debug.log('⏭️ Skipping command - status:', record.status, 'pairing match:', record.pairing_id === currentPairingId);
           }
         }
