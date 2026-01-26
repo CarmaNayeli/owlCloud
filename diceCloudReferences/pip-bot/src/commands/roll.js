@@ -113,6 +113,14 @@ export default {
 
         // Roll a generic d20 check with character's proficiency bonus
         const result = rollCharacterCheck(characterData, { advantage, checkType });
+        
+        // Add status message based on force_discord flag
+        if (forceDiscord) {
+          result.embed.setDescription(`**Rolled in Discord: ${result.total}**\n\n${result.embed.description}`);
+        } else {
+          result.embed.setDescription(`**Roll sent to Roll20**\n\n${result.embed.description}`);
+        }
+        
         await interaction.editReply({ embeds: [result.embed] });
 
         // Send real-time message to RollCloud extension (unless forced Discord only)
@@ -144,6 +152,13 @@ export default {
       const checkResult = await tryAbilityCheck(interaction.user.id, diceNotation, { advantage, checkType });
       
       if (checkResult.isCheck) {
+        // Add status message based on force_discord flag and character availability
+        if (forceDiscord || !checkResult.character) {
+          checkResult.embed.setDescription(`**Rolled in Discord: ${checkResult.result.total}**\n\n${checkResult.embed.description}`);
+        } else {
+          checkResult.embed.setDescription(`**Roll sent to Roll20**\n\n${checkResult.embed.description}`);
+        }
+        
         await interaction.editReply({ embeds: [checkResult.embed] });
 
         // Send real-time message to RollCloud extension (unless forced Discord only)
@@ -218,6 +233,13 @@ export default {
           { name: 'Sum', value: `**${sum}**${modifier !== 0 ? ` ${modifier > 0 ? '+' : ''}${modifier}` : ''}`, inline: false }
         )
         .setTimestamp();
+
+      // Add status message based on force_discord flag
+      if (forceDiscord) {
+        embed.setDescription(`**Rolled in Discord: ${total}**\n\n**Total: ${total}**`);
+      } else {
+        embed.setDescription(`**Roll sent to Roll20**\n\n**Total: ${total}**`);
+      }
 
       await interaction.editReply({ embeds: [embed] });
 
@@ -1120,9 +1142,9 @@ async function updateDiscordMessageWithFallback(interaction, fallbackMessage) {
   try {
     const embed = new EmbedBuilder()
       .setColor(0xFFA500) // Orange for warning
-      .setTitle(`🎲 ${interaction.user.displayName} - Discord Roll Only`)
-      .setDescription(fallbackMessage)
-      .setFooter({ text: 'Roll20 integration unavailable - using Discord roll result' })
+      .setTitle(`🎲 ${interaction.user.displayName} - Rolled in Discord`)
+      .setDescription(`**Rolled in Discord (Roll20 unavailable)**\n\n${fallbackMessage}`)
+      .setFooter({ text: 'Roll20 integration failed - using Discord roll result' })
       .setTimestamp();
 
     await interaction.editReply({ embeds: [embed] });
