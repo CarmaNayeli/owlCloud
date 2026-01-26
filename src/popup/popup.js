@@ -1653,10 +1653,17 @@ function initializePopup() {
   async function handleCheckDiscordIntegration() {
     // Get the button that was clicked (could be either connected or not connected state)
     const checkBtn = document.getElementById('checkDiscordIntegration') || document.getElementById('checkDiscordIntegrationNotConnected');
+    
+    if (!checkBtn) {
+      debug.error('Check Discord integration button not found');
+      showDiscordStatus('Error: Button not found', 'error');
+      return;
+    }
+
+    const originalText = checkBtn.textContent;
 
     try {
       checkBtn.disabled = true;
-      const originalText = checkBtn.textContent;
       checkBtn.textContent = '⏳ Checking...';
 
       // Get current character data
@@ -1700,8 +1707,10 @@ function initializePopup() {
       debug.error('Check Discord integration error:', error);
       showDiscordStatus(`Error: ${error.message}`, 'error');
     } finally {
-      checkBtn.disabled = false;
-      checkBtn.textContent = originalText;
+      if (checkBtn) {
+        checkBtn.disabled = false;
+        checkBtn.textContent = originalText;
+      }
     }
   }
 
