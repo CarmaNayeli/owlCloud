@@ -251,7 +251,9 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
 
         case 'setDiscordWebhook': {
-          await setDiscordWebhookSettings(request.webhookUrl, true, request.serverName);
+          // Use request.enabled if provided, otherwise default to true when URL is provided
+          const enabled = request.enabled !== undefined ? request.enabled : !!request.webhookUrl;
+          await setDiscordWebhookSettings(request.webhookUrl, enabled, request.serverName);
           // Also set the pairing ID for command polling if provided
           if (request.pairingId) {
             currentPairingId = request.pairingId;
