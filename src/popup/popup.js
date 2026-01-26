@@ -210,6 +210,7 @@ function initializePopup() {
   const disconnectDiscordBtn = document.getElementById('disconnectDiscordBtn');
   const testDiscordWebhookBtn = document.getElementById('testDiscordWebhook');
   const checkDiscordIntegrationBtn = document.getElementById('checkDiscordIntegration');
+  const checkDiscordIntegrationNotConnectedBtn = document.getElementById('checkDiscordIntegrationNotConnected');
   const saveDiscordWebhookBtn = document.getElementById('saveDiscordWebhook');
 
   if (setupDiscordBtn) {
@@ -221,6 +222,7 @@ function initializePopup() {
     if (disconnectDiscordBtn) disconnectDiscordBtn.addEventListener('click', handleDisconnectDiscord);
     if (testDiscordWebhookBtn) testDiscordWebhookBtn.addEventListener('click', handleTestDiscordWebhook);
     if (checkDiscordIntegrationBtn) checkDiscordIntegrationBtn.addEventListener('click', handleCheckDiscordIntegration);
+    if (checkDiscordIntegrationNotConnectedBtn) checkDiscordIntegrationNotConnectedBtn.addEventListener('click', handleCheckDiscordIntegration);
     if (saveDiscordWebhookBtn) saveDiscordWebhookBtn.addEventListener('click', handleSaveDiscordWebhook);
   }
 
@@ -1649,10 +1651,12 @@ function initializePopup() {
    * Handles checking Discord integration for current character
    */
   async function handleCheckDiscordIntegration() {
-    const checkBtn = document.getElementById('checkDiscordIntegration');
+    // Get the button that was clicked (could be either connected or not connected state)
+    const checkBtn = document.getElementById('checkDiscordIntegration') || document.getElementById('checkDiscordIntegrationNotConnected');
 
     try {
       checkBtn.disabled = true;
+      const originalText = checkBtn.textContent;
       checkBtn.textContent = '⏳ Checking...';
 
       // Get current character data
@@ -1689,7 +1693,7 @@ function initializePopup() {
       showDiscordStatus(`Error: ${error.message}`, 'error');
     } finally {
       checkBtn.disabled = false;
-      checkBtn.textContent = '🔍 Check Character';
+      checkBtn.textContent = originalText;
     }
   }
 
