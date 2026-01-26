@@ -138,7 +138,7 @@ async function handleCreate(interaction) {
   if (!/^[0-9A-Fa-f]{6}$/.test(color)) {
     return interaction.reply({
       content: '❌ Invalid color! Use hex format like #5865F2',
-      ephemeral: true,
+      flags: 64 // ephemeral,
     });
   }
 
@@ -153,13 +153,13 @@ async function handleCreate(interaction) {
 
     await interaction.reply({
       content: `✅ Reaction role message created!\n\nMessage ID: \`${message.id}\`\n\nUse \`/reactionrole add message_id:${message.id}\` to add roles.`,
-      ephemeral: true,
+      flags: 64 // ephemeral,
     });
   } catch (error) {
     console.error('Error creating reaction role message:', error);
     await interaction.reply({
       content: '❌ Failed to create message. Make sure I have permission to send messages!',
-      ephemeral: true,
+      flags: 64 // ephemeral,
     });
   }
 }
@@ -177,7 +177,7 @@ async function handleAdd(interaction) {
   if (role.position >= botMember.roles.highest.position) {
     return interaction.reply({
       content: `❌ I cannot manage the role ${role.name} because it's higher than or equal to my highest role!`,
-      ephemeral: true,
+      flags: 64 // ephemeral,
     });
   }
 
@@ -185,7 +185,7 @@ async function handleAdd(interaction) {
   if (role.id === interaction.guild.id) {
     return interaction.reply({
       content: '❌ Cannot assign the @everyone role!',
-      ephemeral: true,
+      flags: 64 // ephemeral,
     });
   }
 
@@ -208,24 +208,24 @@ async function handleAdd(interaction) {
 
     await interaction.reply({
       content: `✅ Added reaction role: ${emojiInput} → ${role.name}`,
-      ephemeral: true,
+      flags: 64 // ephemeral,
     });
   } catch (error) {
     console.error('Error adding reaction role:', error);
     if (error.code === 10008) {
       await interaction.reply({
         content: '❌ Message not found! Make sure the message ID is correct and in this channel.',
-        ephemeral: true,
+        flags: 64 // ephemeral,
       });
     } else if (error.code === 10014) {
       await interaction.reply({
         content: '❌ Unknown emoji! Make sure the emoji is from this server or use a standard Unicode emoji.',
-        ephemeral: true,
+        flags: 64 // ephemeral,
       });
     } else {
       await interaction.reply({
         content: '❌ Failed to add reaction role. Check my permissions and try again.',
-        ephemeral: true,
+        flags: 64 // ephemeral,
       });
     }
   }
@@ -264,13 +264,13 @@ async function handleRemove(interaction) {
 
     await interaction.reply({
       content: `✅ Removed reaction role: ${emojiInput}`,
-      ephemeral: true,
+      flags: 64 // ephemeral,
     });
   } catch (error) {
     console.error('Error removing reaction role:', error);
     await interaction.reply({
       content: '❌ Failed to remove reaction role. It has been removed from storage, but the reaction may still be on the message.',
-      ephemeral: true,
+      flags: 64 // ephemeral,
     });
   }
 }
@@ -287,7 +287,7 @@ async function handleList(interaction) {
     if (Object.keys(reactionRoles).length === 0) {
       return interaction.reply({
         content: '❌ No reaction roles found for this message.',
-        ephemeral: true,
+        flags: 64 // ephemeral,
       });
     }
 
@@ -310,13 +310,13 @@ async function handleList(interaction) {
 
     await interaction.reply({
       embeds: [embed],
-      ephemeral: true,
+      flags: 64 // ephemeral,
     });
   } catch (error) {
     console.error('Error listing reaction roles:', error);
     await interaction.reply({
       content: '❌ Failed to list reaction roles.',
-      ephemeral: true,
+      flags: 64 // ephemeral,
     });
   }
 }
@@ -333,7 +333,7 @@ async function handleDelete(interaction) {
     if (Object.keys(reactionRoles).length === 0) {
       return interaction.reply({
         content: '❌ No reaction roles found for this message.',
-        ephemeral: true,
+        flags: 64 // ephemeral,
       });
     }
 
@@ -341,13 +341,13 @@ async function handleDelete(interaction) {
 
     await interaction.reply({
       content: `✅ Deleted all reaction roles for message \`${messageId}\``,
-      ephemeral: true,
+      flags: 64 // ephemeral,
     });
   } catch (error) {
     console.error('Error deleting reaction roles:', error);
     await interaction.reply({
       content: '❌ Failed to delete reaction roles.',
-      ephemeral: true,
+      flags: 64 // ephemeral,
     });
   }
 }

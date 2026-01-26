@@ -117,7 +117,7 @@ async function handleSetup(interaction) {
 
   await interaction.reply({
     content: `✅ Ticket panel created! Support role: ${supportRole}`,
-    ephemeral: true
+    flags: 64 // ephemeral
   });
 }
 
@@ -128,7 +128,7 @@ async function handleClose(interaction) {
   if (!channel.name.startsWith('ticket-')) {
     return await interaction.reply({
       content: '❌ This command can only be used in ticket channels!',
-      ephemeral: true
+      flags: 64 // ephemeral
     });
   }
 
@@ -162,7 +162,7 @@ async function handleAdd(interaction) {
   if (!channel.name.startsWith('ticket-')) {
     return await interaction.reply({
       content: '❌ This command can only be used in ticket channels!',
-      ephemeral: true
+      flags: 64 // ephemeral
     });
   }
 
@@ -180,7 +180,7 @@ async function handleAdd(interaction) {
     console.error('Failed to add user to ticket:', error);
     await interaction.reply({
       content: '❌ Failed to add user to ticket.',
-      ephemeral: true
+      flags: 64 // ephemeral
     });
   }
 }
@@ -193,7 +193,7 @@ async function handleRemove(interaction) {
   if (!channel.name.startsWith('ticket-')) {
     return await interaction.reply({
       content: '❌ This command can only be used in ticket channels!',
-      ephemeral: true
+      flags: 64 // ephemeral
     });
   }
 
@@ -207,7 +207,7 @@ async function handleRemove(interaction) {
     console.error('Failed to remove user from ticket:', error);
     await interaction.reply({
       content: '❌ Failed to remove user from ticket.',
-      ephemeral: true
+      flags: 64 // ephemeral
     });
   }
 }

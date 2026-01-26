@@ -81,12 +81,12 @@ async function handleView(interaction) {
       .setFooter({ text: 'Dice Cat • Board Gaming Community' })
       .setTimestamp();
 
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply({ embeds: [embed], flags: 64 }); // ephemeral
   } catch (error) {
     console.error('Error reading changelog:', error);
     await interaction.reply({
       content: '❌ Failed to read changelog file.',
-      ephemeral: true
+      flags: 64 // ephemeral
     });
   }
 }
@@ -96,7 +96,7 @@ async function handlePost(interaction) {
   if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
     return await interaction.reply({
       content: '❌ You need Administrator permission to post changelogs.',
-      ephemeral: true
+      flags: 64 // ephemeral
     });
   }
 
@@ -151,13 +151,13 @@ async function handlePost(interaction) {
 
     await interaction.reply({
       content: `✅ Changelog posted to ${targetChannel}`,
-      ephemeral: true
+      flags: 64 // ephemeral
     });
   } catch (error) {
     console.error('Error posting changelog:', error);
     await interaction.reply({
       content: '❌ Failed to post changelog.',
-      ephemeral: true
+      flags: 64 // ephemeral
     });
   }
 }

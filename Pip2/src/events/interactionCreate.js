@@ -74,7 +74,7 @@ async function handleCloseTicket(interaction) {
   if (!channel.name.startsWith('ticket-')) {
     return await interaction.reply({
       content: '❌ This can only be used in ticket channels!',
-      ephemeral: true
+      flags: 64 // ephemeral
     });
   }
 
@@ -112,11 +112,11 @@ async function handleCreateTicket(interaction, params) {
   if (existingTicket) {
     return await interaction.reply({
       content: `❌ You already have an open ticket: ${existingTicket}`,
-      ephemeral: true
+      flags: 64 // ephemeral
     });
   }
 
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: 64 }); // ephemeral
 
   try {
     const supportRole = await interaction.guild.roles.fetch(supportRoleId);
@@ -222,7 +222,7 @@ async function handleRollCloudButton(interaction, params) {
   const [commandType, actionName, ...extraData] = params;
 
   // Acknowledge immediately
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: 64 }); // ephemeral
 
   try {
     // Find the pairing for this channel
