@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
 const https = require('https');
-const { installExtension, uninstallExtension, isExtensionInstalled, installFirefoxDeveloperEdition } = require('./extension-installer');
+const { installExtension, uninstallExtension, isExtensionInstalled, installFirefoxDeveloperEdition, restartBrowser } = require('./extension-installer');
 const { sendPairingCodeToExtension } = require('./native-messaging');
 const { generatePairingCode, createPairing, createPairingAndSend, checkPairing } = require('./pairing');
 
@@ -260,6 +260,16 @@ ipcMain.handle('force-reinstall-extension', async (event, browser) => {
   try {
     const { forceReinstallExtension } = require('./extension-installer');
     const result = await forceReinstallExtension(browser, CONFIG);
+    return result;
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Restart browser to apply extension policy
+ipcMain.handle('restart-browser', async (event, browser) => {
+  try {
+    const result = await restartBrowser(browser);
     return result;
   } catch (error) {
     return { success: false, error: error.message };
