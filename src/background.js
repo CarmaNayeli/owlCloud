@@ -533,9 +533,12 @@ async function logout() {
  */
 async function storeCharacterData(characterData, slotId) {
   try {
-    // CRITICAL: Preserve the exact data structure from DiceCloud
-    // Do NOT transform field names - this breaks consistency with database storage
-    
+    // Normalize field names: database uses character_name, DiceCloud uses name
+    // Ensure 'name' field exists for consistent display
+    if (characterData.character_name && !characterData.name) {
+      characterData.name = characterData.character_name;
+    }
+
     // Use slotId if provided, otherwise fall back to character ID from the data
     const storageId = slotId || characterData.id || characterData._id || 'default';
 
