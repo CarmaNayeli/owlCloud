@@ -506,6 +506,24 @@ async function logout() {
  */
 async function storeCharacterData(characterData, slotId) {
   try {
+    // Normalize database-format fields to extension format
+    // Cloud sync stores raw Supabase records with different field names
+    if (characterData.character_name !== undefined && characterData.name === undefined) {
+      characterData.name = characterData.character_name;
+    }
+    if (characterData.dicecloud_character_id !== undefined && characterData.characterId === undefined) {
+      characterData.characterId = characterData.dicecloud_character_id;
+      if (!characterData._id) {
+        characterData._id = characterData.dicecloud_character_id;
+      }
+    }
+    // Avoid using Supabase UUID as the DiceCloud creature ID
+    // Database records have `id` as Supabase UUID and `dicecloud_character_id` as the real ID
+    if (characterData.discord_user_id !== undefined && characterData.dicecloud_character_id !== undefined) {
+      // This is a database record - replace the Supabase UUID `id` with the DiceCloud ID
+      characterData.id = characterData.dicecloud_character_id;
+    }
+
     // Use slotId if provided, otherwise fall back to character ID from the data
     const storageId = slotId || characterData.characterId || characterData._id || 'default';
 

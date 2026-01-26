@@ -84,30 +84,47 @@ async function installExtension(browser, config) {
  */
 async function installWindowsPolicy(browser, policyValue, browserConfig) {
   const regPath = browserConfig.windows.registryPath;
+  const extensionId = policyValue.split(';')[0];
 
-  // Find the next available index
+  // Check if extension is already in the forcelist (avoid duplicates)
   let index = 1;
+  let alreadyExists = false;
   try {
     const result = execSync(`reg query "${regPath}" 2>nul`, { encoding: 'utf-8' });
-    const matches = result.match(/REG_SZ/g);
-    if (matches) {
-      index = matches.length + 1;
+    const lines = result.split('\n').filter(l => l.includes('REG_SZ'));
+    for (const line of lines) {
+      if (line.includes(extensionId)) {
+        // Already exists - find its value name to overwrite it
+        const match = line.trim().match(/^(\S+)/);
+        if (match) {
+          index = match[1];
+          alreadyExists = true;
+        }
+        break;
+      }
+    }
+    if (!alreadyExists) {
+      index = lines.length + 1;
     }
   } catch {
     // Key doesn't exist, will be created
   }
 
-  // Create the registry key
-  const cmd = `reg add "${regPath}" /v "${index}" /t REG_SZ /d "${policyValue}" /f`;
+  // Build all commands: forcelist entry + install sources to allow GitHub downloads
+  const forcelistCmd = `reg add "${regPath}" /v "${index}" /t REG_SZ /d "${policyValue}" /f`;
+  const sourcesRegPath = 'HKLM\\SOFTWARE\\Policies\\Google\\Chrome\\ExtensionInstallSources';
+  const sourcesCmd1 = `reg add "${sourcesRegPath}" /v "1" /t REG_SZ /d "https://github.com/CarmaNayeli/rollCloud/*" /f`;
+  const sourcesCmd2 = `reg add "${sourcesRegPath}" /v "2" /t REG_SZ /d "https://raw.githubusercontent.com/CarmaNayeli/rollCloud/*" /f`;
+  const allCmds = `${forcelistCmd} && ${sourcesCmd1} && ${sourcesCmd2}`;
 
   return new Promise((resolve, reject) => {
-    exec(cmd, (error, stdout, stderr) => {
+    exec(allCmds, (error, stdout, stderr) => {
       if (error) {
         // Try with elevated privileges using sudo-prompt
         const sudo = require('sudo-prompt');
         const options = { name: 'RollCloud Setup' };
 
-        sudo.exec(cmd, options, (sudoError, sudoStdout, sudoStderr) => {
+        sudo.exec(allCmds, options, (sudoError, sudoStdout, sudoStderr) => {
           if (sudoError) {
             reject(new Error(`Failed to write registry: ${sudoError.message}`));
           } else {
@@ -148,6 +165,20 @@ async function installMacPolicy(browser, policyValue, browserConfig) {
   }
   if (!plistContent[plistKey].includes(policyValue)) {
     plistContent[plistKey].push(policyValue);
+  }
+
+  // Add install sources to allow downloads from GitHub
+  if (!plistContent['ExtensionInstallSources']) {
+    plistContent['ExtensionInstallSources'] = [];
+  }
+  const githubSources = [
+    'https://github.com/CarmaNayeli/rollCloud/*',
+    'https://raw.githubusercontent.com/CarmaNayeli/rollCloud/*'
+  ];
+  for (const source of githubSources) {
+    if (!plistContent['ExtensionInstallSources'].includes(source)) {
+      plistContent['ExtensionInstallSources'].push(source);
+    }
   }
 
   // Write the plist
@@ -198,6 +229,20 @@ async function installLinuxPolicy(browser, policyValue, browserConfig) {
   }
   if (!policyContent[jsonKey].includes(policyValue)) {
     policyContent[jsonKey].push(policyValue);
+  }
+
+  // Add install sources to allow downloads from GitHub
+  if (!policyContent['ExtensionInstallSources']) {
+    policyContent['ExtensionInstallSources'] = [];
+  }
+  const githubSources = [
+    'https://github.com/CarmaNayeli/rollCloud/*',
+    'https://raw.githubusercontent.com/CarmaNayeli/rollCloud/*'
+  ];
+  for (const source of githubSources) {
+    if (!policyContent['ExtensionInstallSources'].includes(source)) {
+      policyContent['ExtensionInstallSources'].push(source);
+    }
   }
 
   // Write to temp file first
@@ -1629,10 +1674,15 @@ async function forceReinstallExtension(browser, config) {
           console.log('  No existing Chrome policy found');
         }
         
-        // Add new policy
+        // Add new policy + install sources to allow GitHub downloads
         const policyValue = `${extensionId};${updateUrl}`;
-        const cmd = `reg add "${regPath}" /v 1 /t REG_SZ /d "${policyValue}" /f`;
-        
+        const sourcesRegPath = 'HKLM\\SOFTWARE\\Policies\\Google\\Chrome\\ExtensionInstallSources';
+        const cmd = [
+          `reg add "${regPath}" /v 1 /t REG_SZ /d "${policyValue}" /f`,
+          `reg add "${sourcesRegPath}" /v "1" /t REG_SZ /d "https://github.com/CarmaNayeli/rollCloud/*" /f`,
+          `reg add "${sourcesRegPath}" /v "2" /t REG_SZ /d "https://raw.githubusercontent.com/CarmaNayeli/rollCloud/*" /f`
+        ].join(' && ');
+
         execSync(cmd, { stdio: 'pipe' });
         console.log('  ✅ Chrome policy set successfully');
         
