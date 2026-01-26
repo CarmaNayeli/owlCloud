@@ -458,7 +458,7 @@ async function getApiToken() {
  */
 async function checkLoginStatus() {
   try {
-    const result = await browserAPI.storage.local.get(['diceCloudToken', 'username', 'tokenExpires']);
+    const result = await browserAPI.storage.local.get(['diceCloudToken', 'username', 'tokenExpires', 'diceCloudUserId']);
 
     if (!result.diceCloudToken) {
       return { loggedIn: false };
@@ -477,7 +477,8 @@ async function checkLoginStatus() {
 
     return {
       loggedIn: true,
-      username: result.username || 'DiceCloud User'
+      username: result.username || 'DiceCloud User',
+      userId: result.diceCloudUserId || null
     };
   } catch (error) {
     debug.error('Failed to check login status:', error);
@@ -1405,8 +1406,18 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
     }
     const visitorId = 'user_' + Math.abs(hash).toString(36);
 
+    // Get DiceCloud user ID from character data, or fall back to local storage
+    let dicecloudUserId = characterData.dicecloudUserId || characterData.userId || null;
+    if (!dicecloudUserId) {
+      const stored = await browserAPI.storage.local.get(['diceCloudUserId']);
+      dicecloudUserId = stored.diceCloudUserId || null;
+      if (dicecloudUserId) {
+        debug.log('✅ Got DiceCloud user ID from storage:', dicecloudUserId);
+      }
+    }
+
     const payload = {
-      user_id_dicecloud: characterData.dicecloudUserId || characterData.userId || null,
+      user_id_dicecloud: dicecloudUserId,
       dicecloud_character_id: characterData.id,
       character_name: characterData.name || 'Unknown',
       race: characterData.race || null,

@@ -77,9 +77,6 @@ class SupabaseTokenManager {
         username: tokenData.username || 'DiceCloud User',
         user_id_dicecloud: tokenData.userId, // Store DiceCloud ID separately
         token_expires: normalizedTokenExpires,
-        discord_user_id: tokenData.discordUserId || null,
-        discord_username: tokenData.discordUsername || null,
-        discord_global_name: tokenData.discordGlobalName || null,
         browser_info: {
           userAgent: navigator.userAgent,
           authId: tokenData.authId, // Store authId in browser_info for reference
@@ -87,6 +84,17 @@ class SupabaseTokenManager {
         },
         updated_at: new Date().toISOString()
       };
+
+      // Only include Discord fields if provided, to avoid overwriting existing data with null
+      if (tokenData.discordUserId) {
+        payload.discord_user_id = tokenData.discordUserId;
+      }
+      if (tokenData.discordUsername) {
+        payload.discord_username = tokenData.discordUsername;
+      }
+      if (tokenData.discordGlobalName) {
+        payload.discord_global_name = tokenData.discordGlobalName;
+      }
 
       debug.log('🌐 Storing with browser ID:', visitorId, 'DiceCloud ID:', tokenData.authId);
       if (tokenData.discordUserId) {
@@ -111,6 +119,30 @@ class SupabaseTokenManager {
         debug.log('⚠️ Supabase POST failed, trying PATCH. Error:', response.status, errorText);
 
         // Try to update if insert fails (user already exists)
+        const updatePayload = {
+          dicecloud_token: tokenData.token,
+          username: tokenData.username || 'DiceCloud User',
+          user_id_dicecloud: tokenData.userId,
+          token_expires: normalizedTokenExpires,
+          browser_info: {
+            userAgent: navigator.userAgent,
+            authId: tokenData.authId,
+            timestamp: new Date().toISOString()
+          },
+          updated_at: new Date().toISOString()
+        };
+
+        // Only include Discord fields if provided, to avoid overwriting existing data with null
+        if (tokenData.discordUserId) {
+          updatePayload.discord_user_id = tokenData.discordUserId;
+        }
+        if (tokenData.discordUsername) {
+          updatePayload.discord_username = tokenData.discordUsername;
+        }
+        if (tokenData.discordGlobalName) {
+          updatePayload.discord_global_name = tokenData.discordGlobalName;
+        }
+
         const updateResponse = await fetch(`${this.supabaseUrl}/rest/v1/${this.tableName}?user_id=eq.${visitorId}`, {
           method: 'PATCH',
           headers: {
@@ -119,21 +151,7 @@ class SupabaseTokenManager {
             'Content-Type': 'application/json',
             'Prefer': 'return=minimal'
           },
-          body: JSON.stringify({
-            dicecloud_token: tokenData.token,
-            username: tokenData.username || 'DiceCloud User',
-            user_id_dicecloud: tokenData.userId,
-            token_expires: normalizedTokenExpires,
-            discord_user_id: tokenData.discordUserId || null,
-            discord_username: tokenData.discordUsername || null,
-            discord_global_name: tokenData.discordGlobalName || null,
-            browser_info: {
-              userAgent: navigator.userAgent,
-              authId: tokenData.authId,
-              timestamp: new Date().toISOString()
-            },
-            updated_at: new Date().toISOString()
-          })
+          body: JSON.stringify(updatePayload)
         });
 
         debug.log('📥 Supabase PATCH response status:', updateResponse.status);
@@ -377,7 +395,10 @@ class SupabaseTokenManager {
           }
         }
       } else {
-        // No pairing code provided - try to get Discord user ID from auth_tokens
+        // No pairing code provided - try to get Discord user ID from auth_tokens or pairings
+        let discordUserId = null;
+
+        // First, check auth_tokens
         try {
           const authResponse = await fetch(
             `${this.supabaseUrl}/rest/v1/auth_tokens?user_id=eq.${this.generateUserId()}&select=discord_user_id`,
@@ -391,18 +412,44 @@ class SupabaseTokenManager {
           if (authResponse.ok) {
             const authTokens = await authResponse.json();
             if (authTokens.length > 0 && authTokens[0].discord_user_id) {
-              payload.discord_user_id = authTokens[0].discord_user_id;
-              debug.log('✅ Found Discord user ID from auth_tokens:', authTokens[0].discord_user_id);
-            } else {
-              // No Discord user ID found - use a placeholder
-              payload.discord_user_id = 'not_linked';
-              debug.log('⚠️ No Discord user ID found, using placeholder');
+              discordUserId = authTokens[0].discord_user_id;
+              debug.log('✅ Found Discord user ID from auth_tokens:', discordUserId);
             }
           }
         } catch (error) {
-          // If we can't get Discord user ID, use a placeholder
+          debug.log('⚠️ Failed to check auth_tokens for Discord user ID:', error.message);
+        }
+
+        // If not in auth_tokens, check pairings table for this DiceCloud user
+        if (!discordUserId && payload.user_id_dicecloud) {
+          try {
+            const pairingResponse = await fetch(
+              `${this.supabaseUrl}/rest/v1/rollcloud_pairings?dicecloud_user_id=eq.${payload.user_id_dicecloud}&status=eq.connected&select=discord_user_id`,
+              {
+                headers: {
+                  'apikey': this.supabaseKey,
+                  'Authorization': `Bearer ${this.supabaseKey}`
+                }
+              }
+            );
+            if (pairingResponse.ok) {
+              const pairings = await pairingResponse.json();
+              if (pairings.length > 0 && pairings[0].discord_user_id) {
+                discordUserId = pairings[0].discord_user_id;
+                debug.log('✅ Found Discord user ID from pairings:', discordUserId);
+              }
+            }
+          } catch (error) {
+            debug.log('⚠️ Failed to check pairings for Discord user ID:', error.message);
+          }
+        }
+
+        // Set the discord_user_id or use placeholder
+        if (discordUserId) {
+          payload.discord_user_id = discordUserId;
+        } else {
           payload.discord_user_id = 'not_linked';
-          debug.log('⚠️ Failed to get Discord user ID, using placeholder:', error.message);
+          debug.log('⚠️ No Discord user ID found, using placeholder');
         }
       }
 
