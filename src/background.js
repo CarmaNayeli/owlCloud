@@ -251,7 +251,15 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
 
         case 'setDiscordWebhook': {
-          await setDiscordWebhookSettings(request.webhookUrl, true, request.serverName);
+          // Use request.enabled if provided, otherwise default to true when URL is provided
+          const enabled = request.enabled !== undefined ? request.enabled : !!request.webhookUrl;
+          debug.log('📝 setDiscordWebhook called:', {
+            webhookUrl: request.webhookUrl ? `${request.webhookUrl.substring(0, 50)}...` : '(empty)',
+            enabled,
+            serverName: request.serverName,
+            pairingId: request.pairingId
+          });
+          await setDiscordWebhookSettings(request.webhookUrl, enabled, request.serverName);
           // Also set the pairing ID for command polling if provided
           if (request.pairingId) {
             currentPairingId = request.pairingId;
@@ -739,8 +747,29 @@ async function getCharacterDataFromDatabase(characterId) {
       throw new Error('Character not found in database');
     }
     
-    // Convert database format to expected character data format
     const dbCharacter = characters[0];
+
+    // If raw_dicecloud_data contains the full character object, use it directly
+    // This preserves all parsed data (spells, features, actions, etc.) exactly as synced
+    if (dbCharacter.raw_dicecloud_data && typeof dbCharacter.raw_dicecloud_data === 'object') {
+      const fullCharacter = dbCharacter.raw_dicecloud_data;
+      // Add database metadata
+      fullCharacter.source = 'database';
+      fullCharacter.lastUpdated = dbCharacter.updated_at;
+      // Ensure ID fields are set correctly (in case of older records)
+      if (!fullCharacter.id) {
+        fullCharacter.id = dbCharacter.dicecloud_character_id;
+      }
+      if (!fullCharacter.name) {
+        fullCharacter.name = dbCharacter.character_name;
+      }
+      debug.log('✅ Loaded full character from database raw_dicecloud_data:', fullCharacter.name);
+      return fullCharacter;
+    }
+
+    // Fallback: Convert database format to expected character data format
+    // This handles older records that only have individual fields (for Discord)
+    debug.log('⚠️ No raw_dicecloud_data found, falling back to individual fields');
     const characterData = {
       id: dbCharacter.dicecloud_character_id,
       name: dbCharacter.character_name,
@@ -764,12 +793,12 @@ async function getCharacterDataFromDatabase(characterId) {
       spellSlots: dbCharacter.spell_slots,
       resources: dbCharacter.resources,
       conditions: dbCharacter.conditions,
-      rawDiceCloudData: dbCharacter.raw_dicecloud_data,
+      rawDiceCloudData: null,
       source: 'database',
       lastUpdated: dbCharacter.updated_at
     };
-    
-    debug.log('✅ Loaded character from database:', characterData.name);
+
+    debug.log('✅ Loaded character from database (individual fields):', characterData.name);
     return characterData;
   } catch (error) {
     debug.error('❌ Failed to get character data from database:', error);
@@ -1050,8 +1079,19 @@ async function setDiscordWebhookSettings(webhookUrl, enabled = true, serverName 
     if (serverName) {
       settings.discordServerName = serverName;
     }
+    debug.log('📝 Saving Discord webhook settings:', {
+      webhookUrl: webhookUrl ? `${webhookUrl.substring(0, 50)}...` : '(empty)',
+      enabled,
+      serverName
+    });
     await browserAPI.storage.local.set(settings);
-    debug.log('Discord webhook settings saved:', { enabled, hasUrl: !!webhookUrl, serverName });
+
+    // Verify storage was successful
+    const verification = await browserAPI.storage.local.get(['discordWebhookUrl', 'discordWebhookEnabled']);
+    debug.log('✅ Discord webhook settings verified:', {
+      storedUrl: verification.discordWebhookUrl ? `${verification.discordWebhookUrl.substring(0, 50)}...` : '(empty)',
+      storedEnabled: verification.discordWebhookEnabled
+    });
   } catch (error) {
     debug.error('Failed to save Discord webhook settings:', error);
     throw error;
@@ -1482,7 +1522,9 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
       spell_slots: characterData.spellSlots || {},
       resources: characterData.resources || [],
       conditions: characterData.conditions || [],
-      raw_dicecloud_data: characterData.rawDiceCloudData || null,
+      // Store the FULL parsed character object so it can be rebuilt exactly
+      // The individual fields above are for Discord bot quick access
+      raw_dicecloud_data: characterData,
       updated_at: new Date().toISOString()
     };
 

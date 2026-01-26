@@ -72,28 +72,32 @@ function setupBrowserSelection() {
         document.getElementById('btnContinueFromPolicy').addEventListener('click', () => goToStep(3));
         document.getElementById('btnClearPolicyAndReinstall').addEventListener('click', () => clearPolicyAndReinstall());
       } else if (isInstalled) {
-        // Extension is installed, check for updates
+        // Extension is installed, show options
         statusText.innerHTML = `
           <div style="color: #28a745;">✅ Extension found!</div>
           <div style="font-size: 0.9em; margin-top: 5px;">Extension is installed and ready.</div>
-          <div style="margin-top: 10px;">
+          <div style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
             <button id="btnContinueFromInstalled" class="btn btn-primary">
               Continue Setup
             </button>
-            <button id="btnCheckUpdates" class="btn btn-secondary" style="margin-left: 10px;">
+            <button id="btnCheckUpdates" class="btn btn-secondary">
               Check for Updates
             </button>
-            <button id="btnClearAndReinstall" class="btn btn-secondary" style="margin-left: 10px;">
+            <button id="btnClearAndReinstall" class="btn btn-secondary">
               Reinstall
+            </button>
+            <button id="btnUninstallFromMain" class="btn btn-danger">
+              🗑️ Uninstall
             </button>
           </div>
           <div style="margin-top: 10px; font-size: 0.8em; color: #666;">
-            You can check for updates, reinstall, or continue with current version.
+            You can check for updates, reinstall, uninstall, or continue with current version.
           </div>
         `;
         document.getElementById('btnContinueFromInstalled').addEventListener('click', () => goToStep(3));
         document.getElementById('btnCheckUpdates').addEventListener('click', () => checkForUpdatesAndProceed());
         document.getElementById('btnClearAndReinstall').addEventListener('click', () => clearPolicyAndReinstall());
+        document.getElementById('btnUninstallFromMain').addEventListener('click', () => handleUninstallExtension());
       } else {
         statusText.textContent = `Selected ${getBrowserName(selectedBrowser)}. Ready to install.`;
         statusText.innerHTML = `
@@ -386,6 +390,75 @@ async function clearPolicyAndReinstall() {
     `;
     document.getElementById('btnRetryClear').addEventListener('click', () => clearPolicyAndReinstall());
     document.getElementById('btnSkipClear').addEventListener('click', () => goToStep(2));
+  }
+}
+
+async function handleUninstallExtension() {
+  const statusText = document.getElementById('browserStatus');
+  const browserName = getBrowserName(selectedBrowser);
+
+  if (!confirm(`Are you sure you want to uninstall the RollCloud extension from ${browserName}?\n\nThis will remove the extension and all its data.`)) {
+    return;
+  }
+
+  statusText.innerHTML = `
+    <div style="color: #ff9500;">🔄 Uninstalling extension...</div>
+    <div style="font-size: 0.9em; margin-top: 5px;">Please wait...</div>
+  `;
+
+  try {
+    const result = await window.api.uninstallExtension(selectedBrowser);
+
+    if (result.success) {
+      statusText.innerHTML = `
+        <div style="color: #28a745;">✅ Extension uninstalled!</div>
+        <div style="font-size: 0.9em; margin-top: 5px;">${result.message}</div>
+        <div style="font-size: 0.85em; margin-top: 5px; color: #666;">Restart your browser to complete the removal.</div>
+        <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+          <button id="btnReinstallAfterUninstall" class="btn btn-primary">
+            Reinstall Extension
+          </button>
+          <button id="btnRestartAfterUninstall" class="btn btn-secondary">
+            Restart Browser
+          </button>
+          <button id="btnQuitAfterUninstall" class="btn btn-secondary">
+            Quit
+          </button>
+        </div>
+      `;
+      document.getElementById('btnReinstallAfterUninstall').addEventListener('click', () => goToStep(2));
+      document.getElementById('btnRestartAfterUninstall').addEventListener('click', () => restartBrowser(selectedBrowser));
+      document.getElementById('btnQuitAfterUninstall').addEventListener('click', () => window.api.quitApp());
+    } else {
+      statusText.innerHTML = `
+        <div style="color: #dc3545;">❌ Uninstall failed</div>
+        <div style="font-size: 0.9em; margin-top: 5px;">${result.error}</div>
+        ${result.manual ? '<div style="margin-top: 5px; font-size: 0.8em; color: #666;">Please remove manually via browser Add-ons Manager.</div>' : ''}
+        <div style="margin-top: 10px; display: flex; gap: 10px;">
+          <button id="btnRetryUninstallMain" class="btn btn-primary">Retry</button>
+          <button id="btnCancelUninstall" class="btn btn-secondary">Cancel</button>
+        </div>
+      `;
+      document.getElementById('btnRetryUninstallMain').addEventListener('click', () => handleUninstallExtension());
+      document.getElementById('btnCancelUninstall').addEventListener('click', () => {
+        // Re-trigger browser selection to reset UI
+        document.querySelector(`.browser-btn[data-browser="${selectedBrowser}"]`).click();
+      });
+    }
+  } catch (error) {
+    statusText.innerHTML = `
+      <div style="color: #dc3545;">❌ Uninstall error</div>
+      <div style="font-size: 0.9em; margin-top: 5px;">${error.message}</div>
+      <div style="margin-top: 10px; display: flex; gap: 10px;">
+        <button id="btnRetryUninstallError" class="btn btn-primary">Retry</button>
+        <button id="btnCancelUninstallError" class="btn btn-secondary">Cancel</button>
+      </div>
+    `;
+    document.getElementById('btnRetryUninstallError').addEventListener('click', () => handleUninstallExtension());
+    document.getElementById('btnCancelUninstallError').addEventListener('click', () => {
+      // Re-trigger browser selection to reset UI
+      document.querySelector(`.browser-btn[data-browser="${selectedBrowser}"]`).click();
+    });
   }
 }
 
