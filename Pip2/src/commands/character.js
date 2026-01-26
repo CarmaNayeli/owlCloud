@@ -10,8 +10,9 @@ export default {
     .addStringOption(option =>
       option
         .setName('name')
-        .setDescription('Character name to set as active (partial match OK)')
+        .setDescription('Character name to set as active')
         .setRequired(false)
+        .setAutocomplete(true)
     )
     .addUserOption(option =>
       option
@@ -19,6 +20,31 @@ export default {
         .setDescription('View another user\'s active character')
         .setRequired(false)
     ),
+
+  async autocomplete(interaction) {
+    const focusedValue = interaction.options.getFocused().toLowerCase();
+    const discordUserId = interaction.user.id;
+
+    try {
+      // Fetch user's characters from database
+      const characters = await getUserCharacters(discordUserId);
+
+      // Filter by what user has typed so far
+      const filtered = characters
+        .filter(char => char.character_name.toLowerCase().includes(focusedValue))
+        .slice(0, 25); // Discord limit
+
+      await interaction.respond(
+        filtered.map(char => ({
+          name: `${char.character_name} (${char.class || 'Unknown'} Lv${char.level || 1})`,
+          value: char.character_name
+        }))
+      );
+    } catch (error) {
+      console.error('Autocomplete error:', error);
+      await interaction.respond([]);
+    }
+  },
 
   async execute(interaction) {
     // IMPORTANT: deferReply MUST happen first - Discord only gives 3 seconds!
@@ -399,4 +425,61 @@ async function setActiveCharacter(discordUserId, characterName) {
   );
 
   return { success: true, character };
+}
+
+async function getUserCharacters(discordUserId) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+    return [];
+  }
+
+  let characters = [];
+
+  // First try direct lookup by discord_user_id
+  const response = await fetch(
+    `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}&select=character_name,class,level&order=character_name`,
+    {
+      headers: {
+        'apikey': SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+      }
+    }
+  );
+
+  if (response.ok) {
+    characters = await response.json();
+  }
+
+  // If no characters found, try via pairing
+  if (characters.length === 0) {
+    const pairingResponse = await fetch(
+      `${SUPABASE_URL}/rest/v1/rollcloud_pairings?discord_user_id=eq.${discordUserId}&status=eq.connected&select=dicecloud_user_id`,
+      {
+        headers: {
+          'apikey': SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+        }
+      }
+    );
+
+    if (pairingResponse.ok) {
+      const pairings = await pairingResponse.json();
+      if (pairings.length > 0 && pairings[0].dicecloud_user_id) {
+        const fallbackResponse = await fetch(
+          `${SUPABASE_URL}/rest/v1/rollcloud_characters?user_id_dicecloud=eq.${pairings[0].dicecloud_user_id}&select=character_name,class,level&order=character_name`,
+          {
+            headers: {
+              'apikey': SUPABASE_SERVICE_KEY,
+              'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+            }
+          }
+        );
+
+        if (fallbackResponse.ok) {
+          characters = await fallbackResponse.json();
+        }
+      }
+    }
+  }
+
+  return characters;
 }
