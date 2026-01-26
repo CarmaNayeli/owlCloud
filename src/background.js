@@ -2084,6 +2084,26 @@ function unsubscribeFromRealtimePairing() {
   debug.log('🔌 Unsubscribed from Realtime pairing updates');
 }
 
+// Before creating new pairing, expire old ones
+async function createPairing(code, username, userId) {
+  // Clean up old pairings for this user
+  await supabase
+    .from('rollcloud_pairings')
+    .update({ status: 'expired' })
+    .eq('dicecloud_user_id', userId)
+    .eq('status', 'connected');
+  
+  // NOW create the new one
+  const { data } = await supabase
+    .from('rollcloud_pairings')
+    .insert({
+      pairing_code: code,
+      dicecloud_username: username,
+      dicecloud_user_id: userId,
+      status: 'pending'
+    });
+}
+
 /**
  * Create a Discord pairing code in Supabase
  */
@@ -2195,9 +2215,10 @@ let currentPairingId = null;
 let commandRealtimeReconnectTimeout = null;
 
 /**
- * Subscribe to Realtime command inserts for this pairing.
- * Replaces polling — commands arrive instantly via WebSocket.
+ * CORRECTED subscribeToCommandRealtime function
+ * Replace the existing function in background.js with this
  */
+
 async function subscribeToCommandRealtime(pairingId) {
   if (!pairingId) {
     const settings = await browserAPI.storage.local.get(['discordPairingId']);
@@ -2236,19 +2257,28 @@ async function subscribeToCommandRealtime(pairingId) {
     commandRealtimeSocket.onopen = () => {
       debug.log('✅ Command Realtime WebSocket connected');
 
-      // Subscribe to broadcast channel - topic must match DB trigger exactly
-      // DB trigger broadcasts to: rollcloud_commands:pairing:<pairing_id>
-      const topic = `rollcloud_commands:pairing:${pairingId}`;
+      // CORRECTED: Subscribe to postgres_changes for INSERT events on rollcloud_commands
+      const topic = `realtime:public:rollcloud_commands`;
       const joinMessage = {
         topic: topic,
         event: 'phx_join',
-        payload: {},
+        payload: {
+          config: {
+            postgres_changes: [{
+              event: 'INSERT',  // ✅ Listen for new commands being inserted
+              schema: 'public',
+              table: 'rollcloud_commands',  // ✅ Correct table
+              filter: `pairing_id=eq.${pairingId}`  // ✅ Only this pairing's commands
+            }]
+          }
+        },
         ref: 'cmd_1'
       };
-      debug.log('📤 Sending join message:', JSON.stringify(joinMessage));
+      
+      debug.log('📤 Subscribing to postgres_changes:', JSON.stringify(joinMessage, null, 2));
       commandRealtimeSocket.send(JSON.stringify(joinMessage));
 
-      // Heartbeat every 30 s to keep connection alive
+      // Heartbeat every 30s to keep connection alive
       commandRealtimeHeartbeat = setInterval(() => {
         if (commandRealtimeSocket && commandRealtimeSocket.readyState === WebSocket.OPEN) {
           commandRealtimeSocket.send(JSON.stringify({
@@ -2287,14 +2317,37 @@ async function subscribeToCommandRealtime(pairingId) {
           return;
         }
 
-        // Handle broadcast events (from DB trigger using realtime.broadcast_changes)
+        // ✅ CORRECTED: Handle postgres_changes events (not broadcast)
+        if (message.event === 'postgres_changes') {
+          const payload = message.payload;
+          
+          debug.log('📥 postgres_changes event received:', payload?.data?.type || 'unknown type');
+
+          // For INSERT events, the new record is in payload.data.record
+          if (payload?.data?.type === 'INSERT' && payload.data.record) {
+            const record = payload.data.record;
+            
+            debug.log('📥 New command inserted! Type:', record.command_type, 'ID:', record.id);
+
+            // Only process if status is pending
+            if (record.status === 'pending') {
+              debug.log('⚡ Executing command:', record.command_type);
+              await executeCommand(record);
+            } else {
+              debug.log('⏭️ Skipping command with status:', record.status);
+            }
+          }
+          return;
+        }
+
+        // Still handle broadcast events as fallback (if you add that later)
         if (message.event === 'broadcast') {
           const record = message.payload?.record ?? message.payload?.new ?? message.payload;
 
           debug.log('📥 Broadcast received! Record:', JSON.stringify(record).substring(0, 300));
 
           if (record && record.status === 'pending') {
-            debug.log('📥 Realtime command received:', record.command_type, record.id);
+            debug.log('📥 Realtime command received via broadcast:', record.command_type, record.id);
             await executeCommand(record);
           }
         }
@@ -2316,7 +2369,7 @@ async function subscribeToCommandRealtime(pairingId) {
 
       // Auto-reconnect after 5 seconds if we still have a pairing
       if (currentPairingId) {
-        debug.log('⏳ Scheduling command realtime reconnect in 5 s...');
+        debug.log('⏳ Scheduling command realtime reconnect in 5s...');
         commandRealtimeReconnectTimeout = setTimeout(() => {
           if (currentPairingId) {
             subscribeToCommandRealtime(currentPairingId);
