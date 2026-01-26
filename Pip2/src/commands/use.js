@@ -116,6 +116,8 @@ export default {
       // Create use_action command in Supabase
       const commandPayload = {
         pairing_id: pairing.id,
+        discord_user_id: discordUserId,
+        discord_username: interaction.user.username,
         command_type: 'use_action',
         action_name: action.name,
         command_data: {
@@ -125,8 +127,7 @@ export default {
           character_id: character.id,
           action_data: action
         },
-        status: 'pending',
-        created_at: new Date().toISOString()
+        status: 'pending'
       };
 
       const commandResponse = await fetch(`${SUPABASE_URL}/rest/v1/rollcloud_commands`, {
