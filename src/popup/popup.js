@@ -703,15 +703,24 @@ function initializePopup() {
    */
   async function loadCharacterData() {
     try {
-      // Get all character profiles
+      // Get all character profiles (local + database)
       const profilesResponse = await browserAPI.runtime.sendMessage({ action: 'getAllCharacterProfiles' });
       const profiles = profilesResponse.success ? profilesResponse.profiles : {};
 
-      // Get the active character ID (profile key) and data
+      // Get the active character ID
       const storageResult = await browserAPI.storage.local.get(['activeCharacterId']);
       const activeCharacterId = storageResult.activeCharacterId;
-      const activeResponse = await browserAPI.runtime.sendMessage({ action: 'getCharacterData' });
-      const activeCharacter = activeResponse.success ? activeResponse.data : null;
+
+      // Resolve active character from the merged profiles so dropdown and
+      // display always agree. Fall back to getCharacterData only if the ID
+      // isn't in the merged set (legacy / migration path).
+      let activeCharacter = null;
+      if (activeCharacterId && profiles[activeCharacterId]) {
+        activeCharacter = profiles[activeCharacterId];
+      } else {
+        const activeResponse = await browserAPI.runtime.sendMessage({ action: 'getCharacterData' });
+        activeCharacter = activeResponse.success ? activeResponse.data : null;
+      }
 
       // Populate character dropdown (exclude GM player data)
       const characterIds = Object.keys(profiles).filter(id =>
@@ -724,7 +733,7 @@ function initializePopup() {
           const option = document.createElement('option');
           option.value = id;
           option.textContent = `${char.name || 'Unknown'} (${char.class || 'No Class'} ${char.level || '?'})`;
-          if (id === activeCharacterId || (activeCharacter && (char.characterId === activeCharacter.characterId || char._id === activeCharacter._id || id === (activeCharacter.characterId || activeCharacter._id)))) {
+          if (id === activeCharacterId) {
             option.selected = true;
           }
           characterSelect.appendChild(option);
@@ -732,7 +741,7 @@ function initializePopup() {
 
         // Always show character selector when characters exist
         characterSelector.classList.remove('hidden');
-        
+
         // Show sync character button if there's an active character
         if (activeCharacter) {
           syncCharacterToCloudBtn.classList.remove('hidden');

@@ -207,6 +207,8 @@ async function sendRollToExtension(interaction, rollData) {
     // Create roll command in Supabase
     const commandPayload = {
       pairing_id: pairing.id,
+      discord_user_id: interaction.user.id,
+      discord_username: interaction.user.username,
       command_type: 'roll',
       action_name: rollData.rollName,
       command_data: {
@@ -221,8 +223,7 @@ async function sendRollToExtension(interaction, rollData) {
         sides: rollData.sides,
         modifier: rollData.modifier
       },
-      status: 'pending',
-      created_at: new Date().toISOString()
+      status: 'pending'
     };
 
     const commandResponse = await fetch(`${SUPABASE_URL}/rest/v1/rollcloud_commands`, {
@@ -237,9 +238,11 @@ async function sendRollToExtension(interaction, rollData) {
     });
 
     if (!commandResponse.ok) {
-      console.error('Failed to create roll command:', commandResponse.status);
+      const errorBody = await commandResponse.text().catch(() => 'no body');
+      console.error('Failed to create roll command:', commandResponse.status, errorBody);
+      console.error('Payload was:', JSON.stringify(commandPayload));
       return await interaction.reply({
-        content: '❌ Failed to send roll to extension.',
+        content: `❌ Failed to send roll to extension. (${commandResponse.status})`,
         flags: 64 // ephemeral
       });
     }

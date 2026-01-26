@@ -127,6 +127,8 @@ export default {
       // Create cast command in Supabase
       const commandPayload = {
         pairing_id: pairing.id,
+        discord_user_id: discordUserId,
+        discord_username: interaction.user.username,
         command_type: 'cast',
         action_name: spell.name,
         command_data: {
@@ -137,8 +139,7 @@ export default {
           character_id: character.id,
           spell_data: spell
         },
-        status: 'pending',
-        created_at: new Date().toISOString()
+        status: 'pending'
       };
 
       const commandResponse = await fetch(`${SUPABASE_URL}/rest/v1/rollcloud_commands`, {
@@ -153,9 +154,11 @@ export default {
       });
 
       if (!commandResponse.ok) {
-        console.error('Failed to create cast command:', commandResponse.status);
+        const errorBody = await commandResponse.text().catch(() => 'no body');
+        console.error('Failed to create cast command:', commandResponse.status, errorBody);
+        console.error('Payload was:', JSON.stringify(commandPayload));
         return await interaction.reply({
-          content: '❌ Failed to send spell to extension.',
+          content: `❌ Failed to send spell to extension. (${commandResponse.status})`,
           flags: 64
         });
       }

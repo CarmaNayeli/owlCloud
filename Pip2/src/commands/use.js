@@ -116,6 +116,8 @@ export default {
       // Create use_action command in Supabase
       const commandPayload = {
         pairing_id: pairing.id,
+        discord_user_id: discordUserId,
+        discord_username: interaction.user.username,
         command_type: 'use_action',
         action_name: action.name,
         command_data: {
@@ -125,8 +127,7 @@ export default {
           character_id: character.id,
           action_data: action
         },
-        status: 'pending',
-        created_at: new Date().toISOString()
+        status: 'pending'
       };
 
       const commandResponse = await fetch(`${SUPABASE_URL}/rest/v1/rollcloud_commands`, {
@@ -141,9 +142,11 @@ export default {
       });
 
       if (!commandResponse.ok) {
-        console.error('Failed to create use command:', commandResponse.status);
+        const errorBody = await commandResponse.text().catch(() => 'no body');
+        console.error('Failed to create use command:', commandResponse.status, errorBody);
+        console.error('Payload was:', JSON.stringify(commandPayload));
         return await interaction.reply({
-          content: '❌ Failed to send action to extension.',
+          content: `❌ Failed to send action to extension. (${commandResponse.status})`,
           flags: 64
         });
       }
