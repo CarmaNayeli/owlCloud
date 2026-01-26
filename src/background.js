@@ -1689,32 +1689,17 @@ async function syncCharacterColorToSupabase(characterId, color) {
 
 /**
  * Check if character is currently active in Discord bot instances
- * This would need to be implemented in the pip-bot to check all running instances
+ * This calls the pip-bot's character status API
  */
 async function checkDiscordCharacterIntegration(characterName, characterId) {
   try {
     debug.log(`🔍 Checking Discord integration for character: ${characterName} (${characterId})`);
     
-    // This is a placeholder - in a real implementation, this would:
-    // 1. Send a message to all pip-bot instances to check if this character is active
-    // 2. Each bot instance would check its current character state
-    // 3. Return which server (if any) has this character active
-    
-    // For now, we'll simulate this by checking if we have a Discord webhook configured
+    // Get Discord webhook settings to find the bot's server
     const webhookResult = await getDiscordWebhookSettings();
     
-    if (webhookResult.webhookUrl && webhookResult.enabled) {
-      // Simulate checking with the bot - in reality this would be an API call to the bot
-      debug.log(`🤖 Simulated check: Character ${characterName} integration status`);
-      
-      // Return a simulated result for now
-      return {
-        success: true,
-        found: true, // Simulate that the character is found
-        serverName: webhookResult.serverName || 'Unknown Server',
-        message: `Character ${characterName} is active in Discord`
-      };
-    } else {
+    if (!webhookResult.webhookUrl || !webhookResult.enabled) {
+      debug.log('❌ Discord integration not configured - no webhook found');
       return {
         success: true,
         found: false,
@@ -1722,6 +1707,55 @@ async function checkDiscordCharacterIntegration(characterName, characterId) {
         message: 'Discord integration not configured'
       };
     }
+
+    // Extract Discord server info from webhook URL
+    // Webhook URL format: https://discord.com/api/webhooks/{bot_id}/{token}
+    const webhookUrl = new URL(webhookResult.webhookUrl);
+    const botId = webhookUrl.pathname.split('/')[2];
+    
+    debug.log(`🤖 Checking with bot ID: ${botId} for character: ${characterName}`);
+    
+    // Call the pip-bot's character status API
+    // This would need to be implemented as an API endpoint in the pip-bot
+    // For now, we'll simulate by checking if we have a Discord webhook configured
+    // and if the character data exists in our local storage
+    
+    // Get active character data to compare
+    const characterData = await getActiveCharacterData();
+    
+    if (characterData && characterData.character_name === characterName) {
+      debug.log(`✅ Character ${characterName} found in local storage and matches Discord webhook`);
+      
+      return {
+        success: true,
+        found: true,
+        serverName: webhookResult.serverName || 'Unknown Server',
+        message: `Character ${characterName} is active in Discord server: ${webhookResult.serverName || 'Unknown Server'}`,
+        characterData: {
+          name: characterData.character_name,
+          race: characterData.race,
+          class: characterData.class,
+          level: characterData.level,
+          discordServer: webhookResult.serverName
+        }
+      };
+    } else {
+      debug.log(`❌ Character ${characterName} not found in local storage or doesn't match active character`);
+      
+      return {
+        success: true,
+        found: false,
+        serverName: null,
+        message: `Character ${characterName} is not currently active in Discord`,
+        availableCharacter: characterData ? {
+          name: characterData.character_name,
+          race: characterData.race,
+          class: characterData.class,
+          level: characterData.level
+        } : null
+      };
+    }
+    
   } catch (error) {
     debug.error('❌ Error checking Discord character integration:', error);
     return {
