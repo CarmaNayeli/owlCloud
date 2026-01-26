@@ -2236,22 +2236,16 @@ async function subscribeToCommandRealtime(pairingId) {
     commandRealtimeSocket.onopen = () => {
       debug.log('✅ Command Realtime WebSocket connected');
 
-      // Subscribe to INSERT events on rollcloud_commands for this pairing
-      // Channel name: realtime:<channel> - channel matches Supabase Dashboard
-      const topic = `realtime:rollcloud_commands`;
+      // Subscribe to broadcast events on private channel for this pairing
+      // Using Broadcast approach (recommended) instead of postgres_changes
+      const topic = `realtime:rollcloud_commands:pairing:${pairingId}`;
       const joinMessage = {
         topic: topic,
         event: 'phx_join',
         payload: {
           config: {
-            broadcast: { self: false },
-            presence: { key: '' },
-            postgres_changes: [{
-              event: 'INSERT',
-              schema: 'public',
-              table: 'rollcloud_commands',
-              filter: `pairing_id=eq.${pairingId}`
-            }]
+            broadcast: { self: false, ack: false },
+            presence: { key: '' }
           }
         },
         ref: 'cmd_1'
@@ -2298,26 +2292,27 @@ async function subscribeToCommandRealtime(pairingId) {
           return;
         }
 
-        // Handle postgres_changes - check multiple possible formats
-        const isPostgresChange = message.event === 'postgres_changes' ||
-                                  message.event === 'INSERT' ||
-                                  message.payload?.type === 'INSERT' ||
-                                  message.payload?.eventType === 'INSERT';
+        // Handle broadcast events (from DB trigger using realtime.broadcast_changes)
+        // Event will be 'INSERT', 'UPDATE', or 'DELETE' from the trigger
+        const isBroadcast = message.event === 'broadcast' ||
+                            message.event === 'INSERT' ||
+                            message.event === 'UPDATE';
 
-        if (isPostgresChange) {
-          // Try to get record from various possible locations
-          const record = message.payload?.data?.record ||
-                        message.payload?.record ||
+        if (isBroadcast) {
+          // Get record from broadcast payload - try various locations
+          const record = message.payload?.record ||
                         message.payload?.new ||
+                        message.payload?.payload?.record ||
+                        message.payload?.payload?.new ||
                         message.payload;
 
-          debug.log('📥 Postgres change detected! Record:', JSON.stringify(record).substring(0, 300));
+          debug.log('📥 Broadcast received! Event:', message.event, 'Record:', JSON.stringify(record).substring(0, 300));
 
-          if (record && record.status === 'pending' && record.pairing_id === currentPairingId) {
+          if (record && record.status === 'pending') {
             debug.log('📥 Realtime command received:', record.command_type, record.id);
             await executeCommand(record);
-          } else if (record) {
-            debug.log('⏭️ Skipping command - status:', record.status, 'pairing match:', record.pairing_id === currentPairingId);
+          } else if (record && record.id) {
+            debug.log('⏭️ Skipping command - status:', record.status);
           }
         }
       } catch (e) {
