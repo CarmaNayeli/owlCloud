@@ -40,6 +40,8 @@ export default function ConfigurePip() {
   const [saving, setSaving] = useState(false);
   const [inviting, setInviting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [fetchingServers, setFetchingServers] = useState(false);
+  const [showServersWithoutPip, setShowServersWithoutPip] = useState(true);
 
   // Mock data - replace with actual API calls
   const mockCommands: SlashCommand[] = [
@@ -155,6 +157,8 @@ export default function ConfigurePip() {
 
   const loadServers = async () => {
     try {
+      setFetchingServers(true);
+      
       // Fetch real Discord servers via API
       const response = await fetch('/api/discord/servers');
       
@@ -225,6 +229,7 @@ export default function ConfigurePip() {
       setCommands([]);
     } finally {
       setLoading(false);
+      setFetchingServers(false);
     }
   };
 const botCheckQueue: Promise<boolean>[] = [];
@@ -311,7 +316,8 @@ const checkBotInServerWithRateLimit = async (serverId: string): Promise<boolean>
       
       // Don't poll for server addition - just refresh after a delay
       setTimeout(async () => {
-        loadServers(); // Refresh server list
+        setFetchingServers(true); // Show loading state during refresh
+        await loadServers(); // Refresh server list
         setInviting(null);
       }, 5000);
     } catch (error) {
@@ -520,7 +526,19 @@ const checkBotInServerWithRateLimit = async (serverId: string): Promise<boolean>
           </div>
         )}
         
-        {servers.length === 0 ? (
+        {fetchingServers ? (
+          <div className="text-center py-12">
+            <div className="flex flex-col items-center space-y-4">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Fetching Servers</h3>
+                <p className="text-gray-600 dark:text-gray-400">
+                  Checking your Discord servers and Pip's presence...
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : servers.length === 0 ? (
           <div className="text-center py-8">
             <div className="w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -564,60 +582,150 @@ const checkBotInServerWithRateLimit = async (serverId: string): Promise<boolean>
             </div>
           </div>
         ) : (
-          <div className="grid gap-4">
-            {servers.map((server) => (
-              <div
-                key={server.id}
-                className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                  selectedServer?.id === server.id
-                    ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
-                    : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
-                }`}
-                onClick={() => handleServerSelect(server)}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center">
-                      {server.icon ? (
-                        <img src={`https://cdn.discordapp.com/icons/${server.id}/${server.icon}.png`} alt={server.name} className="w-12 h-12 rounded-full" />
-                      ) : (
-                        <span className="text-gray-600 dark:text-gray-300 font-bold">
-                          {server.name.charAt(0).toUpperCase()}
-                        </span>
-                      )}
-                    </div>
+          <div className="space-y-6">
+            {/* Servers with Pip - Always visible */}
+            {(() => {
+              const serversWithPip = servers.filter(server => server.botMember);
+              const serversWithoutPip = servers.filter(server => !server.botMember);
+              
+              return (
+                <>
+                  {/* Servers with Pip */}
+                  {serversWithPip.length > 0 && (
                     <div>
-                      <h3 className="font-semibold flex items-center gap-2">
-                        {server.name}
-                        {server.owner && <span className="text-xs bg-yellow-500 text-white px-2 py-1 rounded">Owner</span>}
+                      <h3 className="text-lg font-semibold text-green-600 dark:text-green-400 mb-4 flex items-center gap-2">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Servers with Pip ({serversWithPip.length})
                       </h3>
-                      <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
-                        <span className={server.botMember ? 'text-green-600' : 'text-red-600'}>
-                          {server.botMember ? '✅ Pip is in server' : '❌ Pip not in server'}
-                        </span>
-                        <span>
-                          {server.permissions.includes('ADMINISTRATOR') ? 'Administrator' : 'Manage Server'}
-                        </span>
+                      <div className="grid gap-4">
+                        {serversWithPip.map((server) => (
+                          <div
+                            key={server.id}
+                            className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                              selectedServer?.id === server.id
+                                ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
+                                : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                            }`}
+                            onClick={() => handleServerSelect(server)}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-3">
+                                <div className="w-12 h-12 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center">
+                                  {server.icon ? (
+                                    <img src={`https://cdn.discordapp.com/icons/${server.id}/${server.icon}.png`} alt={server.name} className="w-12 h-12 rounded-full" />
+                                  ) : (
+                                    <span className="text-gray-600 dark:text-gray-300 font-bold">
+                                      {server.name.charAt(0).toUpperCase()}
+                                    </span>
+                                  )}
+                                </div>
+                                <div>
+                                  <h3 className="font-semibold flex items-center gap-2">
+                                    {server.name}
+                                    {server.owner && <span className="text-xs bg-yellow-500 text-white px-2 py-1 rounded">Owner</span>}
+                                  </h3>
+                                  <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
+                                    <span className="text-green-600">
+                                      ✅ Pip is in server
+                                    </span>
+                                    <span>
+                                      {server.permissions.includes('ADMINISTRATOR') ? 'Administrator' : 'Manage Server'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    {!server.botMember && (
+                  )}
+
+                  {/* Servers without Pip - Collapsible */}
+                  {serversWithoutPip.length > 0 && (
+                    <div>
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          inviteBot(server.id);
-                        }}
-                        disabled={inviting === server.id}
-                        className="bg-[#5865F2] hover:bg-[#4752C4] text-white px-3 py-1.5 rounded text-sm font-medium transition disabled:opacity-50"
+                        onClick={() => setShowServersWithoutPip(!showServersWithoutPip)}
+                        className="w-full flex items-center justify-between text-lg font-semibold text-gray-600 dark:text-gray-400 mb-4 hover:text-gray-800 dark:hover:text-gray-200 transition"
                       >
-                        {inviting === server.id ? 'Inviting...' : 'Invite Pip'}
+                        <div className="flex items-center gap-2">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          Servers without Pip ({serversWithoutPip.length})
+                        </div>
+                        <svg
+                          className={`w-5 h-5 transition-transform ${showServersWithoutPip ? 'rotate-180' : ''}`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
                       </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
+                      
+                      {showServersWithoutPip && (
+                        <div className="grid gap-4">
+                          {serversWithoutPip.map((server) => (
+                            <div
+                              key={server.id}
+                              className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                                selectedServer?.id === server.id
+                                  ? 'border-red-500 bg-red-50 dark:bg-red-900/20'
+                                  : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                              }`}
+                              onClick={() => handleServerSelect(server)}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                  <div className="w-12 h-12 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center">
+                                    {server.icon ? (
+                                      <img src={`https://cdn.discordapp.com/icons/${server.id}/${server.icon}.png`} alt={server.name} className="w-12 h-12 rounded-full" />
+                                    ) : (
+                                      <span className="text-gray-600 dark:text-gray-300 font-bold">
+                                        {server.name.charAt(0).toUpperCase()}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div>
+                                    <h3 className="font-semibold flex items-center gap-2">
+                                      {server.name}
+                                      {server.owner && <span className="text-xs bg-yellow-500 text-white px-2 py-1 rounded">Owner</span>}
+                                    </h3>
+                                    <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
+                                      <span className="text-red-600">
+                                        ❌ Pip not in server
+                                      </span>
+                                      <span>
+                                        {server.permissions.includes('ADMINISTRATOR') ? 'Administrator' : 'Manage Server'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      inviteBot(server.id);
+                                    }}
+                                    disabled={inviting === server.id}
+                                    className="bg-[#5865F2] hover:bg-[#4752C4] text-white px-3 py-1.5 rounded text-sm font-medium transition disabled:opacity-50"
+                                  >
+                                    {inviting === server.id ? 'Inviting...' : 'Invite Pip'}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         )}
       </div>
