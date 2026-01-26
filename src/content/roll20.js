@@ -57,8 +57,10 @@
       // Wait for Roll20 to process the roll and add it to chat
       // Then parse the actual Roll20 result (not DiceCloud's roll)
       observeNextRollResult(rollData);
+      return { success: true };
     } else {
-      debug.error('❌ Failed to post roll to Roll20');
+      debug.error('❌ Failed to post roll to Roll20 - chat input or send button not found');
+      return { success: false, error: 'Roll20 chat not ready. Make sure you are in a Roll20 game.' };
     }
   }
 
@@ -321,13 +323,13 @@
     debug.log('📨 Roll20 content script received message:', request.action, request);
     
     if (request.action === 'postRollToChat') {
-      handleDiceCloudRoll(request.roll);
-      sendResponse({ success: true });
+      const result = handleDiceCloudRoll(request.roll);
+      sendResponse(result || { success: true });
     } else if (request.action === 'sendRollToRoll20') {
       // Handle the message that Dice Cloud is actually sending
       debug.log('🎲 Received sendRollToRoll20 message:', request.roll);
-      handleDiceCloudRoll(request.roll);
-      sendResponse({ success: true });
+      const result = handleDiceCloudRoll(request.roll);
+      sendResponse(result || { success: true });
     } else if (request.action === 'rollFromPopout') {
       // Post roll directly to Roll20 - no DiceCloud needed!
       debug.log('🎲 Received roll request from popup:', request);

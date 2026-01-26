@@ -930,23 +930,39 @@ async function sendRollToAllRoll20Tabs(rollData) {
     const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
 
     if (tabs.length === 0) {
-      debug.warn('No Roll20 tabs found');
-      return;
+      debug.warn('⚠️ No Roll20 tabs found - roll not sent');
+      return { success: false, error: 'No Roll20 tabs open. Please open Roll20 in a browser tab.' };
     }
 
-    // Send roll to each Roll20 tab
-    const promises = tabs.map(tab => {
-      return browserAPI.tabs.sendMessage(tab.id, {
-        action: 'postRollToChat',
-        roll: rollData
-      });
-    });
+    // Send roll to each Roll20 tab with individual error handling
+    let successCount = 0;
+    let failCount = 0;
+    const errors = [];
 
-    await Promise.all(promises);
-    debug.log(`Roll sent to ${tabs.length} Roll20 tab(s)`);
+    for (const tab of tabs) {
+      try {
+        await browserAPI.tabs.sendMessage(tab.id, {
+          action: 'postRollToChat',
+          roll: rollData
+        });
+        successCount++;
+      } catch (err) {
+        failCount++;
+        debug.warn(`Failed to send roll to tab ${tab.id}:`, err.message);
+        errors.push(`Tab ${tab.id}: ${err.message}`);
+      }
+    }
+
+    if (successCount > 0) {
+      debug.log(`✅ Roll sent to ${successCount}/${tabs.length} Roll20 tab(s)`);
+      return { success: true, tabsSent: successCount, tabsFailed: failCount };
+    } else {
+      debug.error(`❌ Failed to send roll to any Roll20 tabs. Errors: ${errors.join(', ')}`);
+      return { success: false, error: 'Failed to send roll to Roll20. Try refreshing the Roll20 page.' };
+    }
   } catch (error) {
     debug.error('Failed to send roll to Roll20 tabs:', error);
-    throw error;
+    return { success: false, error: error.message };
   }
 }
 
@@ -2298,7 +2314,7 @@ async function executeRollCommand(command) {
   // Build roll data from command data
   const rollString = command_data.roll_string || `/roll 1d20`;
   const rollName = action_name || command_data.roll_name || 'Discord Roll';
-  
+
   // Build comprehensive roll data for Roll20
   const rollData = {
     formula: rollString,
@@ -2315,7 +2331,13 @@ async function executeRollCommand(command) {
   };
 
   // Send to Roll20
-  await sendRollToAllRoll20Tabs(rollData);
+  const result = await sendRollToAllRoll20Tabs(rollData);
+
+  if (!result || !result.success) {
+    const errorMsg = result?.error || 'Failed to send roll to Roll20';
+    debug.error('❌ Roll command failed:', errorMsg);
+    return { success: false, message: errorMsg };
+  }
 
   return { success: true, message: `Rolled ${rollName}` };
 }
