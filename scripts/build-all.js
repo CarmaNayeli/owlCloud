@@ -244,6 +244,39 @@ async function buildAll() {
 
   console.log(`\n   Copied ${copiedCount} files to releases/`);
 
+  // Copy installer files from installer/dist/ to releases/
+  if (!skipInstaller) {
+    console.log('\n   Copying installer files...');
+    const installerDistDir = path.join(INSTALLER_DIR, 'dist');
+
+    if (fs.existsSync(installerDistDir)) {
+      const installerFiles = fs.readdirSync(installerDistDir).filter(f =>
+        f.endsWith('.exe') || f.endsWith('.dmg') || f.endsWith('.AppImage') || f.endsWith('.deb')
+      );
+
+      for (const file of installerFiles) {
+        const srcPath = path.join(installerDistDir, file);
+        // Rename to include version and standardize name
+        let destName = file;
+        if (file.includes('Setup')) {
+          // Windows installer: "RollCloud Setup 1.2.3.exe" -> "RollCloud-Setup-1.2.3.exe"
+          destName = file.replace(/\s+/g, '-');
+        }
+        const destPath = path.join(RELEASES_DIR, destName);
+
+        fs.copyFileSync(srcPath, destPath);
+        const stats = fs.statSync(destPath);
+        const size = (stats.size / (1024 * 1024)).toFixed(1);
+        console.log(`   ✅ ${destName} (${size} MB)`);
+        copiedCount++;
+      }
+    } else {
+      console.log('   ⚠️ installer/dist/ not found, skipping installer files');
+    }
+  }
+
+  console.log(`\n   Total: ${copiedCount} files copied to releases/`);
+
   // ============================================================================
   // Summary
   // ============================================================================
@@ -296,22 +329,33 @@ async function buildAll() {
   console.log('\n   releases/ (for GitHub Release uploads):');
   if (fs.existsSync(RELEASES_DIR)) {
     const releaseFilesInDir = fs.readdirSync(RELEASES_DIR).filter(f =>
-      f.endsWith('.crx') || f.endsWith('.xpi') || f.endsWith('.zip')
+      f.endsWith('.crx') || f.endsWith('.xpi') || f.endsWith('.zip') ||
+      f.endsWith('.exe') || f.endsWith('.dmg') || f.endsWith('.AppImage') || f.endsWith('.deb')
     );
     for (const file of releaseFilesInDir) {
       const filePath = path.join(RELEASES_DIR, file);
       const stats = fs.statSync(filePath);
-      const size = (stats.size / 1024).toFixed(1);
-      console.log(`     📦 ${file} (${size} KB)`);
+      const isLarge = stats.size > 1024 * 1024;
+      const size = isLarge
+        ? (stats.size / (1024 * 1024)).toFixed(1) + ' MB'
+        : (stats.size / 1024).toFixed(1) + ' KB';
+      console.log(`     📦 ${file} (${size})`);
     }
   }
 
   console.log('\n📋 GitHub Release Upload Checklist:');
   console.log(`     Upload these files from releases/ folder:`);
-  console.log(`       - rollcloud-chrome-signed.crx (for enterprise policy install)`);
-  console.log(`       - rollcloud-firefox-signed.xpi (for Firefox install)`);
-  console.log(`       - rollcloud-chrome-${version}.zip (for manual Chrome install)`);
-  console.log(`       - rollcloud-firefox-${version}.zip (for manual Firefox install)`);
+  console.log(`       Extensions:`);
+  console.log(`         - rollcloud-chrome-signed.crx (for enterprise policy install)`);
+  console.log(`         - rollcloud-firefox-signed.xpi (for Firefox install)`);
+  console.log(`         - rollcloud-chrome-${version}.zip (for manual Chrome install)`);
+  console.log(`         - rollcloud-firefox-${version}.zip (for manual Firefox install)`);
+  if (!skipInstaller) {
+    console.log(`       Installers:`);
+    console.log(`         - RollCloud-Setup-${version}.exe (Windows installer)`);
+    console.log(`         - RollCloud-Setup-${version}.dmg (macOS installer)`);
+    console.log(`         - RollCloud-Setup-${version}.AppImage (Linux installer)`);
+  }
 
   console.log('\n🎉 Build complete!\n');
 }
