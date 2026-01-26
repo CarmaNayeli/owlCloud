@@ -250,6 +250,34 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
         case 'getDiscordWebhook': {
           const settings = await getDiscordWebhookSettings();
+
+          // If connected, ensure discord_user_id is linked to auth_tokens
+          if (settings.enabled && settings.webhookUrl) {
+            const stored = await browserAPI.storage.local.get(['discordPairingId']);
+            if (stored.discordPairingId && isSupabaseConfigured()) {
+              try {
+                const pairingResponse = await fetch(
+                  `${SUPABASE_URL}/rest/v1/rollcloud_pairings?id=eq.${stored.discordPairingId}&select=discord_user_id`,
+                  {
+                    headers: {
+                      'apikey': SUPABASE_ANON_KEY,
+                      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    }
+                  }
+                );
+                if (pairingResponse.ok) {
+                  const pairings = await pairingResponse.json();
+                  if (pairings.length > 0 && pairings[0].discord_user_id) {
+                    // Ensure auth_tokens has this discord_user_id
+                    await linkDiscordUserToAuthTokens(pairings[0].discord_user_id);
+                  }
+                }
+              } catch (e) {
+                debug.warn('Could not sync discord_user_id on getDiscordWebhook:', e);
+              }
+            }
+          }
+
           response = { success: true, ...settings };
           break;
         }
@@ -1267,7 +1295,10 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
         }
       }
     } else {
-      // No pairing code provided - try to get Discord user ID from auth_tokens
+      // No pairing code provided - try multiple sources for Discord user ID
+      let discordUserId = null;
+
+      // 1. First check auth_tokens
       try {
         const authResponse = await fetch(
           `${SUPABASE_URL}/rest/v1/auth_tokens?user_id=eq.${visitorId}&select=discord_user_id`,
@@ -1281,16 +1312,72 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
         if (authResponse.ok) {
           const authTokens = await authResponse.json();
           if (authTokens.length > 0 && authTokens[0].discord_user_id) {
-            payload.discord_user_id = authTokens[0].discord_user_id;
-            debug.log('✅ Found Discord user ID from auth_tokens:', authTokens[0].discord_user_id);
-          } else {
-            payload.discord_user_id = 'not_linked';
-            debug.log('⚠️ No Discord user ID found, using placeholder');
+            discordUserId = authTokens[0].discord_user_id;
+            debug.log('✅ Found Discord user ID from auth_tokens:', discordUserId);
           }
         }
       } catch (error) {
-        payload.discord_user_id = 'not_linked';
-        debug.log('⚠️ Failed to get Discord user ID, using placeholder:', error.message);
+        debug.warn('⚠️ Failed to check auth_tokens:', error.message);
+      }
+
+      // 2. If not in auth_tokens, check pairings table for this DiceCloud user
+      if (!discordUserId && payload.user_id_dicecloud) {
+        try {
+          const pairingResponse = await fetch(
+            `${SUPABASE_URL}/rest/v1/rollcloud_pairings?dicecloud_user_id=eq.${payload.user_id_dicecloud}&status=eq.connected&select=discord_user_id`,
+            {
+              headers: {
+                'apikey': SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+              }
+            }
+          );
+          if (pairingResponse.ok) {
+            const pairings = await pairingResponse.json();
+            if (pairings.length > 0 && pairings[0].discord_user_id) {
+              discordUserId = pairings[0].discord_user_id;
+              debug.log('✅ Found Discord user ID from pairings:', discordUserId);
+              // Also update auth_tokens so future lookups are faster
+              await linkDiscordUserToAuthTokens(discordUserId);
+            }
+          }
+        } catch (error) {
+          debug.warn('⚠️ Failed to check pairings:', error.message);
+        }
+      }
+
+      // 3. If still not found, check local storage for saved pairing ID
+      if (!discordUserId) {
+        try {
+          const stored = await browserAPI.storage.local.get(['discordPairingId']);
+          if (stored.discordPairingId) {
+            const pairingResponse = await fetch(
+              `${SUPABASE_URL}/rest/v1/rollcloud_pairings?id=eq.${stored.discordPairingId}&select=discord_user_id`,
+              {
+                headers: {
+                  'apikey': SUPABASE_ANON_KEY,
+                  'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                }
+              }
+            );
+            if (pairingResponse.ok) {
+              const pairings = await pairingResponse.json();
+              if (pairings.length > 0 && pairings[0].discord_user_id) {
+                discordUserId = pairings[0].discord_user_id;
+                debug.log('✅ Found Discord user ID from stored pairing:', discordUserId);
+                // Also update auth_tokens
+                await linkDiscordUserToAuthTokens(discordUserId);
+              }
+            }
+          }
+        } catch (error) {
+          debug.warn('⚠️ Failed to check stored pairing:', error.message);
+        }
+      }
+
+      payload.discord_user_id = discordUserId || 'not_linked';
+      if (!discordUserId) {
+        debug.log('⚠️ No Discord user ID found from any source, using placeholder');
       }
     }
 
