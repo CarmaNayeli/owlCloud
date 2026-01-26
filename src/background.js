@@ -6,6 +6,7 @@
 // For Chrome service workers, import debug utility
 if (typeof importScripts === 'function' && typeof chrome !== 'undefined') {
   importScripts('src/common/debug.js');
+  importScripts('src/lib/supabase-client.js');
 }
 
 debug.log('RollCloud: Background script starting...');
@@ -91,6 +92,13 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
         case 'getCharacterData': {
           const data = await getCharacterData(request.characterId);
+          response = { success: true, data };
+          break;
+        }
+
+        case 'getCharacterDataFromDatabase': {
+          // Handle database character loading
+          const data = await getCharacterDataFromDatabase(request.characterId);
           response = { success: true, data };
           break;
         }
@@ -581,14 +589,139 @@ async function getCharacterData(characterId = null) {
 }
 
 /**
- * Gets all character profiles
+ * Gets all character profiles from both local storage and database
  */
 async function getAllCharacterProfiles() {
   try {
-    const result = await browserAPI.storage.local.get(['characterProfiles']);
-    return result.characterProfiles || {};
+    // Get local profiles first
+    const localResult = await browserAPI.storage.local.get(['characterProfiles']);
+    const localProfiles = localResult.characterProfiles || {};
+    
+    // Try to get database characters if SupabaseTokenManager is available
+    let databaseCharacters = {};
+    try {
+      if (typeof SupabaseTokenManager !== 'undefined') {
+        const supabase = new SupabaseTokenManager();
+        
+        // Get current user's DiceCloud ID from auth tokens
+        const tokenResult = await supabase.retrieveToken();
+        if (tokenResult.success && tokenResult.userId) {
+          debug.log('🌐 Fetching database characters for DiceCloud user:', tokenResult.userId);
+          
+          // Get all characters for this user from database
+          const response = await fetch(
+            `${supabase.supabaseUrl}/rest/v1/rollcloud_characters?user_id_dicecloud=eq.${tokenResult.userId}&select=*`,
+            {
+              headers: {
+                'apikey': supabase.supabaseKey,
+                'Authorization': `Bearer ${supabase.supabaseKey}`
+              }
+            }
+          );
+          
+          if (response.ok) {
+            const characters = await response.json();
+            debug.log(`📦 Found ${characters.length} characters in database`);
+            
+            // Convert database characters to profile format
+            characters.forEach(character => {
+              const slotId = `db-${character.dicecloud_character_id}`;
+              databaseCharacters[slotId] = {
+                name: character.character_name,
+                id: character.dicecloud_character_id,
+                source: 'database',
+                lastUpdated: character.updated_at,
+                race: character.race,
+                class: character.class,
+                level: character.level,
+                // Store full character data for loading
+                _fullData: character
+              };
+            });
+          } else {
+            debug.warn('⚠️ Failed to fetch database characters:', response.status);
+          }
+        }
+      }
+    } catch (dbError) {
+      debug.warn('⚠️ Failed to load database characters:', dbError);
+      // Continue with local profiles only
+    }
+    
+    // Merge local and database profiles
+    const mergedProfiles = { ...localProfiles, ...databaseCharacters };
+    
+    debug.log('📋 Character profiles loaded:', {
+      local: Object.keys(localProfiles).length,
+      database: Object.keys(databaseCharacters).length,
+      total: Object.keys(mergedProfiles).length
+    });
+    
+    return mergedProfiles;
   } catch (error) {
     debug.error('Failed to retrieve character profiles:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get character data from database by character ID
+ */
+async function getCharacterDataFromDatabase(characterId) {
+  try {
+    if (typeof SupabaseTokenManager === 'undefined') {
+      throw new Error('SupabaseTokenManager not available');
+    }
+    
+    const supabase = new SupabaseTokenManager();
+    const response = await fetch(
+      `${supabase.supabaseUrl}/rest/v1/rollcloud_characters?dicecloud_character_id=eq.${characterId}&select=*`,
+      {
+        headers: {
+          'apikey': supabase.supabaseKey,
+          'Authorization': `Bearer ${supabase.supabaseKey}`
+        }
+      }
+    );
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch database character: ${response.status}`);
+    }
+    
+    const characters = await response.json();
+    if (characters.length === 0) {
+      throw new Error('Character not found in database');
+    }
+    
+    // Convert database format to expected character data format
+    const dbCharacter = characters[0];
+    const characterData = {
+      id: dbCharacter.dicecloud_character_id,
+      name: dbCharacter.character_name,
+      race: dbCharacter.race,
+      class: dbCharacter.class,
+      level: dbCharacter.level,
+      alignment: dbCharacter.alignment,
+      hitPoints: dbCharacter.hit_points,
+      armorClass: dbCharacter.armor_class,
+      speed: dbCharacter.speed,
+      initiative: dbCharacter.initiative,
+      proficiencyBonus: dbCharacter.proficiency_bonus,
+      attributes: dbCharacter.attributes,
+      attributeMods: dbCharacter.attribute_mods,
+      saves: dbCharacter.saves,
+      skills: dbCharacter.skills,
+      spellSlots: dbCharacter.spell_slots,
+      resources: dbCharacter.resources,
+      conditions: dbCharacter.conditions,
+      source: 'database',
+      lastUpdated: dbCharacter.updated_at
+    };
+    
+    debug.log('✅ Loaded character from database:', characterData.name);
+    return characterData;
+  } catch (error) {
+    debug.error('❌ Failed to get character data from database:', error);
     throw error;
   }
 }

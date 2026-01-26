@@ -246,7 +246,7 @@ export default function ConfigurePip() {
     setInviting(serverId);
     try {
       // Generate Discord OAuth2 invite URL with proper permissions
-      const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID || 'YOUR_BOT_CLIENT_ID';
+      const clientId = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID || process.env.DISCORD_CLIENT_ID || 'YOUR_BOT_CLIENT_ID';
       const permissions = [
         'VIEW_CHANNEL',
         'SEND_MESSAGES',
@@ -497,7 +497,7 @@ export default function ConfigurePip() {
                   You can invite Pip to any Discord server where you have admin permissions.
                 </p>
                 <button
-                  onClick={() => window.open('https://discord.com/oauth2/authorize?client_id=YOUR_BOT_CLIENT_ID&permissions=8&scope=bot%20applications.commands', '_blank')}
+                  onClick={() => window.open(`https://discord.com/oauth2/authorize?client_id=${process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID || process.env.DISCORD_CLIENT_ID || 'YOUR_BOT_CLIENT_ID'}&permissions=8&scope=bot%20applications.commands`, '_blank')}
                   className="bg-[#5865F2] hover:bg-[#4752C4] text-white px-4 py-2 rounded-lg font-medium transition"
                 >
                   Invite Pip to Server

@@ -297,8 +297,29 @@ async function loadCharacterWithTabs() {
     debug.log('📋 Current slot ID set to:', currentSlotId);
 
     // Get active character data
-    const activeResponse = await browserAPI.runtime.sendMessage({ action: 'getCharacterData' });
-    const activeCharacter = activeResponse.success ? activeResponse.data : null;
+    let activeCharacter = null;
+    
+    // Check if this is a database character
+    if (currentSlotId && currentSlotId.startsWith('db-')) {
+      // Load from database
+      const characterId = currentSlotId.replace('db-', '');
+      try {
+        const dbResponse = await browserAPI.runtime.sendMessage({ 
+          action: 'getCharacterDataFromDatabase', 
+          characterId: characterId 
+        });
+        if (dbResponse.success) {
+          activeCharacter = dbResponse.data;
+          debug.log('✅ Loaded character from database:', activeCharacter.name);
+        }
+      } catch (dbError) {
+        debug.warn('⚠️ Failed to load database character:', dbError);
+      }
+    } else {
+      // Load from local storage
+      const activeResponse = await browserAPI.runtime.sendMessage({ action: 'getCharacterData' });
+      activeCharacter = activeResponse.success ? activeResponse.data : null;
+    }
 
     // Load active character
     if (activeCharacter) {
@@ -314,7 +335,7 @@ async function loadCharacterWithTabs() {
       // Initialize class features based on character data
       initClassFeatures();
     } else {
-      debug.error('❌ No character data found in storage');
+      debug.error('❌ No character data found');
     }
   } catch (error) {
     debug.error('❌ Failed to load characters:', error);
@@ -342,7 +363,49 @@ function buildCharacterTabs(profiles, activeCharacterId) {
   tabsContainer.innerHTML = '';
   const maxSlots = 10; // Support up to 10 character slots (matches main's implementation)
 
-  // Create tabs for each slot
+  // First, add database characters
+  const databaseCharacters = Object.entries(profiles).filter(([slotId, profile]) => 
+    slotId.startsWith('db-') && profile.source === 'database'
+  );
+  
+  // Add database character tabs
+  databaseCharacters.forEach(([slotId, charInSlot], index) => {
+    const isActive = slotId === activeCharacterId;
+    
+    debug.log(`🌐 DB Character: ${charInSlot.name} (active: ${isActive})`);
+    
+    const tab = document.createElement('div');
+    tab.className = 'character-tab database-tab';
+    if (isActive) {
+      tab.classList.add('active');
+    }
+    tab.dataset.slotId = slotId;
+    
+    // Create special styling for database characters
+    tab.innerHTML = `
+      <span class="slot-number">🌐</span>
+      <span class="char-name">${charInSlot.name || 'Unknown'}</span>
+      <span class="char-details">${charInSlot.level || 1} ${charInSlot.class || 'Unknown'}</span>
+    `;
+    
+    // Add click handler
+    tab.addEventListener('click', (e) => {
+      debug.log(`🖱️ Database tab clicked for ${slotId}`, charInSlot.name);
+      switchToCharacter(slotId);
+    });
+    
+    tabsContainer.appendChild(tab);
+  });
+
+  // Add separator if we have both database and local characters
+  if (databaseCharacters.length > 0) {
+    const separator = document.createElement('div');
+    separator.className = 'tab-separator';
+    separator.innerHTML = '<span style="color: var(--text-secondary); font-size: 0.8em;">Local Characters</span>';
+    tabsContainer.appendChild(separator);
+  }
+
+  // Create tabs for local slots
   for (let slotNum = 1; slotNum <= maxSlots; slotNum++) {
     const slotId = `slot-${slotNum}`;
     // Find character in this slot using slotId as key
@@ -429,10 +492,10 @@ async function switchToCharacter(characterId) {
     if (characterData && currentSlotId && currentSlotId !== characterId) {
       debug.log('💾 Saving current character data before switching');
       const dataToSave = JSON.parse(JSON.stringify(characterData));
-
-      // Save to cache (for quick access in current session)
-      if (characterData.id) {
-        characterCache.set(characterData.id, dataToSave);
+      
+      // Save to cache for immediate access
+      if (typeof characterCache !== 'undefined') {
+        characterCache.set(currentSlotId, dataToSave);
         debug.log(`✅ Cached current character data: ${characterData.name}`);
       }
 
@@ -440,8 +503,72 @@ async function switchToCharacter(characterId) {
       await browserAPI.runtime.sendMessage({
         action: 'storeCharacterData',
         data: dataToSave,
-        slotId: currentSlotId  // CRITICAL: Pass current slotId for proper persistence
+        slotId: currentSlotId
       });
+      debug.log(`✅ Saved current character data to storage: ${characterData.name}`);
+    }
+
+    // Set as active character
+    await setActiveCharacter(characterId);
+    currentSlotId = characterId;
+
+    // Load the new character data
+    let newCharacterData = null;
+    
+    // Check if this is a database character
+    if (characterId.startsWith('db-')) {
+      // Load from database
+      const dbCharacterId = characterId.replace('db-', '');
+      try {
+        const dbResponse = await browserAPI.runtime.sendMessage({ 
+          action: 'getCharacterDataFromDatabase', 
+          characterId: dbCharacterId 
+        });
+        if (dbResponse.success) {
+          newCharacterData = dbResponse.data;
+          debug.log('✅ Loaded database character:', newCharacterData.name);
+        } else {
+          throw new Error(dbResponse.error || 'Failed to load database character');
+        }
+      } catch (dbError) {
+        debug.error('❌ Failed to load database character:', dbError);
+        showNotification('❌ Failed to load character from database', 'error');
+        return;
+      }
+    } else {
+      // Load from local storage
+      const response = await browserAPI.runtime.sendMessage({ 
+        action: 'getCharacterData', 
+        characterId: characterId 
+      });
+      
+      if (response.success) {
+        newCharacterData = response.data;
+        debug.log('✅ Loaded local character:', newCharacterData.name);
+      } else {
+        throw new Error(response.error || 'Failed to load local character');
+      }
+    }
+
+    if (newCharacterData) {
+      characterData = newCharacterData;
+      
+      // Cache the loaded character data
+      if (typeof characterCache !== 'undefined') {
+        characterCache.set(characterId, characterData);
+      }
+
+      // Build the character sheet
+      buildSheet(characterData);
+      
+      // Initialize racial traits based on character data
+      initRacialTraits();
+
+      // Initialize feat traits based on character data
+      initFeatTraits();
+
+      // Initialize class features based on character data
+      initClassFeatures();
 
       // Send sync message to DiceCloud if experimental sync is available
       // Always send sync messages in experimental build - they'll be handled by Roll20 content script
@@ -449,106 +576,53 @@ async function switchToCharacter(characterId) {
 
       // Extract Channel Divinity from resources if it exists
       const channelDivinityResource = characterData.resources?.find(r =>
-        r.name === 'Channel Divinity' ||
-        r.variableName === 'channelDivinityCleric' ||
-        r.variableName === 'channelDivinityPaladin' ||
-        r.variableName === 'channelDivinity'
+        r.name && r.name.toLowerCase().includes('channel divinity')
       );
 
       const syncMessage = {
-        type: 'characterDataUpdate',
-        characterData: {
-          name: characterData.name,
-          hp: characterData.hitPoints.current,
-          tempHp: characterData.temporaryHP || 0,
-          maxHp: characterData.hitPoints.max,
-          spellSlots: characterData.spellSlots || {},
-          channelDivinity: channelDivinityResource ? {
-            current: channelDivinityResource.current,
-            max: channelDivinityResource.max
-          } : undefined,
-          resources: characterData.resources || [],
-          actions: characterData.actions || [],
-          deathSaves: characterData.deathSaves,
-          inspiration: characterData.inspiration,
-          lastRoll: characterData.lastRoll
-        }
+        action: 'characterUpdate',
+        characterId: characterData.id,
+        characterName: characterData.name,
+        hitPoints: characterData.hitPoints,
+        temporaryHP: characterData.temporaryHP,
+        spellSlots: characterData.spellSlots,
+        channelDivinity: channelDivinityResource ? {
+          current: channelDivinityResource.current,
+          max: channelDivinityResource.max,
+          variableName: channelDivinityResource.variableName || channelDivinityResource.varName
+        } : null,
+        resources: characterData.resources || [],
+        actions: characterData.actions || [],
+        deathSaves: characterData.deathSaves,
+        inspiration: characterData.inspiration,
+        conditions: characterData.conditions || [],
+        source: characterData.source || 'local'
       };
-      
-      // Try to send to Roll20 content script
-      window.postMessage(syncMessage, '*');
-      
-      // Also try to send via opener if available
-      if (window.opener && !window.opener.closed) {
-        window.opener.postMessage(syncMessage, '*');
+
+      // Send to all Roll20 tabs
+      try {
+        const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
+        for (const tab of tabs) {
+          browserAPI.tabs.sendMessage(tab.id, syncMessage).catch(err => {
+            debug.warn(`Failed to send sync to tab ${tab.id}:`, err);
+          });
+        }
+        debug.log(`📤 Sent character update to ${tabs.length} Roll20 tabs`);
+      } catch (syncError) {
+        debug.warn('Failed to send sync to Roll20 tabs:', syncError);
       }
 
-      debug.log(`💾 Saved current character to browser storage: ${characterData.name} (slotId: ${currentSlotId})`);
-    }
-
-    // Update current slot ID
-    currentSlotId = characterId;
-    debug.log('📋 Current slot ID updated to:', currentSlotId);
-
-    // Set active character
-    await browserAPI.runtime.sendMessage({
-      action: 'setActiveCharacter',
-      characterId: characterId
-    });
-    debug.log(`✅ Active character set to: ${characterId}`);
-
-    // Try to get cached character data first
-    let characterDataToUse = characterCache.get(characterId);
-
-    if (!characterDataToUse) {
-      debug.log('📂 No cached data, fetching from storage');
-      // Fetch from storage if not cached
-      const response = await browserAPI.runtime.sendMessage({
-        action: 'getCharacterData',
-        characterId: characterId
-      });
-      debug.log(`📊 Character data received:`, response);
-
-      if (response && response.data) {
-        characterDataToUse = response.data;
-        // Cache the fresh data
-        characterCache.set(characterId, JSON.parse(JSON.stringify(response.data)));
-      }
-    } else {
-      debug.log('📂 Using cached character data');
-    }
-
-    if (characterDataToUse) {
-      characterData = characterDataToUse;
-      debug.log(`🎨 Building sheet for: ${characterData.name}`);
-      buildSheet(characterData);
-
-      // Reload tabs to update active state (don't rebuild the sheet)
-      debug.log(`🔄 Reloading tabs to update active state`);
+      // Update tabs to show new active character
       await loadAndBuildTabs();
-
-      // Register this character with GM Initiative Tracker (if it exists)
-      // Use postMessage to avoid CORS issues - send character name only
-      if (window.opener) {
-        window.opener.postMessage({
-          action: 'registerPopup',
-          characterName: characterData.name
-        }, '*');
-        debug.log(`✅ Sent registration message for: ${characterData.name}`);
-      } else {
-        debug.warn(`⚠️ No window.opener available for: ${characterData.name}`);
-      }
-
-      // Check if it's currently this character's turn by reading recent chat
-      // Add a small delay to ensure combat system has processed turn changes
-      setTimeout(() => {
-        checkCurrentTurnFromChat(characterData.name);
-      }, 500);
-
-      showNotification(`✅ Switched to ${characterData.name}`);
+      
+      // Show success notification
+      const source = characterData.source || 'local';
+      const sourceText = source === 'database' ? '🌐' : '💾';
+      showNotification(`${sourceText} Switched to ${characterData.name}`, 'success');
+      
+      debug.log(`✅ Successfully switched to character: ${characterData.name}`);
     } else {
-      debug.error(`❌ No character data in response`);
-      showNotification('❌ Character not found', 'error');
+      throw new Error('No character data available');
     }
   } catch (error) {
     debug.error('❌ Failed to switch character:', error);

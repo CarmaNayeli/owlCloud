@@ -9,10 +9,14 @@ export async function GET(
 
     // Check if the bot is in the server by trying to fetch bot's guilds
     // This requires the bot token to be available
-    const botToken = process.env.DISCORD_BOT_TOKEN;
+    const botToken = process.env.DISCORD_TOKEN || process.env.DISCORD_BOT_TOKEN;
     
     if (!botToken) {
-      // For development, we'll return false
+      console.error('❌ No Discord bot token found in environment variables');
+      console.log('🔍 Available env vars:', {
+        DISCORD_TOKEN: !!process.env.DISCORD_TOKEN,
+        DISCORD_BOT_TOKEN: !!process.env.DISCORD_BOT_TOKEN
+      });
       return NextResponse.json({ botPresent: false });
     }
 

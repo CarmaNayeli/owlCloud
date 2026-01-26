@@ -90,6 +90,8 @@ export default {
         channelId: interaction.channel.id,
         channelName: interaction.channel.name,
         userId: interaction.user.id,
+        username: interaction.user.username,
+        globalName: interaction.user.globalName || interaction.user.username,
         client: interaction.client
       });
 
@@ -245,9 +247,6 @@ async function completePairing(code, discordInfo) {
  * Update auth_tokens table with Discord information
  */
 async function updateAuthTokensWithDiscordInfo(dicecloudUserId, discordInfo) {
-  // First, get the Discord user details
-  const discordUser = await discordInfo.client.users.fetch(discordInfo.userId);
-  
   const response = await fetch(
     `${SUPABASE_URL}/rest/v1/auth_tokens?user_id_dicecloud=eq.${dicecloudUserId}`,
     {
@@ -260,8 +259,8 @@ async function updateAuthTokensWithDiscordInfo(dicecloudUserId, discordInfo) {
       },
       body: JSON.stringify({
         discord_user_id: discordInfo.userId,
-        discord_username: discordUser.username,
-        discord_global_name: discordUser.globalName || discordUser.username,
+        discord_username: discordInfo.username,
+        discord_global_name: discordInfo.globalName,
         updated_at: new Date().toISOString()
       })
     }

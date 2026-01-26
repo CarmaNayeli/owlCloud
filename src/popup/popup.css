@@ -797,3 +797,64 @@ footer {
   background-color: #eee;
   margin: 4px 0;
 }
+
+/* Database Character Tabs Styles */
+.database-tab {
+  background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%) !important;
+  border: 2px solid #2196f3 !important;
+  position: relative;
+}
+
+.database-tab:hover {
+  border-color: #1976d2 !important;
+  box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3) !important;
+  transform: translateY(-2px);
+}
+
+.database-tab.active {
+  background: linear-gradient(135deg, #2196f3 0%, #9c27b0 100%) !important;
+  border-color: #1976d2 !important;
+  color: white !important;
+}
+
+.database-tab.active .char-name,
+.database-tab.active .char-details {
+  color: white !important;
+}
+
+.database-tab .slot-number {
+  background: #2196f3 !important;
+  color: white !important;
+  border-radius: 50% !important;
+  width: 24px !important;
+  height: 24px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 12px !important;
+  font-weight: bold !important;
+}
+
+.database-tab .char-details {
+  font-size: 11px !important;
+  color: #666 !important;
+  font-weight: 500 !important;
+  margin-top: 2px !important;
+}
+
+.tab-separator {
+  padding: 8px 16px !important;
+  text-align: center !important;
+  background: #f5f5f5 !important;
+  border-top: 1px solid #e0e0e0 !important;
+  border-bottom: 1px solid #e0e0e0 !important;
+  margin: 8px 0 !important;
+  border-radius: 4px !important;
+}
+
+.tab-separator span {
+  font-size: 11px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  font-weight: 600 !important;
+}
