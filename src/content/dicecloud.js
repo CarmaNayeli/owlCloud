@@ -216,6 +216,38 @@
   }
 
 /**
+   * Determines hit die type from character class (D&D 5e)
+   */
+  function getHitDieTypeFromClass(levels) {
+    const hitDiceMap = {
+      'barbarian': 'd12',
+      'fighter': 'd10',
+      'paladin': 'd10',
+      'ranger': 'd10',
+      'bard': 'd8',
+      'cleric': 'd8',
+      'druid': 'd8',
+      'monk': 'd8',
+      'rogue': 'd8',
+      'warlock': 'd8',
+      'sorcerer': 'd6',
+      'wizard': 'd6'
+    };
+
+    // Get primary class from levels array (first entry or highest level)
+    if (levels && levels.length > 0) {
+      const primaryClass = levels[0]?.name?.toLowerCase() || '';
+      for (const [classKey, die] of Object.entries(hitDiceMap)) {
+        if (primaryClass.includes(classKey)) {
+          return die;
+        }
+      }
+    }
+
+    return 'd8'; // Default
+  }
+
+  /**
    * Parses API response into structured character data
    */
   function parseCharacterData(apiData) {
@@ -383,8 +415,14 @@
       inventory: [],
       proficiencies: [],
       hitPoints: {
-        current: (variables.hitPoints && variables.hitPoints.value) || 0,
-        max: (variables.hitPoints && variables.hitPoints.total) || 0
+        current: (variables.hitPoints && (variables.hitPoints.currentValue ?? variables.hitPoints.value)) || 0,
+        max: (variables.hitPoints && (variables.hitPoints.total ?? variables.hitPoints.max)) || 0
+      },
+      temporaryHP: (variables.temporaryHitPoints && (variables.temporaryHitPoints.value ?? variables.temporaryHitPoints.currentValue)) || 0,
+      hitDice: {
+        current: creature.level || 1,
+        max: creature.level || 1,
+        type: getHitDieTypeFromClass(creature.levels || [])
       },
       armorClass: calculateArmorClass(),
       speed: (variables.speed && (variables.speed.total || variables.speed.value)) || 30,

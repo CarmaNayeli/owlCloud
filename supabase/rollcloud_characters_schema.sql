@@ -12,6 +12,10 @@ CREATE TABLE IF NOT EXISTS public.rollcloud_characters (
     level INTEGER DEFAULT 1,                    -- Character level
     alignment VARCHAR(50),                        -- Character alignment
     hit_points JSONB,                            -- HP: {current: number, max: number}
+    hit_dice JSONB,                              -- Hit dice: {current: number, max: number, type: string}
+    temporary_hp INTEGER DEFAULT 0,              -- Temporary hit points
+    death_saves JSONB,                           -- Death saves: {successes: number, failures: number}
+    inspiration BOOLEAN DEFAULT false,           -- Inspiration status
     armor_class INTEGER DEFAULT 10,               -- AC value
     speed INTEGER DEFAULT 30,                     -- Speed value
     initiative INTEGER DEFAULT 0,                 -- Initiative value
@@ -46,6 +50,10 @@ COMMENT ON COLUMN public.rollcloud_characters.class IS 'Character class';
 COMMENT ON COLUMN public.rollcloud_characters.level IS 'Character level';
 COMMENT ON COLUMN public.rollcloud_characters.alignment IS 'Character alignment';
 COMMENT ON COLUMN public.rollcloud_characters.hit_points IS 'Hit points: {current, max}';
+COMMENT ON COLUMN public.rollcloud_characters.hit_dice IS 'Hit dice: {current, max, type}';
+COMMENT ON COLUMN public.rollcloud_characters.temporary_hp IS 'Temporary hit points';
+COMMENT ON COLUMN public.rollcloud_characters.death_saves IS 'Death saves: {successes, failures}';
+COMMENT ON COLUMN public.rollcloud_characters.inspiration IS 'Inspiration status';
 COMMENT ON COLUMN public.rollcloud_characters.armor_class IS 'Armor class value';
 COMMENT ON COLUMN public.rollcloud_characters.speed IS 'Speed value';
 COMMENT ON COLUMN public.rollcloud_characters.initiative IS 'Initiative value';
