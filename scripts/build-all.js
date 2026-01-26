@@ -16,6 +16,7 @@ const { execSync, spawn } = require('child_process');
 
 const ROOT_DIR = path.join(__dirname, '..');
 const DIST_DIR = path.join(ROOT_DIR, 'dist');
+const RELEASES_DIR = path.join(ROOT_DIR, 'releases');
 const INSTALLER_DIR = path.join(ROOT_DIR, 'installer');
 
 // Parse command line arguments
@@ -198,6 +199,52 @@ async function buildAll() {
   }
 
   // ============================================================================
+  // Step 4: Copy to Releases Folder
+  // ============================================================================
+  printSection('Step 4: Copying to Releases Folder');
+
+  // Ensure releases directory exists
+  if (!fs.existsSync(RELEASES_DIR)) {
+    fs.mkdirSync(RELEASES_DIR, { recursive: true });
+  }
+
+  // Get version from package.json
+  const packageJson = require(path.join(ROOT_DIR, 'package.json'));
+  const version = packageJson.version;
+
+  // Files to copy to releases (for GitHub release uploads)
+  const releaseFiles = [
+    // Chrome signed CRX - both versioned and non-versioned names for compatibility
+    { src: 'rollcloud-chrome-signed.crx', dest: `rollcloud-chrome-${version}.crx` },
+    { src: 'rollcloud-chrome-signed.crx', dest: 'rollcloud-chrome-signed.crx' },
+    { src: 'rollcloud-chrome-signed.id', dest: `rollcloud-chrome-${version}.id` },
+    // Firefox XPI - both versioned and non-versioned names
+    { src: 'rollcloud-firefox-signed.xpi', dest: `rollcloud-firefox-${version}.xpi` },
+    { src: 'rollcloud-firefox-signed.xpi', dest: 'rollcloud-firefox-signed.xpi' },
+    // ZIP files for manual installation
+    { src: 'rollcloud-chrome.zip', dest: `rollcloud-chrome-${version}.zip` },
+    { src: 'rollcloud-firefox.zip', dest: `rollcloud-firefox-${version}.zip` },
+  ];
+
+  let copiedCount = 0;
+  for (const file of releaseFiles) {
+    const srcPath = path.join(DIST_DIR, file.src);
+    const destPath = path.join(RELEASES_DIR, file.dest);
+
+    if (fs.existsSync(srcPath)) {
+      fs.copyFileSync(srcPath, destPath);
+      const stats = fs.statSync(destPath);
+      const size = (stats.size / 1024).toFixed(1);
+      console.log(`   ✅ ${file.dest} (${size} KB)`);
+      copiedCount++;
+    } else {
+      console.log(`   ⚠️ ${file.src} not found, skipping`);
+    }
+  }
+
+  console.log(`\n   Copied ${copiedCount} files to releases/`);
+
+  // ============================================================================
   // Summary
   // ============================================================================
   printSection('Build Complete!');
@@ -244,6 +291,27 @@ async function buildAll() {
       }
     }
   }
+
+  // List releases folder
+  console.log('\n   releases/ (for GitHub Release uploads):');
+  if (fs.existsSync(RELEASES_DIR)) {
+    const releaseFilesInDir = fs.readdirSync(RELEASES_DIR).filter(f =>
+      f.endsWith('.crx') || f.endsWith('.xpi') || f.endsWith('.zip')
+    );
+    for (const file of releaseFilesInDir) {
+      const filePath = path.join(RELEASES_DIR, file);
+      const stats = fs.statSync(filePath);
+      const size = (stats.size / 1024).toFixed(1);
+      console.log(`     📦 ${file} (${size} KB)`);
+    }
+  }
+
+  console.log('\n📋 GitHub Release Upload Checklist:');
+  console.log(`     Upload these files from releases/ folder:`);
+  console.log(`       - rollcloud-chrome-signed.crx (for enterprise policy install)`);
+  console.log(`       - rollcloud-firefox-signed.xpi (for Firefox install)`);
+  console.log(`       - rollcloud-chrome-${version}.zip (for manual Chrome install)`);
+  console.log(`       - rollcloud-firefox-${version}.zip (for manual Firefox install)`);
 
   console.log('\n🎉 Build complete!\n');
 }
