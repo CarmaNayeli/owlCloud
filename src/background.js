@@ -2128,6 +2128,31 @@ async function createDiscordPairing(code, diceCloudUsername, diceCloudUserId) {
   }
 
   try {
+    // Expire any existing pending pairings for this DiceCloud user
+    if (diceCloudUserId) {
+      try {
+        const expireResponse = await fetch(
+          `${SUPABASE_URL}/rest/v1/rollcloud_pairings?dicecloud_user_id=eq.${diceCloudUserId}&status=eq.pending`,
+          {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': SUPABASE_ANON_KEY,
+              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+              'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({ status: 'expired' })
+          }
+        );
+        if (expireResponse.ok) {
+          debug.log('🧹 Expired old pending pairings for user:', diceCloudUserId);
+        }
+      } catch (expireError) {
+        debug.warn('⚠️ Could not expire old pairings:', expireError.message);
+        // Continue anyway - this is not critical
+      }
+    }
+
     const response = await fetch(`${SUPABASE_URL}/rest/v1/rollcloud_pairings`, {
       method: 'POST',
       headers: {

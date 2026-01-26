@@ -1497,10 +1497,6 @@ function initializePopup() {
   // Discord Integration (Pip Bot Pairing)
   // ============================================================================
 
-  const SUPABASE_URL = 'https://your-project.supabase.co'; // TODO: Replace with actual URL
-  const SUPABASE_ANON_KEY = 'your-anon-key'; // TODO: Replace with actual key
-  const PIP_BOT_INVITE_URL = 'https://discord.com/api/oauth2/authorize?client_id=1464771468452827380&permissions=536870912&scope=bot%20applications.commands';
-
   let pairingPollInterval = null;
   let pairingExpiresAt = null;
 
@@ -1623,11 +1619,8 @@ function initializePopup() {
         }
       }
 
-      // Show pairing state
+      // Show pairing state with instructions
       showDiscordPairing(code);
-
-      // Open Pip Bot invite in new tab
-      await browserAPI.tabs.create({ url: PIP_BOT_INVITE_URL, active: true });
 
       // Start polling for connection
       pairingExpiresAt = Date.now() + 30 * 60 * 1000; // 30 minutes
