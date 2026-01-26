@@ -41,7 +41,7 @@ export default function ConfigurePip() {
   const [inviting, setInviting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fetchingServers, setFetchingServers] = useState(false);
-  const [showServersWithoutPip, setShowServersWithoutPip] = useState(true);
+  const [showServersWithoutPip, setShowServersWithoutPip] = useState(false);
 
   // Mock data - replace with actual API calls
   const mockCommands: SlashCommand[] = [
