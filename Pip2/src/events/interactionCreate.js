@@ -14,12 +14,31 @@ export default {
       await handleCommand(interaction);
     }
 
+    // Handle autocomplete
+    if (interaction.isAutocomplete()) {
+      await handleAutocomplete(interaction);
+    }
+
     // Handle button interactions
     if (interaction.isButton()) {
       await handleButtonInteraction(interaction);
     }
   }
 };
+
+async function handleAutocomplete(interaction) {
+  const command = interaction.client.commands.get(interaction.commandName);
+
+  if (!command || !command.autocomplete) {
+    return;
+  }
+
+  try {
+    await command.autocomplete(interaction);
+  } catch (error) {
+    console.error(`Autocomplete error for ${interaction.commandName}:`, error);
+  }
+}
 
 async function handleCommand(interaction) {
   console.log(`📥 Received command: /${interaction.commandName} from ${interaction.user.username} (${interaction.user.id})`);
