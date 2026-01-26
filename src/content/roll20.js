@@ -535,36 +535,121 @@
       const spellData = request.spellData || {};
       const charName = spellData.character_name || 'Character';
       const spell = spellData.spell_data || {};
-      const castLevel = spellData.cast_level;
+      const castLevel = spellData.cast_level || spell.level;
 
-      // If the spell has a damage roll, roll it
-      if (spell.damageRoll) {
-        const msg = formatRollForRoll20({
-          name: `${charName} casts ${spellName}`,
-          formula: spell.damageRoll,
-          characterName: charName
-        });
-        postChatMessage(msg);
-      } else if (spell.healingRoll) {
-        const msg = formatRollForRoll20({
-          name: `${charName} casts ${spellName}`,
-          formula: spell.healingRoll,
-          characterName: charName
-        });
-        postChatMessage(msg);
-      } else {
-        // Announce-only spell (buff, utility, etc.)
-        let desc = `&{template:default} {{name=${charName} casts ${spellName}}}`;
-        if (castLevel) desc += ` {{Level=${castLevel}}}`;
-        postChatMessage(desc);
+      // Build spell announcement message (matches popup-sheet announceSpellDescription)
+      let announcement = `&{template:default} {{name=${charName} casts ${spellName}!}}`;
+
+      // Add spell level and school
+      if (spell.level && spell.level > 0) {
+        let levelText = `Level ${spell.level}`;
+        if (spell.school) levelText += ` ${spell.school}`;
+        announcement += ` {{Level=${levelText}}}`;
+      } else if (spell.school) {
+        announcement += ` {{School=${spell.school} cantrip}}`;
       }
+
+      // Add casting details
+      if (spell.range) announcement += ` {{Range=${spell.range}}}`;
+      if (spell.duration && spell.duration !== 'Instantaneous') announcement += ` {{Duration=${spell.duration}}}`;
+      if (spell.concentration) announcement += ` {{Concentration=Yes}}`;
+
+      // Post the announcement
+      postChatMessage(announcement);
+
+      // Roll attack if spell has attack roll
+      if (spell.attackRoll && spell.attackRoll !== '(none)') {
+        setTimeout(() => {
+          const attackMsg = formatRollForRoll20({
+            name: `${spellName} - Attack`,
+            formula: spell.attackRoll,
+            characterName: charName
+          });
+          postChatMessage(attackMsg);
+        }, 100);
+      }
+
+      // Roll damage(s) from damageRolls array
+      if (spell.damageRolls && Array.isArray(spell.damageRolls) && spell.damageRolls.length > 0) {
+        spell.damageRolls.forEach((roll, index) => {
+          if (roll.damage) {
+            setTimeout(() => {
+              const damageType = roll.damageType || 'damage';
+              const isHealing = damageType.toLowerCase() === 'healing';
+              const rollName = isHealing ? `${spellName} - Healing` : `${spellName} - ${damageType}`;
+              const damageMsg = formatRollForRoll20({
+                name: rollName,
+                formula: roll.damage,
+                characterName: charName
+              });
+              postChatMessage(damageMsg);
+            }, 200 + (index * 100));
+          }
+        });
+      } else if (spell.damage) {
+        // Fallback to single damage field for backward compatibility
+        setTimeout(() => {
+          const damageType = spell.damageType || 'damage';
+          const damageMsg = formatRollForRoll20({
+            name: `${spellName} - ${damageType}`,
+            formula: spell.damage,
+            characterName: charName
+          });
+          postChatMessage(damageMsg);
+        }, 200);
+      }
+
       sendResponse({ success: true });
     } else if (request.action === 'useAbilityFromDiscord') {
       debug.log('✨ Received useAbilityFromDiscord:', request);
       const abilityName = request.abilityName || 'Unknown Ability';
       const abilityData = request.abilityData || {};
       const charName = abilityData.character_name || 'Character';
-      postChatMessage(`&{template:default} {{name=${charName} uses ${abilityName}}}`);
+      const action = abilityData.action_data || {};
+
+      // Build action announcement
+      let announcement = `&{template:default} {{name=${charName} uses ${abilityName}!}}`;
+
+      // Add action type
+      if (action.actionType) {
+        announcement += ` {{Type=${action.actionType}}}`;
+      }
+
+      // Add range if available
+      if (action.range) {
+        announcement += ` {{Range=${action.range}}}`;
+      }
+
+      // Post the announcement
+      postChatMessage(announcement);
+
+      // Roll attack if action has attack roll
+      if (action.attackRoll || action.attackBonus) {
+        setTimeout(() => {
+          const attackFormula = action.attackRoll || `1d20+${action.attackBonus}`;
+          const attackMsg = formatRollForRoll20({
+            name: `${abilityName} - Attack`,
+            formula: attackFormula,
+            characterName: charName
+          });
+          postChatMessage(attackMsg);
+        }, 100);
+      }
+
+      // Roll damage if available
+      if (action.damageRoll || action.damage) {
+        setTimeout(() => {
+          const damageFormula = action.damageRoll || action.damage;
+          const damageType = action.damageType || 'damage';
+          const damageMsg = formatRollForRoll20({
+            name: `${abilityName} - ${damageType}`,
+            formula: damageFormula,
+            characterName: charName
+          });
+          postChatMessage(damageMsg);
+        }, 200);
+      }
+
       sendResponse({ success: true });
     } else if (request.action === 'endTurnFromDiscord') {
       debug.log('⏭️ Received endTurnFromDiscord');
