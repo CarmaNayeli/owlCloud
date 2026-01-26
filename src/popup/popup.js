@@ -155,6 +155,24 @@ function initializePopup() {
     }
   }, 5000);
 
+  // Periodic session validity check to detect conflicts from other browsers
+  setInterval(async () => {
+    try {
+      if (typeof SupabaseTokenManager !== 'undefined') {
+        const supabaseManager = new SupabaseTokenManager();
+        const sessionCheck = await supabaseManager.checkSessionValidity();
+        
+        if (!sessionCheck.valid) {
+          debug.log('⚠️ Session conflict detected via polling, logging out:', sessionCheck.reason);
+          await handleSessionConflict(sessionCheck);
+          showLoginSection();
+        }
+      }
+    } catch (error) {
+      debug.error('❌ Error in periodic session check:', error);
+    }
+  }, 10000); // Check every 10 seconds
+
   // Event Listeners - Login
   autoConnectBtn.addEventListener('click', handleAutoConnect);
   usernameLoginForm.addEventListener('submit', handleUsernameLogin);
@@ -243,6 +261,20 @@ function initializePopup() {
   async function checkLoginStatus() {
     try {
       debug.log('🔍 Checking login status...');
+      
+      // First check for session conflicts
+      if (typeof SupabaseTokenManager !== 'undefined') {
+        const supabaseManager = new SupabaseTokenManager();
+        const sessionCheck = await supabaseManager.checkSessionValidity();
+        
+        if (!sessionCheck.valid) {
+          debug.log('⚠️ Session conflict detected, logging out:', sessionCheck.reason);
+          await handleSessionConflict(sessionCheck);
+          showLoginSection();
+          return;
+        }
+      }
+      
       // Timeout after 3s in case the service worker is unresponsive (e.g., fresh install)
       const response = await Promise.race([
         browserAPI.runtime.sendMessage({ action: 'checkLoginStatus' }),
@@ -372,6 +404,60 @@ function initializePopup() {
         debug.error('❌ Storage check failed:', storageError);
         showLoginSection();
       }
+    }
+  }
+
+  /**
+   * Handles session conflict when another browser logs in
+   */
+  async function handleSessionConflict(sessionCheck) {
+    try {
+      debug.log('⚠️ Handling session conflict:', sessionCheck);
+      
+      // Clear local authentication data
+      await browserAPI.storage.local.remove([
+        'diceCloudToken', 
+        'username', 
+        'tokenExpires', 
+        'diceCloudUserId', 
+        'authId',
+        'currentSessionId',
+        'sessionStartTime'
+      ]);
+      
+      // Show conflict warning
+      let conflictMessage = 'You have been logged out because RollCloud was opened in a different browser.';
+      
+      if (sessionCheck.reason === 'conflict_detected' && sessionCheck.conflict) {
+        const conflict = sessionCheck.conflict.conflictingSession;
+        const detectedTime = new Date(conflict.detectedAt).toLocaleString();
+        
+        if (conflict.username && conflict.browserInfo) {
+          const browserName = conflict.browserInfo.userAgent.includes('Chrome') ? 'Chrome' : 
+                           conflict.browserInfo.userAgent.includes('Firefox') ? 'Firefox' : 
+                           conflict.browserInfo.userAgent.includes('Edge') ? 'Edge' : 'another browser';
+          
+          conflictMessage = `You have been logged out because RollCloud was opened in ${browserName} as "${conflict.username}" at ${detectedTime}.`;
+        }
+      } else if (sessionCheck.reason === 'token_mismatch') {
+        conflictMessage = 'You have been logged out because your login session was invalidated by another device.';
+      } else if (sessionCheck.reason === 'session_not_found') {
+        conflictMessage = 'Your session has expired. Please log in again.';
+      }
+      
+      // Show the conflict warning in the login form
+      showLoginError(conflictMessage);
+      
+      // Clear conflict info after showing
+      if (typeof SupabaseTokenManager !== 'undefined') {
+        const supabaseManager = new SupabaseTokenManager();
+        await supabaseManager.clearConflictInfo();
+      }
+      
+      debug.log('✅ Session conflict handled, user logged out');
+    } catch (error) {
+      debug.error('❌ Error handling session conflict:', error);
+      showLoginError('You have been logged out. Please log in again.');
     }
   }
 

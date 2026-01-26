@@ -40,6 +40,29 @@ class SupabaseTokenManager {
   }
 
   /**
+   * Generate a unique session ID for this browser instance
+   */
+  generateSessionId() {
+    // Create a more unique session ID using additional entropy
+    const sessionData = [
+      navigator.userAgent,
+      navigator.language,
+      screen.width + 'x' + screen.height,
+      new Date().getTimezoneOffset(),
+      Math.random().toString(36),
+      Date.now().toString(36)
+    ].join('|');
+    
+    let hash = 0;
+    for (let i = 0; i < sessionData.length; i++) {
+      const char = sessionData.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash;
+    }
+    return 'session_' + Math.abs(hash).toString(36);
+  }
+
+  /**
    * Normalize date to ISO 8601 format for PostgreSQL
    * Handles Meteor date formats like "Sat Jan 25 2025 12:00:00 GMT+0300"
    */
@@ -67,12 +90,26 @@ class SupabaseTokenManager {
 
       // Use browser fingerprint for consistent storage/retrieval
       const visitorId = this.generateUserId();
+      const sessionId = this.generateSessionId();
+
+      // Store current session ID locally for conflict detection
+      await this.storeCurrentSession(sessionId);
+
+      // Check for existing sessions with different tokens
+      const conflictCheck = await this.checkForTokenConflicts(visitorId, tokenData.token);
+      
+      if (conflictCheck.hasConflict) {
+        debug.log('⚠️ Token conflict detected - different browser logged in');
+        // Store conflict info for later display
+        await this.storeConflictInfo(conflictCheck);
+      }
 
       // Normalize token_expires to ISO 8601 format for PostgreSQL
       const normalizedTokenExpires = this.normalizeDate(tokenData.tokenExpires);
 
       const payload = {
         user_id: visitorId, // Browser fingerprint for cross-session lookup
+        session_id: sessionId, // Unique session identifier
         dicecloud_token: tokenData.token,
         username: tokenData.username || 'DiceCloud User',
         user_id_dicecloud: tokenData.userId, // Store DiceCloud ID separately
@@ -80,9 +117,11 @@ class SupabaseTokenManager {
         browser_info: {
           userAgent: navigator.userAgent,
           authId: tokenData.authId, // Store authId in browser_info for reference
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          sessionId: sessionId
         },
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        last_seen: new Date().toISOString()
       };
 
       // Only include Discord fields if provided, to avoid overwriting existing data with null
@@ -96,7 +135,7 @@ class SupabaseTokenManager {
         payload.discord_global_name = tokenData.discordGlobalName;
       }
 
-      debug.log('🌐 Storing with browser ID:', visitorId, 'DiceCloud ID:', tokenData.authId);
+      debug.log('🌐 Storing with browser ID:', visitorId, 'Session ID:', sessionId, 'DiceCloud ID:', tokenData.authId);
       if (tokenData.discordUserId) {
         debug.log('🔗 Linking Discord account:', tokenData.discordUsername);
       }
@@ -621,6 +660,147 @@ class SupabaseTokenManager {
     } catch (error) {
       debug.error('❌ Failed to update auth tokens:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Store current session ID locally
+   */
+  async storeCurrentSession(sessionId) {
+    try {
+      await browserAPI.storage.local.set({
+        currentSessionId: sessionId,
+        sessionStartTime: Date.now()
+      });
+      debug.log('💾 Stored current session ID:', sessionId);
+    } catch (error) {
+      debug.error('❌ Failed to store session ID:', error);
+    }
+  }
+
+  /**
+   * Check for token conflicts with existing sessions
+   */
+  async checkForTokenConflicts(userId, newToken) {
+    try {
+      const response = await fetch(
+        `${this.supabaseUrl}/rest/v1/${this.tableName}?user_id=eq.${userId}&select=dicecloud_token,session_id,browser_info,username,last_seen`,
+        {
+          headers: {
+            'apikey': this.supabaseKey,
+            'Authorization': `Bearer ${this.supabaseKey}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        debug.warn('⚠️ Failed to check for conflicts:', response.status);
+        return { hasConflict: false };
+      }
+
+      const existingSessions = await response.json();
+      debug.log('🔍 Checking for conflicts with existing sessions:', existingSessions.length);
+
+      for (const session of existingSessions) {
+        if (session.dicecloud_token !== newToken) {
+          debug.log('⚠️ Found session with different token:', session.session_id);
+          return {
+            hasConflict: true,
+            conflictingSession: {
+              sessionId: session.session_id,
+              username: session.username,
+              lastSeen: session.last_seen,
+              browserInfo: session.browser_info
+            }
+          };
+        }
+      }
+
+      return { hasConflict: false };
+    } catch (error) {
+      debug.error('❌ Error checking for conflicts:', error);
+      return { hasConflict: false };
+    }
+  }
+
+  /**
+   * Store conflict information for later display
+   */
+  async storeConflictInfo(conflictCheck) {
+    try {
+      await browserAPI.storage.local.set({
+        sessionConflict: {
+          detected: true,
+          conflictingSession: conflictCheck.conflictingSession,
+          detectedAt: Date.now()
+        }
+      });
+      debug.log('💾 Stored conflict information');
+    } catch (error) {
+      debug.error('❌ Failed to store conflict info:', error);
+    }
+  }
+
+  /**
+   * Check if current session has been invalidated by another login
+   */
+  async checkSessionValidity() {
+    try {
+      const { currentSessionId, sessionConflict } = await browserAPI.storage.local.get(['currentSessionId', 'sessionConflict']);
+      
+      if (!currentSessionId) {
+        return { valid: true, reason: 'no_session' };
+      }
+
+      // Check if we already have a conflict notification
+      if (sessionConflict && sessionConflict.detected) {
+        return { valid: false, reason: 'conflict_detected', conflict: sessionConflict };
+      }
+
+      // Verify session still exists in Supabase with same token
+      const userId = this.generateUserId();
+      const response = await fetch(
+        `${this.supabaseUrl}/rest/v1/${this.tableName}?user_id=eq.${userId}&session_id=eq.${currentSessionId}&select=dicecloud_token,username`,
+        {
+          headers: {
+            'apikey': this.supabaseKey,
+            'Authorization': `Bearer ${this.supabaseKey}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        return { valid: false, reason: 'check_failed' };
+      }
+
+      const sessions = await response.json();
+      
+      if (sessions.length === 0) {
+        return { valid: false, reason: 'session_not_found' };
+      }
+
+      // Check if local token matches remote token
+      const { diceCloudToken } = await browserAPI.storage.local.get('diceCloudToken');
+      if (diceCloudToken && sessions[0].dicecloud_token !== diceCloudToken) {
+        return { valid: false, reason: 'token_mismatch' };
+      }
+
+      return { valid: true };
+    } catch (error) {
+      debug.error('❌ Error checking session validity:', error);
+      return { valid: true }; // Assume valid on error to avoid false logouts
+    }
+  }
+
+  /**
+   * Clear conflict information
+   */
+  async clearConflictInfo() {
+    try {
+      await browserAPI.storage.local.remove(['sessionConflict']);
+      debug.log('🗑️ Cleared conflict information');
+    } catch (error) {
+      debug.error('❌ Failed to clear conflict info:', error);
     }
   }
 }
