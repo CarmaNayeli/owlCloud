@@ -17,11 +17,11 @@ export default {
 
     const embed = new EmbedBuilder()
       .setColor(0x1E88E5)
-      .setTitle('🎲 Welcome to Dice Cat!')
+      .setTitle('🎲 Welcome to RollCloud!')
       .setDescription(
         `Hey <@${member.id}>! Welcome to the community!\n\n` +
-        `🎮 We're a board gaming community connecting players.\n` +
-        `📱 Check out the Dice Cat app to find gaming sessions!\n\n` +
+        `� RollCloud syncs your DiceCloud characters to Roll20 with Discord integration.\n` +
+        `📱 Use the RollCloud Chrome extension to sync your D&D characters seamlessly!\n\n` +
         `Use \`/help\` to see what I can do!`
       )
       .setThumbnail(member.user.displayAvatarURL())
