@@ -5394,6 +5394,13 @@
         return;
       }
 
+      // Check if we already have a valid token - don't overwrite manual logins
+      const existingToken = await browserAPI.storage.local.get(['diceCloudToken', 'diceCloudUserId']);
+      if (existingToken.diceCloudToken && existingToken.diceCloudUserId) {
+        debug.log('📋 Token already exists, skipping auto-refresh to preserve manual login');
+        return;
+      }
+
       const loginToken = localStorage.getItem('Meteor.loginToken');
       const userId = localStorage.getItem('Meteor.userId');
 

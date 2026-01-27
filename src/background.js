@@ -435,6 +435,9 @@ async function loginToDiceCloud(username, password) {
       username: username
     });
 
+    // Clear the explicitly logged out flag since user is now logging in
+    await browserAPI.storage.local.remove(['explicitlyLoggedOut']);
+
     debug.log('Successfully logged in to DiceCloud');
     debug.log('Token expires:', data.tokenExpires);
     return data;
@@ -471,7 +474,17 @@ async function setApiToken(token, userId = null, tokenExpires = null, username =
     await browserAPI.storage.local.set(storageData);
 
     // Clear the explicitly logged out flag since user is now logging in
-    await browserAPI.storage.local.remove('explicitlyLoggedOut');
+    await browserAPI.storage.local.remove(['explicitlyLoggedOut']);
+    
+    // Also clear any invalid expiry dates that might cause issues
+    const existing = await browserAPI.storage.local.get(['tokenExpires']);
+    if (existing.tokenExpires) {
+      const testDate = new Date(existing.tokenExpires);
+      if (isNaN(testDate.getTime())) {
+        debug.warn('🧹 Clearing invalid tokenExpires format:', existing.tokenExpires);
+        await browserAPI.storage.local.remove('tokenExpires');
+      }
+    }
 
     debug.log('Successfully stored API token');
     return { success: true };
@@ -495,10 +508,33 @@ async function getApiToken() {
 
     // Check if token is expired (only if tokenExpires exists - API tokens don't expire)
     if (result.tokenExpires) {
-      const expiryDate = new Date(result.tokenExpires);
+      let expiryDate;
+      
+      // Handle different date formats that DiceCloud might send
+      if (typeof result.tokenExpires === 'number') {
+        // Unix timestamp (milliseconds)
+        expiryDate = new Date(result.tokenExpires);
+      } else if (typeof result.tokenExpires === 'string') {
+        // ISO string or other format
+        expiryDate = new Date(result.tokenExpires);
+        // Check if date parsing failed
+        if (isNaN(expiryDate.getTime())) {
+          debug.warn('⚠️ Invalid tokenExpires date format:', result.tokenExpires);
+          // Don't logout, just skip expiry check
+          expiryDate = null;
+        }
+      }
+      
       const now = new Date();
-      if (now >= expiryDate) {
-        debug.warn('API token has expired');
+      debug.log('🔍 Token expiry check:', {
+        tokenExpires: result.tokenExpires,
+        expiryDate: expiryDate ? expiryDate.toISOString() : 'invalid',
+        now: now.toISOString(),
+        isExpired: expiryDate ? now >= expiryDate : 'unknown'
+      });
+      
+      if (expiryDate && now >= expiryDate) {
+        debug.warn('⏰ API token has expired, logging out');
         await logout();
         return null;
       }
@@ -525,10 +561,33 @@ async function checkLoginStatus() {
 
     // Check if token is expired (only if tokenExpires exists - API tokens don't expire)
     if (result.tokenExpires) {
-      const expiryDate = new Date(result.tokenExpires);
+      let expiryDate;
+      
+      // Handle different date formats that DiceCloud might send
+      if (typeof result.tokenExpires === 'number') {
+        // Unix timestamp (milliseconds)
+        expiryDate = new Date(result.tokenExpires);
+      } else if (typeof result.tokenExpires === 'string') {
+        // ISO string or other format
+        expiryDate = new Date(result.tokenExpires);
+        // Check if date parsing failed
+        if (isNaN(expiryDate.getTime())) {
+          debug.warn('⚠️ Invalid tokenExpires date format in checkLoginStatus:', result.tokenExpires);
+          // Don't logout, just skip expiry check
+          expiryDate = null;
+        }
+      }
+      
       const now = new Date();
-      if (now >= expiryDate) {
-        debug.warn('Session expired - please login again');
+      debug.log('🔍 Login status expiry check:', {
+        tokenExpires: result.tokenExpires,
+        expiryDate: expiryDate ? expiryDate.toISOString() : 'invalid',
+        now: now.toISOString(),
+        isExpired: expiryDate ? now >= expiryDate : 'unknown'
+      });
+      
+      if (expiryDate && now >= expiryDate) {
+        debug.warn('⏰ Session expired - please login again');
         await logout();
         return { loggedIn: false };
       }
