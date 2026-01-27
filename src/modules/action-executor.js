@@ -579,3 +579,281 @@ export function resolveActionUse(action, characterData = null) {
 
   return result;
 }
+
+
+// ===== DISCORD INTEGRATION HELPERS =====
+
+/**
+ * Prepare spell list metadata for Discord bot autocomplete and command options.
+ * Takes raw character data (as stored in Supabase raw_dicecloud_data) and returns
+ * an enriched spell list that tells the bot what options to offer.
+ *
+ * @param {Object|string} rawCharacterData - Character data (object or JSON string)
+ * @returns {{ spells: Array<{name, baseLevel, upcastable, maxUpcastLevel, edgeOverride, edgeCaseType, concentration, school, castingTime, range, components, duration, hasAttack, hasDamage, hasHealing}>, metamagic: Array<{name, cost}>, maxSpellSlotLevel: number }}
+ */
+export function prepareSpellsForDiscord(rawCharacterData) {
+  const data = typeof rawCharacterData === 'string'
+    ? JSON.parse(rawCharacterData)
+    : rawCharacterData;
+
+  const characterData = data || {};
+  const spells = characterData.spells || [];
+  const spellSlots = characterData.spellSlots || {};
+
+  // Determine highest spell slot level available
+  let maxSpellSlotLevel = 0;
+  for (let i = 9; i >= 1; i--) {
+    const maxKey = `level${i}SpellSlotsMax`;
+    if (spellSlots[maxKey] && spellSlots[maxKey] > 0) {
+      maxSpellSlotLevel = i;
+      break;
+    }
+  }
+  // Also check pact magic
+  const otherVars = characterData.otherVariables || {};
+  if (otherVars.pactMagicSlotsMax && otherVars.pactMagicSlotsMax > 0) {
+    const pactLevel = otherVars.pactMagicSlotLevel || 1;
+    maxSpellSlotLevel = Math.max(maxSpellSlotLevel, pactLevel);
+  }
+
+  const enrichedSpells = spells.map(spell => {
+    const baseLevel = parseInt(spell.level) || 0;
+    const isCantrip = baseLevel === 0;
+    const spellEdge = isEdgeCase(spell.name);
+    let edgeCaseType = null;
+    if (spellEdge) {
+      const ec = getEdgeCase(spell.name);
+      edgeCaseType = ec ? ec.type : null;
+    }
+
+    return {
+      name: spell.name,
+      baseLevel,
+      upcastable: !isCantrip && baseLevel < 9,
+      maxUpcastLevel: isCantrip ? 0 : Math.max(baseLevel, maxSpellSlotLevel),
+      edgeOverride: spellEdge,
+      edgeCaseType,
+      concentration: !!spell.concentration,
+      ritual: !!spell.ritual,
+      school: spell.school || null,
+      castingTime: spell.castingTime || null,
+      range: spell.range || null,
+      components: spell.components || null,
+      duration: spell.duration || null,
+      hasAttack: !!(spell.attackRoll && spell.attackRoll !== '(none)'),
+      hasDamage: !!(spell.damage || (spell.damageRolls && spell.damageRolls.length > 0)),
+      hasHealing: !!(spell.damageType && spell.damageType.toLowerCase().includes('heal'))
+    };
+  });
+
+  // Metamagic options available to this character
+  const metamagic = getAvailableMetamagic(characterData);
+
+  return {
+    spells: enrichedSpells,
+    metamagic,
+    maxSpellSlotLevel
+  };
+}
+
+/**
+ * Prepare action list metadata for Discord bot autocomplete.
+ *
+ * @param {Object|string} rawCharacterData - Character data (object or JSON string)
+ * @returns {{ actions: Array<{name, actionType, hasAttack, hasDamage, hasHealing, edgeOverride, edgeCaseType, range, description}> }}
+ */
+export function prepareActionsForDiscord(rawCharacterData) {
+  const data = typeof rawCharacterData === 'string'
+    ? JSON.parse(rawCharacterData)
+    : rawCharacterData;
+
+  const characterData = data || {};
+  const actions = characterData.actions || [];
+
+  const enrichedActions = actions.map(action => {
+    const classEdge = isClassFeatureEdgeCase(action.name);
+    const racialEdge = isRacialFeatureEdgeCase(action.name);
+    const combatEdge = isCombatManeuverEdgeCase(action.name);
+    const edgeOverride = classEdge || racialEdge || combatEdge;
+
+    const isHealing = action.damageType && action.damageType.toLowerCase().includes('heal');
+    const hasDamage = !!(action.damage && /\d*d\d+/.test(action.damage));
+
+    return {
+      name: action.name,
+      actionType: action.actionType || 'action',
+      hasAttack: !!action.attackRoll,
+      hasDamage: hasDamage && !isHealing,
+      hasHealing: hasDamage && isHealing,
+      edgeOverride,
+      edgeCaseType: classEdge ? 'class_feature' : (racialEdge ? 'racial_feature' : (combatEdge ? 'combat_maneuver' : null)),
+      range: action.range || null,
+      description: action.description || null
+    };
+  });
+
+  return { actions: enrichedActions };
+}
+
+/**
+ * Execute a Discord /cast command. Takes the command_data payload from the bot
+ * and returns a full execution result without any side effects.
+ *
+ * @param {Object} commandData - { spell_name, spell_level, cast_level, character_name, character_id, notification_color, spell_data, metamagic? }
+ * @param {Object} characterData - Full character data from raw_dicecloud_data
+ * @returns {{ text: string, rolls: Array, effects: Array, slotUsed: Object|null, metamagicUsed: Array, embed: Object }}
+ */
+export function executeDiscordCast(commandData, characterData) {
+  const spell = commandData.spell_data || {};
+  const castLevel = commandData.cast_level || commandData.spell_level || spell.level;
+  const charName = commandData.character_name || 'Character';
+  const metamagicName = commandData.metamagic || null;
+
+  // Check if this is a too-complicated spell
+  if (isTooComplicatedSpell(spell.name, characterData)) {
+    return {
+      text: `${charName} casts ${spell.name}! (DM adjudication required)`,
+      rolls: [],
+      effects: [{ type: 'too_complicated', description: spell.description || 'Requires DM intervention' }],
+      slotUsed: null,
+      metamagicUsed: [],
+      embed: {
+        title: `${charName} casts ${spell.name}`,
+        description: 'This spell requires DM adjudication.',
+        spellLevel: parseInt(spell.level) || 0,
+        castLevel: parseInt(castLevel) || 0
+      }
+    };
+  }
+
+  // Resolve metamagic if specified
+  const selectedMetamagic = [];
+  if (metamagicName) {
+    const cost = calculateMetamagicCost(metamagicName, parseInt(castLevel) || 0);
+    selectedMetamagic.push({ name: metamagicName, cost });
+  }
+
+  // Use resolveSpellCast for the actual logic
+  const result = resolveSpellCast(spell, characterData, {
+    selectedSlotLevel: parseInt(castLevel) || null,
+    selectedMetamagic,
+    skipSlotConsumption: false
+  });
+
+  // Build embed data for the Discord response
+  const spellLevel = parseInt(spell.level) || 0;
+  const isUpcast = parseInt(castLevel) > spellLevel;
+
+  result.embed = {
+    title: `${charName} casts ${spell.name}`,
+    description: formatSpellSummary(spell, parseInt(castLevel)),
+    spellLevel,
+    castLevel: parseInt(castLevel) || spellLevel,
+    isUpcast,
+    metamagic: selectedMetamagic.map(m => m.name)
+  };
+
+  return result;
+}
+
+/**
+ * Execute a Discord /use command. Takes command_data and returns execution result.
+ *
+ * @param {Object} commandData - { action_name, action_type, character_name, character_id, notification_color, action_data }
+ * @param {Object} characterData - Full character data from raw_dicecloud_data
+ * @returns {{ text: string, rolls: Array, effects: Array, edgeCase: Object|null, embed: Object }}
+ */
+export function executeDiscordAction(commandData, characterData) {
+  const action = commandData.action_data || {};
+  const charName = commandData.character_name || 'Character';
+
+  const result = resolveActionUse(action, characterData);
+
+  result.embed = {
+    title: `${charName} uses ${action.name || commandData.action_name}`,
+    description: formatActionSummary(action),
+    actionType: action.actionType || commandData.action_type || 'action'
+  };
+
+  return result;
+}
+
+
+// ===== FORMATTING HELPERS (for Discord embed descriptions) =====
+
+/**
+ * Format a spell summary for Discord embed. Uses the actual field names from
+ * DiceCloud data (damage, damageRolls, damageType) rather than the mismatched
+ * ones (damageRoll, healingRoll).
+ */
+function formatSpellSummary(spell, castLevel) {
+  let desc = '';
+
+  if (spell.castingTime) desc += `**Casting Time:** ${spell.castingTime}\n`;
+  if (spell.range) desc += `**Range:** ${spell.range}\n`;
+  if (spell.duration && spell.duration !== 'Instantaneous') desc += `**Duration:** ${spell.duration}\n`;
+  if (spell.components) desc += `**Components:** ${spell.components}\n`;
+  if (spell.concentration) desc += `**Concentration:** Yes\n`;
+
+  // Use correct field names from DiceCloud extraction
+  if (spell.damageRolls && Array.isArray(spell.damageRolls) && spell.damageRolls.length > 0) {
+    spell.damageRolls.forEach(roll => {
+      if (roll.damage) {
+        const type = roll.damageType || 'damage';
+        const isHealing = type.toLowerCase() === 'healing';
+        const label = isHealing ? 'Healing' : type.charAt(0).toUpperCase() + type.slice(1);
+        desc += `**${label}:** ${roll.damage}`;
+        if (castLevel && parseInt(spell.level) > 0 && castLevel > parseInt(spell.level)) {
+          desc += ` (upcast to level ${castLevel})`;
+        }
+        desc += '\n';
+      }
+    });
+  } else if (spell.damage) {
+    const type = spell.damageType || 'damage';
+    const isHealing = type.toLowerCase() === 'healing';
+    const label = isHealing ? 'Healing' : 'Damage';
+    desc += `**${label}:** ${spell.damage}`;
+    if (castLevel && parseInt(spell.level) > 0 && castLevel > parseInt(spell.level)) {
+      desc += ` (upcast to level ${castLevel})`;
+    }
+    desc += '\n';
+  }
+
+  // Backward compat: also check damageRoll/healingRoll if present
+  if (!spell.damage && !spell.damageRolls) {
+    if (spell.damageRoll) desc += `**Damage:** ${spell.damageRoll}\n`;
+    if (spell.healingRoll) desc += `**Healing:** ${spell.healingRoll}\n`;
+  }
+
+  if (spell.attackRoll && spell.attackRoll !== '(none)') {
+    desc += `**Attack:** ${spell.attackRoll}\n`;
+  }
+
+  return desc || 'Spell sent to Roll20.';
+}
+
+/**
+ * Format an action summary for Discord embed.
+ */
+function formatActionSummary(action) {
+  let desc = '';
+
+  if (action.attackRoll || action.attackBonus) {
+    const formula = action.attackRoll || `+${action.attackBonus}`;
+    desc += `**Attack:** ${formula}\n`;
+  }
+
+  if (action.damage && /\d*d\d+/.test(action.damage)) {
+    const type = action.damageType || 'damage';
+    const isHealing = type.toLowerCase().includes('heal');
+    desc += `**${isHealing ? 'Healing' : 'Damage'}:** ${action.damage}`;
+    if (action.damageType && !isHealing) desc += ` ${action.damageType}`;
+    desc += '\n';
+  }
+
+  if (action.range) desc += `**Range:** ${action.range}\n`;
+  if (action.duration && action.duration !== 'Instantaneous') desc += `**Duration:** ${action.duration}\n`;
+
+  return desc || 'Action sent to Roll20.';
+}
