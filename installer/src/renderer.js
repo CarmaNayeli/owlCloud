@@ -480,10 +480,26 @@ function setupStep2() {
   const retryBtn = document.getElementById('retryInstall');
   const backBtn = document.getElementById('backToStep1');
   const backBtnFromError = document.getElementById('backToStep1FromError');
+  
+  // Updater directory selection
+  const updaterDirectorySelect = document.getElementById('updaterDirectory');
+  const customDirectoryInput = document.getElementById('customDirectory');
 
   continueBtn.addEventListener('click', () => goToStep(3));
-  restartBtn.addEventListener('click', () => restartBrowser(selectedBrowser));
+  restartBtn.addEventListener('click', () => restartBrowserWithUpdater());
   retryBtn.addEventListener('click', () => installExtension());
+
+  // Handle updater directory selection
+  if (updaterDirectorySelect) {
+    updaterDirectorySelect.addEventListener('change', (event) => {
+      const customDir = document.getElementById('customDirectory');
+      if (event.target.value === 'custom') {
+        customDir.style.display = 'block';
+      } else {
+        customDir.style.display = 'none';
+      }
+    });
+  }
 
   // Back button from error screen
   if (backBtnFromError) {
@@ -503,6 +519,81 @@ function setupStep2() {
       document.getElementById('browserStatus').textContent = '';
       goToStep(1);
     });
+  }
+}
+
+async function restartBrowserWithUpdater() {
+  const checkbox = document.getElementById('installUpdaterCheckbox');
+  const shouldInstallUpdater = checkbox && checkbox.checked;
+  
+  if (shouldInstallUpdater) {
+    // Get installation directory
+    const directorySelect = document.getElementById('updaterDirectory');
+    const customDirectory = document.getElementById('customDirectory');
+    
+    let installDir;
+    if (directorySelect.value === 'custom') {
+      installDir = customDirectory.value.trim();
+      if (!installDir) {
+        alert('Please enter a valid custom directory path.');
+        return;
+      }
+    } else if (directorySelect.value === 'appdata') {
+      installDir = 'appdata';
+    } else {
+      installDir = 'programfiles';
+    }
+    
+    // Show updater installation progress
+    const statusText = document.getElementById('installStatus');
+    statusText.innerHTML = `
+      <div style="color: #ff9500;">🔄 Installing RollCloud Updater...</div>
+      <div style="font-size: 0.9em; margin-top: 5px;">Setting up permanent updater utility...</div>
+    `;
+    
+    try {
+      const result = await window.api.installUpdaterWithDirectory(installDir);
+      
+      if (result.success) {
+        statusText.innerHTML = `
+          <div style="color: #28a745;">✅ Updater installed successfully!</div>
+          <div style="font-size: 0.9em; margin-top: 5px;">${result.message}</div>
+          <div style="font-size: 0.85em; margin-top: 5px; color: #666;">Now restarting browser...</div>
+        `;
+        
+        // Wait a moment then restart browser
+        setTimeout(() => {
+          restartBrowser(selectedBrowser);
+        }, 2000);
+      } else {
+        statusText.innerHTML = `
+          <div style="color: #dc3545;">❌ Updater installation failed</div>
+          <div style="font-size: 0.9em; margin-top: 5px;">${result.error}</div>
+          <div style="margin-top: 10px;">
+            <button id="btnRetryUpdater" class="btn btn-primary">Retry Updater</button>
+            <button id="btnSkipUpdater" class="btn btn-secondary" style="margin-left: 10px;">Skip Updater</button>
+          </div>
+        `;
+        
+        document.getElementById('btnRetryUpdater').addEventListener('click', restartBrowserWithUpdater);
+        document.getElementById('btnSkipUpdater').addEventListener('click', () => restartBrowser(selectedBrowser));
+      }
+    } catch (error) {
+      statusText.innerHTML = `
+        <div style="color: #dc3545;">❌ Error installing updater</div>
+        <div style="font-size: 0.9em; margin-top: 5px;">${error.message}</div>
+        <div style="margin-top: 10px;">
+          <button id="btnRetryUpdaterError" class="btn btn-primary">Retry Updater</button>
+          <button id="btnSkipUpdaterError" class="btn btn-secondary" style="margin-left: 10px;">Skip Updater</button>
+        </div>
+      `;
+      
+      document.getElementById('btnRetryUpdaterError').addEventListener('click', restartBrowserWithUpdater);
+      document.getElementById('btnSkipUpdaterError').addEventListener('click', () => restartBrowser(selectedBrowser));
+    }
+  } else {
+    // Just restart browser without updater
+    restartBrowser(selectedBrowser);
   }
 }
 

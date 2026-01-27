@@ -51,8 +51,37 @@
         <div id="installComplete" class="hidden">
           <p class="success-text">Extension policy installed successfully!</p>
           <p class="note">You must restart your browser for the extension to be installed.</p>
+          
+          <!-- Updater Installation Option -->
+          <div class="updater-prompt" style="margin: 20px 0; padding: 20px; background: rgba(96, 165, 250, 0.1); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 8px;">
+            <h3 style="margin: 0 0 15px 0; color: #60a5fa;">🔄 Install RollCloud Updater?</h3>
+            <p style="margin: 0 0 15px 0; color: #e2e8f0;">
+              Would you also like to install the RollCloud Updater utility? This lets you manage extensions and check for updates without reinstalling.
+            </p>
+            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+              <input type="checkbox" id="installUpdaterCheckbox" checked style="width: 18px; height: 18px;">
+              <label for="installUpdaterCheckbox" style="font-size: 1.1em; color: #e2e8f0; cursor: pointer;">
+                Install RollCloud Updater (recommended)
+              </label>
+            </div>
+            <div id="updaterDirectoryOption" style="margin-bottom: 15px;">
+              <label style="display: block; margin-bottom: 5px; color: #cbd5e1; font-size: 0.9em;">
+                Installation Directory:
+              </label>
+              <select id="updaterDirectory" style="width: 100%; padding: 8px; border-radius: 4px; background: rgba(30, 41, 59, 0.8); color: #e2e8f0; border: 1px solid rgba(96, 165, 250, 0.3);">
+                <option value="programfiles">C:\Program Files\RollCloud (Default)</option>
+                <option value="appdata">C:\Users\[User]\AppData\Local\RollCloud</option>
+                <option value="custom">Custom Directory...</option>
+              </select>
+              <input type="text" id="customDirectory" placeholder="Enter custom path..." style="display: none; width: 100%; margin-top: 5px; padding: 8px; border-radius: 4px; background: rgba(30, 41, 59, 0.8); color: #e2e8f0; border: 1px solid rgba(96, 165, 250, 0.3);">
+            </div>
+            <p style="margin: 0; font-size: 0.85em; color: #94a3b8;">
+              The updater creates a Start Menu shortcut for easy access. You can uninstall it anytime.
+            </p>
+          </div>
+          
           <div class="button-row">
-            <button id="restartBrowser" class="btn btn-primary">Restart Browser</button>
+            <button id="restartBrowser" class="btn btn-primary">Restart Browser & Install Updater</button>
             <button id="continueToStep3" class="btn btn-secondary">Continue Later</button>
           </div>
         </div>
@@ -113,20 +142,6 @@
             <li>Sync your character from Dice Cloud</li>
             <li>Combat turns will appear in Discord!</li>
           </ol>
-        </div>
-        <div class="updater-option">
-          <h3>🔄 Optional: Install RollCloud Updater</h3>
-          <p>Install a permanent updater utility to manage extensions without reinstalling:</p>
-          <div style="margin: 15px 0;">
-            <label style="display: flex; align-items: center; cursor: pointer; font-size: 1.1em;">
-              <input type="checkbox" id="installUpdaterCheckbox" checked style="margin-right: 10px; width: 18px; height: 18px;">
-              <span>Install RollCloud Updater (recommended)</span>
-            </label>
-          </div>
-          <div class="button-row">
-            <button id="continueWithUpdaterChoice" class="btn btn-primary">Continue</button>
-          </div>
-          <p class="note">The updater lets you check for updates and manage extensions anytime from your Start Menu.</p>
         </div>
         <button id="finishSetup" class="btn btn-primary btn-large">✅ Finish Setup</button>
         <p class="note">Keep this installer handy for future updates.</p>
