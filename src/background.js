@@ -452,7 +452,13 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
 
         case 'testDiscordWebhook': {
-          const testResult = await testDiscordWebhook(request.webhookUrl);
+          // Use the provided URL, or fall back to the stored webhook URL
+          let webhookUrlToTest = request.webhookUrl;
+          if (!webhookUrlToTest) {
+            const settings = await getDiscordWebhookSettings();
+            webhookUrlToTest = settings.webhookUrl;
+          }
+          const testResult = await testDiscordWebhook(webhookUrlToTest);
           response = testResult;
           break;
         }
@@ -1521,6 +1527,33 @@ async function setDiscordWebhookSettings(webhookUrl, enabled = true, serverName 
       storedUrl: verification.discordWebhookUrl ? `${verification.discordWebhookUrl.substring(0, 50)}...` : '(empty)',
       storedEnabled: verification.discordWebhookEnabled
     });
+
+    // Sync webhook URL to the pairing record in Supabase if we have a pairing ID
+    if (webhookUrl && isSupabaseConfigured()) {
+      try {
+        const stored = await browserAPI.storage.local.get(['discordPairingId']);
+        if (stored.discordPairingId) {
+          debug.log('☁️ Syncing webhook URL to pairing record:', stored.discordPairingId);
+          await fetch(
+            `${SUPABASE_URL}/rest/v1/rollcloud_pairings?id=eq.${stored.discordPairingId}`,
+            {
+              method: 'PATCH',
+              headers: {
+                'apikey': SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=minimal'
+              },
+              body: JSON.stringify({ webhook_url: webhookUrl })
+            }
+          );
+          debug.log('✅ Webhook URL synced to pairing');
+        }
+      } catch (syncError) {
+        debug.warn('⚠️ Failed to sync webhook to pairing:', syncError.message);
+        // Don't throw - local save was successful
+      }
+    }
   } catch (error) {
     debug.error('Failed to save Discord webhook settings:', error);
     throw error;
@@ -2035,7 +2068,7 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
       if (!discordUserId && payload.user_id_dicecloud) {
         try {
           const pairingResponse = await fetch(
-            `${SUPABASE_URL}/rest/v1/rollcloud_pairings?dicecloud_user_id=eq.${payload.user_id_dicecloud}&status=eq.connected&select=discord_user_id,discord_username,discord_global_name`,
+            `${SUPABASE_URL}/rest/v1/rollcloud_pairings?dicecloud_user_id=eq.${payload.user_id_dicecloud}&status=eq.connected&select=id,discord_user_id,discord_username,discord_global_name,webhook_url`,
             {
               headers: {
                 'apikey': SUPABASE_ANON_KEY,
@@ -2047,13 +2080,23 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
             const pairings = await pairingResponse.json();
             if (pairings.length > 0 && pairings[0].discord_user_id) {
               discordUserId = pairings[0].discord_user_id;
+              payload.pairing_id = pairings[0].id;
               debug.log('✅ Found Discord user ID from pairings:', discordUserId);
+              debug.log('✅ Linked to pairing:', pairings[0].id);
               // Also update auth_tokens so future lookups are faster
               await linkDiscordUserToAuthTokens(
                 discordUserId,
                 pairings[0].discord_username,
                 pairings[0].discord_global_name
               );
+              // Restore webhook URL from pairing if available
+              if (pairings[0].webhook_url) {
+                const currentSettings = await getDiscordWebhookSettings();
+                if (!currentSettings.webhookUrl) {
+                  debug.log('✅ Restoring webhook URL from pairing');
+                  await setDiscordWebhookSettings(pairings[0].webhook_url, true);
+                }
+              }
             }
           }
         } catch (error) {
@@ -2067,7 +2110,7 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
           const stored = await browserAPI.storage.local.get(['discordPairingId']);
           if (stored.discordPairingId) {
             const pairingResponse = await fetch(
-              `${SUPABASE_URL}/rest/v1/rollcloud_pairings?id=eq.${stored.discordPairingId}&select=discord_user_id,discord_username,discord_global_name`,
+              `${SUPABASE_URL}/rest/v1/rollcloud_pairings?id=eq.${stored.discordPairingId}&select=id,discord_user_id,discord_username,discord_global_name,webhook_url`,
               {
                 headers: {
                   'apikey': SUPABASE_ANON_KEY,
@@ -2079,13 +2122,23 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
               const pairings = await pairingResponse.json();
               if (pairings.length > 0 && pairings[0].discord_user_id) {
                 discordUserId = pairings[0].discord_user_id;
+                payload.pairing_id = pairings[0].id;
                 debug.log('✅ Found Discord user ID from stored pairing:', discordUserId);
+                debug.log('✅ Linked to pairing:', pairings[0].id);
                 // Also update auth_tokens with all Discord info
                 await linkDiscordUserToAuthTokens(
                   discordUserId,
                   pairings[0].discord_username,
                   pairings[0].discord_global_name
                 );
+                // Restore webhook URL from pairing if available
+                if (pairings[0].webhook_url) {
+                  const currentSettings = await getDiscordWebhookSettings();
+                  if (!currentSettings.webhookUrl) {
+                    debug.log('✅ Restoring webhook URL from stored pairing');
+                    await setDiscordWebhookSettings(pairings[0].webhook_url, true);
+                  }
+                }
               }
             }
           }
