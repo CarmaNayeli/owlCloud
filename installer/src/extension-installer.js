@@ -1756,7 +1756,22 @@ async function restartBrowser(browser) {
     if (browser === 'chrome') {
       if (platform === 'win32') {
         killCmd = 'taskkill /f /im chrome.exe';
-        launchCmd = 'start chrome';
+        // Chrome isn't in PATH on Windows - use full path to executable
+        const chromePaths = [
+          process.env.LOCALAPPDATA + '\\Google\\Chrome\\Application\\chrome.exe',
+          process.env.PROGRAMFILES + '\\Google\\Chrome\\Application\\chrome.exe',
+          (process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)') + '\\Google\\Chrome\\Application\\chrome.exe'
+        ];
+        // Find existing Chrome path
+        const fs = require('fs');
+        let chromePath = chromePaths.find(p => fs.existsSync(p));
+        if (chromePath) {
+          launchCmd = `start "" "${chromePath}"`;
+        } else {
+          // Fallback to shell protocol handler
+          launchCmd = 'start "" "https://google.com"';
+          console.log('  Chrome path not found, using URL fallback');
+        }
       } else if (platform === 'darwin') {
         killCmd = 'pkill -f "Google Chrome"';
         launchCmd = 'open -a "Google Chrome"';
@@ -1767,7 +1782,21 @@ async function restartBrowser(browser) {
     } else if (browser === 'firefox') {
       if (platform === 'win32') {
         killCmd = 'taskkill /f /im firefox.exe';
-        launchCmd = 'start firefox';
+        // Firefox isn't in PATH on Windows - use full path to executable
+        const firefoxPaths = [
+          process.env.PROGRAMFILES + '\\Mozilla Firefox\\firefox.exe',
+          (process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)') + '\\Mozilla Firefox\\firefox.exe',
+          process.env.LOCALAPPDATA + '\\Mozilla Firefox\\firefox.exe'
+        ];
+        const fs = require('fs');
+        let firefoxPath = firefoxPaths.find(p => fs.existsSync(p));
+        if (firefoxPath) {
+          launchCmd = `start "" "${firefoxPath}"`;
+        } else {
+          // Fallback
+          launchCmd = 'start "" "https://mozilla.org"';
+          console.log('  Firefox path not found, using URL fallback');
+        }
       } else if (platform === 'darwin') {
         killCmd = 'pkill -f Firefox';
         launchCmd = 'open -a Firefox';
