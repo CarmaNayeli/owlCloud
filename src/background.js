@@ -815,6 +815,20 @@ async function storeCharacterData(characterData, slotId) {
       characterData.name = characterData.character_name;
     }
 
+    // Tag the character with the current DiceCloud user ID for ownership filtering.
+    // This prevents characters viewed on other users' pages from leaking into the
+    // current user's character list.
+    if (!characterData.ownerUserId) {
+      try {
+        const stored = await browserAPI.storage.local.get(['diceCloudUserId']);
+        if (stored.diceCloudUserId) {
+          characterData.ownerUserId = stored.diceCloudUserId;
+        }
+      } catch (e) {
+        debug.warn('Could not retrieve DiceCloud user ID for ownership tagging:', e);
+      }
+    }
+
     // Use slotId if provided, otherwise fall back to character ID from the data
     const storageId = slotId || characterData.id || characterData._id || 'default';
 
@@ -822,7 +836,7 @@ async function storeCharacterData(characterData, slotId) {
     const result = await browserAPI.storage.local.get(['characterProfiles', 'activeCharacterId']);
     const characterProfiles = result.characterProfiles || {};
 
-    // Store this character's data EXACTLY as received
+    // Store this character's data EXACTLY as received (now includes ownerUserId)
     characterProfiles[storageId] = characterData;
 
     // Only update activeCharacterId if slotId was explicitly provided
@@ -907,7 +921,9 @@ async function getCharacterData(characterId = null) {
 }
 
 /**
- * Gets all character profiles from both local storage and database
+ * Gets all character profiles from both local storage and database.
+ * Deduplicates by DiceCloud character ID and filters out characters
+ * that don't belong to the current user.
  */
 async function getAllCharacterProfiles() {
   try {
@@ -923,20 +939,22 @@ async function getAllCharacterProfiles() {
       }
     }
 
-    // Try to get database characters if SupabaseTokenManager is available
+    // Try to get database characters and the current user's DiceCloud ID
     let databaseCharacters = {};
+    let currentDicecloudUserId = null;
     try {
       if (typeof SupabaseTokenManager !== 'undefined') {
         const supabase = new SupabaseTokenManager();
-        
+
         // Get current user's DiceCloud ID from auth tokens
         const tokenResult = await supabase.retrieveToken();
         if (tokenResult.success && tokenResult.userId) {
-          debug.log('🌐 Fetching database characters for DiceCloud user:', tokenResult.userId);
-          
+          currentDicecloudUserId = tokenResult.userId;
+          debug.log('🌐 Fetching database characters for DiceCloud user:', currentDicecloudUserId);
+
           // Get all characters for this user from database
           const response = await fetch(
-            `${supabase.supabaseUrl}/rest/v1/rollcloud_characters?user_id_dicecloud=eq.${tokenResult.userId}&select=*`,
+            `${supabase.supabaseUrl}/rest/v1/rollcloud_characters?user_id_dicecloud=eq.${currentDicecloudUserId}&select=*`,
             {
               headers: {
                 'apikey': supabase.supabaseKey,
@@ -944,11 +962,11 @@ async function getAllCharacterProfiles() {
               }
             }
           );
-          
+
           if (response.ok) {
             const characters = await response.json();
             debug.log(`📦 Found ${characters.length} characters in database`);
-            
+
             // Convert database characters to profile format
             characters.forEach(character => {
               const slotId = `db-${character.dicecloud_character_id}`;
@@ -973,16 +991,67 @@ async function getAllCharacterProfiles() {
       debug.warn('⚠️ Failed to load database characters:', dbError);
       // Continue with local profiles only
     }
-    
-    // Merge local and database profiles
-    const mergedProfiles = { ...localProfiles, ...databaseCharacters };
-    
+
+    // Also try to get the current DiceCloud user ID from local storage if
+    // the Supabase lookup didn't provide one (e.g. offline / not configured)
+    if (!currentDicecloudUserId) {
+      try {
+        const stored = await browserAPI.storage.local.get(['diceCloudUserId']);
+        currentDicecloudUserId = stored.diceCloudUserId || null;
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    // Filter local profiles: remove characters belonging to a different user.
+    // A profile's ownerUserId is set by storeCharacterData when syncing.
+    // Profiles without ownerUserId are kept (legacy data), but if we know the
+    // current user and the profile explicitly belongs to someone else, drop it.
+    if (currentDicecloudUserId) {
+      for (const key of Object.keys(localProfiles)) {
+        const profile = localProfiles[key];
+        if (profile.ownerUserId && profile.ownerUserId !== currentDicecloudUserId) {
+          debug.log(`🚫 Filtering out character "${profile.name}" (belongs to ${profile.ownerUserId}, current user is ${currentDicecloudUserId})`);
+          delete localProfiles[key];
+        }
+      }
+    }
+
+    // Deduplicate: merge local and database profiles, keeping only one entry
+    // per DiceCloud character ID. Database entries take precedence over local
+    // ones when both exist for the same character, and among local entries
+    // the most recently stored one wins.
+    const seenCharacterIds = new Map(); // DiceCloud char ID -> best storage key
+    const mergedProfiles = {};
+
+    // Process database characters first (higher priority)
+    for (const [key, profile] of Object.entries(databaseCharacters)) {
+      const charId = profile.id;
+      if (charId && !seenCharacterIds.has(charId)) {
+        seenCharacterIds.set(charId, key);
+        mergedProfiles[key] = profile;
+      }
+    }
+
+    // Process local profiles, skipping any character already seen from database
+    for (const [key, profile] of Object.entries(localProfiles)) {
+      const charId = profile.id || profile._id;
+      if (charId && seenCharacterIds.has(charId)) {
+        debug.log(`🔄 Skipping duplicate local profile "${profile.name}" (key: ${key}), already have from: ${seenCharacterIds.get(charId)}`);
+        continue;
+      }
+      if (charId) {
+        seenCharacterIds.set(charId, key);
+      }
+      mergedProfiles[key] = profile;
+    }
+
     debug.log('📋 Character profiles loaded:', {
       local: Object.keys(localProfiles).length,
       database: Object.keys(databaseCharacters).length,
-      total: Object.keys(mergedProfiles).length
+      deduplicated: Object.keys(mergedProfiles).length
     });
-    
+
     return mergedProfiles;
   } catch (error) {
     debug.error('Failed to retrieve character profiles:', error);
@@ -1797,13 +1866,24 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
     const visitorId = 'user_' + Math.abs(hash).toString(36);
 
     // Get DiceCloud user ID from character data, or fall back to local storage
-    let dicecloudUserId = characterData.dicecloudUserId || characterData.userId || null;
+    let dicecloudUserId = characterData.dicecloudUserId || characterData.userId || characterData.ownerUserId || null;
     if (!dicecloudUserId) {
       const stored = await browserAPI.storage.local.get(['diceCloudUserId']);
       dicecloudUserId = stored.diceCloudUserId || null;
       if (dicecloudUserId) {
         debug.log('✅ Got DiceCloud user ID from storage:', dicecloudUserId);
       }
+    }
+
+    // Refuse to store a character to the cloud without a valid user ID.
+    // Without this, the character would be saved with null ownership and
+    // could leak into other users' character lists.
+    if (!dicecloudUserId) {
+      debug.error('❌ Cannot store character to cloud: no DiceCloud user ID available');
+      return {
+        success: false,
+        error: 'Cannot sync to cloud: not logged in to DiceCloud. Please login first.'
+      };
     }
 
     const payload = {
