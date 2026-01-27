@@ -5536,7 +5536,7 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
         // Cast spell only (for spells with conditional damage like Meld into Stone)
         // Announce description only if not already announced AND not using concentration recast
         if (!descriptionAnnounced && !skipSlot) {
-          announceSpellDescription(spell);
+          announceSpellDescription(spell, selectedSlotLevel);
         }
 
         const afterCast = (spell, slot) => {
@@ -5558,7 +5558,7 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
         // Cast spell + roll attack, but keep modal open
         // Announce description only if not already announced AND not using concentration recast
         if (!descriptionAnnounced && !skipSlot) {
-          announceSpellDescription(spell);
+          announceSpellDescription(spell, selectedSlotLevel);
         }
 
         const afterCast = (spell, slot) => {
@@ -5585,7 +5585,7 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
         if (!spellCast) {
           // Announce description only if not already announced AND not using concentration recast
           if (!descriptionAnnounced && !skipSlot) {
-            announceSpellDescription(spell);
+            announceSpellDescription(spell, selectedSlotLevel);
           }
 
           const afterCast = (spell, slot) => {
@@ -5640,7 +5640,7 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
         // Lifesteal: Cast spell, roll damage, calculate and apply healing
         // Announce description only if not already announced AND not using concentration recast
         if (!descriptionAnnounced && !skipSlot) {
-          announceSpellDescription(spell);
+          announceSpellDescription(spell, selectedSlotLevel);
         }
 
         const afterCast = (spell, slot) => {
@@ -6809,14 +6809,25 @@ function calculateTotalAC() {
  * Announce spell description to chat
  * Called immediately when Cast button is clicked, before any modal
  */
-function announceSpellDescription(spell) {
+function announceSpellDescription(spell, castLevel = null) {
   // Build a fancy formatted message using Roll20 template syntax with custom color
   const colorBanner = getColoredBanner();
-  let message = `&{template:default} {{name=${colorBanner}${characterData.name} casts ${spell.name}!}}`;
 
-  // Add spell level and school
-  if (spell.level && spell.level > 0) {
-    let levelText = `Level ${spell.level}`;
+  // Build concentration/ritual tags
+  let tags = '';
+  if (spell.concentration) tags += ' 🧠 Concentration';
+  if (spell.ritual) tags += ' 📖 Ritual';
+
+  let message = `&{template:default} {{name=${colorBanner}${characterData.name} casts ${spell.name}!${tags}}}`;
+
+  // Add spell level and school - show upcast level if different
+  const spellLevel = parseInt(spell.level) || 0;
+  const actualCastLevel = castLevel ? parseInt(castLevel) : spellLevel;
+
+  if (spellLevel > 0) {
+    let levelText = actualCastLevel > spellLevel
+      ? `Level ${actualCastLevel} (upcast from ${spellLevel})`
+      : `Level ${spellLevel}`;
     if (spell.school) {
       levelText += ` ${spell.school}`;
     }
@@ -6839,6 +6850,11 @@ function announceSpellDescription(spell) {
   // Add components if available
   if (spell.components) {
     message += ` {{Components=${spell.components}}}`;
+  }
+
+  // Add source if available
+  if (spell.source) {
+    message += ` {{Source=${spell.source}}}`;
   }
 
   // Add description

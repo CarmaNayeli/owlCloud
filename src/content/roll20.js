@@ -555,37 +555,72 @@
       const spellData = request.spellData || {};
       const charName = spellData.character_name || 'Character';
       const spell = spellData.spell_data || {};
-      const castLevel = spellData.cast_level || spell.level;
+      const spellLevel = parseInt(spell.level) || 0;
+      const castLevel = parseInt(spellData.cast_level) || spellLevel;
       const notificationColor = spellData.notification_color || '#3498db';
 
       // Get color emoji banner (matches popup-sheet getColoredBanner)
       const colorEmoji = getColorEmoji(notificationColor);
 
-      // Build spell announcement message (matches popup-sheet announceSpellDescription exactly)
-      let announcement = `&{template:default} {{name=${colorEmoji} ${charName} casts ${spell.name || spellName}!}}`;
+      // Build concentration/ritual tags
+      let tags = '';
+      if (spell.concentration) tags += ' 🧠 Concentration';
+      if (spell.ritual) tags += ' 📖 Ritual';
 
-      // Add spell level and school
-      if (spell.level && spell.level > 0) {
-        let levelText = `Level ${spell.level}`;
+      // Build spell announcement message with enhanced details
+      let announcement = `&{template:default} {{name=${colorEmoji} ${charName} casts ${spell.name || spellName}!${tags}}}`;
+
+      // Add spell level and school - show upcast level if different
+      if (spellLevel > 0) {
+        let levelText = castLevel > spellLevel
+          ? `Level ${castLevel} (upcast from ${spellLevel})`
+          : `Level ${spellLevel}`;
         if (spell.school) levelText += ` ${spell.school}`;
         announcement += ` {{Level=${levelText}}}`;
       } else if (spell.school) {
         announcement += ` {{Level=${spell.school} cantrip}}`;
       }
 
-      // Add casting details (matches popup-sheet announceSpellDescription)
+      // Add casting details
       if (spell.castingTime) announcement += ` {{Casting Time=${spell.castingTime}}}`;
       if (spell.range) announcement += ` {{Range=${spell.range}}}`;
       if (spell.duration) announcement += ` {{Duration=${spell.duration}}}`;
       if (spell.components) announcement += ` {{Components=${spell.components}}}`;
+      if (spell.source) announcement += ` {{Source=${spell.source}}}`;
 
-      // Add description (matches popup-sheet announceSpellDescription)
+      // Add description
       if (spell.description) {
         announcement += ` {{Description=${spell.description}}}`;
       }
 
       // Post the announcement
       postChatMessage(announcement);
+
+      // Helper function to scale damage formula for upcasting
+      const scaleFormulaForUpcast = (formula, baseLevel, actualCastLevel) => {
+        if (!formula || baseLevel <= 0 || actualCastLevel <= baseLevel) return formula;
+
+        // Replace slotLevel placeholder if present
+        let scaledFormula = formula.replace(/slotLevel/gi, actualCastLevel);
+
+        // If formula doesn't have slotLevel, try to scale it automatically
+        // Common pattern: XdY per spell level above base
+        // Match patterns like "1d8", "2d6", etc.
+        if (scaledFormula === formula) {
+          const levelDiff = actualCastLevel - baseLevel;
+          const diceMatch = formula.match(/^(\d+)d(\d+)/);
+          if (diceMatch && levelDiff > 0) {
+            const baseDice = parseInt(diceMatch[1]);
+            const dieSize = parseInt(diceMatch[2]);
+            // Add 1 die per level for most healing/damage spells
+            const scaledDice = baseDice + levelDiff;
+            scaledFormula = formula.replace(/^(\d+)d(\d+)/, `${scaledDice}d${dieSize}`);
+            debug.log(`📈 Scaled formula from ${formula} to ${scaledFormula} (upcast by ${levelDiff} levels)`);
+          }
+        }
+
+        return scaledFormula;
+      };
 
       // Roll attack if spell has attack roll
       if (spell.attackRoll && spell.attackRoll !== '(none)') {
@@ -599,7 +634,7 @@
         }, 100);
       }
 
-      // Roll damage(s) from damageRolls array (matches popup-sheet getSpellOptions)
+      // Roll damage(s) from damageRolls array - scale for upcasting
       if (spell.damageRolls && Array.isArray(spell.damageRolls) && spell.damageRolls.length > 0) {
         spell.damageRolls.forEach((roll, index) => {
           if (roll.damage) {
@@ -615,9 +650,13 @@
               } else {
                 rollName = `${spell.name || spellName} - ${damageType}`;
               }
+
+              // Scale formula for upcasting
+              const scaledFormula = scaleFormulaForUpcast(roll.damage, spellLevel, castLevel);
+
               const damageMsg = formatRollForRoll20({
                 name: rollName,
-                formula: roll.damage,
+                formula: scaledFormula,
                 characterName: charName
               });
               postChatMessage(damageMsg);
@@ -630,9 +669,13 @@
           const damageType = spell.damageType || 'damage';
           const isHealing = damageType.toLowerCase() === 'healing';
           const rollName = isHealing ? `${spell.name || spellName} - Healing` : `${spell.name || spellName} - ${damageType}`;
+
+          // Scale formula for upcasting
+          const scaledFormula = scaleFormulaForUpcast(spell.damage, spellLevel, castLevel);
+
           const damageMsg = formatRollForRoll20({
             name: rollName,
-            formula: spell.damage,
+            formula: scaledFormula,
             characterName: charName
           });
           postChatMessage(damageMsg);
@@ -816,10 +859,12 @@
       font-size: 14px;
       color: #fff;
       box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-      display: flex;
+      display: none;
       flex-direction: column;
       overflow: hidden;
       resize: both;
+      visibility: visible;
+      opacity: 1;
     `;
 
     // Create tab content containers
@@ -2113,33 +2158,37 @@ ${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗
       return;
     }
 
-    gmPanel.style.display = gmModeEnabled ? 'block' : 'none';
-    
+    // Use 'flex' not 'block' to maintain flexbox layout
+    gmPanel.style.display = gmModeEnabled ? 'flex' : 'none';
+
     // Debug: Check if panel is actually visible
     if (gmModeEnabled) {
-      debug.log('🔍 GM Panel display set to block');
+      debug.log('🔍 GM Panel display set to flex');
       debug.log('🔍 GM Panel offsetWidth:', gmPanel.offsetWidth);
       debug.log('🔍 GM Panel offsetHeight:', gmPanel.offsetHeight);
       debug.log('🔍 GM Panel computed display:', window.getComputedStyle(gmPanel).display);
       debug.log('🔍 GM Panel parent:', gmPanel.parentElement);
       debug.log('🔍 GM Panel style:', gmPanel.style.cssText);
-      
+
       // Check if panel is in viewport
       const rect = gmPanel.getBoundingClientRect();
       debug.log('🔍 GM Panel bounding rect:', rect);
       debug.log('🔍 Is panel in viewport:', rect.width > 0 && rect.height > 0);
-      
-      // Force visibility check
+
+      // Force visibility check (especially for Firefox)
       setTimeout(() => {
         debug.log('🔍 Delayed check - GM Panel display:', window.getComputedStyle(gmPanel).display);
         debug.log('🔍 Delayed check - GM Panel visible:', gmPanel.offsetWidth > 0);
-        
+
         // Try to force visibility if needed
         if (gmPanel.offsetWidth === 0) {
           debug.warn('⚠️ GM Panel has zero width, trying to force visibility...');
           gmPanel.style.visibility = 'visible';
           gmPanel.style.opacity = '1';
-          gmPanel.style.display = 'block !important';
+          gmPanel.style.display = 'flex';
+          // Firefox sometimes needs explicit dimensions
+          gmPanel.style.width = '500px';
+          gmPanel.style.height = '600px';
           debug.log('🔍 Forced visibility styles applied');
         }
       }, 100);
