@@ -1,6 +1,8 @@
 const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
 const https = require('https');
+const fs = require('fs');
+const os = require('os');
 const { installExtension, uninstallExtension, isExtensionInstalled, installFirefoxDeveloperEdition, restartBrowser } = require('./extension-installer');
 const { sendPairingCodeToExtension } = require('./native-messaging');
 const { generatePairingCode, createPairing, createPairingAndSend, checkPairing } = require('./pairing');
@@ -266,54 +268,106 @@ ipcMain.handle('launch-updater', async () => {
 });
 
 // Install updater utility to Program Files
-async function installUpdaterUtility(installDir = 'programfiles') {
+async function installUpdaterUtility(options = {}) {
   const { execSync } = require('child_process');
-  
+
   try {
+    const installDir = options.installDir || 'programfiles';
+    const minimizeToTray = options.minimizeToTray !== false;
+    const startWithWindows = options.startWithWindows !== false;
+
     let targetDir;
-    
+
     // Determine installation directory
     if (installDir === 'appdata') {
       targetDir = path.join(os.homedir(), 'AppData', 'Local', 'RollCloud');
-    } else if (installDir === 'custom') {
-      // For custom directory, it should be provided as a full path
-      throw new Error('Custom directory must be provided as full path');
+    } else if (typeof installDir === 'string' && installDir.includes(':')) {
+      // Custom full path
+      targetDir = installDir;
     } else {
       // Default to Program Files
       targetDir = path.join('C:', 'Program Files', 'RollCloud');
     }
-    
+
     // Create installation directory
     if (!fs.existsSync(targetDir)) {
       fs.mkdirSync(targetDir, { recursive: true });
     }
 
     // Get updater from extraResources (packaged with installer)
-    const updaterSource = process.env.NODE_ENV === 'development' 
+    const updaterSource = process.env.NODE_ENV === 'development'
       ? path.join(__dirname, '..', 'resources', 'RollCloud-Updater.exe')
       : path.join(process.resourcesPath, 'RollCloud-Updater.exe');
-    
+
     const updaterDest = path.join(targetDir, 'RollCloud-Updater.exe');
-    
+
     // Copy updater executable
     if (fs.existsSync(updaterSource)) {
       fs.copyFileSync(updaterSource, updaterDest);
       console.log('✅ Copied updater to:', targetDir);
     } else {
-      throw new Error('Updater executable not found in package resources');
+      // If not found in resources, try to build path relative to installer directory
+      const altSource = path.join(__dirname, '..', 'updater', 'dist', 'RollCloud-Updater.exe');
+      if (fs.existsSync(altSource)) {
+        fs.copyFileSync(altSource, updaterDest);
+        console.log('✅ Copied updater from alt path to:', targetDir);
+      } else {
+        throw new Error('Updater executable not found in package resources');
+      }
     }
 
-    // Create Start Menu shortcut
-    const startMenuPath = path.join(os.homedir(), 'AppData', 'Roaming', 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'RollCloud Updater.lnk');
-    
-    // Create shortcut (this would use a proper shortcut creation library)
-    const shortcutContent = `[InternetShortcut]
-URL=file:///${updaterDest}
-IconFile=${updaterDest}
-IconIndex=0`;
-    
-    fs.writeFileSync(startMenuPath, shortcutContent);
-    console.log('✅ Created Start Menu shortcut');
+    // Create settings file for the updater with user preferences
+    const settingsPath = path.join(targetDir, 'updater-settings.json');
+    const settings = {
+      minimizeToTray: minimizeToTray,
+      startMinimized: minimizeToTray,
+      enabled: true,
+      checkInterval: 3600000 // 1 hour
+    };
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+    console.log('✅ Created updater settings');
+
+    // Create Start Menu shortcut using PowerShell
+    const startMenuDir = path.join(os.homedir(), 'AppData', 'Roaming', 'Microsoft', 'Windows', 'Start Menu', 'Programs');
+    const shortcutPath = path.join(startMenuDir, 'RollCloud Updater.lnk');
+
+    try {
+      // Use PowerShell to create a proper .lnk shortcut
+      const psScript = `
+        $WshShell = New-Object -ComObject WScript.Shell
+        $Shortcut = $WshShell.CreateShortcut("${shortcutPath.replace(/\\/g, '\\\\')}")
+        $Shortcut.TargetPath = "${updaterDest.replace(/\\/g, '\\\\')}"
+        $Shortcut.WorkingDirectory = "${targetDir.replace(/\\/g, '\\\\')}"
+        $Shortcut.Description = "RollCloud Updater - Check for extension updates"
+        $Shortcut.Save()
+      `;
+      execSync(`powershell -Command "${psScript.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`, { stdio: 'pipe' });
+      console.log('✅ Created Start Menu shortcut');
+    } catch (shortcutError) {
+      console.warn('⚠️ Could not create Start Menu shortcut:', shortcutError.message);
+    }
+
+    // Add to Windows startup if requested
+    if (startWithWindows) {
+      try {
+        const startupDir = path.join(os.homedir(), 'AppData', 'Roaming', 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup');
+        const startupShortcutPath = path.join(startupDir, 'RollCloud Updater.lnk');
+
+        const psStartupScript = `
+          $WshShell = New-Object -ComObject WScript.Shell
+          $Shortcut = $WshShell.CreateShortcut("${startupShortcutPath.replace(/\\/g, '\\\\')}")
+          $Shortcut.TargetPath = "${updaterDest.replace(/\\/g, '\\\\')}"
+          $Shortcut.WorkingDirectory = "${targetDir.replace(/\\/g, '\\\\')}"
+          $Shortcut.Arguments = "--minimized"
+          $Shortcut.Description = "RollCloud Updater - Auto-start"
+          $Shortcut.Save()
+        `;
+        execSync(`powershell -Command "${psStartupScript.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`, { stdio: 'pipe' });
+        console.log('✅ Added to Windows startup');
+      } catch (startupError) {
+        console.warn('⚠️ Could not add to startup:', startupError.message);
+      }
+    }
 
     return `RollCloud Updater installed successfully to ${targetDir}!`;
   } catch (error) {
@@ -324,7 +378,17 @@ IconIndex=0`;
 // Install updater utility with directory parameter
 ipcMain.handle('install-updater-with-directory', async (event, installDir) => {
   try {
-    const result = await installUpdaterUtility(installDir);
+    const result = await installUpdaterUtility({ installDir });
+    return { success: true, message: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Install updater utility with full options
+ipcMain.handle('install-updater-with-options', async (event, options) => {
+  try {
+    const result = await installUpdaterUtility(options);
     return { success: true, message: result };
   } catch (error) {
     return { success: false, error: error.message };

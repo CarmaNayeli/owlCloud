@@ -20,6 +20,8 @@ contextBridge.exposeInMainWorld('api', {
   // Updater
   installUpdater: () => ipcRenderer.invoke('install-updater'),
   installUpdaterWithDirectory: (installDir) => ipcRenderer.invoke('install-updater-with-directory', installDir),
+  installUpdaterWithOptions: (options) => ipcRenderer.invoke('install-updater-with-options', options),
+  launchUpdater: () => ipcRenderer.invoke('launch-updater'),
 
   // Discord
   openDiscordInvite: () => ipcRenderer.invoke('open-discord-invite'),

@@ -13,10 +13,15 @@ const CONFIG = {
   githubApiUrl: 'https://api.github.com/repos/CarmaNayeli/rollCloud/releases/latest'
 };
 
+// Check for --minimized flag
+const startMinimized = process.argv.includes('--minimized');
+
 let mainWindow;
 let tray;
 let notificationSettings = {
-  enabled: false,
+  enabled: true,  // Default to enabled
+  minimizeToTray: true,
+  startMinimized: startMinimized,
   lastChecked: null,
   lastVersion: null,
   checkInterval: 3600000 // 1 hour in milliseconds
@@ -27,15 +32,32 @@ let updateCheckInterval;
 
 // Notification settings storage
 const SETTINGS_FILE = path.join(app.getPath('userData'), 'notification-settings.json');
+// Also check for installer-created settings file
+const INSTALLER_SETTINGS_FILE = path.join(path.dirname(process.execPath), 'updater-settings.json');
 
 function loadNotificationSettings() {
   try {
+    // First, try to load installer-created settings (initial setup)
+    if (fs.existsSync(INSTALLER_SETTINGS_FILE)) {
+      const installerData = fs.readFileSync(INSTALLER_SETTINGS_FILE, 'utf8');
+      const installerSettings = JSON.parse(installerData);
+      notificationSettings = { ...notificationSettings, ...installerSettings };
+      console.log('Loaded settings from installer:', installerSettings);
+    }
+
+    // Then load user-modified settings (overrides installer settings)
     if (fs.existsSync(SETTINGS_FILE)) {
       const data = fs.readFileSync(SETTINGS_FILE, 'utf8');
       notificationSettings = { ...notificationSettings, ...JSON.parse(data) };
+      console.log('Loaded user settings');
+    }
+
+    // Apply command-line override for startMinimized
+    if (startMinimized) {
+      notificationSettings.startMinimized = true;
     }
   } catch (error) {
-    console.log('Using default notification settings');
+    console.log('Using default notification settings:', error.message);
   }
 }
 
@@ -216,60 +238,14 @@ function createTray() {
   // Create tray icon (you'll need to add an icon file)
   const iconPath = path.join(__dirname, '../resources/tray-icon.png');
   const trayIcon = nativeImage.createFromPath(iconPath);
-  
+
   tray = new Tray(trayIcon.resize({ width: 16, height: 16 }));
-  
-  const contextMenu = Menu.buildFromTemplate([
-    {
-      label: 'RollCloud Updater',
-      enabled: false
-    },
-    { type: 'separator' },
-    {
-      label: 'Check for Updates',
-      click: () => {
-        if (mainWindow) {
-          mainWindow.webContents.send('check-updates-requested');
-        }
-      }
-    },
-    {
-      label: 'Toggle Notifications',
-      click: () => {
-        notificationSettings.enabled = !notificationSettings.enabled;
-        saveNotificationSettings();
-        
-        if (mainWindow) {
-          mainWindow.webContents.send('notification-settings-changed', notificationSettings);
-        }
-        
-        showNotification(
-          'Notifications ' + (notificationSettings.enabled ? 'Enabled' : 'Disabled'),
-          notificationSettings.enabled ? 'You will be notified when updates are available.' : 'You will not receive update notifications.'
-        );
-      }
-    },
-    { type: 'separator' },
-    {
-      label: 'Show Updater',
-      click: () => {
-        if (mainWindow) {
-          mainWindow.show();
-          mainWindow.focus();
-        }
-      }
-    },
-    {
-      label: 'Quit',
-      click: () => {
-        app.quit();
-      }
-    }
-  ]);
-  
+
   tray.setToolTip('RollCloud Updater');
-  tray.setContextMenu(contextMenu);
-  
+
+  // Build the initial menu
+  updateTrayMenu();
+
   // Double-click to show window
   tray.on('double-click', () => {
     if (mainWindow) {
@@ -318,16 +294,21 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
 
   mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
+    // Only show window if not starting minimized
+    if (!notificationSettings.startMinimized) {
+      mainWindow.show();
+    } else {
+      console.log('Starting minimized to system tray');
+    }
   });
 
   if (process.platform === 'win32') {
     mainWindow.setMenu(null);
   }
 
-  // Hide window instead of closing (for system tray)
+  // Hide window instead of closing (for system tray) if minimizeToTray is enabled
   mainWindow.on('close', (event) => {
-    if (!app.isQuitting) {
+    if (!app.isQuitting && notificationSettings.minimizeToTray) {
       event.preventDefault();
       mainWindow.hide();
     }
@@ -335,33 +316,51 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  // Load settings BEFORE creating window (so we know if starting minimized)
+  loadNotificationSettings();
+
   createWindow();
   createTray();
-  loadNotificationSettings();
-  
+
   // Initialize release monitor
   releaseMonitor = new GitHubReleaseMonitor(CONFIG.githubApiUrl, notificationSettings.checkInterval);
-  
+
   // Perform immediate startup check regardless of notification settings
   console.log('🚀 Performing startup release check...');
   releaseMonitor.checkNow().then(result => {
     console.log('Startup check completed:', result);
+
+    // If there's a new release and we're minimized, show a notification
+    if (result.isNew && notificationSettings.startMinimized) {
+      showNotification(
+        'RollCloud Update Available!',
+        `Version ${result.release.version} is now available.\nClick to open updater.`,
+        { urgency: 'normal' }
+      );
+    }
   }).catch(error => {
     console.error('Startup check failed:', error);
   });
-  
+
   // Start monitoring if notifications are enabled
   if (notificationSettings.enabled) {
     releaseMonitor.startMonitoring();
   }
-  
-  // Check if this is first run (installation)
+
+  // Check if this is first run (and window is visible)
   const isFirstRun = !fs.existsSync(path.join(app.getPath('userData'), 'first-run-complete'));
-  if (isFirstRun) {
+  if (isFirstRun && !notificationSettings.startMinimized) {
     // Show notification setup dialog
     setTimeout(() => {
-      mainWindow.webContents.send('show-notification-setup');
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('show-notification-setup');
+      }
     }, 1000);
+  }
+
+  // If starting minimized, mark first run as complete since user already configured during install
+  if (isFirstRun && notificationSettings.startMinimized) {
+    fs.writeFileSync(path.join(app.getPath('userData'), 'first-run-complete'), 'true');
   }
 });
 
@@ -377,20 +376,114 @@ app.on('before-quit', () => {
   }
 });
 
+// Function to rebuild tray menu with current settings
+function updateTrayMenu() {
+  if (!tray) return;
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'RollCloud Updater',
+      enabled: false
+    },
+    { type: 'separator' },
+    {
+      label: 'Check for Updates',
+      click: () => {
+        if (releaseMonitor) {
+          releaseMonitor.checkNow().then(result => {
+            if (result.isNew) {
+              showNotification(
+                'RollCloud Update Available!',
+                `Version ${result.release.version} is now available.`,
+                { urgency: 'normal' }
+              );
+            } else {
+              showNotification(
+                'No Updates Available',
+                'You have the latest version of RollCloud.',
+                { urgency: 'low' }
+              );
+            }
+          }).catch(error => {
+            console.error('Update check failed:', error);
+          });
+        }
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('check-updates-requested');
+        }
+      }
+    },
+    {
+      label: 'Enable Notifications',
+      type: 'checkbox',
+      checked: notificationSettings.enabled,
+      click: (menuItem) => {
+        notificationSettings.enabled = menuItem.checked;
+        saveNotificationSettings();
+
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('notification-settings-changed', notificationSettings);
+        }
+
+        // Start or stop monitoring based on setting
+        if (notificationSettings.enabled && releaseMonitor) {
+          releaseMonitor.startMonitoring();
+        } else if (!notificationSettings.enabled && releaseMonitor) {
+          releaseMonitor.stopMonitoring();
+        }
+      }
+    },
+    {
+      label: 'Minimize to Tray on Close',
+      type: 'checkbox',
+      checked: notificationSettings.minimizeToTray,
+      click: (menuItem) => {
+        notificationSettings.minimizeToTray = menuItem.checked;
+        saveNotificationSettings();
+
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('notification-settings-changed', notificationSettings);
+        }
+      }
+    },
+    { type: 'separator' },
+    {
+      label: 'Show Updater',
+      click: () => {
+        if (mainWindow) {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      }
+    },
+    {
+      label: 'Quit',
+      click: () => {
+        app.quit();
+      }
+    }
+  ]);
+
+  tray.setContextMenu(contextMenu);
+}
+
 // Handle notification settings changes
 ipcMain.handle('save-notification-settings', async (event, settings) => {
   try {
     const wasEnabled = notificationSettings.enabled;
     notificationSettings = { ...notificationSettings, ...settings };
     saveNotificationSettings();
-    
+
+    // Update tray menu to reflect new settings
+    updateTrayMenu();
+
     // Start or stop monitoring based on notification preference
     if (notificationSettings.enabled && !wasEnabled) {
       releaseMonitor.startMonitoring();
     } else if (!notificationSettings.enabled && wasEnabled) {
       releaseMonitor.stopMonitoring();
     }
-    
+
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
@@ -501,7 +594,7 @@ async function detectFirefoxExtension() {
     for (const firefoxPath of firefoxPaths) {
       const policiesPath = path.join(firefoxPath, 'distribution', 'policies.json');
       if (fs.existsSync(policiesPath)) {
-        const policies = JSON.parse(fs.readFileSync(policies, 'utf8'));
+        const policies = JSON.parse(fs.readFileSync(policiesPath, 'utf8'));
         if (policies.extensions && policies.extensions[CONFIG.extensionId]) {
           return true;
         }
@@ -532,7 +625,7 @@ async function checkForUpdates() {
           const release = JSON.parse(data);
           resolve({
             version: release.tag_name?.replace(/^v/, '') || '1.0.0',
-            downloadUrl: release.assets?.find(asset => 
+            downloadUrl: release.assets?.find(asset =>
               asset.name.includes('.crx') || asset.name.includes('.xpi')
             )?.browser_download_url
           });
@@ -542,7 +635,6 @@ async function checkForUpdates() {
       });
     }).on('error', reject);
   });
-  }
 }
 
 // IPC Handlers
@@ -596,16 +688,6 @@ ipcMain.handle('uninstall-extension', async (event, browser) => {
     // This would trigger the extension uninstall process
     // Implementation would depend on the specific browser's uninstall mechanism
     return { success: true, message: `Uninstall initiated for ${browser}` };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-});
-
-ipcMain.handle('save-notification-settings', async (event, settings) => {
-  try {
-    notificationSettings = { ...notificationSettings, ...settings };
-    saveNotificationSettings();
-    return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
   }

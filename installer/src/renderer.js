@@ -5,10 +5,16 @@
 
 // State
 let selectedBrowser = null;
+let updaterOptions = {
+  install: true,
+  minimizeToTray: true,
+  startWithWindows: true
+};
 
 // DOM Elements
 const steps = {
   step1: document.getElementById('step1'),
+  stepUpdaterChoice: document.getElementById('stepUpdaterChoice'),
   step2: document.getElementById('step2'),
   step3: document.getElementById('step3'),
   step4: document.getElementById('step4'),
@@ -25,6 +31,7 @@ async function init() {
 
   // Set up event listeners
   setupBrowserSelection();
+  setupUpdaterChoice();
   setupStep2();
   setupStep3();
   setupStep4();
@@ -112,10 +119,70 @@ function setupBrowserSelection() {
             The extension will be installed and configured automatically.
           </div>
         `;
-        document.getElementById('btnContinueToInstall').addEventListener('click', () => goToStep(2));
+        // Go to updater choice step first (before downloading anything)
+        document.getElementById('btnContinueToInstall').addEventListener('click', () => goToStep('updaterChoice'));
       }
     });
   });
+}
+
+// ============================================================================
+// Updater Choice Step
+// ============================================================================
+
+function setupUpdaterChoice() {
+  const installUpdaterCheckbox = document.getElementById('installUpdaterChoice');
+  const minimizeToTrayCheckbox = document.getElementById('minimizeToTrayChoice');
+  const startWithWindowsCheckbox = document.getElementById('startWithWindowsChoice');
+  const updaterOptionsSection = document.getElementById('updaterOptionsSection');
+  const continueBtn = document.getElementById('continueToInstall');
+  const backBtn = document.getElementById('backToStep1FromUpdater');
+
+  // Toggle updater options visibility based on install checkbox
+  if (installUpdaterCheckbox) {
+    installUpdaterCheckbox.addEventListener('change', (e) => {
+      if (updaterOptionsSection) {
+        updaterOptionsSection.style.display = e.target.checked ? 'block' : 'none';
+        updaterOptionsSection.style.opacity = e.target.checked ? '1' : '0.5';
+      }
+      updaterOptions.install = e.target.checked;
+    });
+  }
+
+  // Track checkbox changes
+  if (minimizeToTrayCheckbox) {
+    minimizeToTrayCheckbox.addEventListener('change', (e) => {
+      updaterOptions.minimizeToTray = e.target.checked;
+    });
+  }
+
+  if (startWithWindowsCheckbox) {
+    startWithWindowsCheckbox.addEventListener('change', (e) => {
+      updaterOptions.startWithWindows = e.target.checked;
+    });
+  }
+
+  // Continue button - proceed to installation
+  if (continueBtn) {
+    continueBtn.addEventListener('click', () => {
+      // Store the updater options
+      updaterOptions.install = installUpdaterCheckbox?.checked ?? true;
+      updaterOptions.minimizeToTray = minimizeToTrayCheckbox?.checked ?? true;
+      updaterOptions.startWithWindows = startWithWindowsCheckbox?.checked ?? true;
+
+      console.log('Updater options:', updaterOptions);
+
+      // Now proceed to actual installation
+      goToStep(2);
+    });
+  }
+
+  // Back button
+  if (backBtn) {
+    backBtn.addEventListener('click', () => {
+      goToStep(1);
+    });
+  }
 }
 
 async function checkForUpdatesAndProceed() {
@@ -480,26 +547,10 @@ function setupStep2() {
   const retryBtn = document.getElementById('retryInstall');
   const backBtn = document.getElementById('backToStep1');
   const backBtnFromError = document.getElementById('backToStep1FromError');
-  
-  // Updater directory selection
-  const updaterDirectorySelect = document.getElementById('updaterDirectory');
-  const customDirectoryInput = document.getElementById('customDirectory');
 
   continueBtn.addEventListener('click', () => goToStep(3));
-  restartBtn.addEventListener('click', () => restartBrowserWithUpdater());
-  retryBtn.addEventListener('click', () => installExtension());
-
-  // Handle updater directory selection
-  if (updaterDirectorySelect) {
-    updaterDirectorySelect.addEventListener('change', (event) => {
-      const customDir = document.getElementById('customDirectory');
-      if (event.target.value === 'custom') {
-        customDir.style.display = 'block';
-      } else {
-        customDir.style.display = 'none';
-      }
-    });
-  }
+  restartBtn.addEventListener('click', () => restartBrowser(selectedBrowser));
+  retryBtn.addEventListener('click', () => installExtensionAndUpdater());
 
   // Back button from error screen
   if (backBtnFromError) {
@@ -519,81 +570,6 @@ function setupStep2() {
       document.getElementById('browserStatus').textContent = '';
       goToStep(1);
     });
-  }
-}
-
-async function restartBrowserWithUpdater() {
-  const checkbox = document.getElementById('installUpdaterCheckbox');
-  const shouldInstallUpdater = checkbox && checkbox.checked;
-  
-  if (shouldInstallUpdater) {
-    // Get installation directory
-    const directorySelect = document.getElementById('updaterDirectory');
-    const customDirectory = document.getElementById('customDirectory');
-    
-    let installDir;
-    if (directorySelect.value === 'custom') {
-      installDir = customDirectory.value.trim();
-      if (!installDir) {
-        alert('Please enter a valid custom directory path.');
-        return;
-      }
-    } else if (directorySelect.value === 'appdata') {
-      installDir = 'appdata';
-    } else {
-      installDir = 'programfiles';
-    }
-    
-    // Show updater installation progress
-    const statusText = document.getElementById('installStatus');
-    statusText.innerHTML = `
-      <div style="color: #ff9500;">🔄 Installing RollCloud Updater...</div>
-      <div style="font-size: 0.9em; margin-top: 5px;">Setting up permanent updater utility...</div>
-    `;
-    
-    try {
-      const result = await window.api.installUpdaterWithDirectory(installDir);
-      
-      if (result.success) {
-        statusText.innerHTML = `
-          <div style="color: #28a745;">✅ Updater installed successfully!</div>
-          <div style="font-size: 0.9em; margin-top: 5px;">${result.message}</div>
-          <div style="font-size: 0.85em; margin-top: 5px; color: #666;">Now restarting browser...</div>
-        `;
-        
-        // Wait a moment then restart browser
-        setTimeout(() => {
-          restartBrowser(selectedBrowser);
-        }, 2000);
-      } else {
-        statusText.innerHTML = `
-          <div style="color: #dc3545;">❌ Updater installation failed</div>
-          <div style="font-size: 0.9em; margin-top: 5px;">${result.error}</div>
-          <div style="margin-top: 10px;">
-            <button id="btnRetryUpdater" class="btn btn-primary">Retry Updater</button>
-            <button id="btnSkipUpdater" class="btn btn-secondary" style="margin-left: 10px;">Skip Updater</button>
-          </div>
-        `;
-        
-        document.getElementById('btnRetryUpdater').addEventListener('click', restartBrowserWithUpdater);
-        document.getElementById('btnSkipUpdater').addEventListener('click', () => restartBrowser(selectedBrowser));
-      }
-    } catch (error) {
-      statusText.innerHTML = `
-        <div style="color: #dc3545;">❌ Error installing updater</div>
-        <div style="font-size: 0.9em; margin-top: 5px;">${error.message}</div>
-        <div style="margin-top: 10px;">
-          <button id="btnRetryUpdaterError" class="btn btn-primary">Retry Updater</button>
-          <button id="btnSkipUpdaterError" class="btn btn-secondary" style="margin-left: 10px;">Skip Updater</button>
-        </div>
-      `;
-      
-      document.getElementById('btnRetryUpdaterError').addEventListener('click', restartBrowserWithUpdater);
-      document.getElementById('btnSkipUpdaterError').addEventListener('click', () => restartBrowser(selectedBrowser));
-    }
-  } else {
-    // Just restart browser without updater
-    restartBrowser(selectedBrowser);
   }
 }
 
@@ -888,6 +864,12 @@ function goToStep(stepNum) {
     step.classList.remove('active');
   });
 
+  // Handle special step names
+  if (stepNum === 'updaterChoice') {
+    steps.stepUpdaterChoice.classList.add('active');
+    return;
+  }
+
   // Show target step
   const targetStep = steps[`step${stepNum}`];
   if (targetStep) {
@@ -895,8 +877,60 @@ function goToStep(stepNum) {
 
     // Trigger step-specific actions
     if (stepNum === 2) {
-      installExtension();
+      installExtensionAndUpdater();
     }
+  }
+}
+
+// Install extension and optionally the updater
+async function installExtensionAndUpdater() {
+  // First install the extension
+  await installExtension();
+
+  // If extension installed successfully and user wants updater, install it
+  const installComplete = document.getElementById('installComplete');
+  if (!installComplete.classList.contains('hidden') && updaterOptions.install) {
+    await installUpdaterDuringSetup();
+  }
+}
+
+// Install updater during the main setup flow
+async function installUpdaterDuringSetup() {
+  const statusDiv = document.getElementById('updaterInstallStatus');
+  const progressDiv = document.getElementById('updaterInstallProgress');
+  const successDiv = document.getElementById('updaterInstallSuccess');
+  const errorDiv = document.getElementById('updaterInstallError');
+  const errorText = document.getElementById('updaterErrorText');
+
+  if (!statusDiv) return;
+
+  // Show progress
+  statusDiv.classList.remove('hidden');
+  progressDiv.style.display = 'flex';
+  successDiv.classList.add('hidden');
+  errorDiv.classList.add('hidden');
+
+  try {
+    const result = await window.api.installUpdaterWithOptions({
+      minimizeToTray: updaterOptions.minimizeToTray,
+      startWithWindows: updaterOptions.startWithWindows
+    });
+
+    progressDiv.style.display = 'none';
+
+    if (result.success) {
+      successDiv.classList.remove('hidden');
+      console.log('Updater installed successfully:', result.message);
+    } else {
+      errorDiv.classList.remove('hidden');
+      errorText.textContent = result.error || 'Unknown error';
+      console.error('Updater installation failed:', result.error);
+    }
+  } catch (error) {
+    progressDiv.style.display = 'none';
+    errorDiv.classList.remove('hidden');
+    errorText.textContent = error.message;
+    console.error('Updater installation error:', error);
   }
 }
 
