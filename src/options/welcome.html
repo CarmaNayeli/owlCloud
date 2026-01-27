@@ -250,19 +250,22 @@
   </div>
 
   <script>
+    // Browser API compatibility
+    const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
+
     document.addEventListener('DOMContentLoaded', function() {
       const openDiceCloudBtn = document.getElementById('openDiceCloudBtn');
       const openDocsBtn = document.getElementById('openDocsBtn');
 
       if (openDiceCloudBtn) {
         openDiceCloudBtn.addEventListener('click', function() {
-          window.open('https://dicecloud.com', '_blank');
+          browserAPI.tabs.create({ url: 'https://dicecloud.com' });
         });
       }
 
       if (openDocsBtn) {
         openDocsBtn.addEventListener('click', function() {
-          window.open('https://github.com/CarmaNayeli/rollCloud', '_blank');
+          browserAPI.tabs.create({ url: 'https://github.com/CarmaNayeli/rollCloud#readme' });
         });
       }
     });
