@@ -1094,21 +1094,24 @@
    * Loads character data from extension storage
    */
   function loadCharacterData() {
-    debug.log('🔄 Loading character data from storage...');
+    debug.log(' Loading character data from storage...');
     browserAPI.runtime.sendMessage({ action: 'getCharacterData' }, (response) => {
       if (browserAPI.runtime.lastError) {
-        debug.error('❌ Extension context error:', browserAPI.runtime.lastError);
+        debug.error(' Extension context error:', browserAPI.runtime.lastError);
         showNotification('Failed to load character data', 'error');
         return;
       }
 
       if (response && response.data) {
-        debug.log('✅ Character data loaded:', response.data.name);
+        debug.log(' Character data loaded:', response.data.name);
         characterData = response.data;
 
-        showNotification('Character data synced! 🎲', 'success');
+        showNotification('Character data synced! ', 'success');
+        
+        // Add roll event listeners after character data is loaded
+        addRollEventListeners();
       } else {
-        debug.log('📋 No character data found');
+        debug.log(' No character data found');
         showNotification('No character data found. Please sync from Dice Cloud first.', 'error');
       }
     });
@@ -1140,8 +1143,15 @@
         e.stopPropagation();
         const roll = card.getAttribute('data-roll');
         const name = card.getAttribute('data-name');
-        debug.log(`🎲 Clicked ability card: ${name} (${roll})`);
-        rollSimultaneously(name, roll);
+        debug.log(` Clicked ability card: ${name} (${roll})`);
+        
+        // Make announcement in Roll20 chat first
+        const characterName = characterData?.name || 'Character';
+        const announcement = `&{template:default} {{name=${characterName} - ${name}}} {{description=Ability Check}}`;
+        postChatMessage(announcement);
+        
+        // Then roll the dice
+        setTimeout(() => rollSimultaneously(name, roll), 100);
       });
     });
 
@@ -1149,26 +1159,63 @@
     document.querySelectorAll('.spell-card').forEach(card => {
       card.addEventListener('click', (e) => {
         e.stopPropagation();
-        debug.log('🔮 Spell card clicked, checking data attributes...');
+        debug.log(' Spell card clicked, checking data attributes...');
         
         const spellName = card.getAttribute('data-spell');
         const spellLevel = card.getAttribute('data-spell-level');
         const spellDescription = card.getAttribute('data-spell-description');
+        const spellSchool = card.getAttribute('data-spell-school');
+        const spellCastingTime = card.getAttribute('data-spell-casting-time');
+        const spellRange = card.getAttribute('data-spell-range');
+        const spellDuration = card.getAttribute('data-spell-duration');
+        const spellComponents = card.getAttribute('data-spell-components');
         const clickAction = card.getAttribute('data-click-action');
+        const castLevel = card.getAttribute('data-cast-level') || spellLevel;
         
-        debug.log(`🔮 Clicked spell: ${spellName} (Level ${spellLevel}) - Action: ${clickAction}`);
-        debug.log('🔮 Spell description:', spellDescription);
+        debug.log(` Clicked spell: ${spellName} (Level ${spellLevel}) - Action: ${clickAction}`);
+        debug.log(' Spell description:', spellDescription);
         
-        // Always show the description first
-        debug.log('🔮 Posting spell description to chat');
-        postSpellDescriptionToChat(spellName, spellLevel, spellDescription);
+        // Make detailed spell announcement in Roll20 chat
+        const characterName = characterData?.name || 'Character';
+        let announcement = `&{template:default} {{name= ${characterName} casts ${spellName}!}}`;
+        
+        // Add spell level and school information
+        if (spellLevel > 0) {
+          let levelText = castLevel > spellLevel
+            ? `Level ${castLevel} (upcast from ${spellLevel})`
+            : `Level ${spellLevel}`;
+          if (spellSchool) levelText += ` ${spellSchool}`;
+          announcement += ` {{Level=${levelText}}}`;
+        } else if (spellSchool) {
+          announcement += ` {{Level=${spellSchool} cantrip}}`;
+        }
+        
+        // Add casting details
+        if (spellCastingTime) announcement += ` {{Casting Time=${spellCastingTime}}}`;
+        if (spellRange) announcement += ` {{Range=${spellRange}}}`;
+        if (spellDuration) announcement += ` {{Duration=${spellDuration}}}`;
+        if (spellComponents) announcement += ` {{Components=${spellComponents}}}`;
+        
+        // Add description if available
+        if (spellDescription) {
+          // Truncate description if too long for Roll20 template
+          const truncatedDesc = spellDescription.length > 300 
+            ? spellDescription.substring(0, 297) + '...' 
+            : spellDescription;
+          announcement += ` {{Description=${truncatedDesc}}}`;
+        }
+        
+        debug.log(' Posting detailed spell announcement to chat');
+        postChatMessage(announcement);
         
         // Then roll if it's an attack spell
         if (clickAction === 'rollAttack') {
-          // Create a spell attack roll (d20 + spell level + proficiency)
-          const spellAttackRoll = `1d20+${parseInt(spellLevel) || 0}+${characterData.proficiencyBonus || 2}`;
-          debug.log('🔮 Rolling spell attack:', spellAttackRoll);
-          rollSimultaneously(`${spellName} Spell Attack`, spellAttackRoll);
+          setTimeout(() => {
+            // Create a spell attack roll (d20 + spell level + proficiency)
+            const spellAttackRoll = `1d20+${parseInt(spellLevel) || 0}+${characterData.proficiencyBonus || 2}`;
+            debug.log(' Rolling spell attack:', spellAttackRoll);
+            rollSimultaneously(`${spellName} Spell Attack`, spellAttackRoll);
+          }, 200);
         }
       });
     });
@@ -1179,8 +1226,15 @@
         e.stopPropagation();
         const skillName = card.querySelector('.skill-name').textContent;
         const skillBonus = card.querySelector('.skill-bonus').textContent;
-        debug.log(`🎲 Clicked skill card: ${skillName} (${skillBonus})`);
-        rollSimultaneously(skillName, `1d20${skillBonus}`);
+        debug.log(` Clicked skill card: ${skillName} (${skillBonus})`);
+        
+        // Make announcement in Roll20 chat first
+        const characterName = characterData?.name || 'Character';
+        const announcement = `&{template:default} {{name=${characterName} - ${skillName}}} {{description=Skill Check}}`;
+        postChatMessage(announcement);
+        
+        // Then roll the dice
+        setTimeout(() => rollSimultaneously(skillName, `1d20${skillBonus}`), 100);
       });
     });
 
@@ -1191,7 +1245,14 @@
         const saveName = card.querySelector('.save-name').textContent;
         const saveBonus = card.querySelector('.save-bonus').textContent;
         debug.log(` Clicked save card: ${saveName} (${saveBonus})`);
-        rollSimultaneously(`${saveName} Save`, `1d20${saveBonus}`);
+        
+        // Make announcement in Roll20 chat first
+        const characterName = characterData?.name || 'Character';
+        const announcement = `&{template:default} {{name=${characterName} - ${saveName} Save}}} {{description=Saving Throw}}`;
+        postChatMessage(announcement);
+        
+        // Then roll the dice
+        setTimeout(() => rollSimultaneously(`${saveName} Save`, `1d20${saveBonus}`), 100);
       });
     });
 
@@ -1209,8 +1270,15 @@
       initiativeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         const initiative = characterData.initiative || 0;
-        debug.log(`🎲 Initiative check: 1d20+${initiative}`);
-        rollSimultaneously('Initiative Check', `1d20+${initiative}`);
+        debug.log(` Initiative check: 1d20+${initiative}`);
+        
+        // Make announcement in Roll20 chat first
+        const characterName = characterData?.name || 'Character';
+        const announcement = `&{template:default} {{name=${characterName} - Initiative Check}}} {{description=Rolling for initiative}}`;
+        postChatMessage(announcement);
+        
+        // Then roll the dice
+        setTimeout(() => rollSimultaneously('Initiative Check', `1d20+${initiative}`), 100);
       });
     }
   }

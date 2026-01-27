@@ -515,6 +515,13 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
           break;
         }
 
+        case 'getUserCharacters': {
+          // Get user's synced characters from Supabase
+          const characters = await getUserCharactersFromCloud(request.pairingId);
+          response = { success: true, characters };
+          break;
+        }
+
         case 'requestPairingCodeFromInstaller': {
           // Request pairing code from native messaging host
           if (installerPort) {
@@ -1308,6 +1315,15 @@ async function setActiveCharacter(characterId) {
     });
     debug.log(`✅ Active character set to: ${characterId}`);
 
+    // Also mark this character as active in Supabase
+    if (characterData && characterData.id) {
+      try {
+        await markCharacterActiveInSupabase(characterData.id, characterData.name || characterData.character_name);
+      } catch (error) {
+        debug.warn('⚠️ Failed to mark character as active in Supabase:', error);
+      }
+    }
+
     // Notify Roll20 tabs about the character change for experimental sync
     try {
       const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
@@ -1336,6 +1352,82 @@ async function setActiveCharacter(characterId) {
   } catch (error) {
     debug.error('Failed to set active character:', error);
     throw error;
+  }
+}
+
+/**
+ * Mark a character as active in Supabase
+ */
+async function markCharacterActiveInSupabase(characterId, characterName) {
+  if (!isSupabaseConfigured()) {
+    debug.warn('Supabase not configured - cannot mark character as active');
+    return;
+  }
+
+  try {
+    debug.log(`🎯 Marking character as active in Supabase: ${characterName} (${characterId})`);
+
+    // First, get the Discord user ID for this character
+    const pairingResponse = await fetch(
+      `${SUPABASE_URL}/rest/v1/rollcloud_characters?dicecloud_character_id=eq.${characterId}&select=discord_user_id`,
+      {
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+        }
+      }
+    );
+
+    if (pairingResponse.ok) {
+      const characters = await pairingResponse.json();
+      if (characters.length > 0) {
+        const discordUserId = characters[0].discord_user_id;
+        
+        if (discordUserId && discordUserId !== 'not_linked') {
+          // Deactivate all other characters for this user
+          await fetch(
+            `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}`,
+            {
+              method: 'PATCH',
+              headers: {
+                'apikey': SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ is_active: false })
+            }
+          );
+
+          // Activate this character
+          const updateResponse = await fetch(
+            `${SUPABASE_URL}/rest/v1/rollcloud_characters?dicecloud_character_id=eq.${characterId}`,
+            {
+              method: 'PATCH',
+              headers: {
+                'apikey': SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ is_active: true })
+            }
+          );
+
+          if (updateResponse.ok) {
+            debug.log(`✅ Successfully marked ${characterName} as active in Supabase`);
+          } else {
+            debug.warn(`⚠️ Failed to update active status in Supabase: ${updateResponse.status}`);
+          }
+        } else {
+          debug.warn(`⚠️ Character ${characterName} not linked to Discord user, cannot mark as active`);
+        }
+      } else {
+        debug.warn(`⚠️ Character ${characterId} not found in Supabase`);
+      }
+    } else {
+      debug.warn(`⚠️ Failed to query Supabase for character: ${pairingResponse.status}`);
+    }
+  } catch (error) {
+    debug.error('❌ Error marking character as active in Supabase:', error);
   }
 }
 
@@ -2125,6 +2217,8 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
       spell_slots: characterData.spellSlots || {},
       resources: characterData.resources || [],
       conditions: characterData.conditions || [],
+      // Mark character as active in Roll20 when synced
+      is_active: true,
       // Store the FULL parsed character object so it can be rebuilt exactly
       // The individual fields above are for Discord bot quick access
       raw_dicecloud_data: characterData,
@@ -2334,6 +2428,12 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
     }
 
     debug.log('✅ Character stored in Supabase:', characterData.name);
+    
+    // Update last sync time for session tracking
+    await browserAPI.storage.local.set({
+      lastSyncTime: new Date().toISOString()
+    });
+    
     return { success: true };
   } catch (error) {
     debug.error('❌ Failed to store character in Supabase:', error);
@@ -2847,6 +2947,67 @@ async function checkDiscordPairing(code) {
   } catch (error) {
     debug.error('❌ Supabase check error:', error);
     return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Get user's synced characters from Supabase
+ */
+async function getUserCharactersFromCloud(pairingId = null) {
+  if (!isSupabaseConfigured()) {
+    debug.warn('Supabase not configured - cannot get user characters');
+    return [];
+  }
+
+  try {
+    let characters = [];
+    
+    if (pairingId) {
+      // Get characters for specific pairing
+      const response = await fetch(
+        `${SUPABASE_URL}/rest/v1/rollcloud_pairings?id=eq.${pairingId}&select=discord_user_id`,
+        {
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          }
+        }
+      );
+
+      if (response.ok) {
+        const pairings = await response.json();
+        if (pairings.length > 0) {
+          const discordUserId = pairings[0].discord_user_id;
+          
+          // Get characters for this Discord user
+          const charsResponse = await fetch(
+            `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}&select=character_name,level,race,class,is_active,updated_at&order=updated_at.desc`,
+            {
+              headers: {
+                'apikey': SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+              }
+            }
+          );
+
+          if (charsResponse.ok) {
+            characters = await charsResponse.json();
+          }
+        }
+      }
+    } else {
+      // No pairing ID - try to get from current webhook settings
+      const settings = await getDiscordWebhookSettings();
+      if (settings.pairingId) {
+        return await getUserCharactersFromCloud(settings.pairingId);
+      }
+    }
+
+    debug.log(`📋 Retrieved ${characters.length} characters from cloud`);
+    return characters;
+  } catch (error) {
+    debug.error('❌ Error getting user characters from cloud:', error);
+    return [];
   }
 }
 

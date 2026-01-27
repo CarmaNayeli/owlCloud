@@ -3064,6 +3064,134 @@ ${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗
     }
   });
 
+  /**
+   * Start monitoring for character selection changes in Roll20
+   * This detects when a character is selected and marks them as active
+   */
+  function startCharacterSelectionMonitor() {
+    debug.log('🔍 Starting character selection monitor...');
+    
+    let lastSelectedCharacter = null;
+    
+    // Function to check for currently selected character
+    function checkSelectedCharacter() {
+      try {
+        // Try multiple methods to detect selected character
+        let selectedCharacter = null;
+        
+        // Method 1: Check for selected token in Roll20
+        const selectedTokens = document.querySelectorAll('.token.selected, .token.selected-token');
+        if (selectedTokens.length > 0) {
+          // Get character name from token
+          const token = selectedTokens[0];
+          const tokenName = token.getAttribute('data-name') || 
+                           token.getAttribute('title') || 
+                           token.querySelector('.token-name')?.textContent ||
+                           token.textContent;
+          
+          if (tokenName && tokenName.trim()) {
+            selectedCharacter = tokenName.trim();
+            debug.log(`🎯 Detected selected token: ${selectedCharacter}`);
+          }
+        }
+        
+        // Method 2: Check for active character in Roll20's UI
+        if (!selectedCharacter) {
+          const activeCharElement = document.querySelector('.character-item.active, .character.active, [data-character-id].active');
+          if (activeCharElement) {
+            selectedCharacter = activeCharElement.textContent?.trim() || 
+                               activeCharElement.getAttribute('data-character-name');
+            debug.log(`🎯 Detected active character in UI: ${selectedCharacter}`);
+          }
+        }
+        
+        // Method 3: Check Roll20's window object for current character
+        if (!selectedCharacter && typeof window !== 'undefined' && window.Campaign) {
+          try {
+            const activeCharacter = window.Campaign.activeCharacter();
+            if (activeCharacter && activeCharacter.attributes && activeCharacter.attributes.name) {
+              selectedCharacter = activeCharacter.attributes.name;
+              debug.log(`🎯 Detected active character from Campaign: ${selectedCharacter}`);
+            }
+          } catch (e) {
+            // Campaign API might not be available
+          }
+        }
+        
+        // If we found a selected character and it's different from last time
+        if (selectedCharacter && selectedCharacter !== lastSelectedCharacter) {
+          debug.log(`✅ Character selection changed: "${lastSelectedCharacter}" → "${selectedCharacter}"`);
+          lastSelectedCharacter = selectedCharacter;
+          
+          // Mark this character as active in Supabase
+          markCharacterAsActive(selectedCharacter);
+        }
+        
+      } catch (error) {
+        debug.warn('⚠️ Error checking selected character:', error);
+      }
+    }
+    
+    // Check immediately
+    checkSelectedCharacter();
+    
+    // Set up periodic checking (every 2 seconds)
+    const checkInterval = setInterval(checkSelectedCharacter, 2000);
+    
+    // Also check when user clicks on the page (likely to select a token)
+    document.addEventListener('click', () => {
+      setTimeout(checkSelectedCharacter, 100); // Small delay to allow UI to update
+    });
+    
+    // Clean up on page unload
+    window.addEventListener('beforeunload', () => {
+      clearInterval(checkInterval);
+    });
+    
+    debug.log('✅ Character selection monitor started');
+  }
+  
+  /**
+   * Mark a character as active in Supabase
+   */
+  async function markCharacterAsActive(characterName) {
+    try {
+      debug.log(`🎯 Marking character as active: ${characterName}`);
+      
+      // Get current character profiles from storage
+      const result = await browserAPI.storage.local.get(['characterProfiles']);
+      const characterProfiles = result.characterProfiles || {};
+      
+      // Find the character ID that matches this name
+      let characterId = null;
+      for (const [id, profile] of Object.entries(characterProfiles)) {
+        if (profile.name === characterName || profile.character_name === characterName) {
+          characterId = id;
+          break;
+        }
+      }
+      
+      if (characterId) {
+        // Send message to background script to update active status
+        const response = await browserAPI.runtime.sendMessage({
+          action: 'setActiveCharacter',
+          characterId: characterId
+        });
+        
+        if (response && response.success) {
+          debug.log(`✅ Successfully marked ${characterName} as active`);
+        } else {
+          debug.warn(`⚠️ Failed to mark ${characterName} as active:`, response);
+        }
+      } else {
+        debug.warn(`⚠️ Could not find character ID for ${characterName} in local storage`);
+      }
+      
+    } catch (error) {
+      debug.error(`❌ Error marking character as active:`, error);
+    }
+  }
+
   // Listen for openGMMode custom event from character-sheet-overlay.js
   document.addEventListener('openGMMode', () => {
     debug.log('✅ Received openGMMode event - opening GM panel');
@@ -3078,6 +3206,9 @@ ${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗
   // Load player data from storage on initialization to ensure it's available
   // for checks before GM panel is created
   loadPlayerDataFromStorage();
+
+  // Start monitoring for character selection changes
+  startCharacterSelectionMonitor();
 
   // Initialize experimental two-way sync if available
   if (typeof browserAPI !== 'undefined' && browserAPI.runtime) {

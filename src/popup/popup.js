@@ -1220,6 +1220,28 @@ function initializePopup() {
       } else {
         showError('Cloud sync failed: ' + (result.error || 'Unknown error'));
       }
+      
+      // If sync was successful, remove highlights and update Discord button
+      if (result && result.success) {
+        // Remove highlight effects from character selector and sync button
+        const characterSelector = document.getElementById('characterSelector');
+        const syncBtn = document.getElementById('syncBtn');
+        
+        if (characterSelector) {
+          characterSelector.style.border = '';
+          characterSelector.style.boxShadow = '';
+        }
+        
+        if (syncBtn) {
+          syncBtn.style.border = '';
+          syncBtn.style.boxShadow = '';
+        }
+        
+        // Update Discord button state
+        await showDiscordNotConnected();
+        
+        showSuccess('Character synced successfully! You can now set up Discord.');
+      }
     } catch (error) {
       debug.error('Error syncing character to cloud:', error);
       showError('Cloud sync error: ' + error.message);
@@ -1526,29 +1548,61 @@ function initializePopup() {
     document.getElementById('discordPairing').style.display = 'none';
     document.getElementById('discordConnected').style.display = 'none';
     
-    // Check if user is logged into DiceCloud to determine button text
+    // Check if user has synced characters in current session to determine button text
     try {
-      const loginStatus = await browserAPI.runtime.sendMessage({ action: 'checkLoginStatus' });
       const setupBtn = document.getElementById('setupDiscordBtn');
       
       if (setupBtn) {
-        if (loginStatus && loginStatus.loggedIn) {
-          // User is logged in - show Discord setup
+        const hasSyncedThisSession = await checkIfUserHasSyncedCharacters();
+        
+        if (hasSyncedThisSession) {
+          // User has synced characters in current session - show Discord setup
           setupBtn.textContent = '🎮 Setup Discord';
           setupBtn.title = 'Connect RollCloud to Discord for bot commands';
         } else {
-          // User not logged in - show account sync prompt
-          setupBtn.textContent = '🔐 Sync Account First';
-          setupBtn.title = 'Please connect to DiceCloud first before setting up Discord';
+          // User hasn't synced any characters this session - show sync prompt
+          setupBtn.textContent = '🔄 Sync Account';
+          setupBtn.title = 'Sync your DiceCloud characters first, then set up Discord';
         }
       }
     } catch (error) {
-      debug.warn('Could not check login status for Discord button:', error);
+      debug.warn('Could not check sync status for Discord button:', error);
       // Fallback to default text
       const setupBtn = document.getElementById('setupDiscordBtn');
       if (setupBtn) {
-        setupBtn.textContent = '🎮 Setup Discord';
+        setupBtn.textContent = '🔄 Sync Account';
       }
+    }
+  }
+
+  /**
+   * Check if the user has synced their account (auth token in database)
+   */
+  async function checkIfUserHasSyncedCharacters() {
+    try {
+      // Check if user has synced their account (auth token stored in database)
+      // This is required for Discord integration to work
+      const loginStatus = await browserAPI.runtime.sendMessage({ action: 'checkLoginStatus' });
+      
+      if (!loginStatus || !loginStatus.loggedIn) {
+        debug.log('📋 User not logged in - no account sync');
+        return false;
+      }
+      
+      // Check if auth token is stored in database (account sync)
+      const storage = await browserAPI.storage.local.get(['diceCloudToken', 'diceCloudUserId']);
+      const hasToken = storage.diceCloudToken && storage.diceCloudUserId;
+      
+      if (hasToken) {
+        debug.log('📋 Account synced - auth token available');
+        return true;
+      }
+      
+      debug.log('📋 Account not synced - no auth token in storage');
+      return false;
+    } catch (error) {
+      debug.warn('Error checking account sync status:', error);
+      return false;
     }
   }
 
@@ -1593,24 +1647,25 @@ function initializePopup() {
       setupBtn.disabled = true;
       setupBtn.textContent = '⏳ Checking...';
 
-      // First check if user is logged into DiceCloud
-      const loginStatus = await browserAPI.runtime.sendMessage({ action: 'checkLoginStatus' });
+      // Check if user has synced their account (auth token in database)
+      const hasSyncedCharacters = await checkIfUserHasSyncedCharacters();
       
-      if (!loginStatus || !loginStatus.loggedIn) {
-        // User not logged in - show message and redirect to login
-        showDiscordStatus('Please connect to DiceCloud first before setting up Discord integration.', 'error');
+      if (!hasSyncedCharacters) {
+        // User hasn't synced their account - guide them to login first
+        showDiscordStatus('Please sync your DiceCloud account first, then set up Discord.', 'info');
         
-        // Switch to login section
+        // Switch to login section to guide them
+        document.getElementById('discordSection').classList.add('hidden');
         document.getElementById('mainSection').classList.add('hidden');
         document.getElementById('loginSection').classList.remove('hidden');
         
         // Reset button
         setupBtn.disabled = false;
-        setupBtn.textContent = '🔐 Sync Account First';
+        setupBtn.textContent = '🔄 Sync Account';
         return;
       }
 
-      // User is logged in - proceed with Discord setup
+      // User has synced their account - proceed with Discord setup
       setupBtn.textContent = '⏳ Setting up...';
 
       // Check for installer-provided pairing code first
@@ -1644,12 +1699,20 @@ function initializePopup() {
         debug.log('🎲 Generated local pairing code:', code);
       }
 
-      // Get DiceCloud user info
-      const diceCloudUsername = loginStatus.username || 'Unknown';
-      const diceCloudUserId = loginStatus.userId; // This is the Meteor ID
+      // Get DiceCloud user info for pairing
+      let diceCloudUsername = 'Unknown';
+      let diceCloudUserId = null;
+      
+      try {
+        const loginStatus = await browserAPI.runtime.sendMessage({ action: 'checkLoginStatus' });
+        diceCloudUsername = loginStatus.username || 'Unknown';
+        diceCloudUserId = loginStatus.userId;
+      } catch (e) {
+        debug.warn('Could not get DiceCloud user info:', e);
+      }
 
       // Store in Supabase (only if we generated locally - installer code already exists)
-      if (!installerProvided) {
+      if (!installerProvided && diceCloudUserId) {
         const storeResult = await browserAPI.runtime.sendMessage({
           action: 'createDiscordPairing',
           code: code,
@@ -1677,12 +1740,12 @@ function initializePopup() {
       const setupBtn = document.getElementById('setupDiscordBtn');
       if (setupBtn) {
         setupBtn.disabled = false;
-        // Reset button text based on current login status
-        const loginStatus = await browserAPI.runtime.sendMessage({ action: 'checkLoginStatus' });
-        if (loginStatus && loginStatus.loggedIn) {
+        // Reset button text based on current session sync status
+        const hasSyncedCharacters = await checkIfUserHasSyncedCharacters();
+        if (hasSyncedCharacters) {
           setupBtn.textContent = '🎮 Setup Discord';
         } else {
-          setupBtn.textContent = '🔐 Sync Account First';
+          setupBtn.textContent = '🔄 Sync Account';
         }
       }
     }
