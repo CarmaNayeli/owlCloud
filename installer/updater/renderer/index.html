@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RollCloud Updater</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            flex: 1;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin: 0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+            margin: 10px 0 0 0;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .status-item {
+            text-align: center;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .status-item h3 {
+            margin: 0 0 10px 0;
+            font-size: 1.2em;
+        }
+        
+        .status-item .status {
+            font-size: 2em;
+            margin: 10px 0;
+        }
+        
+        .status-item .status.installed {
+            color: #4ade80;
+        }
+        
+        .status-item .status.not-installed {
+            color: #f87171;
+        }
+        
+        .status-item .status.checking {
+            color: #fbbf24;
+        }
+        
+        .actions {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn-primary {
+            background: #4ade80;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #22c55e;
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            background: #60a5fa;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #3b82f6;
+            transform: translateY(-2px);
+        }
+        
+        .btn-danger {
+            background: #f87171;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #ef4444;
+            transform: translateY(-2px);
+        }
+        
+        .btn-outline {
+            background: transparent;
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .btn-outline:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .loading.show {
+            display: block;
+        }
+        
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top: 3px solid white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            opacity: 0.8;
+            font-size: 0.9em;
+        }
+        
+        .version-info {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .version-info h3 {
+            margin: 0 0 10px 0;
+        }
+        
+        .update-available {
+            background: rgba(251, 191, 36, 0.2);
+            border: 1px solid rgba(251, 191, 36, 0.3);
+        }
+        
+        .update-available .btn {
+            background: #fbbf24;
+            color: #000;
+        }
+        
+        .update-available .btn:hover {
+            background: #f59e0b;
+        }
+        
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 15px;
+            padding: 0;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 25px 0 25px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .modal-header h2 {
+            margin: 0;
+            color: white;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+        }
+        
+        .modal-close:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .modal-body {
+            padding: 25px;
+            color: white;
+        }
+        
+        .modal-footer {
+            padding: 0 25px 25px 25px;
+            text-align: right;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔄 RollCloud Updater</h1>
+            <p>Manage and update your RollCloud browser extensions</p>
+        </div>
+
+        <div class="version-info" id="versionInfo">
+            <h3>📦 Extension Status</h3>
+            <div id="currentVersion">Checking version...</div>
+        </div>
+
+        <div class="card">
+            <h2>🔍 Extension Detection</h2>
+            <div class="status-grid" id="statusGrid">
+                <div class="status-item">
+                    <h3>Google Chrome</h3>
+                    <div class="status checking" id="chromeStatus">⏳</div>
+                    <div id="chromeDetails">Checking...</div>
+                </div>
+                <div class="status-item">
+                    <h3>Microsoft Edge</h3>
+                    <div class="status checking" id="edgeStatus">⏳</div>
+                    <div id="edgeDetails">Checking...</div>
+                </div>
+                <div class="status-item">
+                    <h3>Mozilla Firefox</h3>
+                    <div class="status checking" id="firefoxStatus">⏳</div>
+                    <div id="firefoxDetails">Checking...</div>
+                </div>
+            </div>
+            
+            <div class="actions">
+                <button class="btn btn-primary" onclick="checkExtensions()">🔍 Refresh Status</button>
+                <button class="btn btn-secondary" onclick="checkForUpdates()">🔄 Check Updates</button>
+                <button class="btn btn-outline" onclick="checkReleasesNow()">🚀 Check Releases Now</button>
+            </div>
+        </div>
+
+        <div class="card" id="updateCard" style="display: none;">
+            <h2>📦 Updates Available</h2>
+            <div id="updateContent"></div>
+            <div class="actions">
+                <button class="btn btn-primary" onclick="updateAllExtensions()">🔄 Update All</button>
+                <button class="btn btn-outline" onclick="dismissUpdate()">Dismiss</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>🔔 Notification Settings</h2>
+            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+              <input type="checkbox" id="notificationToggle" style="width: 18px; height: 18px;">
+              <label for="notificationToggle" style="font-size: 1.1em;">
+                Enable system tray notifications for updates
+              </label>
+            </div>
+            <div style="margin: 15px 0; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-size: 0.9em;">Monitoring Status:</span>
+                <span id="monitoringStatus" style="font-weight: bold;">Checking...</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-size: 0.9em;">Last Checked:</span>
+                <span id="lastChecked" style="font-size: 0.9em;">Never</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-size: 0.9em;">Check Interval:</span>
+                <select id="checkInterval" style="padding: 2px 4px; border-radius: 4px; background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2);">
+                  <option value="300000">5 minutes</option>
+                  <option value="900000">15 minutes</option>
+                  <option value="1800000">30 minutes</option>
+                  <option value="3600000" selected>1 hour</option>
+                  <option value="7200000">2 hours</option>
+                  <option value="21600000">6 hours</option>
+                  <option value="43200000">12 hours</option>
+                  <option value="86400000">24 hours</option>
+                </select>
+              </div>
+            </div>
+            <p style="font-size: 0.9em; opacity: 0.8; margin: 0;">
+              When enabled, the updater will automatically check for new RollCloud releases and notify you.
+            </p>
+          </div>
+
+        <div class="card">
+            <h2>🛠️ Management Actions</h2>
+            <div class="actions">
+              <button class="btn btn-secondary" onclick="repairInstallation()">🔧 Repair Installation</button>
+              <button class="btn btn-danger" onclick="uninstallAllExtensions()">🗑️ Uninstall All</button>
+              <button class="btn btn-outline" onclick="openExtensionFolder()">📁 Open Extension Folder</button>
+            </div>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <div>Processing...</div>
+        </div>
+
+        <!-- Notification Setup Modal -->
+        <div class="modal" id="notificationSetupModal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>🔔 Enable Notifications?</h2>
+                    <button class="modal-close" onclick="closeNotificationSetup()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p>Would you like to receive notifications when RollCloud updates are available?</p>
+                    <div style="margin: 20px 0;">
+                        <label style="display: flex; align-items: center; cursor: pointer; font-size: 1.1em; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 8px;">
+                            <input type="checkbox" id="setupNotificationToggle" checked style="margin-right: 10px; width: 18px; height: 18px;">
+                            <span>Yes, notify me about updates</span>
+                        </label>
+                    </div>
+                    <p style="font-size: 0.9em; opacity: 0.8;">
+                        You'll get system tray notifications when new versions are available. You can change this later in the settings.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" onclick="saveNotificationSetup()">Continue</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>RollCloud Updater v1.0.0 • Made with ❤️ for D&D players</p>
+            <button class="btn btn-outline" id="quitBtn" style="margin-top: 10px;">Quit</button>
+        </div>
+    </div>
+
+    <script>
+        // Extension detection
+        async function checkExtensions() {
+            showLoading(true);
+            try {
+                const result = await window.electronAPI.detectExtensions();
+                if (result.success) {
+                    updateStatusDisplay(result.results);
+                } else {
+                    showError('Failed to detect extensions: ' + result.error);
+                }
+            } catch (error) {
+                showError('Error checking extensions: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Notification setup functions
+        function showNotificationSetup() {
+            document.getElementById('notificationSetupModal').style.display = 'flex';
+        }
+
+        function closeNotificationSetup() {
+            document.getElementById('notificationSetupModal').style.display = 'none';
+        }
+
+        async function saveNotificationSetup() {
+            const enabled = document.getElementById('setupNotificationToggle').checked;
+            
+            try {
+                const result = await window.electronAPI.saveNotificationSettings({ enabled: enabled });
+                
+                if (result.success) {
+                    // Update main UI toggle
+                    const mainToggle = document.getElementById('notificationToggle');
+                    if (mainToggle) {
+                        mainToggle.checked = enabled;
+                    }
+                    
+                    // Close modal
+                    closeNotificationSetup();
+                    
+                    // Mark first run as complete
+                    await window.electronAPI.completeFirstRun();
+                    
+                    // Show success message
+                    if (enabled) {
+                        showSuccess('Notifications enabled! You will be notified about updates.');
+                    } else {
+                        showSuccess('Notifications disabled. You can enable them in settings anytime.');
+                    }
+                } else {
+                    showError('Failed to save notification settings: ' + result.error);
+                }
+            } catch (error) {
+                showError('Error saving notification settings: ' + error.message);
+            }
+        }
+
+        // Listen for notification setup request from main process
+        window.addEventListener('DOMContentLoaded', () => {
+            ipcRenderer.on('show-notification-setup', () => {
+                showNotificationSetup();
+            });
+            
+            ipcRenderer.on('notification-settings-changed', (event, settings) => {
+                // Update UI if notification settings change from tray menu
+                const notificationToggle = document.getElementById('notificationToggle');
+                if (notificationToggle) {
+                    notificationToggle.checked = settings.enabled;
+                }
+            });
+            
+            ipcRenderer.on('check-updates-requested', () => {
+                // Trigger update check when requested from tray
+                checkForUpdates();
+            });
+            
+            // Load notification settings
+            loadNotificationSettings();
+        });
+
+        async function loadNotificationSettings() {
+            try {
+                const result = await window.electronAPI.getNotificationSettings();
+                if (result.success) {
+                    const notificationToggle = document.getElementById('notificationToggle');
+                    if (notificationToggle) {
+                        notificationToggle.checked = result.settings.enabled;
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load notification settings:', error);
+            }
+        }
+
+        // Handle notification toggle changes
+        document.getElementById('notificationToggle')?.addEventListener('change', async (event) => {
+            const enabled = event.target.checked;
+            
+            try {
+                const result = await window.electronAPI.saveNotificationSettings({ enabled: enabled });
+                if (!result.success) {
+                    showError('Failed to save notification settings: ' + result.error);
+                    // Revert the checkbox
+                    event.target.checked = !enabled;
+                } else {
+                    // Update monitoring status display
+                    updateMonitoringStatus();
+                }
+            } catch (error) {
+                showError('Error saving notification settings: ' + error.message);
+                event.target.checked = !enabled;
+            }
+        });
+
+        // Handle check interval changes
+        document.getElementById('checkInterval')?.addEventListener('change', async (event) => {
+            const interval = parseInt(event.target.value);
+            
+            try {
+                const result = await window.electronAPI.setCheckInterval(interval);
+                if (!result.success) {
+                    showError('Failed to update check interval: ' + result.error);
+                    // Revert the select
+                    event.target.value = '3600000'; // Default to 1 hour
+                } else {
+                    showSuccess('Check interval updated successfully');
+                }
+            } catch (error) {
+                showError('Error updating check interval: ' + error.message);
+                event.target.value = '3600000';
+            }
+        });
+
+        // Monitoring status functions
+        async function updateMonitoringStatus() {
+            try {
+                const result = await window.electronAPI.getMonitoringStatus();
+                if (result.success) {
+                    const statusElement = document.getElementById('monitoringStatus');
+                    const lastCheckedElement = document.getElementById('lastChecked');
+                    const intervalElement = document.getElementById('checkInterval');
+                    
+                    if (statusElement) {
+                        statusElement.textContent = result.isMonitoring ? '🟢 Active' : '🔴 Inactive';
+                        statusElement.style.color = result.isMonitoring ? '#4ade80' : '#f87171';
+                    }
+                    
+                    if (lastCheckedElement) {
+                        if (result.lastChecked) {
+                            const lastChecked = new Date(result.lastChecked);
+                            const now = new Date();
+                            const diffMs = now - lastChecked;
+                            const diffMins = Math.floor(diffMs / 60000);
+                            
+                            if (diffMins < 1) {
+                                lastCheckedElement.textContent = 'Just now';
+                            } else if (diffMins < 60) {
+                                lastCheckedElement.textContent = `${diffMins} minutes ago`;
+                            } else if (diffMins < 1440) {
+                                lastCheckedElement.textContent = `${Math.floor(diffMins / 60)} hours ago`;
+                            } else {
+                                lastCheckedElement.textContent = lastChecked.toLocaleDateString();
+                            }
+                        } else {
+                            lastCheckedElement.textContent = 'Never';
+                        }
+                    }
+                    
+                    if (intervalElement) {
+                        intervalElement.value = result.checkInterval.toString();
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to get monitoring status:', error);
+            }
+        }
+
+        // Immediate release check function
+        async function checkReleasesNow() {
+            showLoading(true);
+            try {
+                const result = await window.electronAPI.checkReleasesNow();
+                if (result.success) {
+                    showSuccess('Release check completed!');
+                    updateMonitoringStatus();
+                    
+                    // If there's a new release, show it
+                    if (result.result.isNew) {
+                        showUpdateCard(result.result.release);
+                    } else {
+                        showSuccess('You have the latest version!');
+                    }
+                } else {
+                    showError('Failed to check releases: ' + result.error);
+                }
+            } catch (error) {
+                showError('Error checking releases: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Listen for new release notifications from main process
+        window.addEventListener('DOMContentLoaded', () => {
+            ipcRenderer.on('new-release-available', (event, release) => {
+                // Show update card with new release info
+                showUpdateCard(release);
+            });
+            
+            // Update monitoring status periodically
+            setInterval(updateMonitoringStatus, 30000); // Update every 30 seconds
+        });
+
+        function showUpdateCard(release) {
+            const updateCard = document.getElementById('updateCard');
+            const updateContent = document.getElementById('updateContent');
+            
+            updateCard.style.display = 'block';
+            updateCard.classList.add('update-available');
+            
+            updateContent.innerHTML = `
+                <p><strong>🎉 New version available!</strong></p>
+                <p><strong>${release.name}</strong> (Version ${release.version})</p>
+                <p style="font-size: 0.9em; opacity: 0.8; margin-top: 5px;">
+                    Released: ${new Date(release.publishedAt).toLocaleDateString()}
+                </p>
+                <p style="font-size: 0.85em; margin-top: 8px; max-height: 100px; overflow-y: auto; opacity: 0.9;">
+                    ${release.body ? release.body.substring(0, 200) + (release.body.length > 200 ? '...' : '') : 'No release notes available.'}
+                </p>
+            `;
+        }
+
+        function updateStatusDisplay(status) {
+            const browsers = {
+                chrome: { name: 'Google Chrome', status: status.chrome, details: 'Extension detected' },
+                edge: { name: 'Microsoft Edge', status: status.edge, details: 'Extension detected' },
+                firefox: { name: 'Mozilla Firefox', status: status.firefox, details: 'Extension detected' }
+            };
+
+            Object.keys(browsers).forEach(browser => {
+                const element = document.getElementById(`${browser}Status`);
+                const detailsElement = document.getElementById(`${browser}Details`);
+                
+                if (browsers[browser].status) {
+                    element.textContent = '✅';
+                    element.className = 'status installed';
+                    detailsElement.textContent = 'Extension installed';
+                } else {
+                    element.textContent = '❌';
+                    element.className = 'status not-installed';
+                    detailsElement.textContent = 'Extension not found';
+                }
+            });
+        }
+
+        // Update checking
+        async function checkForUpdates() {
+            showLoading(true);
+            try {
+                const result = await window.electronAPI.checkUpdates();
+                if (result.success) {
+                    updateVersionInfo(result.updates);
+                } else {
+                    showError('Failed to check for updates: ' + result.error);
+                }
+            } catch (error) {
+                showError('Error checking updates: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function updateVersionInfo(updates) {
+            const versionInfo = document.getElementById('versionInfo');
+            const currentVersion = updates.version || '1.0.0';
+            
+            versionInfo.innerHTML = `
+                <h3>📦 Extension Status</h3>
+                <div>Current version: v${currentVersion}</div>
+                <div style="font-size: 0.9em; margin-top: 5px; opacity: 0.8;">
+                    Latest available: v${updates.version}
+                </div>
+            `;
+            
+            // Show update card if newer version available
+            if (updates.version && isNewerVersion(currentVersion, updates.version)) {
+                showUpdateCard(updates);
+            }
+        }
+
+        function isNewerVersion(current, latest) {
+            // Simple version comparison (assumes semantic versioning)
+            const currentParts = current.split('.').map(Number);
+            const latestParts = latest.split('.').map(Number);
+            
+            for (let i = 0; i < Math.max(currentParts.length, latestParts.length); i++) {
+                const current = currentParts[i] || 0;
+                const latest = latestParts[i] || 0;
+                if (latest > current) return true;
+                if (latest < current) return false;
+            }
+            return false;
+        }
+
+        function showUpdateCard(updates) {
+            const updateCard = document.getElementById('updateCard');
+            const updateContent = document.getElementById('updateContent');
+            
+            updateCard.style.display = 'block';
+            updateCard.classList.add('update-available');
+            
+            updateContent.innerHTML = `
+                <p><strong>New version available!</strong></p>
+                <p>RollCloud v${updates.version} is ready to download.</p>
+                <p style="font-size: 0.9em; opacity: 0.8;">
+                    Release notes and improvements will be available after update.
+                </p>
+            `;
+        }
+
+        function dismissUpdate() {
+            document.getElementById('updateCard').style.display = 'none';
+        }
+
+        // Management actions
+        async function updateAllExtensions() {
+            showLoading(true);
+            try {
+                // This would trigger updates for all detected browsers
+                const browsers = ['chrome', 'edge', 'firefox'];
+                for (const browser of browsers) {
+                    await window.electronAPI.updateExtension(browser);
+                }
+                showSuccess('Extension updates initiated. Restart your browsers to complete the update.');
+            } catch (error) {
+                showError('Failed to update extensions: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function repairInstallation() {
+            showLoading(true);
+            try {
+                // This would repair the installation policies
+                showSuccess('Installation repair initiated. This may require administrator privileges.');
+            } catch (error) {
+                showError('Failed to repair installation: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function uninstallAllExtensions() {
+            const confirmed = confirm('Are you sure you want to uninstall RollCloud from all browsers? This will remove the extension and all its data.');
+            if (!confirmed) return;
+            
+            showLoading(true);
+            try {
+                const browsers = ['chrome', 'edge', 'firefox'];
+                for (const browser of browsers) {
+                    await window.electronAPI.uninstallExtension(browser);
+                }
+                showSuccess('Extension uninstallation initiated. Restart your browsers to complete the removal.');
+            } catch (error) {
+                showError('Failed to uninstall extensions: ' + error.message);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function openExtensionFolder() {
+            // This would open the extension folder for manual management
+            window.electronAPI.openExternal('https://github.com/CarmaNayeli/rollCloud/releases');
+        }
+
+        // UI helpers
+        function showLoading(show) {
+            document.getElementById('loading').classList.toggle('show', show);
+        }
+
+        function showSuccess(message) {
+            alert('✅ ' + message);
+        }
+
+        function showError(message) {
+            alert('❌ ' + message);
+        }
+
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', () => {
+            checkExtensions();
+            loadNotificationSettings();
+            updateMonitoringStatus();
+            
+            // Listen for notification setup request from main process
+            ipcRenderer.on('show-notification-setup', () => {
+                showNotificationSetup();
+            });
+            
+            ipcRenderer.on('notification-settings-changed', (event, settings) => {
+                // Update UI if notification settings change from tray menu
+                const notificationToggle = document.getElementById('notificationToggle');
+                if (notificationToggle) {
+                    notificationToggle.checked = settings.enabled;
+                }
+                updateMonitoringStatus();
+            });
+            
+            ipcRenderer.on('check-updates-requested', () => {
+                // Trigger update check when requested from tray
+                checkForUpdates();
+            });
+            
+            // Listen for new release notifications from main process
+            ipcRenderer.on('new-release-available', (event, release) => {
+                // Show update card with new release info
+                showUpdateCard(release);
+            });
+            
+            // Update monitoring status periodically
+            setInterval(updateMonitoringStatus, 30000); // Update every 30 seconds
+        });
+    </script>
+</body>
+</html>

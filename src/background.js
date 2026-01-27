@@ -8,6 +8,7 @@ if (typeof importScripts === 'function' && typeof chrome !== 'undefined') {
   // Service worker is at src/background.js, so paths are relative to src/ directory
   importScripts('./common/debug.js');
   importScripts('./lib/supabase-client.js');
+  importScripts('./modules/action-executor.js');
 }
 
 debug.log('RollCloud: Background script starting...');
@@ -95,8 +96,11 @@ if (!isFirefox && chrome.alarms) {
       debug.log('⏰ Realtime keep-alive alarm triggered');
 
       // Check if we should have a realtime connection
-      const settings = await browserAPI.storage.local.get(['discordWebhookEnabled', 'discordPairingId']);
-      if (!settings.discordWebhookEnabled || !settings.discordPairingId) {
+      const settings = await browserAPI.storage.local.get(['discordWebhookEnabled', 'discordPairingId', 'discordWebhookUrl']);
+      const hasWebhookIntegration = settings.discordWebhookEnabled && settings.discordWebhookUrl;
+      const hasPairingIntegration = settings.discordPairingId;
+      
+      if (!hasWebhookIntegration && !hasPairingIntegration) {
         debug.log('⏭️ No active Discord connection, skipping realtime check');
         return;
       }
@@ -1953,6 +1957,24 @@ function buildDiscordMessage(payload) {
     };
   }
 
+  if (type === 'roll') {
+    // Format the roll string for Discord display
+    const rollDisplay = rollString.replace(/\[\[([^\]]+)\]/g, '$1'); // Convert [XdY] to XdY
+    
+    return {
+      embeds: [{
+        title: `🎲 ${characterName} rolls ${rollName}`,
+        description: `**${rollDisplay}**`,
+        color: 0x4ECDC4, // Teal - roll
+        fields: [
+          { name: 'Character', value: characterName || 'Unknown', inline: true },
+          { name: 'Roll', value: rollDisplay, inline: true }
+        ],
+        timestamp: new Date().toISOString()
+      }]
+    };
+  }
+
   // Default simple message
   return {
     content: payload.message || `🎲 ${characterName || 'Unknown'}: ${type}`
@@ -3265,6 +3287,10 @@ async function executeCommand(command) {
         result = await executeRollCommand(command);
         break;
 
+      case 'rollhere':
+        result = await executeRollHereCommand(command);
+        break;
+
       case 'use_action':
         result = await executeUseActionCommand(command, 'action');
         break;
@@ -3300,6 +3326,45 @@ async function executeCommand(command) {
   } catch (error) {
     debug.error('❌ Command execution failed:', error);
     await updateCommandStatus(command.id, 'failed', null, error.message);
+  }
+}
+
+/**
+ * Execute a rollhere command (roll dice in Discord only, not Roll20)
+ * Uses Roll20-style [XdY] or [XdY+X] format
+ */
+async function executeRollHereCommand(command) {
+  const { action_name, command_data } = command;
+
+  // Get roll string from command data, default to 1d20
+  const rollString = command_data.roll_string || '1d20';
+  const rollName = action_name || command_data.roll_name || 'Roll';
+  const characterName = command_data.character_name || 'Unknown';
+
+  debug.log('🎲 Rolling in Discord (not Roll20):', rollString, rollName);
+
+  try {
+    // Post the roll to Discord webhook with proper payload structure
+    const payload = {
+      type: 'roll',
+      characterName: characterName,
+      rollName: rollName,
+      rollString: rollString,
+      timestamp: new Date().toISOString()
+    };
+
+    const result = await postToDiscordWebhook(payload);
+
+    if (result.success) {
+      debug.log('✅ Roll posted to Discord:', rollName);
+      return { success: true, message: `Rolled ${rollName} in Discord` };
+    } else {
+      debug.error('❌ Failed to post roll to Discord:', result.error);
+      return { success: false, message: `Failed to roll in Discord: ${result.error}` };
+    }
+  } catch (error) {
+    debug.error('❌ Error executing rollhere command:', error);
+    return { success: false, message: `Error: ${error.message}` };
   }
 }
 
@@ -3413,21 +3478,110 @@ async function executeUseAbilityCommand(command) {
 async function executeCastCommand(command) {
   const { action_name, command_data } = command;
 
-  const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
-
-  for (const tab of tabs) {
-    try {
-      await browserAPI.tabs.sendMessage(tab.id, {
-        action: 'castSpellFromDiscord',
-        spellName: action_name,
-        spellData: command_data
-      });
-    } catch (err) {
-      debug.warn(`Failed to send cast to tab ${tab.id}:`, err);
+  try {
+    // Get character data for metamagic processing
+    const characterData = await getCharacterDataForDiscordCommand(command_data.character_name, command_data.character_id);
+    
+    if (!characterData) {
+      debug.warn(`No character data found for Discord command: ${command_data.character_name}`);
+      return { success: false, error: 'Character not found' };
     }
-  }
 
-  return { success: true, message: `Cast spell: ${action_name}` };
+    // Process metamagic using action-executor
+    const castResult = executeDiscordCast(command_data, characterData);
+    
+    debug.log('🔮 Discord spell execution result:', castResult);
+
+    // Build enhanced spell data with all processed effects
+    const enhancedSpellData = {
+      ...command_data,
+      spell_data: {
+        ...command_data.spell_data,
+        // Apply metamagic modifications to damage rolls if any
+        damageRolls: castResult.rolls.map(roll => ({
+          damage: roll.formula,
+          damageType: roll.type || 'damage',
+          name: roll.name
+        }))
+      },
+      // Include all processed effects for Roll20 display
+      metamagicUsed: castResult.metamagicUsed,
+      slotUsed: castResult.slotUsed,
+      effects: castResult.effects,
+      isCantrip: castResult.isCantrip,
+      isFreecast: castResult.isFreecast,
+      resourceChanges: castResult.resourceChanges,
+      executionResult: castResult,
+      // Upcasting information
+      isUpcast: castResult.embed?.isUpcast || false,
+      actualCastLevel: castResult.embed?.castLevel || parseInt(castLevel) || 0
+    };
+
+    // Send to all Roll20 tabs
+    const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
+
+    for (const tab of tabs) {
+      try {
+        await browserAPI.tabs.sendMessage(tab.id, {
+          action: 'castSpellFromDiscord',
+          spellName: action_name,
+          spellData: enhancedSpellData
+        });
+      } catch (err) {
+        debug.warn(`Failed to send cast to tab ${tab.id}:`, err);
+      }
+    }
+
+    return { success: true, message: `Cast spell: ${action_name}`, result: castResult };
+  } catch (error) {
+    debug.error('Error executing Discord cast command:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Get character data for Discord command processing
+ */
+async function getCharacterDataForDiscordCommand(characterName, characterId) {
+  try {
+    // Try to get from Supabase first
+    if (characterId && isSupabaseConfigured()) {
+      const response = await fetch(
+        `${SUPABASE_URL}/rest/v1/raw_dicecloud_data?character_id=eq.${characterId}&select=*`,
+        {
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.length > 0) {
+          debug.log(`📥 Retrieved character data from Supabase for ${characterName}`);
+          return data[0].character_data;
+        }
+      }
+    }
+
+    // Fallback to local storage
+    const profiles = await browserAPI.storage.local.get(['characterProfiles']);
+    if (profiles.characterProfiles) {
+      for (const [id, profile] of Object.entries(profiles.characterProfiles)) {
+        if (profile.type === 'dicecloud' && profile.character?.name === characterName) {
+          debug.log(`📥 Retrieved character data from local storage for ${characterName}`);
+          return profile.character;
+        }
+      }
+    }
+
+    debug.warn(`No character data found for ${characterName}`);
+    return null;
+  } catch (error) {
+    debug.error(`Error getting character data for ${characterName}:`, error);
+    return null;
+  }
 }
 
 /**
@@ -3479,16 +3633,21 @@ async function storePairingId(pairingId) {
   debug.log('Stored pairing ID:', pairingId);
 }
 
-// Auto-start command realtime subscription when extension loads and webhook is configured
+// Auto-start command realtime subscription when extension loads and Discord is configured
 (async () => {
   try {
-    const settings = await browserAPI.storage.local.get(['discordWebhookEnabled', 'discordPairingId']);
-    debug.log('🔄 Auto-start check - webhookEnabled:', settings.discordWebhookEnabled, 'pairingId:', settings.discordPairingId ? 'set' : 'not set');
-    if (settings.discordWebhookEnabled && settings.discordPairingId) {
-      debug.log('Auto-starting command realtime subscription...');
+    const settings = await browserAPI.storage.local.get(['discordWebhookEnabled', 'discordPairingId', 'discordWebhookUrl']);
+    debug.log('🔄 Auto-start check - webhookEnabled:', settings.discordWebhookEnabled, 'pairingId:', settings.discordPairingId ? 'set' : 'not set', 'webhookUrl:', settings.discordWebhookUrl ? 'set' : 'not set');
+    
+    // Start Discord connection if EITHER webhook is enabled OR we have a pairing ID
+    const hasWebhookIntegration = settings.discordWebhookEnabled && settings.discordWebhookUrl;
+    const hasPairingIntegration = settings.discordPairingId;
+    
+    if (hasWebhookIntegration || hasPairingIntegration) {
+      debug.log('✅ Discord integration detected, auto-starting command realtime subscription...');
       await subscribeToCommandRealtime(settings.discordPairingId);
     } else {
-      debug.log('⏭️ Skipping auto-start - webhook not enabled or no pairing ID');
+      debug.log('⏭️ Skipping auto-start - no Discord integration configured (webhook:', hasWebhookIntegration, 'pairing:', hasPairingIntegration);
     }
   } catch (error) {
     debug.warn('Failed to auto-start command realtime:', error);

@@ -1,6 +1,6 @@
 /**
  * Renderer Process
- * Handles UI interactions for the setup wizard
+ * Handles UI interactions for the installation wizard
  */
 
 // State
@@ -59,7 +59,7 @@ function setupBrowserSelection() {
           <div style="font-size: 0.9em; margin-top: 5px;">Policy installed, but extension not yet active.</div>
           <div style="margin-top: 10px;">
             <button id="btnContinueFromPolicy" class="btn btn-primary">
-              Continue Setup
+              Continue Installation
             </button>
             <button id="btnClearPolicyAndReinstall" class="btn btn-secondary" style="margin-left: 10px;">
               Clear & Reinstall
@@ -78,7 +78,7 @@ function setupBrowserSelection() {
           <div style="font-size: 0.9em; margin-top: 5px;">Extension is installed and ready.</div>
           <div style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
             <button id="btnContinueFromInstalled" class="btn btn-primary">
-              Continue Setup
+              Continue Installation
             </button>
             <button id="btnCheckUpdates" class="btn btn-secondary">
               Check for Updates
@@ -102,10 +102,10 @@ function setupBrowserSelection() {
         statusText.textContent = `Selected ${getBrowserName(selectedBrowser)}. Ready to install.`;
         statusText.innerHTML = `
           <div style="color: #22c55e;">✅ Ready to install!</div>
-          <div style="font-size: 0.9em; margin-top: 5px;">Click Continue Setup to begin installation.</div>
+          <div style="font-size: 0.9em; margin-top: 5px;">Click Continue Installation to begin installation.</div>
           <div style="margin-top: 10px;">
             <button id="btnContinueToInstall" class="btn btn-primary">
-              Continue Setup
+              Continue Installation
             </button>
           </div>
           <div style="margin-top: 10px; font-size: 0.8em; color: #666;">
@@ -152,7 +152,7 @@ async function checkForUpdatesAndProceed() {
               <div style="font-size: 0.9em; margin-top: 5px;">${updateResult.message}</div>
               <div style="margin-top: 10px;">
                 <button id="btnContinueAfterUpdate" class="btn btn-primary">
-                  Continue Setup
+                  Continue Installation
                 </button>
               </div>
             `;
@@ -192,7 +192,7 @@ async function checkForUpdatesAndProceed() {
         <div style="font-size: 0.9em; margin-top: 5px;">Version ${updateCheck.currentVersion}</div>
         <div style="margin-top: 10px;">
           <button id="btnContinueUpToDate" class="btn btn-primary">
-            Continue Setup
+            Continue Installation
           </button>
           <button id="btnReinstallAnyway" class="btn btn-secondary" style="margin-left: 10px;">
             🔄 Reinstall Anyway
@@ -216,7 +216,7 @@ async function checkForUpdatesAndProceed() {
               <div style="font-size: 0.9em; margin-top: 5px;">${result.message}</div>
               <div style="margin-top: 10px;">
                 <button id="btnContinueAfterReinstall" class="btn btn-primary">
-                  Continue Setup
+                  Continue Installation
                 </button>
               </div>
             `;
@@ -322,7 +322,7 @@ async function checkForUpdatesAndProceed() {
         <div style="font-size: 0.9em; margin-top: 5px;">${updateCheck.error}</div>
         <div style="margin-top: 10px;">
           <button id="btnContinueAnyway" class="btn btn-primary">
-            Continue Setup
+            Continue Installation
           </button>
         </div>
       `;
@@ -335,7 +335,7 @@ async function checkForUpdatesAndProceed() {
       <div style="font-size: 0.9em; margin-top: 5px;">${error.message}</div>
       <div style="margin-top: 10px;">
         <button id="btnContinueAfterError" class="btn btn-primary">
-          Continue Setup
+          Continue Installation
         </button>
       </div>
     `;
@@ -480,10 +480,26 @@ function setupStep2() {
   const retryBtn = document.getElementById('retryInstall');
   const backBtn = document.getElementById('backToStep1');
   const backBtnFromError = document.getElementById('backToStep1FromError');
+  
+  // Updater directory selection
+  const updaterDirectorySelect = document.getElementById('updaterDirectory');
+  const customDirectoryInput = document.getElementById('customDirectory');
 
   continueBtn.addEventListener('click', () => goToStep(3));
-  restartBtn.addEventListener('click', () => restartBrowser(selectedBrowser));
+  restartBtn.addEventListener('click', () => restartBrowserWithUpdater());
   retryBtn.addEventListener('click', () => installExtension());
+
+  // Handle updater directory selection
+  if (updaterDirectorySelect) {
+    updaterDirectorySelect.addEventListener('change', (event) => {
+      const customDir = document.getElementById('customDirectory');
+      if (event.target.value === 'custom') {
+        customDir.style.display = 'block';
+      } else {
+        customDir.style.display = 'none';
+      }
+    });
+  }
 
   // Back button from error screen
   if (backBtnFromError) {
@@ -503,6 +519,81 @@ function setupStep2() {
       document.getElementById('browserStatus').textContent = '';
       goToStep(1);
     });
+  }
+}
+
+async function restartBrowserWithUpdater() {
+  const checkbox = document.getElementById('installUpdaterCheckbox');
+  const shouldInstallUpdater = checkbox && checkbox.checked;
+  
+  if (shouldInstallUpdater) {
+    // Get installation directory
+    const directorySelect = document.getElementById('updaterDirectory');
+    const customDirectory = document.getElementById('customDirectory');
+    
+    let installDir;
+    if (directorySelect.value === 'custom') {
+      installDir = customDirectory.value.trim();
+      if (!installDir) {
+        alert('Please enter a valid custom directory path.');
+        return;
+      }
+    } else if (directorySelect.value === 'appdata') {
+      installDir = 'appdata';
+    } else {
+      installDir = 'programfiles';
+    }
+    
+    // Show updater installation progress
+    const statusText = document.getElementById('installStatus');
+    statusText.innerHTML = `
+      <div style="color: #ff9500;">🔄 Installing RollCloud Updater...</div>
+      <div style="font-size: 0.9em; margin-top: 5px;">Setting up permanent updater utility...</div>
+    `;
+    
+    try {
+      const result = await window.api.installUpdaterWithDirectory(installDir);
+      
+      if (result.success) {
+        statusText.innerHTML = `
+          <div style="color: #28a745;">✅ Updater installed successfully!</div>
+          <div style="font-size: 0.9em; margin-top: 5px;">${result.message}</div>
+          <div style="font-size: 0.85em; margin-top: 5px; color: #666;">Now restarting browser...</div>
+        `;
+        
+        // Wait a moment then restart browser
+        setTimeout(() => {
+          restartBrowser(selectedBrowser);
+        }, 2000);
+      } else {
+        statusText.innerHTML = `
+          <div style="color: #dc3545;">❌ Updater installation failed</div>
+          <div style="font-size: 0.9em; margin-top: 5px;">${result.error}</div>
+          <div style="margin-top: 10px;">
+            <button id="btnRetryUpdater" class="btn btn-primary">Retry Updater</button>
+            <button id="btnSkipUpdater" class="btn btn-secondary" style="margin-left: 10px;">Skip Updater</button>
+          </div>
+        `;
+        
+        document.getElementById('btnRetryUpdater').addEventListener('click', restartBrowserWithUpdater);
+        document.getElementById('btnSkipUpdater').addEventListener('click', () => restartBrowser(selectedBrowser));
+      }
+    } catch (error) {
+      statusText.innerHTML = `
+        <div style="color: #dc3545;">❌ Error installing updater</div>
+        <div style="font-size: 0.9em; margin-top: 5px;">${error.message}</div>
+        <div style="margin-top: 10px;">
+          <button id="btnRetryUpdaterError" class="btn btn-primary">Retry Updater</button>
+          <button id="btnSkipUpdaterError" class="btn btn-secondary" style="margin-left: 10px;">Skip Updater</button>
+        </div>
+      `;
+      
+      document.getElementById('btnRetryUpdaterError').addEventListener('click', restartBrowserWithUpdater);
+      document.getElementById('btnSkipUpdaterError').addEventListener('click', () => restartBrowser(selectedBrowser));
+    }
+  } else {
+    // Just restart browser without updater
+    restartBrowser(selectedBrowser);
   }
 }
 
@@ -674,10 +765,116 @@ function setupStep3() {
 // ============================================================================
 
 function setupStep4() {
-  const finishBtn = document.getElementById('finishSetup');
+  const finishBtn = document.getElementById('finishInstallation');
+  const continueBtn = document.getElementById('continueWithUpdaterChoice');
 
   finishBtn.addEventListener('click', async () => {
     await window.api.quitApp();
+  });
+
+  // Handle continue button with checkbox choice
+  if (continueBtn) {
+    continueBtn.addEventListener('click', async () => {
+      const checkbox = document.getElementById('installUpdaterCheckbox');
+      const shouldInstallUpdater = checkbox && checkbox.checked;
+      
+      if (shouldInstallUpdater) {
+        await installUpdaterUtility();
+      } else {
+        showCompletionMessage();
+      }
+    });
+  }
+}
+
+async function installUpdaterUtility() {
+  const statusText = document.getElementById('browserStatus');
+  
+  statusText.innerHTML = `
+    <div style="color: #ff9500;">🔄 Installing RollCloud Updater...</div>
+    <div style="font-size: 0.9em; margin-top: 5px;">This will install a permanent updater utility on your system.</div>
+    <div style="font-size: 0.85em; margin-top: 5px; color: #666;">The updater allows you to manage extensions without reinstalling.</div>
+  `;
+
+  try {
+    const result = await window.api.installUpdater();
+    
+    if (result.success) {
+      statusText.innerHTML = `
+        <div style="color: #28a745;">✅ Updater installed successfully!</div>
+        <div style="font-size: 0.9em; margin-top: 5px;">${result.message}</div>
+        <div style="font-size: 0.85em; margin-top: 5px; color: #666;">You can now run RollCloud Updater anytime from your Start Menu.</div>
+        <div style="margin-top: 15px;">
+          <button id="btnLaunchUpdater" class="btn btn-primary" style="background: #60a5fa; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+            🚀 Launch Updater
+          </button>
+          <button id="btnFinishAfterUpdater" class="btn btn-secondary" style="background: #4ade80; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+            ✅ Finish Installation
+          </button>
+        </div>
+      `;
+      
+      document.getElementById('btnLaunchUpdater').addEventListener('click', () => {
+        window.api.launchUpdater();
+      });
+      
+      document.getElementById('btnFinishAfterUpdater').addEventListener('click', () => {
+        window.api.quitApp();
+      });
+    } else {
+      statusText.innerHTML = `
+        <div style="color: #dc3545;">❌ Updater installation failed</div>
+        <div style="font-size: 0.9em; margin-top: 5px;">${result.error}</div>
+        <div style="margin-top: 10px;">
+          <button id="btnRetryUpdater" class="btn btn-primary">Retry</button>
+          <button id="btnSkipUpdater" class="btn btn-secondary">Skip</button>
+        </div>
+      `;
+      
+      document.getElementById('btnRetryUpdater').addEventListener('click', () => {
+        installUpdaterUtility();
+      });
+      
+      document.getElementById('btnSkipUpdater').addEventListener('click', () => {
+        showCompletionMessage();
+      });
+    }
+  } catch (error) {
+    statusText.innerHTML = `
+      <div style="color: #dc3545;">❌ Error installing updater</div>
+      <div style="font-size: 0.9em; margin-top: 5px;">${error.message}</div>
+      <div style="margin-top: 10px;">
+        <button id="btnRetryUpdaterError" class="btn btn-primary">Retry</button>
+        <button id="btnSkipUpdaterError" class="btn btn-secondary">Skip</button>
+      </div>
+    `;
+    
+    document.getElementById('btnRetryUpdaterError').addEventListener('click', () => {
+      installUpdaterUtility();
+    });
+    
+    document.getElementById('btnSkipUpdaterError').addEventListener('click', () => {
+      showCompletionMessage();
+    });
+  }
+}
+
+function showCompletionMessage() {
+  const statusText = document.getElementById('browserStatus');
+  
+  statusText.innerHTML = `
+    <div style="color: #4ade80;">✅ Installation Complete!</div>
+    <div style="font-size: 0.9em; margin-top: 5px;">RollCloud extension is ready to use.</div>
+    <div style="font-size: 0.85em; margin-top: 5px; color: #666;">You can install the updater later if needed.</div>
+    <div style="margin-top: 15px;">
+      <button id="btnFinishInstallation" class="btn btn-primary" style="background: #4ade80; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+        ✅ Finish Installation
+      </button>
+    </div>
+  `;
+  
+  document.getElementById('btnFinishInstallation').addEventListener('click', () => {
+    window.api.quitApp();
   });
 }
 
@@ -716,7 +913,7 @@ function showError(message) {
 
 function setupGlobalHandlers() {
   // Restart button
-  document.getElementById('restartSetup').addEventListener('click', () => {
+  document.getElementById('restartInstallation').addEventListener('click', () => {
     selectedBrowser = null;
 
     // Reset all UI

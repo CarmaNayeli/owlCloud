@@ -20,7 +20,7 @@
     "chrome-extension",
     "firefox-addon"
   ],
-  "author": "Dice Cat",
+  "author": "Carmabella <https://carmabella.carrd.co>",
   "license": "MIT",
   "devDependencies": {
     "archiver": "^7.0.1"

@@ -316,6 +316,15 @@ function buildRollingHelp() {
         inline: false
       },
       {
+        name: 'Discord-Only Rolling',
+        value:
+          '`/rollhere 1d20` - Roll in Discord only (not Roll20)\n' +
+          '`/rollhere 2d6+3 "Fire Damage"` - Roll with custom name\n' +
+          '`/rollhere 4d8-2` - Complex dice notation\n\n' +
+          '*Perfect for quick rolls when Roll20 is not open!*',
+        inline: false
+      },
+      {
         name: '/coin [count]',
         value:
           '`/coin` - Flip one coin\n' +
@@ -400,7 +409,7 @@ function buildAllCommandsHelp() {
   return new EmbedBuilder()
     .setColor(0x3498DB)
     .setTitle('📋 All Pip Bot Commands')
-    .setDescription('Complete list of all 20 available commands.')
+    .setDescription('Complete list of all 21 available commands.')
     .addFields(
       {
         name: '🎮 RollCloud Integration',
@@ -426,6 +435,7 @@ function buildAllCommandsHelp() {
         name: '🎲 Dice Rolling',
         value:
           '`/roll <dice> [check] [advantage] [disadvantage]` - Roll dice\n' +
+          '`/rollhere <dice> [name]` - Roll in Discord only\n' +
           '`/coin [count]` - Flip coins\n' +
           'Supports character modifiers and ability checks',
         inline: false

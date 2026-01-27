@@ -35,6 +35,10 @@
       {
         "from": "assets/FirefoxDeveloperEdition.exe",
         "to": "installers/FirefoxDeveloperEdition.exe"
+      },
+      {
+        "from": "resources/RollCloud-Updater.exe",
+        "to": "RollCloud-Updater.exe"
       }
     ],
     "win": {
@@ -87,7 +91,7 @@
     "dnd",
     "ttrpg"
   ],
-  "author": "Dice Cat",
+  "author": "Carmabella <https://carmabella.carrd.co>",
   "license": "MIT",
   "devDependencies": {
     "electron": "^40.0.0",

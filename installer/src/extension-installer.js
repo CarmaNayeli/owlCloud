@@ -122,7 +122,7 @@ async function installWindowsPolicy(browser, policyValue, browserConfig) {
       if (error) {
         // Try with elevated privileges using sudo-prompt
         const sudo = require('sudo-prompt');
-        const options = { name: 'RollCloud Setup' };
+        const options = { name: 'RollCloud Installation Wizard' };
 
         sudo.exec(allCmds, options, (sudoError, sudoStdout, sudoStderr) => {
           if (sudoError) {
@@ -193,7 +193,7 @@ async function installMacPolicy(browser, policyValue, browserConfig) {
 
   return new Promise((resolve, reject) => {
     const sudo = require('sudo-prompt');
-    const options = { name: 'RollCloud Setup' };
+    const options = { name: 'RollCloud Installation Wizard' };
 
     sudo.exec(commands, options, (error, stdout, stderr) => {
       if (error) {
@@ -261,7 +261,7 @@ async function installLinuxPolicy(browser, policyValue, browserConfig) {
       if (error) {
         // Try with sudo-prompt for GUI prompt
         const sudo = require('sudo-prompt');
-        const options = { name: 'RollCloud Setup' };
+        const options = { name: 'RollCloud Installation Wizard' };
 
         sudo.exec(commands, options, (sudoError, sudoStdout, sudoStderr) => {
           if (sudoError) {
@@ -1196,7 +1196,7 @@ async function uninstallExtension(browser) {
             fs.writeFileSync(tempFile, JSON.stringify(policies, null, 2));
             
             const sudo = require('sudo-prompt');
-            const options = { name: 'RollCloud Setup' };
+            const options = { name: 'RollCloud Installation Wizard' };
             const commands = `cp "${tempFile}" "${policiesPath}" && rm "${tempFile}"`;
             
             return new Promise((resolve, reject) => {
@@ -1286,7 +1286,7 @@ async function uninstallExtension(browser) {
                 } catch (e) {
                   // Try with elevated privileges
                   const sudo = require('sudo-prompt');
-                  const options = { name: 'RollCloud Setup' };
+                  const options = { name: 'RollCloud Installation Wizard' };
                   
                   return new Promise((resolve, reject) => {
                     sudo.exec(deleteCmd, options, (error) => {

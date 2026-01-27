@@ -146,37 +146,16 @@
       margin-top: 30px;
     }
     
-    .btn {
-      display: inline-block;
-      padding: 12px 24px;
-      margin: 5px;
-      border: none;
-      border-radius: 6px;
-      font-size: 14px;
+    .next-step {
+      font-size: 16px;
       font-weight: 600;
-      text-decoration: none;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    
-    .btn-primary {
+      color: var(--accent-primary);
+      text-align: center;
+      padding: 15px;
       background: var(--accent-primary);
-      color: white;
-    }
-    
-    .btn-primary:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-    }
-    
-    .btn-secondary {
-      background: var(--bg-tertiary);
-      color: var(--text-primary);
-      border: 1px solid var(--border-color);
-    }
-    
-    .btn-secondary:hover {
-      background: var(--border-color);
+      border-radius: 8px;
+      border: none;
+      cursor: default;
     }
     
     .note {
@@ -236,12 +215,7 @@
     </div>
 
     <div class="actions">
-      <button id="openDiceCloudBtn" class="btn btn-primary">
-        Open DiceCloud
-      </button>
-      <button id="openDocsBtn" class="btn btn-secondary">
-        View Documentation
-      </button>
+      <p class="next-step">🎯 Ready to start using RollCloud!</p>
     </div>
 
     <div class="note">
@@ -254,20 +228,7 @@
     const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 
     document.addEventListener('DOMContentLoaded', function() {
-      const openDiceCloudBtn = document.getElementById('openDiceCloudBtn');
-      const openDocsBtn = document.getElementById('openDocsBtn');
-
-      if (openDiceCloudBtn) {
-        openDiceCloudBtn.addEventListener('click', function() {
-          browserAPI.tabs.create({ url: 'https://dicecloud.com' });
-        });
-      }
-
-      if (openDocsBtn) {
-        openDocsBtn.addEventListener('click', function() {
-          browserAPI.tabs.create({ url: 'https://github.com/CarmaNayeli/rollCloud#readme' });
-        });
-      }
+      // Welcome screen is now simplified - no button handling needed
     });
   </script>
 </body>

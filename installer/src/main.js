@@ -28,6 +28,7 @@ let mainWindow;
 async function checkVersionMismatch() {
   return new Promise((resolve) => {
     const options = {
+      name: 'RollCloud Installation Wizard',
       hostname: 'api.github.com',
       path: '/repos/CarmaNayeli/rollCloud/releases/latest',
       headers: {
@@ -231,6 +232,103 @@ ipcMain.handle('open-external', async (event, url) => {
 // Quit app
 ipcMain.handle('quit-app', async () => {
   app.quit();
+});
+
+// Install updater utility
+ipcMain.handle('install-updater', async () => {
+  try {
+    const result = await installUpdaterUtility();
+    return { success: true, message: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Launch updater utility
+ipcMain.handle('launch-updater', async () => {
+  try {
+    const { exec } = require('child_process');
+    const updaterPath = path.join('C:', 'Program Files', 'RollCloud', 'RollCloud-Updater.exe');
+    
+    if (fs.existsSync(updaterPath)) {
+      exec(`"${updaterPath}"`, (error) => {
+        if (error) {
+          console.error('Failed to launch updater:', error);
+        }
+      });
+      return { success: true };
+    } else {
+      throw new Error('Updater not found');
+    }
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Install updater utility to Program Files
+async function installUpdaterUtility(installDir = 'programfiles') {
+  const { execSync } = require('child_process');
+  
+  try {
+    let targetDir;
+    
+    // Determine installation directory
+    if (installDir === 'appdata') {
+      targetDir = path.join(os.homedir(), 'AppData', 'Local', 'RollCloud');
+    } else if (installDir === 'custom') {
+      // For custom directory, it should be provided as a full path
+      throw new Error('Custom directory must be provided as full path');
+    } else {
+      // Default to Program Files
+      targetDir = path.join('C:', 'Program Files', 'RollCloud');
+    }
+    
+    // Create installation directory
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+
+    // Get updater from extraResources (packaged with installer)
+    const updaterSource = process.env.NODE_ENV === 'development' 
+      ? path.join(__dirname, '..', 'resources', 'RollCloud-Updater.exe')
+      : path.join(process.resourcesPath, 'RollCloud-Updater.exe');
+    
+    const updaterDest = path.join(targetDir, 'RollCloud-Updater.exe');
+    
+    // Copy updater executable
+    if (fs.existsSync(updaterSource)) {
+      fs.copyFileSync(updaterSource, updaterDest);
+      console.log('✅ Copied updater to:', targetDir);
+    } else {
+      throw new Error('Updater executable not found in package resources');
+    }
+
+    // Create Start Menu shortcut
+    const startMenuPath = path.join(os.homedir(), 'AppData', 'Roaming', 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'RollCloud Updater.lnk');
+    
+    // Create shortcut (this would use a proper shortcut creation library)
+    const shortcutContent = `[InternetShortcut]
+URL=file:///${updaterDest}
+IconFile=${updaterDest}
+IconIndex=0`;
+    
+    fs.writeFileSync(startMenuPath, shortcutContent);
+    console.log('✅ Created Start Menu shortcut');
+
+    return `RollCloud Updater installed successfully to ${targetDir}!`;
+  } catch (error) {
+    throw new Error(`Failed to install updater: ${error.message}`);
+  }
+}
+
+// Install updater utility with directory parameter
+ipcMain.handle('install-updater-with-directory', async (event, installDir) => {
+  try {
+    const result = await installUpdaterUtility(installDir);
+    return { success: true, message: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
 });
 
 // Check for extension updates

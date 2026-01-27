@@ -555,9 +555,18 @@
       const spellData = request.spellData || {};
       const charName = spellData.character_name || 'Character';
       const spell = spellData.spell_data || {};
-      const spellLevel = parseInt(spell.level) || 0;
-      const castLevel = parseInt(spellData.cast_level) || spellLevel;
+      const castLevel = parseInt(spellData.cast_level) || parseInt(spell.level) || 0;
       const notificationColor = spellData.notification_color || '#3498db';
+      
+      // Extract all processed effects from background script
+      const metamagicUsed = spellData.metamagicUsed || [];
+      const slotUsed = spellData.slotUsed;
+      const effects = spellData.effects || [];
+      const isCantrip = spellData.isCantrip || false;
+      const isFreecast = spellData.isFreecast || false;
+      const resourceChanges = spellData.resourceChanges || [];
+      const isUpcast = spellData.isUpcast || false;
+      const actualCastLevel = spellData.actualCastLevel || castLevel;
 
       // Get color emoji banner (matches popup-sheet getColoredBanner)
       const colorEmoji = getColorEmoji(notificationColor);
@@ -567,13 +576,25 @@
       if (spell.concentration) tags += ' 🧠 Concentration';
       if (spell.ritual) tags += ' 📖 Ritual';
 
+      // Add metamagic tags
+      if (metamagicUsed && metamagicUsed.length > 0) {
+        const metamagicNames = metamagicUsed.map(m => m.name).join(', ');
+        tags += ` ✨ ${metamagicNames}`;
+      }
+
+      // Add casting condition tags
+      if (isCantrip) tags += ' 🎯 Cantrip';
+      if (isFreecast) tags += ' 🆓 Free Cast';
+      if (isUpcast) tags += ` ⬆️ Upcast to Level ${actualCastLevel}`;
+
       // Build spell announcement message with enhanced details
       let announcement = `&{template:default} {{name=${colorEmoji} ${charName} casts ${spell.name || spellName}!${tags}}}`;
 
       // Add spell level and school - show upcast level if different
+      const spellLevel = parseInt(spell.level) || 0;
       if (spellLevel > 0) {
-        let levelText = castLevel > spellLevel
-          ? `Level ${castLevel} (upcast from ${spellLevel})`
+        let levelText = isUpcast 
+          ? `Level ${actualCastLevel} (upcast from ${spellLevel})`
           : `Level ${spellLevel}`;
         if (spell.school) levelText += ` ${spell.school}`;
         announcement += ` {{Level=${levelText}}}`;
@@ -587,6 +608,25 @@
       if (spell.duration) announcement += ` {{Duration=${spell.duration}}}`;
       if (spell.components) announcement += ` {{Components=${spell.components}}}`;
       if (spell.source) announcement += ` {{Source=${spell.source}}}`;
+
+      // Add slot usage information
+      if (slotUsed && !isCantrip && !isFreecast) {
+        announcement += ` {{Slot Used=${slotUsed.level} (${slotUsed.remaining}/${slotUsed.total} remaining)}}`;
+      }
+
+      // Add resource changes
+      if (resourceChanges && resourceChanges.length > 0) {
+        const resourceText = resourceChanges.map(change => 
+          `${change.resource}: ${change.current}/${change.max}`
+        ).join(', ');
+        announcement += ` {{Resources=${resourceText}}}`;
+      }
+
+      // Add effects
+      if (effects && effects.length > 0) {
+        const effectsText = effects.map(effect => effect.description || effect.type).join(', ');
+        announcement += ` {{Effects=${effectsText}}}`;
+      }
 
       // Add description
       if (spell.description) {
@@ -634,9 +674,12 @@
         }, 100);
       }
 
+      // Use processed damage rolls from action-executor
+      const damageRollsToUse = spellData.damageRolls || [];
+
       // Roll damage(s) from damageRolls array - scale for upcasting
-      if (spell.damageRolls && Array.isArray(spell.damageRolls) && spell.damageRolls.length > 0) {
-        spell.damageRolls.forEach((roll, index) => {
+      if (damageRollsToUse && Array.isArray(damageRollsToUse) && damageRollsToUse.length > 0) {
+        damageRollsToUse.forEach((roll, index) => {
           if (roll.damage) {
             setTimeout(() => {
               const damageType = roll.damageType || 'damage';
@@ -648,11 +691,11 @@
               } else if (isTempHP) {
                 rollName = `${spell.name || spellName} - Temp HP`;
               } else {
-                rollName = `${spell.name || spellName} - ${damageType}`;
+                rollName = roll.name || `${spell.name || spellName} - ${damageType}`;
               }
 
-              // Scale formula for upcasting
-              const scaledFormula = scaleFormulaForUpcast(roll.damage, spellLevel, castLevel);
+              // Scale formula for upcasting (already processed by action-executor, but ensure consistency)
+              const scaledFormula = scaleFormulaForUpcast(roll.damage, spellLevel, actualCastLevel);
 
               const damageMsg = formatRollForRoll20({
                 name: rollName,
@@ -671,7 +714,7 @@
           const rollName = isHealing ? `${spell.name || spellName} - Healing` : `${spell.name || spellName} - ${damageType}`;
 
           // Scale formula for upcasting
-          const scaledFormula = scaleFormulaForUpcast(spell.damage, spellLevel, castLevel);
+          const scaledFormula = scaleFormulaForUpcast(spell.damage, spellLevel, actualCastLevel);
 
           const damageMsg = formatRollForRoll20({
             name: rollName,
