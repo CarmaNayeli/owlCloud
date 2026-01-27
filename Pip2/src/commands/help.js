@@ -63,6 +63,7 @@ function buildMainHelp() {
           '`/character [name]` - View/set active character\n' +
           '`/spells [level] [search]` - List your character\'s spells\n' +
           '`/actions [type] [search]` - List your character\'s actions\n' +
+          '`/check <name>` - View spell/action details without casting\n' +
           '`/cast <spell> [target] [level]` - Cast a spell in Roll20\n' +
           '`/use <action> [target]` - Use an action in Roll20\n' +
           '`/roll20 [character]` - Check Roll20 connection status\n' +
@@ -77,6 +78,7 @@ function buildMainHelp() {
           '`/stats <stat>` - Quick stat lookup\n' +
           '`/spells [level] [search]` - List your character\'s spells\n' +
           '`/actions [type] [search]` - List your character\'s actions\n' +
+          '`/check <name>` - View spell/action details without casting\n' +
           '`/cast <spell> [target] [level]` - Cast a spell in Roll20\n' +
           '`/use <action> [target]` - Use an action in Roll20\n' +
           '*Use `/help topic:Character Commands` for details*',
@@ -111,7 +113,7 @@ function buildMainHelp() {
         inline: false
       }
     )
-    .setFooter({ text: 'Pip Bot • Dice Cat Community • 19 commands available' });
+    .setFooter({ text: 'Pip Bot • Dice Cat Community • 20 commands available' });
 }
 
 function buildRollCloudHelp() {
@@ -239,6 +241,21 @@ function buildCharacterHelp() {
           '`/cast Fireball` - Cast Fireball\n' +
           '`/cast Fireball target:Goblins` - Target goblins\n' +
           '`/cast Fireball level:5` - Upcast to level 5',
+        inline: false
+      },
+      {
+        name: '/check <name>',
+        value:
+          'View spell or action details without casting/using.\n\n' +
+          '**Name:** Spell or action name (autocomplete)\n\n' +
+          'Shows full details including:\n' +
+          '• Level, school, concentration, ritual\n' +
+          '• Casting time, range, duration, components\n' +
+          '• Damage/healing, saves, attack rolls\n' +
+          '• Full description\n\n' +
+          'Examples:\n' +
+          '`/check Fireball` - View Fireball details\n' +
+          '`/check Sneak Attack` - View action details',
         inline: false
       },
       {
@@ -383,7 +400,7 @@ function buildAllCommandsHelp() {
   return new EmbedBuilder()
     .setColor(0x3498DB)
     .setTitle('📋 All Pip Bot Commands')
-    .setDescription('Complete list of all 19 available commands.')
+    .setDescription('Complete list of all 20 available commands.')
     .addFields(
       {
         name: '🎮 RollCloud Integration',
@@ -401,6 +418,7 @@ function buildAllCommandsHelp() {
         value:
           '`/sheet [section]` - View full character sheet\n' +
           '`/stats <stat>` - Quick stat lookup\n' +
+          '`/check <name>` - View spell/action details without casting\n' +
           'Sections: overview, abilities, skills, spells, resources',
         inline: false
       },
@@ -440,5 +458,5 @@ function buildAllCommandsHelp() {
         inline: false
       }
     )
-    .setFooter({ text: 'Pip Bot • Dice Cat Community • 19 commands available' });
+    .setFooter({ text: 'Pip Bot • Dice Cat Community • 20 commands available' });
 }
