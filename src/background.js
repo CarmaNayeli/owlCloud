@@ -2027,18 +2027,57 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
     // "slot-1" or "db-slot-1" must NOT be used as the character ID in the
     // database — they are internal storage keys, not DiceCloud identifiers.
     let resolvedCharId = characterData.id || characterData._id || null;
-    if (resolvedCharId && /^(db-|slot-)/.test(resolvedCharId)) {
+
+    // Helper to check if an ID looks like a storage/internal key
+    const isStorageKey = (id) => {
+      if (!id) return false;
+      // Match: slot-N, db-slot-N, db-db-slot-N, db-UUID, etc.
+      return /^(db-)+/.test(id) || /^slot-\d+$/.test(id) || /^db-slot-\d+$/.test(id);
+    };
+
+    // Helper to check if an ID looks like a real DiceCloud ID (17-char alphanumeric)
+    const isDiceCloudId = (id) => {
+      if (!id) return false;
+      // DiceCloud IDs are typically 17-character alphanumeric strings
+      return /^[A-Za-z0-9]{17}$/.test(id);
+    };
+
+    if (resolvedCharId && isStorageKey(resolvedCharId)) {
       debug.warn(`⚠️ Character ID "${resolvedCharId}" looks like a storage key, not a DiceCloud ID`);
-      // Try to find the real DiceCloud character ID from nested data
+
+      // Try to find the real DiceCloud character ID from multiple sources
       const nested = characterData.raw_dicecloud_data || characterData._fullData || {};
-      const realId = nested.dicecloud_character_id || nested._id || null;
-      if (realId && !/^(db-|slot-)/.test(realId)) {
+      const possibleIds = [
+        nested.dicecloud_character_id,
+        nested._id,
+        nested.id,
+        characterData.dicecloud_character_id,
+        characterData.dicecloudId,
+        characterData.characterId,
+        // Also check nested raw_dicecloud_data (for double-nested data)
+        nested.raw_dicecloud_data?.id,
+        nested.raw_dicecloud_data?._id
+      ].filter(id => id && !isStorageKey(id));
+
+      // Prefer a real DiceCloud ID if found
+      const realId = possibleIds.find(isDiceCloudId) || possibleIds[0];
+
+      if (realId) {
         resolvedCharId = realId;
         debug.log(`✅ Resolved real DiceCloud character ID: ${resolvedCharId}`);
+      } else {
+        // Last resort: generate a fingerprint from character name + user ID + class/level
+        // This ensures the same character always gets the same ID
+        const fingerprint = `${dicecloudUserId}-${characterData.name}-${characterData.class}-${characterData.level}`;
+        let fpHash = 0;
+        for (let i = 0; i < fingerprint.length; i++) {
+          const char = fingerprint.charCodeAt(i);
+          fpHash = ((fpHash << 5) - fpHash) + char;
+          fpHash = fpHash & fpHash;
+        }
+        resolvedCharId = `fp-${Math.abs(fpHash).toString(36)}`;
+        debug.warn(`⚠️ Using fingerprint ID for dedup: ${resolvedCharId}`);
       }
-      // If we still have a slot ID, use it as-is but log a warning.
-      // This is a degraded path — the character will still sync but dedup
-      // by unique constraint won't match other entries for the same character.
     }
 
     const payload = {
@@ -2207,7 +2246,29 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
 
     debug.log('📤 Sending character payload to Supabase:', payload.character_name);
 
-    // Try POST first (insert)
+    // Delete any existing records for this user + character name to prevent duplicates
+    // This handles cases where the same character was stored with different IDs
+    try {
+      const deleteResponse = await fetch(
+        `${SUPABASE_URL}/rest/v1/rollcloud_characters?user_id_dicecloud=eq.${encodeURIComponent(payload.user_id_dicecloud)}&character_name=eq.${encodeURIComponent(payload.character_name)}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Prefer': 'return=minimal'
+          }
+        }
+      );
+      if (deleteResponse.ok) {
+        debug.log('🧹 Cleaned up existing character records before insert');
+      }
+    } catch (deleteError) {
+      debug.warn('⚠️ Failed to cleanup existing records:', deleteError.message);
+      // Continue anyway - insert will still work (or upsert)
+    }
+
+    // Insert the new character record
     const response = await fetch(
       `${SUPABASE_URL}/rest/v1/rollcloud_characters`,
       {
