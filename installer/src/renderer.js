@@ -1,6 +1,6 @@
 /**
  * Renderer Process
- * Handles UI interactions for the setup wizard
+ * Handles UI interactions for the installation wizard
  */
 
 // State
@@ -59,7 +59,7 @@ function setupBrowserSelection() {
           <div style="font-size: 0.9em; margin-top: 5px;">Policy installed, but extension not yet active.</div>
           <div style="margin-top: 10px;">
             <button id="btnContinueFromPolicy" class="btn btn-primary">
-              Continue Setup
+              Continue Installation
             </button>
             <button id="btnClearPolicyAndReinstall" class="btn btn-secondary" style="margin-left: 10px;">
               Clear & Reinstall
@@ -78,7 +78,7 @@ function setupBrowserSelection() {
           <div style="font-size: 0.9em; margin-top: 5px;">Extension is installed and ready.</div>
           <div style="margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap;">
             <button id="btnContinueFromInstalled" class="btn btn-primary">
-              Continue Setup
+              Continue Installation
             </button>
             <button id="btnCheckUpdates" class="btn btn-secondary">
               Check for Updates
@@ -102,10 +102,10 @@ function setupBrowserSelection() {
         statusText.textContent = `Selected ${getBrowserName(selectedBrowser)}. Ready to install.`;
         statusText.innerHTML = `
           <div style="color: #22c55e;">✅ Ready to install!</div>
-          <div style="font-size: 0.9em; margin-top: 5px;">Click Continue Setup to begin installation.</div>
+          <div style="font-size: 0.9em; margin-top: 5px;">Click Continue Installation to begin installation.</div>
           <div style="margin-top: 10px;">
             <button id="btnContinueToInstall" class="btn btn-primary">
-              Continue Setup
+              Continue Installation
             </button>
           </div>
           <div style="margin-top: 10px; font-size: 0.8em; color: #666;">
@@ -152,7 +152,7 @@ async function checkForUpdatesAndProceed() {
               <div style="font-size: 0.9em; margin-top: 5px;">${updateResult.message}</div>
               <div style="margin-top: 10px;">
                 <button id="btnContinueAfterUpdate" class="btn btn-primary">
-                  Continue Setup
+                  Continue Installation
                 </button>
               </div>
             `;
@@ -192,7 +192,7 @@ async function checkForUpdatesAndProceed() {
         <div style="font-size: 0.9em; margin-top: 5px;">Version ${updateCheck.currentVersion}</div>
         <div style="margin-top: 10px;">
           <button id="btnContinueUpToDate" class="btn btn-primary">
-            Continue Setup
+            Continue Installation
           </button>
           <button id="btnReinstallAnyway" class="btn btn-secondary" style="margin-left: 10px;">
             🔄 Reinstall Anyway
@@ -216,7 +216,7 @@ async function checkForUpdatesAndProceed() {
               <div style="font-size: 0.9em; margin-top: 5px;">${result.message}</div>
               <div style="margin-top: 10px;">
                 <button id="btnContinueAfterReinstall" class="btn btn-primary">
-                  Continue Setup
+                  Continue Installation
                 </button>
               </div>
             `;
@@ -322,7 +322,7 @@ async function checkForUpdatesAndProceed() {
         <div style="font-size: 0.9em; margin-top: 5px;">${updateCheck.error}</div>
         <div style="margin-top: 10px;">
           <button id="btnContinueAnyway" class="btn btn-primary">
-            Continue Setup
+            Continue Installation
           </button>
         </div>
       `;
@@ -335,7 +335,7 @@ async function checkForUpdatesAndProceed() {
       <div style="font-size: 0.9em; margin-top: 5px;">${error.message}</div>
       <div style="margin-top: 10px;">
         <button id="btnContinueAfterError" class="btn btn-primary">
-          Continue Setup
+          Continue Installation
         </button>
       </div>
     `;
@@ -765,7 +765,7 @@ function setupStep3() {
 // ============================================================================
 
 function setupStep4() {
-  const finishBtn = document.getElementById('finishSetup');
+  const finishBtn = document.getElementById('finishInstallation');
   const continueBtn = document.getElementById('continueWithUpdaterChoice');
 
   finishBtn.addEventListener('click', async () => {
@@ -809,7 +809,7 @@ async function installUpdaterUtility() {
             🚀 Launch Updater
           </button>
           <button id="btnFinishAfterUpdater" class="btn btn-secondary" style="background: #4ade80; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
-            ✅ Finish Setup
+            ✅ Finish Installation
           </button>
         </div>
       `;
@@ -863,17 +863,17 @@ function showCompletionMessage() {
   const statusText = document.getElementById('browserStatus');
   
   statusText.innerHTML = `
-    <div style="color: #4ade80;">✅ Setup Complete!</div>
+    <div style="color: #4ade80;">✅ Installation Complete!</div>
     <div style="font-size: 0.9em; margin-top: 5px;">RollCloud extension is ready to use.</div>
     <div style="font-size: 0.85em; margin-top: 5px; color: #666;">You can install the updater later if needed.</div>
     <div style="margin-top: 15px;">
-      <button id="btnFinishSetup" class="btn btn-primary" style="background: #4ade80; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
-        ✅ Finish Setup
+      <button id="btnFinishInstallation" class="btn btn-primary" style="background: #4ade80; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+        ✅ Finish Installation
       </button>
     </div>
   `;
   
-  document.getElementById('btnFinishSetup').addEventListener('click', () => {
+  document.getElementById('btnFinishInstallation').addEventListener('click', () => {
     window.api.quitApp();
   });
 }
@@ -913,7 +913,7 @@ function showError(message) {
 
 function setupGlobalHandlers() {
   // Restart button
-  document.getElementById('restartSetup').addEventListener('click', () => {
+  document.getElementById('restartInstallation').addEventListener('click', () => {
     selectedBrowser = null;
 
     // Reset all UI

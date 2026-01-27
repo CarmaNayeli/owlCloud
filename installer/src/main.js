@@ -28,6 +28,7 @@ let mainWindow;
 async function checkVersionMismatch() {
   return new Promise((resolve) => {
     const options = {
+      name: 'RollCloud Installation Wizard',
       hostname: 'api.github.com',
       path: '/repos/CarmaNayeli/rollCloud/releases/latest',
       headers: {
