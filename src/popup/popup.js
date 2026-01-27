@@ -476,6 +476,9 @@ function initializePopup() {
     loginSection.classList.add('hidden');
     mainSection.classList.remove('hidden');
     loadCharacterData();
+    
+    // Update Discord button now that user is logged in
+    showDiscordNotConnected();
   }
 
   /**
@@ -660,14 +663,7 @@ function initializePopup() {
       // Delete from Supabase
       try {
         if (typeof SupabaseTokenManager !== 'undefined') {
-          const supabaseManager = new SupabaseTokenManager();
-          const supabaseResult = await supabaseManager.deleteToken();
-          
-          if (supabaseResult.success) {
-            debug.log('✅ Token deleted from Supabase');
-          } else {
-            debug.log('⚠️ Supabase deletion failed (non-critical):', supabaseResult.error);
-          }
+          await SupabaseTokenManager.deleteToken();
         }
       } catch (supabaseError) {
         debug.log('⚠️ Supabase not available for logout (non-critical):', supabaseError);
@@ -677,6 +673,9 @@ function initializePopup() {
       await browserAPI.runtime.sendMessage({ action: 'logout' });
       showLoginSection();
       clearCharacterDisplay();
+      
+      // Update Discord button to show "Sync Account First" since user is now logged out
+      showDiscordNotConnected();
     } catch (error) {
       debug.error('Logout error:', error);
     }
@@ -1522,10 +1521,35 @@ function initializePopup() {
   /**
    * Show the "not connected" state
    */
-  function showDiscordNotConnected() {
+  async function showDiscordNotConnected() {
     document.getElementById('discordNotConnected').style.display = 'block';
     document.getElementById('discordPairing').style.display = 'none';
     document.getElementById('discordConnected').style.display = 'none';
+    
+    // Check if user is logged into DiceCloud to determine button text
+    try {
+      const loginStatus = await browserAPI.runtime.sendMessage({ action: 'checkLoginStatus' });
+      const setupBtn = document.getElementById('setupDiscordBtn');
+      
+      if (setupBtn) {
+        if (loginStatus && loginStatus.loggedIn) {
+          // User is logged in - show Discord setup
+          setupBtn.textContent = '🎮 Setup Discord';
+          setupBtn.title = 'Connect RollCloud to Discord for bot commands';
+        } else {
+          // User not logged in - show account sync prompt
+          setupBtn.textContent = '🔐 Sync Account First';
+          setupBtn.title = 'Please connect to DiceCloud first before setting up Discord';
+        }
+      }
+    } catch (error) {
+      debug.warn('Could not check login status for Discord button:', error);
+      // Fallback to default text
+      const setupBtn = document.getElementById('setupDiscordBtn');
+      if (setupBtn) {
+        setupBtn.textContent = '🎮 Setup Discord';
+      }
+    }
   }
 
   /**
@@ -1567,6 +1591,26 @@ function initializePopup() {
     try {
       const setupBtn = document.getElementById('setupDiscordBtn');
       setupBtn.disabled = true;
+      setupBtn.textContent = '⏳ Checking...';
+
+      // First check if user is logged into DiceCloud
+      const loginStatus = await browserAPI.runtime.sendMessage({ action: 'checkLoginStatus' });
+      
+      if (!loginStatus || !loginStatus.loggedIn) {
+        // User not logged in - show message and redirect to login
+        showDiscordStatus('Please connect to DiceCloud first before setting up Discord integration.', 'error');
+        
+        // Switch to login section
+        document.getElementById('mainSection').classList.add('hidden');
+        document.getElementById('loginSection').classList.remove('hidden');
+        
+        // Reset button
+        setupBtn.disabled = false;
+        setupBtn.textContent = '🔐 Sync Account First';
+        return;
+      }
+
+      // User is logged in - proceed with Discord setup
       setupBtn.textContent = '⏳ Setting up...';
 
       // Check for installer-provided pairing code first
@@ -1601,7 +1645,6 @@ function initializePopup() {
       }
 
       // Get DiceCloud user info
-      const loginStatus = await browserAPI.runtime.sendMessage({ action: 'checkLoginStatus' });
       const diceCloudUsername = loginStatus.username || 'Unknown';
       const diceCloudUserId = loginStatus.userId; // This is the Meteor ID
 
@@ -1634,7 +1677,13 @@ function initializePopup() {
       const setupBtn = document.getElementById('setupDiscordBtn');
       if (setupBtn) {
         setupBtn.disabled = false;
-        setupBtn.textContent = '🎮 Setup Discord';
+        // Reset button text based on current login status
+        const loginStatus = await browserAPI.runtime.sendMessage({ action: 'checkLoginStatus' });
+        if (loginStatus && loginStatus.loggedIn) {
+          setupBtn.textContent = '🎮 Setup Discord';
+        } else {
+          setupBtn.textContent = '🔐 Sync Account First';
+        }
       }
     }
   }

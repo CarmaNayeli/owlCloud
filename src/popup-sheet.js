@@ -947,6 +947,23 @@ function buildSheet(data) {
   // Add click handler for initiative button
   initiativeNew.addEventListener('click', () => {
     const initiativeBonus = data.initiative || 0;
+    
+    // Announce initiative roll
+    const announcement = `&{template:default} {{name=${getColoredBanner()}${data.name} rolls for initiative!}} {{Type=Initiative}} {{Bonus=+${initiativeBonus}}}`;
+    const messageData = {
+      action: 'announceSpell',
+      message: announcement,
+      color: data.notificationColor
+    };
+    
+    if (window.opener && !window.opener.closed) {
+      try {
+        window.opener.postMessage(messageData, '*');
+      } catch (error) {
+        debug.log('❌ Failed to send initiative announcement:', error);
+      }
+    }
+    
     roll('Initiative', `1d20+${initiativeBonus}`);
   });
 
@@ -981,6 +998,22 @@ function buildSheet(data) {
     const score = data.attributes?.[ability] || 10;
     const mod = data.attributeMods?.[ability] || 0;
     const card = createCard(ability.substring(0, 3).toUpperCase(), score, `+${mod}`, () => {
+      // Announce ability check
+      const announcement = `&{template:default} {{name=${getColoredBanner()}${data.name} makes a ${ability.charAt(0).toUpperCase() + ability.slice(1)} check!}} {{Type=Ability Check}} {{Bonus=+${mod}}}`;
+      const messageData = {
+        action: 'announceSpell',
+        message: announcement,
+        color: data.notificationColor
+      };
+      
+      if (window.opener && !window.opener.closed) {
+        try {
+          window.opener.postMessage(messageData, '*');
+        } catch (error) {
+          debug.log('❌ Failed to send ability check announcement:', error);
+        }
+      }
+      
       roll(`${ability.charAt(0).toUpperCase() + ability.slice(1)} Check`, `1d20+${mod}`);
     });
     abilitiesGrid.appendChild(card);
@@ -992,6 +1025,22 @@ function buildSheet(data) {
   abilities.forEach(ability => {
     const bonus = data.savingThrows?.[ability] || 0;
     const card = createCard(`${ability.substring(0, 3).toUpperCase()}`, `+${bonus}`, '', () => {
+      // Announce saving throw
+      const announcement = `&{template:default} {{name=${getColoredBanner()}${data.name} makes a ${ability.toUpperCase()} save!}} {{Type=Saving Throw}} {{Bonus=+${bonus}}}`;
+      const messageData = {
+        action: 'announceSpell',
+        message: announcement,
+        color: data.notificationColor
+      };
+      
+      if (window.opener && !window.opener.closed) {
+        try {
+          window.opener.postMessage(messageData, '*');
+        } catch (error) {
+          debug.log('❌ Failed to send saving throw announcement:', error);
+        }
+      }
+      
       roll(`${ability.toUpperCase()} Save`, `1d20+${bonus}`);
     });
     savesGrid.appendChild(card);
@@ -1019,6 +1068,22 @@ function buildSheet(data) {
   sortedSkills.forEach(({ skill, bonus }) => {
     const displayName = skill.charAt(0).toUpperCase() + skill.slice(1).replace(/-/g, ' ');
     const card = createCard(displayName, `${bonus >= 0 ? '+' : ''}${bonus}`, '', () => {
+      // Announce skill check
+      const announcement = `&{template:default} {{name=${getColoredBanner()}${data.name} makes a ${displayName} check!}} {{Type=Skill Check}} {{Bonus=${bonus >= 0 ? '+' : ''}${bonus}}}`;
+      const messageData = {
+        action: 'announceSpell',
+        message: announcement,
+        color: data.notificationColor
+      };
+      
+      if (window.opener && !window.opener.closed) {
+        try {
+          window.opener.postMessage(messageData, '*');
+        } catch (error) {
+          debug.log('❌ Failed to send skill check announcement:', error);
+        }
+      }
+      
       roll(displayName, `1d20${bonus >= 0 ? '+' : ''}${bonus}`);
     });
     skillsGrid.appendChild(card);
@@ -2000,6 +2065,9 @@ function buildActionsDisplay(container, actions) {
               debug.log(`⚔️ Adding Elemental Weapon to ${action.name}: ${attackFormula}`);
             }
             
+            // Announce the action with full details (description, level, action type, etc.)
+            announceAction(action);
+            
             roll(`${action.name} Attack`, attackFormula);
           } else if (option.type === 'healing' || option.type === 'temphp' || option.type === 'damage') {
             // Check and decrement uses before rolling
@@ -2050,8 +2118,8 @@ function buildActionsDisplay(container, actions) {
               return; // Not enough resources
             }
 
-            // Only announce if this action has no attack roll (description was already announced on attack)
-            if (action.description && !action.attackRoll) {
+            // Always announce the action if it has a description
+            if (action.description) {
               announceAction(action);
             }
 
@@ -3371,6 +3439,23 @@ function buildCompanionsDisplay(companions) {
         e.stopPropagation();
         const name = btn.dataset.name;
         const bonus = parseInt(btn.dataset.bonus);
+        
+        // Announce companion attack
+        const announcement = `&{template:default} {{name=${getColoredBanner()}${characterData.name}'s ${name} attacks!}} {{Type=Companion Attack}}`;
+        const messageData = {
+          action: 'announceSpell',
+          message: announcement,
+          color: characterData.notificationColor
+        };
+        
+        if (window.opener && !window.opener.closed) {
+          try {
+            window.opener.postMessage(messageData, '*');
+          } catch (error) {
+            debug.log('❌ Failed to send companion attack announcement:', error);
+          }
+        }
+        
         roll(`${name} - Attack`, `1d20+${bonus}`);
       });
     });
@@ -3380,6 +3465,23 @@ function buildCompanionsDisplay(companions) {
         e.stopPropagation();
         const name = btn.dataset.name;
         const damage = btn.dataset.damage;
+        
+        // Announce companion damage
+        const announcement = `&{template:default} {{name=${getColoredBanner()}${characterData.name}'s ${name} deals damage!}} {{Type=Companion Damage}}`;
+        const messageData = {
+          action: 'announceSpell',
+          message: announcement,
+          color: characterData.notificationColor
+        };
+        
+        if (window.opener && !window.opener.closed) {
+          try {
+            window.opener.postMessage(messageData, '*');
+          } catch (error) {
+            debug.log('❌ Failed to send companion damage announcement:', error);
+          }
+        }
+        
         roll(`${name} - Damage`, damage);
       });
     });

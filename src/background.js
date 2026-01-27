@@ -959,9 +959,18 @@ async function getCharacterData(characterId = null) {
 
     // Otherwise return active character
     const activeCharacterId = result.activeCharacterId;
+    debug.log(`🎯 Getting active character: activeCharacterId="${activeCharacterId}"`);
+    debug.log(`🎯 Available characters:`, Object.keys(characterProfiles));
+    
     if (activeCharacterId && characterProfiles[activeCharacterId]) {
-      debug.log('Retrieved active character data:', characterProfiles[activeCharacterId]);
-      return characterProfiles[activeCharacterId];
+      const activeChar = characterProfiles[activeCharacterId];
+      debug.log('✅ Retrieved active character data:', {
+        id: activeCharacterId,
+        name: activeChar.name || activeChar.character_name,
+        class: activeChar.class,
+        level: activeChar.level
+      });
+      return activeChar;
     }
 
     // Fallback: return first available character
@@ -1282,10 +1291,22 @@ async function getCharacterDataFromDatabase(characterId) {
  */
 async function setActiveCharacter(characterId) {
   try {
+    // Get character data before setting for logging
+    const result = await browserAPI.storage.local.get(['characterProfiles']);
+    const characterProfiles = result.characterProfiles || {};
+    const characterData = characterProfiles[characterId];
+    
+    debug.log(`🎯 Setting active character: ${characterId}`);
+    debug.log(`🎯 Character data:`, characterData ? {
+      name: characterData.name || characterData.character_name,
+      class: characterData.class,
+      level: characterData.level
+    } : 'NOT FOUND');
+
     await browserAPI.storage.local.set({
       activeCharacterId: characterId
     });
-    debug.log(`Active character set to: ${characterId}`);
+    debug.log(`✅ Active character set to: ${characterId}`);
 
     // Notify Roll20 tabs about the character change for experimental sync
     try {
@@ -2416,7 +2437,16 @@ async function checkDiscordCharacterIntegration(characterName, characterId) {
     // Handle both DiceCloud format (name) and database format (character_name)
     const activeCharacterName = characterData?.character_name || characterData?.name;
 
-    if (characterData && activeCharacterName === characterName) {
+    debug.log(`🔍 Character comparison: Discord="${characterName}" vs Active="${activeCharacterName}"`);
+    debug.log(`🔍 Active character data:`, characterData);
+
+    // Normalize character names for comparison (trim whitespace, case-insensitive)
+    const normalizedDiscordName = characterName?.trim().toLowerCase();
+    const normalizedActiveName = activeCharacterName?.trim().toLowerCase();
+
+    debug.log(`🔍 Normalized comparison: Discord="${normalizedDiscordName}" vs Active="${normalizedActiveName}"`);
+
+    if (characterData && normalizedDiscordName && normalizedActiveName && normalizedDiscordName === normalizedActiveName) {
       debug.log(`✅ Character ${characterName} found in local storage and matches Discord integration`);
 
       return {
@@ -2434,6 +2464,7 @@ async function checkDiscordCharacterIntegration(characterName, characterId) {
       };
     } else {
       debug.log(`❌ Character ${characterName} not found in local storage or doesn't match active character`);
+      debug.log(`❌ Comparison failed: "${normalizedDiscordName}" !== "${normalizedActiveName}"`);
 
       return {
         success: true,
