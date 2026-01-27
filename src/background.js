@@ -1004,46 +1004,86 @@ async function getAllCharacterProfiles() {
     }
 
     // Filter local profiles: remove characters belonging to a different user.
-    // A profile's ownerUserId is set by storeCharacterData when syncing.
-    // Profiles without ownerUserId are kept (legacy data), but if we know the
-    // current user and the profile explicitly belongs to someone else, drop it.
+    // Character data may store the owner's DiceCloud user ID under several
+    // possible field names depending on the code path that created it.
+    // If ANY of them is set and doesn't match the current user, drop it.
     if (currentDicecloudUserId) {
       for (const key of Object.keys(localProfiles)) {
         const profile = localProfiles[key];
-        if (profile.ownerUserId && profile.ownerUserId !== currentDicecloudUserId) {
-          debug.log(`🚫 Filtering out character "${profile.name}" (belongs to ${profile.ownerUserId}, current user is ${currentDicecloudUserId})`);
+        const profileOwner = profile.ownerUserId
+          || profile.dicecloudUserId
+          || profile.userId
+          || profile.user_id_dicecloud
+          || null;
+        if (profileOwner && profileOwner !== currentDicecloudUserId) {
+          debug.log(`🚫 Filtering out character "${profile.name || profile.character_name}" (belongs to ${profileOwner}, current user is ${currentDicecloudUserId})`);
           delete localProfiles[key];
         }
       }
     }
 
-    // Deduplicate: merge local and database profiles, keeping only one entry
-    // per DiceCloud character ID. Database entries take precedence over local
-    // ones when both exist for the same character, and among local entries
-    // the most recently stored one wins.
-    const seenCharacterIds = new Map(); // DiceCloud char ID -> best storage key
+    // --- Deduplication ---
+    // Merge local and database profiles, keeping only one entry per unique
+    // character. Database entries take precedence over local ones.
+    //
+    // We use two dedup strategies:
+    //  1. By DiceCloud character ID (checking multiple possible field names)
+    //  2. By display fingerprint (name + class + level) as a fallback for
+    //     entries where the ID field is missing or stored under a different key
+    const seenCharacterIds = new Map();    // charId -> storage key
+    const seenFingerprints = new Map();     // "Name|Class|Level" -> storage key
     const mergedProfiles = {};
+
+    // Extract the DiceCloud character ID from a profile, checking all known fields
+    function getCharId(profile) {
+      return profile.id || profile._id || profile.dicecloud_character_id || profile.characterId || null;
+    }
+
+    // Build a display fingerprint for fallback dedup
+    function getFingerprint(profile) {
+      const name = (profile.name || profile.character_name || '').trim().toLowerCase();
+      const cls = (profile.class || '').trim().toLowerCase();
+      const level = String(profile.level || '');
+      return name ? `${name}|${cls}|${level}` : null;
+    }
+
+    // Returns true if this profile is a duplicate of one already seen
+    function isDuplicate(profile, key) {
+      const charId = getCharId(profile);
+      if (charId && seenCharacterIds.has(charId)) {
+        debug.log(`🔄 Skipping duplicate "${profile.name || profile.character_name}" (key: ${key}), same char ID as: ${seenCharacterIds.get(charId)}`);
+        return true;
+      }
+      const fp = getFingerprint(profile);
+      if (fp && seenFingerprints.has(fp)) {
+        debug.log(`🔄 Skipping duplicate "${profile.name || profile.character_name}" (key: ${key}), same fingerprint as: ${seenFingerprints.get(fp)}`);
+        return true;
+      }
+      return false;
+    }
+
+    // Mark a profile as seen
+    function markSeen(profile, key) {
+      const charId = getCharId(profile);
+      if (charId) seenCharacterIds.set(charId, key);
+      const fp = getFingerprint(profile);
+      if (fp) seenFingerprints.set(fp, key);
+    }
 
     // Process database characters first (higher priority)
     for (const [key, profile] of Object.entries(databaseCharacters)) {
-      const charId = profile.id;
-      if (charId && !seenCharacterIds.has(charId)) {
-        seenCharacterIds.set(charId, key);
+      if (!isDuplicate(profile, key)) {
+        markSeen(profile, key);
         mergedProfiles[key] = profile;
       }
     }
 
-    // Process local profiles, skipping any character already seen from database
+    // Process local profiles, skipping any character already seen
     for (const [key, profile] of Object.entries(localProfiles)) {
-      const charId = profile.id || profile._id;
-      if (charId && seenCharacterIds.has(charId)) {
-        debug.log(`🔄 Skipping duplicate local profile "${profile.name}" (key: ${key}), already have from: ${seenCharacterIds.get(charId)}`);
-        continue;
+      if (!isDuplicate(profile, key)) {
+        markSeen(profile, key);
+        mergedProfiles[key] = profile;
       }
-      if (charId) {
-        seenCharacterIds.set(charId, key);
-      }
-      mergedProfiles[key] = profile;
     }
 
     debug.log('📋 Character profiles loaded:', {
@@ -1069,9 +1109,21 @@ async function getCharacterDataFromDatabase(characterId) {
     }
 
     const supabase = new SupabaseTokenManager();
+
+    // Scope the query to the current user so we never load another user's character
+    let userFilter = '';
+    try {
+      const tokenResult = await supabase.retrieveToken();
+      if (tokenResult.success && tokenResult.userId) {
+        userFilter = `&user_id_dicecloud=eq.${tokenResult.userId}`;
+      }
+    } catch (e) {
+      debug.warn('Could not get user ID for database character query:', e);
+    }
+
     // Order by updated_at desc to always get the latest version
     const response = await fetch(
-      `${supabase.supabaseUrl}/rest/v1/rollcloud_characters?dicecloud_character_id=eq.${characterId}&select=*&order=updated_at.desc&limit=1`,
+      `${supabase.supabaseUrl}/rest/v1/rollcloud_characters?dicecloud_character_id=eq.${characterId}${userFilter}&select=*&order=updated_at.desc&limit=1`,
       {
         headers: {
           'apikey': supabase.supabaseKey,
@@ -1886,9 +1938,27 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
       };
     }
 
+    // Resolve the real DiceCloud character ID.  Storage slot keys like
+    // "slot-1" or "db-slot-1" must NOT be used as the character ID in the
+    // database — they are internal storage keys, not DiceCloud identifiers.
+    let resolvedCharId = characterData.id || characterData._id || null;
+    if (resolvedCharId && /^(db-|slot-)/.test(resolvedCharId)) {
+      debug.warn(`⚠️ Character ID "${resolvedCharId}" looks like a storage key, not a DiceCloud ID`);
+      // Try to find the real DiceCloud character ID from nested data
+      const nested = characterData.raw_dicecloud_data || characterData._fullData || {};
+      const realId = nested.dicecloud_character_id || nested._id || null;
+      if (realId && !/^(db-|slot-)/.test(realId)) {
+        resolvedCharId = realId;
+        debug.log(`✅ Resolved real DiceCloud character ID: ${resolvedCharId}`);
+      }
+      // If we still have a slot ID, use it as-is but log a warning.
+      // This is a degraded path — the character will still sync but dedup
+      // by unique constraint won't match other entries for the same character.
+    }
+
     const payload = {
       user_id_dicecloud: dicecloudUserId,
-      dicecloud_character_id: characterData.id,
+      dicecloud_character_id: resolvedCharId,
       character_name: characterData.name || 'Unknown',
       race: characterData.race || null,
       class: characterData.class || null,
