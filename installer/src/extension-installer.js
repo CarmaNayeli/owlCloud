@@ -680,7 +680,14 @@ async function installFirefoxExtension(config) {
         if (installResult.completed) {
           // Installation completed successfully, continue with extension installation
           console.log('   ✅ Firefox Developer Edition installation completed');
-          // Continue with the rest of the extension installation process
+          // Re-detect Firefox path after installation
+          firefoxPath = findFirefoxDeveloperEdition();
+          if (!firefoxPath) {
+            return {
+              success: false,
+              message: 'Firefox Developer Edition was installed but could not be found. Please restart the installer.'
+            };
+          }
         } else {
           // Still installing/waiting
           return {
