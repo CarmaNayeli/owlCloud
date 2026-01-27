@@ -5,9 +5,9 @@
 
 // For Chrome service workers, import debug utility
 if (typeof importScripts === 'function' && typeof chrome !== 'undefined') {
-  // In Manifest V3, service worker runs from root, so paths are relative to manifest
-  importScripts('src/common/debug.js');
-  importScripts('src/lib/supabase-client.js');
+  // Service worker is at src/background.js, so paths are relative to src/ directory
+  importScripts('./common/debug.js');
+  importScripts('./lib/supabase-client.js');
 }
 
 debug.log('RollCloud: Background script starting...');
