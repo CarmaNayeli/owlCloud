@@ -95,6 +95,22 @@ export default {
 
       const spellLevel = parseInt(spell.level) || 0;
 
+      // Validate upcast level - cantrips (level 0) cannot be upcast
+      if (castLevel && spellLevel === 0) {
+        return await interaction.reply({
+          content: `❌ **${spell.name}** is a cantrip and cannot be upcast.`,
+          flags: 64
+        });
+      }
+
+      // Validate cast level is at least spell level
+      if (castLevel && castLevel < spellLevel) {
+        return await interaction.reply({
+          content: `❌ Cannot cast **${spell.name}** (Level ${spellLevel}) at a lower level (${castLevel}).`,
+          flags: 64
+        });
+      }
+
       // Get user's pairing for command queue
       const pairingResponse = await fetch(
         `${SUPABASE_URL}/rest/v1/rollcloud_pairings?discord_user_id=eq.${discordUserId}&status=eq.connected&select=*`,
@@ -167,13 +183,24 @@ export default {
         });
       }
 
+      // Build title with tags
+      let titleTags = '';
+      if (spell.concentration) titleTags += ' 🧠 Concentration';
+      if (spell.ritual) titleTags += ' 📖 Ritual';
+
+      // Build spell level text with school
+      let levelText = spellLevel === 0 ? 'Cantrip' : `Level ${spellLevel}`;
+      if (castLevel && castLevel > spellLevel) {
+        levelText = `Level ${castLevel} (upcast from ${spellLevel})`;
+      }
+      if (spell.school) {
+        levelText += ` ${spell.school}`;
+      }
+
       const embed = new EmbedBuilder()
         .setTitle(`🔮 ${character.character_name} casts ${spell.name}`)
         .setColor(0x9b59b6)
-        .setDescription(formatSpellDescription(spell, castLevel))
-        .addFields(
-          { name: 'Spell Level', value: castLevel ? `Level ${castLevel} (upcast)` : `Level ${spellLevel}`, inline: true }
-        )
+        .setDescription(`${levelText}${titleTags}\n\n${formatSpellDescription(spell, castLevel)}`)
         .setFooter({ text: '✅ Sent to Roll20' })
         .setTimestamp();
 
@@ -241,8 +268,10 @@ function formatSpellDescription(spell, castLevel) {
 
   if (spell.castingTime) description += `**Casting Time:** ${spell.castingTime}\n`;
   if (spell.range) description += `**Range:** ${spell.range}\n`;
-  if (spell.duration && spell.duration !== 'Instantaneous') description += `**Duration:** ${spell.duration}\n`;
+  if (spell.duration) description += `**Duration:** ${spell.duration}\n`;
+  if (spell.school) description += `**School:** ${spell.school}\n`;
   if (spell.components) description += `**Components:** ${spell.components}\n`;
+  if (spell.source) description += `**Source:** ${spell.source}\n`;
 
   if (spell.damageRoll) {
     description += `**Damage:** ${spell.damageRoll}`;
@@ -253,11 +282,31 @@ function formatSpellDescription(spell, castLevel) {
   }
 
   if (spell.healingRoll) {
-    description += `**Healing:** ${spell.healingRoll}\n`;
+    description += `**Healing:** ${spell.healingRoll}`;
+    if (castLevel && parseInt(spell.level) > 0 && castLevel > parseInt(spell.level)) {
+      description += ` (upcast to level ${castLevel})`;
+    }
+    description += '\n';
   }
 
   if (spell.saveDC && spell.saveAbility) {
     description += `**Save:** ${spell.saveAbility} DC ${spell.saveDC}\n`;
+  }
+
+  // Add full spell description/summary at the end
+  if (spell.summary || spell.description) {
+    description += '\n';
+    if (spell.summary) {
+      description += spell.summary;
+    } else if (spell.description) {
+      // Truncate very long descriptions for Discord embed
+      const maxLength = 800;
+      if (spell.description.length > maxLength) {
+        description += spell.description.substring(0, maxLength) + '...';
+      } else {
+        description += spell.description;
+      }
+    }
   }
 
   return description || 'Spell sent to Roll20.';
