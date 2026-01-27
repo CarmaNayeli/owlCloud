@@ -748,10 +748,11 @@ async function getCharacterDataFromDatabase(characterId) {
     if (typeof SupabaseTokenManager === 'undefined') {
       throw new Error('SupabaseTokenManager not available');
     }
-    
+
     const supabase = new SupabaseTokenManager();
+    // Order by updated_at desc to always get the latest version
     const response = await fetch(
-      `${supabase.supabaseUrl}/rest/v1/rollcloud_characters?dicecloud_character_id=eq.${characterId}&select=*`,
+      `${supabase.supabaseUrl}/rest/v1/rollcloud_characters?dicecloud_character_id=eq.${characterId}&select=*&order=updated_at.desc&limit=1`,
       {
         headers: {
           'apikey': supabase.supabaseKey,
@@ -759,22 +760,35 @@ async function getCharacterDataFromDatabase(characterId) {
         }
       }
     );
-    
+
     if (!response.ok) {
       throw new Error(`Failed to fetch database character: ${response.status}`);
     }
-    
+
     const characters = await response.json();
     if (characters.length === 0) {
       throw new Error('Character not found in database');
     }
-    
+
     const dbCharacter = characters[0];
 
     // If raw_dicecloud_data contains the full character object, use it directly
     // This preserves all parsed data (spells, features, actions, etc.) exactly as synced
-    if (dbCharacter.raw_dicecloud_data && typeof dbCharacter.raw_dicecloud_data === 'object') {
-      const fullCharacter = dbCharacter.raw_dicecloud_data;
+    let rawData = dbCharacter.raw_dicecloud_data;
+
+    // Handle raw_dicecloud_data being a JSON string (Supabase may return JSONB as string in some cases)
+    if (rawData && typeof rawData === 'string') {
+      try {
+        rawData = JSON.parse(rawData);
+        debug.log('📦 Parsed raw_dicecloud_data from JSON string');
+      } catch (parseError) {
+        debug.warn('⚠️ raw_dicecloud_data is a string but not valid JSON:', parseError.message);
+        rawData = null;
+      }
+    }
+
+    if (rawData && typeof rawData === 'object' && !Array.isArray(rawData)) {
+      const fullCharacter = rawData;
       // Add database metadata
       fullCharacter.source = 'database';
       fullCharacter.lastUpdated = dbCharacter.updated_at;
@@ -785,13 +799,17 @@ async function getCharacterDataFromDatabase(characterId) {
       if (!fullCharacter.name) {
         fullCharacter.name = dbCharacter.character_name;
       }
-      debug.log('✅ Loaded full character from database raw_dicecloud_data:', fullCharacter.name);
+      debug.log('✅ Loaded full character from database raw_dicecloud_data:', fullCharacter.name,
+        'HP:', JSON.stringify(fullCharacter.hitPoints),
+        'AC:', fullCharacter.armorClass,
+        'Prof:', fullCharacter.proficiencyBonus);
       return fullCharacter;
     }
 
     // Fallback: Return database record with minimal transformation
     // This should rarely be used since raw_dicecloud_data should always be present
-    debug.log('⚠️ No raw_dicecloud_data found, using database fields directly');
+    debug.warn('⚠️ No raw_dicecloud_data found (type:', typeof rawData, '), using database fields directly');
+    debug.warn('⚠️ DB record keys:', Object.keys(dbCharacter));
     const characterData = {
       // Use the exact database field names to maintain consistency
       id: dbCharacter.dicecloud_character_id,
@@ -2128,11 +2146,12 @@ async function createDiscordPairing(code, diceCloudUsername, diceCloudUserId) {
   }
 
   try {
-    // Expire any existing pending pairings for this DiceCloud user
+    // Expire ALL existing pairings for this DiceCloud user (both pending and connected)
+    // This ensures only one active pairing exists per user at a time
     if (diceCloudUserId) {
       try {
         const expireResponse = await fetch(
-          `${SUPABASE_URL}/rest/v1/rollcloud_pairings?dicecloud_user_id=eq.${diceCloudUserId}&status=eq.pending`,
+          `${SUPABASE_URL}/rest/v1/rollcloud_pairings?dicecloud_user_id=eq.${diceCloudUserId}&status=in.(pending,connected)`,
           {
             method: 'PATCH',
             headers: {
@@ -2145,7 +2164,7 @@ async function createDiscordPairing(code, diceCloudUsername, diceCloudUserId) {
           }
         );
         if (expireResponse.ok) {
-          debug.log('🧹 Expired old pending pairings for user:', diceCloudUserId);
+          debug.log('🧹 Expired old pairings (pending + connected) for user:', diceCloudUserId);
         }
       } catch (expireError) {
         debug.warn('⚠️ Could not expire old pairings:', expireError.message);
