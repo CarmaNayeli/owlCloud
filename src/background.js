@@ -85,6 +85,58 @@ if (!isFirefox && chrome.runtime && chrome.runtime.onStartup) {
   });
 }
 
+// Persistent alarm to keep service worker alive for realtime connections
+// Chrome MV3 service workers terminate after ~30s of inactivity, breaking WebSockets
+const REALTIME_KEEPALIVE_ALARM = 'realtimeKeepAlive';
+
+if (!isFirefox && chrome.alarms) {
+  chrome.alarms.onAlarm.addListener(async (alarm) => {
+    if (alarm.name === REALTIME_KEEPALIVE_ALARM) {
+      debug.log('⏰ Realtime keep-alive alarm triggered');
+
+      // Check if we should have a realtime connection
+      const settings = await browserAPI.storage.local.get(['discordWebhookEnabled', 'discordPairingId']);
+      if (!settings.discordWebhookEnabled || !settings.discordPairingId) {
+        debug.log('⏭️ No active Discord connection, skipping realtime check');
+        return;
+      }
+
+      // Check if WebSocket is still connected
+      if (!commandRealtimeSocket || commandRealtimeSocket.readyState !== WebSocket.OPEN) {
+        debug.log('🔄 WebSocket disconnected, reconnecting...');
+        await subscribeToCommandRealtime(settings.discordPairingId);
+      } else {
+        debug.log('✅ WebSocket still connected');
+      }
+
+      // Drain any pending commands that may have arrived
+      drainPendingCommands();
+    }
+  });
+}
+
+/**
+ * Start the realtime keep-alive alarm (call when Discord is connected)
+ */
+function startRealtimeKeepAlive() {
+  if (!isFirefox && chrome.alarms) {
+    // Fire every 25 seconds to keep service worker alive
+    // Chrome terminates after ~30s of inactivity
+    chrome.alarms.create(REALTIME_KEEPALIVE_ALARM, { periodInMinutes: 25 / 60 });
+    debug.log('⏰ Started realtime keep-alive alarm');
+  }
+}
+
+/**
+ * Stop the realtime keep-alive alarm (call when Discord is disconnected)
+ */
+function stopRealtimeKeepAlive() {
+  if (!isFirefox && chrome.alarms) {
+    chrome.alarms.clear(REALTIME_KEEPALIVE_ALARM);
+    debug.log('⏰ Stopped realtime keep-alive alarm');
+  }
+}
+
 let keepAliveInterval = null;
 
 /**
@@ -2779,6 +2831,9 @@ async function subscribeToCommandRealtime(pairingId) {
       debug.log('📤 Subscribing to postgres_changes:', JSON.stringify(joinMessage, null, 2));
       commandRealtimeSocket.send(JSON.stringify(joinMessage));
 
+      // Start keep-alive alarm to prevent service worker termination
+      startRealtimeKeepAlive();
+
       // Heartbeat every 30s to keep connection alive
       commandRealtimeHeartbeat = setInterval(() => {
         if (commandRealtimeSocket && commandRealtimeSocket.readyState === WebSocket.OPEN) {
@@ -2887,6 +2942,9 @@ async function subscribeToCommandRealtime(pairingId) {
  * Unsubscribe from command Realtime updates
  */
 function unsubscribeFromCommandRealtime() {
+  // Stop keep-alive alarm
+  stopRealtimeKeepAlive();
+
   if (commandRealtimeReconnectTimeout) {
     clearTimeout(commandRealtimeReconnectTimeout);
     commandRealtimeReconnectTimeout = null;
