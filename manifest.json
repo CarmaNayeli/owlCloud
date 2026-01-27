@@ -16,11 +16,7 @@
     "https://gkfpxwvmumaylahtxqrk.supabase.co/*"
   ],
   "background": {
-    "service_worker": "src/background.js",
-    "scripts": [
-      "src/common/debug.js",
-      "src/background.js"
-    ]
+    "service_worker": "src/background.js"
   },
   "content_scripts": [
     {
