@@ -10,9 +10,9 @@ A browser extension that integrates Dice Cloud with Roll20. I built this to make
 
 **🎲 Latest Release**
 
-**Manual Install:** [Firefox](./releases/rollcloud-firefox-signed.xpi) | [Chrome](./releases/rollcloud-chrome.zip) | [Safari](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-safari.zip)
+**Manual Install:** [Firefox](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-firefox-signed.xpi) | [Chrome](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-chrome.zip) | [Safari](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-safari.zip)
 
-**Windows Installer (Chrome + Firefox Dev):** [Download Installer](./releases/RollCloud-Setup-v2-Setup.exe)
+**Windows Installer (Chrome + Firefox Dev):** [Download Installer](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/RollCloud-Setup-v2-Setup.exe)
 
 ## Installation
 
@@ -21,7 +21,7 @@ A browser extension that integrates Dice Cloud with Roll20. I built this to make
 Download the pre-built extension for your browser:
 
 #### 🦊 Firefox
-[**Download RollCloud for Firefox**](./releases/rollcloud-firefox.zip)
+[**Download RollCloud for Firefox**](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-firefox.zip)
 
 1. **Download** the Firefox ZIP file
 2. **Extract** the ZIP file to a folder
@@ -31,7 +31,7 @@ Download the pre-built extension for your browser:
 6. **Done!** The RollCloud icon appears in your toolbar
 
 #### 🌐 Chrome / Edge / Brave
-[**Download RollCloud for Chrome**](./releases/rollcloud-chrome.zip)
+[**Download RollCloud for Chrome**](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-chrome.zip)
 
 1. **Download** the Chrome ZIP file
 2. **Extract** the ZIP file to a folder
