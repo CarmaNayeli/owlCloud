@@ -903,12 +903,18 @@ class SupabaseTokenManager {
     try {
       const { currentSessionId, sessionConflict, sessionInvalidated } = await browserAPI.storage.local.get(['currentSessionId', 'sessionConflict', 'sessionInvalidated']);
 
+      debug.log('🔍 checkSessionValidity - currentSessionId:', currentSessionId);
+      debug.log('🔍 checkSessionValidity - sessionConflict:', sessionConflict);
+      debug.log('🔍 checkSessionValidity - sessionInvalidated:', sessionInvalidated);
+
       if (!currentSessionId) {
+        debug.log('✅ No session ID stored - session valid (new/fresh state)');
         return { valid: true, reason: 'no_session' };
       }
 
       // Check if we already have an invalidation notification (another browser logged in)
       if (sessionInvalidated) {
+        debug.log('⚠️ Found sessionInvalidated flag in local storage');
         return {
           valid: false,
           reason: 'invalidated_by_other_login',
@@ -919,11 +925,14 @@ class SupabaseTokenManager {
 
       // Check if we already have a conflict notification
       if (sessionConflict && sessionConflict.detected) {
+        debug.log('⚠️ Found sessionConflict flag in local storage');
         return { valid: false, reason: 'conflict_detected', conflict: sessionConflict };
       }
 
       // Verify session still exists in Supabase and check for invalidation
       const userId = this.generateUserId();
+      debug.log('🔍 Checking session in database for user:', userId);
+
       const response = await fetch(
         `${this.supabaseUrl}/rest/v1/${this.tableName}?user_id=eq.${userId}&select=dicecloud_token,username,session_id,invalidated_at,invalidated_reason,invalidated_by_session`,
         {
@@ -935,12 +944,15 @@ class SupabaseTokenManager {
       );
 
       if (!response.ok) {
+        debug.warn('⚠️ Database check failed with status:', response.status);
         return { valid: false, reason: 'check_failed' };
       }
 
       const sessions = await response.json();
+      debug.log('🔍 Found sessions in database:', sessions.length, sessions);
 
       if (sessions.length === 0) {
+        debug.warn('⚠️ No session found in database for this browser');
         return { valid: false, reason: 'session_not_found' };
       }
 
@@ -969,15 +981,18 @@ class SupabaseTokenManager {
 
       // Check if session ID matches (another browser might have taken over)
       if (session.session_id !== currentSessionId) {
-        debug.log('⚠️ Session ID mismatch - session was replaced');
+        debug.log('⚠️ Session ID mismatch - local:', currentSessionId, 'remote:', session.session_id);
         return { valid: false, reason: 'session_replaced' };
       }
 
       // Check if local token matches remote token
       const { diceCloudToken } = await browserAPI.storage.local.get('diceCloudToken');
       if (diceCloudToken && session.dicecloud_token !== diceCloudToken) {
+        debug.log('⚠️ Token mismatch - local token differs from database');
         return { valid: false, reason: 'token_mismatch' };
       }
+
+      debug.log('✅ Session is valid');
 
       // Session is valid - update heartbeat
       await this.updateSessionHeartbeat(currentSessionId);
