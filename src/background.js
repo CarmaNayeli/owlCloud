@@ -25,6 +25,31 @@ debug.log('RollCloud: Background script starting...');
       explicitlyLoggedOut: startupStorage.explicitlyLoggedOut,
       allKeys: Object.keys(startupStorage)
     });
+
+    // If we have a token but no explicitlyLoggedOut flag, ensure we're in a good state
+    if (startupStorage.diceCloudToken && !startupStorage.explicitlyLoggedOut) {
+      debug.log('✅ Service worker restarted with valid auth state');
+      
+      // Validate the token expiry on startup
+      if (startupStorage.tokenExpires) {
+        const expiryDate = new Date(startupStorage.tokenExpires);
+        const now = new Date();
+        
+        if (!isNaN(expiryDate.getTime()) && now < expiryDate) {
+          debug.log('✅ Token is still valid on startup');
+        } else if (isNaN(expiryDate.getTime())) {
+          debug.warn('⚠️ Invalid expiry date on startup, clearing it');
+          await browserAPI.storage.local.remove('tokenExpires');
+        } else {
+          debug.warn('⏰ Token expired on startup, logging out');
+          await logout();
+        }
+      }
+    } else if (startupStorage.explicitlyLoggedOut) {
+      debug.log('⏭️ Service worker restarted after explicit logout');
+    } else {
+      debug.log('🔍 No auth state found on startup');
+    }
   } catch (error) {
     debug.error('Failed to check startup storage:', error);
   }
@@ -39,7 +64,76 @@ const browserAPI = (typeof browser !== 'undefined' && browser.runtime) ? browser
 const isFirefox = typeof browser !== 'undefined';
 debug.log('RollCloud: Background script initialized on', isFirefox ? 'Firefox' : 'Chrome');
 
-// Firefox-specific debugging
+// Add service worker lifecycle listeners for Chrome
+if (!isFirefox && chrome.runtime && chrome.runtime.onSuspend) {
+  chrome.runtime.onSuspend.addListener(() => {
+    debug.log('🔌 Service worker suspending - saving state...');
+    // Any cleanup before suspension goes here
+  });
+}
+
+if (!isFirefox && chrome.runtime && chrome.runtime.onSuspendCanceled) {
+  chrome.runtime.onSuspendCanceled.addListener(() => {
+    debug.log('♻️ Service worker suspension canceled');
+  });
+}
+
+if (!isFirefox && chrome.runtime && chrome.runtime.onStartup) {
+  chrome.runtime.onStartup.addListener(() => {
+    debug.log('🚀 Chrome startup event received');
+  });
+}
+
+let keepAliveInterval = null;
+
+/**
+ * Keeps the service worker alive during critical operations
+ * Chrome service workers can be terminated after ~5 minutes of inactivity
+ */
+function keepServiceWorkerAlive(durationMs = 30000) {
+  if (keepAliveInterval) {
+    clearInterval(keepAliveInterval);
+  }
+  
+  debug.log('💓 Keeping service worker alive for', durationMs, 'ms');
+  
+  // Use chrome.alarms API if available, otherwise fallback to setInterval
+  if (chrome.alarms) {
+    chrome.alarms.create('keepAlive', { delayInMinutes: durationMs / 60000 });
+    chrome.alarms.onAlarm.addListener((alarm) => {
+      if (alarm.name === 'keepAlive') {
+        debug.log('💓 Keep-alive alarm triggered');
+      }
+    });
+  } else {
+    // Fallback: ping ourselves every 25 seconds
+    keepAliveInterval = setInterval(() => {
+      debug.log('💓 Service worker keep-alive ping');
+    }, 25000);
+    
+    setTimeout(() => {
+      if (keepAliveInterval) {
+        clearInterval(keepAliveInterval);
+        keepAliveInterval = null;
+        debug.log('💓 Keep-alive interval cleared');
+      }
+    }, durationMs);
+  }
+}
+
+/**
+ * Stops the keep-alive mechanism
+ */
+function stopKeepAlive() {
+  if (keepAliveInterval) {
+    clearInterval(keepAliveInterval);
+    keepAliveInterval = null;
+  }
+  if (chrome.alarms) {
+    chrome.alarms.clear('keepAlive');
+  }
+  debug.log('💔 Keep-alive stopped');
+}
 if (isFirefox) {
   debug.log('🦊 Firefox detected - checking extension context...');
   
@@ -422,6 +516,9 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
  */
 async function loginToDiceCloud(username, password) {
   try {
+    // Keep service worker alive during login process
+    keepServiceWorkerAlive(60000); // Keep alive for 1 minute during login
+    
     // Try to determine if input is email or username
     const isEmail = username.includes('@');
 
@@ -459,8 +556,13 @@ async function loginToDiceCloud(username, password) {
 
     debug.log('Successfully logged in to DiceCloud');
     debug.log('Token expires:', data.tokenExpires);
+    
+    // Keep alive a bit longer to ensure token is properly stored
+    setTimeout(() => stopKeepAlive(), 5000);
+    
     return data;
   } catch (error) {
+    stopKeepAlive();
     debug.error('Failed to login to DiceCloud:', error);
     throw error;
   }
@@ -471,6 +573,9 @@ async function loginToDiceCloud(username, password) {
  */
 async function setApiToken(token, userId = null, tokenExpires = null, username = null) {
   try {
+    // Keep service worker alive during token storage
+    keepServiceWorkerAlive(30000); // Keep alive for 30 seconds
+    
     debug.log('🔐 setApiToken called:', {
       tokenLength: token ? token.length : 0,
       tokenStart: token ? token.substring(0, 20) + '...' : 'none',
@@ -523,8 +628,13 @@ async function setApiToken(token, userId = null, tokenExpires = null, username =
     });
 
     debug.log('Successfully stored API token');
+    
+    // Keep alive a bit longer to ensure token is properly stored
+    setTimeout(() => stopKeepAlive(), 3000);
+    
     return { success: true };
   } catch (error) {
+    stopKeepAlive();
     debug.error('Failed to store API token:', error);
     throw error;
   }
