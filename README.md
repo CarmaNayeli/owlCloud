@@ -2,39 +2,61 @@
 
 A browser extension that integrates Dice Cloud with Roll20. I built this to make importing D&D characters seamless - just click a button and your character data appears in Roll20 with interactive dice rolling and combat management.
 
-**🎲 Version 1.2.3 - Latest Release**
+## 🌐 Live Dashboard
+
+**[📊 RollCloud Dashboard](https://rollcloud.vercel.app)** - Manage your Discord integration and view real-time status online
+
+---
+
+**🎲 Latest Release**
 
 **Manual Install:** [Firefox](./releases/rollcloud-firefox-signed.xpi) | [Chrome](./releases/rollcloud-chrome.zip) | [Safari](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-safari.zip)
 
 **Windows Installer (Chrome + Firefox Dev):** [Download Installer](./releases/RollCloud-Setup-v2-Setup.exe)
 
-### 📋 What's New
+## Installation
 
-**Version 1.2.3**
-- **Updated Documentation**: Consistent version references across all files
-- **Personal Touch**: Refined documentation with solo developer voice
-- **Bug Fixes**: Resolved version inconsistencies and improved user experience
-- **Performance**: Optimized extension loading and error handling
+### 🚀 Quick Install (Recommended)
 
-**Version 1.2.2**
-- **Firefox Developer Edition Support**: Bundled Firefox Developer Edition installer for seamless unsigned extension installation
-- **Improved Firefox Installation**: Automatic detection and installation of Firefox Developer Edition when regular Firefox is not found
-- **Enhanced Installer UI**: Better user guidance for Firefox extension installation
-- **Manifest V2 Compatibility**: Fixed Firefox manifest to use proper Manifest V2 format
-- **Bundled Dependencies**: No more download dependencies - everything included in installer
-- **Version Clarity**: Updated to 1.2.2 to avoid confusion with previous versions
+Download the pre-built extension for your browser:
 
-**Version 1.2.0**
-- **Discord Integration**: Connect RollCloud to Discord for real-time combat updates
-- **Pip Bot Integration**: Turn tracking and action economy updates in Discord
-- **Web Dashboard**: Manage Discord bot and view RollCloud status online
-- **One-Click Setup**: Simple code-based connection between extension and Discord
-- **Enhanced Combat**: Real-time turn notifications and action economy tracking
-- **Custom Modal for Lay on Hands**: Heal with healing pool selection
-- **Proper separation of Lay on Hands**: Heal (modal) vs Restore (normal handler)
-- **Consistent button text**: Across all action buttons
-- **Robust name normalization**: For punctuation/spacing variations
-- **Enhanced edge case system**: For class features
+#### 🦊 Firefox
+[**Download RollCloud for Firefox**](./releases/rollcloud-firefox.zip)
+
+1. **Download** the Firefox ZIP file
+2. **Extract** the ZIP file to a folder
+3. **Open** Firefox and navigate to `about:debugging#/runtime/this-firefox`
+4. **Click** "Load Temporary Add-on"
+5. **Select** any file from the extracted folder
+6. **Done!** The RollCloud icon appears in your toolbar
+
+#### 🌐 Chrome / Edge / Brave
+[**Download RollCloud for Chrome**](./releases/rollcloud-chrome.zip)
+
+1. **Download** the Chrome ZIP file
+2. **Extract** the ZIP file to a folder
+3. **Open** Chrome/Edge and navigate to `chrome://extensions/` (or `edge://extensions/`)
+4. **Enable** "Developer mode" toggle in the top-right
+5. **Click** "Load unpacked" and select the extracted folder
+6. **Done!** The RollCloud icon appears in your toolbar
+
+#### 🧭 Safari
+[**Download RollCloud for Safari**](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-safari.zip)
+
+**Requirements:**
+- macOS with Safari 14.0 or later
+- Xcode (free from Mac App Store)
+
+**Installation:**
+1. **Download** and extract the Safari ZIP file
+2. **Open** Terminal and navigate to the extracted folder
+3. **Convert** to Safari App Extension:
+   ```bash
+   xcrun safari-web-extension-converter . --app-name RollCloud
+   ```
+4. **Follow** the Xcode setup prompts
+5. **Build** and run the project (⌘R)
+6. **Enable** the extension in Safari preferences
 
 ## Features
 
@@ -82,50 +104,6 @@ A browser extension that integrates Dice Cloud with Roll20. I built this to make
 - **Buffs & Debuffs**: System for managing active effects
 - **Auto-Apply**: Automatic modifiers for rolls based on active effects
 - **Effect Persistence**: Effects maintained across character switching
-
-## Installation
-
-### 🚀 Quick Install (Recommended)
-
-Download the pre-built extension for your browser:
-
-#### 🦊 Firefox
-[**Download RollCloud for Firefox**](./releases/rollcloud-firefox.zip)
-
-1. **Download** the Firefox ZIP file
-2. **Extract** the ZIP file to a folder
-3. **Open** Firefox and navigate to `about:debugging#/runtime/this-firefox`
-4. **Click** "Load Temporary Add-on"
-5. **Select** any file from the extracted folder
-6. **Done!** The RollCloud icon appears in your toolbar
-
-#### 🌐 Chrome / Edge / Brave
-[**Download RollCloud for Chrome**](./releases/rollcloud-chrome.zip)
-
-1. **Download** the Chrome ZIP file
-2. **Extract** the ZIP file to a folder
-3. **Open** Chrome/Edge and navigate to `chrome://extensions/` (or `edge://extensions/`)
-4. **Enable** "Developer mode" toggle in the top-right
-5. **Click** "Load unpacked" and select the extracted folder
-6. **Done!** The RollCloud icon appears in your toolbar
-
-#### 🧭 Safari
-[**Download RollCloud for Safari**](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-safari.zip)
-
-**Requirements:**
-- macOS with Safari 14.0 or later
-- Xcode (free from Mac App Store)
-
-**Installation:**
-1. **Download** and extract the Safari ZIP file
-2. **Open** Terminal and navigate to the extracted folder
-3. **Convert** to Safari App Extension:
-   ```bash
-   xcrun safari-web-extension-converter . --app-name RollCloud
-   ```
-4. **Follow** the Xcode setup prompts
-5. **Build** and run the project (⌘R)
-6. **Enable** the extension in Safari preferences
 
 ## Usage
 
