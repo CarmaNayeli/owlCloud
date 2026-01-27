@@ -24,11 +24,11 @@ async function buildUpdater() {
   }
   
   try {
-    // Build updater for Windows (can be extended for other platforms)
+    // Build updater for Windows and Linux only (macOS requires macOS)
     const platforms = process.argv.includes('--win') ? ['--win'] : 
-                     process.argv.includes('--mac') ? ['--mac'] : 
                      process.argv.includes('--linux') ? ['--linux'] : 
-                     ['--win', '--mac', '--linux'];
+                     process.argv.includes('--mac') ? ['--mac'] : 
+                     ['--win', '--linux']; // Removed --mac from default
     
     for (const platform of platforms) {
       console.log(`📦 Building updater for ${platform}...`);

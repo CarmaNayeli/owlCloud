@@ -91,7 +91,7 @@
     "dnd",
     "ttrpg"
   ],
-  "author": "Dice Cat",
+  "author": "Carmabella <https://carmabella.carrd.co>",
   "license": "MIT",
   "devDependencies": {
     "electron": "^40.0.0",
