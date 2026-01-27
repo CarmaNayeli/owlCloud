@@ -1655,7 +1655,6 @@ function initializePopup() {
         showDiscordStatus('Please sync your DiceCloud account first, then set up Discord.', 'info');
         
         // Switch to login section to guide them
-        document.getElementById('discordSection').classList.add('hidden');
         document.getElementById('mainSection').classList.add('hidden');
         document.getElementById('loginSection').classList.remove('hidden');
         
