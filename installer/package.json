@@ -35,6 +35,10 @@
       {
         "from": "assets/FirefoxDeveloperEdition.exe",
         "to": "installers/FirefoxDeveloperEdition.exe"
+      },
+      {
+        "from": "resources/RollCloud-Updater.exe",
+        "to": "RollCloud-Updater.exe"
       }
     ],
     "win": {

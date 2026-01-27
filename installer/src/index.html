@@ -114,7 +114,21 @@
             <li>Combat turns will appear in Discord!</li>
           </ol>
         </div>
-        <button id="finishSetup" class="btn btn-primary btn-large">Finish Setup</button>
+        <div class="updater-option">
+          <h3>🔄 Optional: Install RollCloud Updater</h3>
+          <p>Install a permanent updater utility to manage extensions without reinstalling:</p>
+          <div style="margin: 15px 0;">
+            <label style="display: flex; align-items: center; cursor: pointer; font-size: 1.1em;">
+              <input type="checkbox" id="installUpdaterCheckbox" checked style="margin-right: 10px; width: 18px; height: 18px;">
+              <span>Install RollCloud Updater (recommended)</span>
+            </label>
+          </div>
+          <div class="button-row">
+            <button id="continueWithUpdaterChoice" class="btn btn-primary">Continue</button>
+          </div>
+          <p class="note">The updater lets you check for updates and manage extensions anytime from your Start Menu.</p>
+        </div>
+        <button id="finishSetup" class="btn btn-primary btn-large">✅ Finish Setup</button>
         <p class="note">Keep this installer handy for future updates.</p>
       </div>
     </section>

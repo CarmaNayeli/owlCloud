@@ -675,9 +675,115 @@ function setupStep3() {
 
 function setupStep4() {
   const finishBtn = document.getElementById('finishSetup');
+  const continueBtn = document.getElementById('continueWithUpdaterChoice');
 
   finishBtn.addEventListener('click', async () => {
     await window.api.quitApp();
+  });
+
+  // Handle continue button with checkbox choice
+  if (continueBtn) {
+    continueBtn.addEventListener('click', async () => {
+      const checkbox = document.getElementById('installUpdaterCheckbox');
+      const shouldInstallUpdater = checkbox && checkbox.checked;
+      
+      if (shouldInstallUpdater) {
+        await installUpdaterUtility();
+      } else {
+        showCompletionMessage();
+      }
+    });
+  }
+}
+
+async function installUpdaterUtility() {
+  const statusText = document.getElementById('browserStatus');
+  
+  statusText.innerHTML = `
+    <div style="color: #ff9500;">🔄 Installing RollCloud Updater...</div>
+    <div style="font-size: 0.9em; margin-top: 5px;">This will install a permanent updater utility on your system.</div>
+    <div style="font-size: 0.85em; margin-top: 5px; color: #666;">The updater allows you to manage extensions without reinstalling.</div>
+  `;
+
+  try {
+    const result = await window.api.installUpdater();
+    
+    if (result.success) {
+      statusText.innerHTML = `
+        <div style="color: #28a745;">✅ Updater installed successfully!</div>
+        <div style="font-size: 0.9em; margin-top: 5px;">${result.message}</div>
+        <div style="font-size: 0.85em; margin-top: 5px; color: #666;">You can now run RollCloud Updater anytime from your Start Menu.</div>
+        <div style="margin-top: 15px;">
+          <button id="btnLaunchUpdater" class="btn btn-primary" style="background: #60a5fa; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+            🚀 Launch Updater
+          </button>
+          <button id="btnFinishAfterUpdater" class="btn btn-secondary" style="background: #4ade80; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+            ✅ Finish Setup
+          </button>
+        </div>
+      `;
+      
+      document.getElementById('btnLaunchUpdater').addEventListener('click', () => {
+        window.api.launchUpdater();
+      });
+      
+      document.getElementById('btnFinishAfterUpdater').addEventListener('click', () => {
+        window.api.quitApp();
+      });
+    } else {
+      statusText.innerHTML = `
+        <div style="color: #dc3545;">❌ Updater installation failed</div>
+        <div style="font-size: 0.9em; margin-top: 5px;">${result.error}</div>
+        <div style="margin-top: 10px;">
+          <button id="btnRetryUpdater" class="btn btn-primary">Retry</button>
+          <button id="btnSkipUpdater" class="btn btn-secondary">Skip</button>
+        </div>
+      `;
+      
+      document.getElementById('btnRetryUpdater').addEventListener('click', () => {
+        installUpdaterUtility();
+      });
+      
+      document.getElementById('btnSkipUpdater').addEventListener('click', () => {
+        showCompletionMessage();
+      });
+    }
+  } catch (error) {
+    statusText.innerHTML = `
+      <div style="color: #dc3545;">❌ Error installing updater</div>
+      <div style="font-size: 0.9em; margin-top: 5px;">${error.message}</div>
+      <div style="margin-top: 10px;">
+        <button id="btnRetryUpdaterError" class="btn btn-primary">Retry</button>
+        <button id="btnSkipUpdaterError" class="btn btn-secondary">Skip</button>
+      </div>
+    `;
+    
+    document.getElementById('btnRetryUpdaterError').addEventListener('click', () => {
+      installUpdaterUtility();
+    });
+    
+    document.getElementById('btnSkipUpdaterError').addEventListener('click', () => {
+      showCompletionMessage();
+    });
+  }
+}
+
+function showCompletionMessage() {
+  const statusText = document.getElementById('browserStatus');
+  
+  statusText.innerHTML = `
+    <div style="color: #4ade80;">✅ Setup Complete!</div>
+    <div style="font-size: 0.9em; margin-top: 5px;">RollCloud extension is ready to use.</div>
+    <div style="font-size: 0.85em; margin-top: 5px; color: #666;">You can install the updater later if needed.</div>
+    <div style="margin-top: 15px;">
+      <button id="btnFinishSetup" class="btn btn-primary" style="background: #4ade80; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+        ✅ Finish Setup
+      </button>
+    </div>
+  `;
+  
+  document.getElementById('btnFinishSetup').addEventListener('click', () => {
+    window.api.quitApp();
   });
 }
 

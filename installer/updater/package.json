@@ -1,0 +1,45 @@
+{
+  "name": "rollcloud-updater",
+  "version": "1.0.0",
+  "description": "RollCloud Extension Updater - Manage and update RollCloud browser extensions",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux"
+  },
+  "build": {
+    "appId": "com.rollcloud.updater",
+    "productName": "RollCloud Updater",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "resources/**/*"
+    ],
+    "win": {
+      "target": "portable",
+      "icon": "resources/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "resources/icon.icns"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "resources/icon.png"
+    }
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.0.0"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.0",
+    "semver": "^7.5.0"
+  }
+}

@@ -1531,42 +1531,52 @@ function initializePopup() {
         // Already connected
         showDiscordConnected(response.serverName || 'Discord Server');
       } else {
-        // Not connected
-        showDiscordNotConnected();
+        // Not connected - skip sync check on initial load to force resync after reinstall
+        showDiscordNotConnected(true);
       }
     } catch (error) {
       debug.error('Error loading Discord state:', error);
-      showDiscordNotConnected();
+      // Skip sync check on initial load to force resync after reinstall
+      showDiscordNotConnected(true);
     }
   }
 
   /**
    * Show the "not connected" state
+   * @param {boolean} skipSessionCheck - If true, skip checking session match and always show "Sync Account"
    */
-  async function showDiscordNotConnected() {
+  async function showDiscordNotConnected(skipSessionCheck = false) {
     document.getElementById('discordNotConnected').style.display = 'block';
     document.getElementById('discordPairing').style.display = 'none';
     document.getElementById('discordConnected').style.display = 'none';
     
-    // Check if user has synced characters in current session to determine button text
+    // Check if current session matches auth token session
+    // Skip session check on initial load to force resync after reinstall
     try {
       const setupBtn = document.getElementById('setupDiscordBtn');
       
       if (setupBtn) {
-        const hasSyncedThisSession = await checkIfUserHasSyncedCharacters();
-        
-        if (hasSyncedThisSession) {
-          // User has synced characters in current session - show Discord setup
-          setupBtn.textContent = '🎮 Setup Discord';
-          setupBtn.title = 'Connect RollCloud to Discord for bot commands';
-        } else {
-          // User hasn't synced any characters this session - show sync prompt
+        if (skipSessionCheck) {
+          // Always show "Sync Account" on initial load (fresh install)
           setupBtn.textContent = '🔄 Sync Account';
           setupBtn.title = 'Sync your DiceCloud characters first, then set up Discord';
+          debug.log('📋 Initial load - forcing sync prompt');
+        } else {
+          const sessionMatches = await checkIfSessionMatches();
+          
+          if (sessionMatches) {
+            // User's session matches - show Discord setup
+            setupBtn.textContent = '🎮 Setup Discord';
+            setupBtn.title = 'Connect RollCloud to Discord for bot commands';
+          } else {
+            // User's session doesn't match - show sync prompt
+            setupBtn.textContent = '🔄 Sync Account';
+            setupBtn.title = 'Your session has changed. Please sync your DiceCloud characters first, then set up Discord';
+          }
         }
       }
     } catch (error) {
-      debug.warn('Could not check sync status for Discord button:', error);
+      debug.warn('Could not check session status for Discord button:', error);
       // Fallback to default text
       const setupBtn = document.getElementById('setupDiscordBtn');
       if (setupBtn) {
@@ -1576,32 +1586,53 @@ function initializePopup() {
   }
 
   /**
-   * Check if the user has synced their account (auth token in database)
+   * Check if the current session matches the auth token's session
+   * Simple validation - if sessions don't match, user needs to resync
    */
-  async function checkIfUserHasSyncedCharacters() {
+  async function checkIfSessionMatches() {
     try {
-      // Check if user has synced their account (auth token stored in database)
-      // This is required for Discord integration to work
-      const loginStatus = await browserAPI.runtime.sendMessage({ action: 'checkLoginStatus' });
+      // Get current session ID from local storage
+      const { currentSessionId } = await browserAPI.storage.local.get(['currentSessionId']);
       
-      if (!loginStatus || !loginStatus.loggedIn) {
-        debug.log('📋 User not logged in - no account sync');
+      if (!currentSessionId) {
+        debug.log('📋 No current session ID - user needs to login');
         return false;
       }
+
+      // Get auth token from database to check its session
+      const supabaseManager = new SupabaseTokenManager();
+      const tokenCheck = await supabaseManager.getTokenFromDatabase();
       
-      // Check if auth token is stored in database (account sync)
-      const storage = await browserAPI.storage.local.get(['diceCloudToken', 'diceCloudUserId']);
-      const hasToken = storage.diceCloudToken && storage.diceCloudUserId;
-      
-      if (hasToken) {
-        debug.log('📋 Account synced - auth token available');
-        return true;
+      if (!tokenCheck.success || !tokenCheck.tokenData) {
+        debug.log('📋 No auth token found - user needs to login');
+        return false;
       }
+
+      const tokenSessionId = tokenCheck.tokenData.session_id;
       
-      debug.log('📋 Account not synced - no auth token in storage');
-      return false;
+      if (!tokenSessionId) {
+        debug.log('📋 No session ID in auth token - user needs to resync');
+        return false;
+      }
+
+      // Simple check: do the session IDs match?
+      const sessionsMatch = currentSessionId === tokenSessionId;
+      
+      debug.log('📋 Session check:', {
+        current: currentSessionId,
+        token: tokenSessionId,
+        match: sessionsMatch
+      });
+
+      if (sessionsMatch) {
+        debug.log('✅ Sessions match - user is properly synced');
+        return true;
+      } else {
+        debug.log('⚠️ Sessions don\'t match - user needs to resync');
+        return false;
+      }
     } catch (error) {
-      debug.warn('Error checking account sync status:', error);
+      debug.warn('Error checking session match:', error);
       return false;
     }
   }
@@ -1647,12 +1678,12 @@ function initializePopup() {
       setupBtn.disabled = true;
       setupBtn.textContent = '⏳ Checking...';
 
-      // Check if user has synced their account (auth token in database)
-      const hasSyncedCharacters = await checkIfUserHasSyncedCharacters();
+      // Check if user's session matches the auth token session
+      const sessionMatches = await checkIfSessionMatches();
       
-      if (!hasSyncedCharacters) {
-        // User hasn't synced their account - guide them to login first
-        showDiscordStatus('Please sync your DiceCloud account first, then set up Discord.', 'info');
+      if (!sessionMatches) {
+        // User's session doesn't match - guide them to login first
+        showDiscordStatus('Your session has changed. Please sync your DiceCloud account first, then set up Discord.', 'info');
         
         // Switch to login section to guide them
         document.getElementById('discordSection').classList.add('hidden');
@@ -1665,7 +1696,7 @@ function initializePopup() {
         return;
       }
 
-      // User has synced their account - proceed with Discord setup
+      // User's session matches - proceed with Discord setup
       setupBtn.textContent = '⏳ Setting up...';
 
       // Check for installer-provided pairing code first
@@ -1740,9 +1771,9 @@ function initializePopup() {
       const setupBtn = document.getElementById('setupDiscordBtn');
       if (setupBtn) {
         setupBtn.disabled = false;
-        // Reset button text based on current session sync status
-        const hasSyncedCharacters = await checkIfUserHasSyncedCharacters();
-        if (hasSyncedCharacters) {
+        // Reset button text based on current session status
+        const sessionMatches = await checkIfSessionMatches();
+        if (sessionMatches) {
           setupBtn.textContent = '🎮 Setup Discord';
         } else {
           setupBtn.textContent = '🔄 Sync Account';

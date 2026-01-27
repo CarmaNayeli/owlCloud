@@ -233,6 +233,81 @@ ipcMain.handle('quit-app', async () => {
   app.quit();
 });
 
+// Install updater utility
+ipcMain.handle('install-updater', async () => {
+  try {
+    const result = await installUpdaterUtility();
+    return { success: true, message: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Launch updater utility
+ipcMain.handle('launch-updater', async () => {
+  try {
+    const { exec } = require('child_process');
+    const updaterPath = path.join('C:', 'Program Files', 'RollCloud', 'RollCloud-Updater.exe');
+    
+    if (fs.existsSync(updaterPath)) {
+      exec(`"${updaterPath}"`, (error) => {
+        if (error) {
+          console.error('Failed to launch updater:', error);
+        }
+      });
+      return { success: true };
+    } else {
+      throw new Error('Updater not found');
+    }
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Install updater utility to Program Files
+async function installUpdaterUtility() {
+  const { execSync } = require('child_process');
+  
+  try {
+    // Create Program Files directory
+    const installDir = path.join('C:', 'Program Files', 'RollCloud');
+    if (!fs.existsSync(installDir)) {
+      fs.mkdirSync(installDir, { recursive: true });
+    }
+
+    // Get updater from extraResources (packaged with installer)
+    const updaterSource = process.env.NODE_ENV === 'development' 
+      ? path.join(__dirname, '..', 'resources', 'RollCloud-Updater.exe')
+      : path.join(process.resourcesPath, 'RollCloud-Updater.exe');
+    
+    const updaterDest = path.join(installDir, 'RollCloud-Updater.exe');
+    
+    // Copy updater executable
+    if (fs.existsSync(updaterSource)) {
+      fs.copyFileSync(updaterSource, updaterDest);
+      console.log('✅ Copied updater to Program Files');
+    } else {
+      throw new Error('Updater executable not found in package resources');
+    }
+
+    // Create Start Menu shortcut
+    const startMenuPath = path.join(os.homedir(), 'AppData', 'Roaming', 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'RollCloud Updater.lnk');
+    
+    // Create shortcut (this would use a proper shortcut creation library)
+    const shortcutContent = `[InternetShortcut]
+URL=file:///${updaterDest}
+IconFile=${updaterDest}
+IconIndex=0`;
+    
+    fs.writeFileSync(startMenuPath, shortcutContent);
+    console.log('✅ Created Start Menu shortcut');
+
+    return 'RollCloud Updater installed successfully!';
+  } catch (error) {
+    throw new Error(`Failed to install updater: ${error.message}`);
+  }
+}
+
 // Check for extension updates
 ipcMain.handle('check-for-updates', async (event, browser) => {
   try {

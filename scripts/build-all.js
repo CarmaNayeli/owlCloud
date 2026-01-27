@@ -42,6 +42,38 @@ function run(command, options = {}) {
   }
 }
 
+// Helper to check if a command exists
+function commandExists(command) {
+  try {
+    execSync(`which ${command}`, { stdio: 'ignore' });
+    return true;
+  } catch {
+    try {
+      execSync(`where ${command}`, { stdio: 'ignore' });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
+// Helper to check if we can build installer components
+function canBuildInstaller() {
+  // Check for Node.js and npm
+  if (!commandExists('node') || !commandExists('npm')) {
+    return false;
+  }
+  
+  // Check if installer directory exists and has package.json
+  const installerPackageJson = path.join(INSTALLER_DIR, 'package.json');
+  return fs.existsSync(installerPackageJson);
+}
+
+// Helper to check if we can sign extensions
+function canSignExtensions() {
+  return commandExists('openssl') || fs.existsSync(path.join(ROOT_DIR, 'keys', 'private.pem'));
+}
+
 // Print section header
 function printSection(title) {
   console.log('\n' + '='.repeat(60));
@@ -63,6 +95,8 @@ async function buildAll() {
   console.log(`   Version: ${require(path.join(ROOT_DIR, 'package.json')).version}`);
   console.log(`   Platform: ${process.platform}`);
   console.log(`   Node: ${process.version}`);
+  console.log(`   Can build installer: ${canBuildInstaller()}`);
+  console.log(`   Can sign extensions: ${canSignExtensions()}`);
   console.log(`   Skip Installer: ${skipInstaller}`);
   console.log(`   Skip Signing: ${skipSigning}`);
 
@@ -98,7 +132,7 @@ async function buildAll() {
   // ============================================================================
   // Step 2: Sign Extensions (Chrome CRX + Firefox XPI)
   // ============================================================================
-  if (!skipSigning) {
+  if (!skipSigning && canSignExtensions()) {
     printSection('Step 2: Signing Extensions');
 
     // Check for signing keys
@@ -165,7 +199,7 @@ async function buildAll() {
   // ============================================================================
   // Step 3: Build Installer
   // ============================================================================
-  if (!skipInstaller) {
+  if (!skipInstaller && canBuildInstaller()) {
     printSection('Step 3: Building Installer');
 
     // Verify signed extensions exist for installer
@@ -203,23 +237,25 @@ async function buildAll() {
   // ============================================================================
   printSection('Step 4: Copying to Releases Folder');
 
-  // Ensure releases directory exists
-  if (!fs.existsSync(RELEASES_DIR)) {
-    fs.mkdirSync(RELEASES_DIR, { recursive: true });
+  // Clear releases directory to ensure only current build assets
+  if (fs.existsSync(RELEASES_DIR)) {
+    console.log('   🧹 Clearing releases directory...');
+    fs.rmSync(RELEASES_DIR, { recursive: true });
   }
+  fs.mkdirSync(RELEASES_DIR, { recursive: true });
 
   // Get version from package.json
   const packageJson = require(path.join(ROOT_DIR, 'package.json'));
   const version = packageJson.version;
 
-  // Files to copy to releases (for GitHub release uploads)
-  // Non-versioned names only — version is in the GitHub release tag
+  // Files to copy to releases (ONLY GitHub release assets)
   const releaseFiles = [
     { src: 'rollcloud-chrome-signed.crx', dest: 'rollcloud-chrome-signed.crx' },
     { src: 'rollcloud-chrome-signed.id', dest: 'rollcloud-chrome-signed.id' },
     { src: 'rollcloud-firefox-signed.xpi', dest: 'rollcloud-firefox-signed.xpi' },
     { src: 'rollcloud-chrome.zip', dest: 'rollcloud-chrome.zip' },
     { src: 'rollcloud-firefox.zip', dest: 'rollcloud-firefox.zip' },
+    { src: 'rollcloud-safari.zip', dest: 'rollcloud-safari.zip' },
   ];
 
   let copiedCount = 0;
@@ -241,7 +277,7 @@ async function buildAll() {
   console.log(`\n   Copied ${copiedCount} files to releases/`);
 
   // Copy installer files from installer/dist/ to releases/
-  if (!skipInstaller) {
+  if (!skipInstaller && canBuildInstaller()) {
     console.log('\n   Copying installer files...');
     const installerDistDir = path.join(INSTALLER_DIR, 'dist');
 
@@ -343,7 +379,10 @@ async function buildAll() {
   console.log(`         - rollcloud-firefox-signed.xpi (for Firefox install)`);
   console.log(`         - rollcloud-chrome.zip (for manual Chrome install)`);
   console.log(`         - rollcloud-firefox.zip (for manual Firefox install)`);
-  if (!skipInstaller) {
+  if (fs.existsSync(path.join(RELEASES_DIR, 'rollcloud-safari.zip'))) {
+    console.log(`         - rollcloud-safari.zip (for Safari)`);
+  }
+  if (!skipInstaller && canBuildInstaller()) {
     console.log(`       Installers:`);
     console.log(`         - RollCloud-Setup.exe (Windows installer)`);
     console.log(`         - RollCloud-Setup.dmg (macOS installer)`);
