@@ -88,6 +88,10 @@ class SupabaseTokenManager {
     try {
       debug.log('🌐 Storing token in Supabase...');
 
+      // Clear any previous invalidation/conflict info FIRST when logging in
+      // This prevents stale data from causing login failures
+      await browserAPI.storage.local.remove(['sessionInvalidated', 'sessionConflict']);
+
       // Use browser fingerprint for consistent storage/retrieval
       const visitorId = this.generateUserId();
       const sessionId = this.generateSessionId();
@@ -109,9 +113,6 @@ class SupabaseTokenManager {
 
       // Normalize token_expires to ISO 8601 format for PostgreSQL
       const normalizedTokenExpires = this.normalizeDate(tokenData.tokenExpires);
-
-      // Clear any previous invalidation info when logging in
-      await browserAPI.storage.local.remove(['sessionInvalidated', 'sessionConflict']);
 
       const payload = {
         user_id: visitorId, // Browser fingerprint for cross-session lookup
@@ -735,10 +736,14 @@ class SupabaseTokenManager {
   /**
    * Invalidate all other sessions for the same DiceCloud account
    * Called when logging in to ensure only one browser is logged in at a time
+   * Only invalidates sessions from OTHER browsers (different user_id)
    */
   async invalidateOtherSessions(diceCloudUserId, currentSessionId) {
     try {
       debug.log('🔒 Invalidating other sessions for DiceCloud user:', diceCloudUserId);
+
+      // Get our browser fingerprint to exclude our own sessions
+      const ourBrowserId = this.generateUserId();
 
       // Find all sessions for this DiceCloud account
       const response = await fetch(
@@ -759,35 +764,39 @@ class SupabaseTokenManager {
       const otherSessions = await response.json();
       debug.log('🔍 Found sessions for this account:', otherSessions.length);
 
-      // Mark all OTHER sessions as invalidated (not our current session)
+      // Mark sessions from OTHER browsers as invalidated (exclude our browser)
       for (const session of otherSessions) {
-        if (session.session_id !== currentSessionId) {
-          debug.log('🚫 Invalidating session:', session.session_id, 'for browser:', session.user_id);
+        // Skip our own browser's sessions - we're replacing them, not invalidating
+        if (session.user_id === ourBrowserId) {
+          debug.log('⏭️ Skipping our own browser session:', session.session_id);
+          continue;
+        }
 
-          // Update the session to mark it as invalidated
-          const invalidateResponse = await fetch(
-            `${this.supabaseUrl}/rest/v1/${this.tableName}?user_id=eq.${session.user_id}`,
-            {
-              method: 'PATCH',
-              headers: {
-                'apikey': this.supabaseKey,
-                'Authorization': `Bearer ${this.supabaseKey}`,
-                'Content-Type': 'application/json',
-                'Prefer': 'return=minimal'
-              },
-              body: JSON.stringify({
-                invalidated_at: new Date().toISOString(),
-                invalidated_by_session: currentSessionId,
-                invalidated_reason: 'logged_in_elsewhere'
-              })
-            }
-          );
+        debug.log('🚫 Invalidating session from other browser:', session.session_id, 'browser:', session.user_id);
 
-          if (invalidateResponse.ok) {
-            debug.log('✅ Session invalidated:', session.session_id);
-          } else {
-            debug.warn('⚠️ Failed to invalidate session:', session.session_id);
+        // Update the session to mark it as invalidated
+        const invalidateResponse = await fetch(
+          `${this.supabaseUrl}/rest/v1/${this.tableName}?user_id=eq.${session.user_id}`,
+          {
+            method: 'PATCH',
+            headers: {
+              'apikey': this.supabaseKey,
+              'Authorization': `Bearer ${this.supabaseKey}`,
+              'Content-Type': 'application/json',
+              'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify({
+              invalidated_at: new Date().toISOString(),
+              invalidated_by_session: currentSessionId,
+              invalidated_reason: 'logged_in_elsewhere'
+            })
           }
+        );
+
+        if (invalidateResponse.ok) {
+          debug.log('✅ Session invalidated:', session.session_id);
+        } else {
+          debug.warn('⚠️ Failed to invalidate session:', session.session_id);
         }
       }
     } catch (error) {
