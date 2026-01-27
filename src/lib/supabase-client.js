@@ -25,7 +25,8 @@ class SupabaseTokenManager {
     const fingerprint = [
       navigator.userAgent,
       navigator.language,
-      screen.width + 'x' + screen.height,
+      // Use fallback for screen in service workers
+      (typeof screen !== 'undefined' ? screen.width + 'x' + screen.height : 'unknown'),
       new Date().getTimezoneOffset()
     ].join('|');
     
@@ -47,7 +48,8 @@ class SupabaseTokenManager {
     const sessionData = [
       navigator.userAgent,
       navigator.language,
-      screen.width + 'x' + screen.height,
+      // Use fallback for screen in service workers
+      (typeof screen !== 'undefined' ? screen.width + 'x' + screen.height : 'unknown'),
       new Date().getTimezoneOffset(),
       Math.random().toString(36),
       Date.now().toString(36)
@@ -1050,6 +1052,9 @@ class SupabaseTokenManager {
 // Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = SupabaseTokenManager;
-} else {
+} else if (typeof window !== 'undefined') {
   window.SupabaseTokenManager = SupabaseTokenManager;
+} else if (typeof self !== 'undefined') {
+  // Service worker context
+  self.SupabaseTokenManager = SupabaseTokenManager;
 }
