@@ -70,6 +70,7 @@
         "src/common/html-utils.js",
         "src/modules/color-utils.js",
         "src/modules/card-creator.js",
+        "src/modules/action-executor.js",
         "src/modules/spell-edge-cases.js",
         "src/modules/class-feature-edge-cases.js",
         "src/modules/racial-feature-edge-cases.js",

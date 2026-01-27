@@ -1,13 +1,25 @@
 debug.log('✅ Popup HTML loaded');
 
-// Import spell edge cases
-import { SPELL_EDGE_CASES, isEdgeCase, getEdgeCase, applyEdgeCaseModifications, isReuseableSpell, isTooComplicatedSpell } from './modules/spell-edge-cases.js';
-// Import class feature edge cases
-import { CLASS_FEATURE_EDGE_CASES, isClassFeatureEdgeCase, getClassFeatureEdgeCase, applyClassFeatureEdgeCaseModifications } from './modules/class-feature-edge-cases.js';
-// Import racial feature edge cases
-import { RACIAL_FEATURE_EDGE_CASES, isRacialFeatureEdgeCase, getRacialFeatureEdgeCase, applyRacialFeatureEdgeCaseModifications } from './modules/racial-feature-edge-cases.js';
-// Import combat maneuver edge cases
-import { COMBAT_MANEUVER_EDGE_CASES, isCombatManeuverEdgeCase, getCombatManeuverEdgeCase, applyCombatManeuverEdgeCaseModifications } from './modules/combat-maneuver-edge-cases.js';
+// Import all D&D logic from centralized action executor
+import {
+  // Spell edge cases
+  SPELL_EDGE_CASES, isEdgeCase, getEdgeCase, applyEdgeCaseModifications, isReuseableSpell, isTooComplicatedSpell,
+  // Class feature edge cases
+  CLASS_FEATURE_EDGE_CASES, isClassFeatureEdgeCase, getClassFeatureEdgeCase, applyClassFeatureEdgeCaseModifications,
+  // Racial feature edge cases
+  RACIAL_FEATURE_EDGE_CASES, isRacialFeatureEdgeCase, getRacialFeatureEdgeCase, applyRacialFeatureEdgeCaseModifications,
+  // Combat maneuver edge cases
+  COMBAT_MANEUVER_EDGE_CASES, isCombatManeuverEdgeCase, getCombatManeuverEdgeCase, applyCombatManeuverEdgeCaseModifications,
+  // Metamagic & resource logic
+  METAMAGIC_COSTS,
+  calculateMetamagicCost as executorCalculateMetamagicCost,
+  getAvailableMetamagic as executorGetAvailableMetamagic,
+  getSorceryPointsResource as executorGetSorceryPointsResource,
+  isMagicItemSpell, isFreeSpell,
+  detectClassResources as executorDetectClassResources,
+  // Execution functions
+  resolveSpellCast, resolveActionUse
+} from './modules/action-executor.js';
 
 // Initialize theme manager
 if (typeof ThemeManager !== 'undefined') {
@@ -6103,76 +6115,7 @@ function castSpell(spell, index, afterCast = null, selectedSlotLevel = null, sel
 }
 
 function detectClassResources(spell) {
-  const resources = [];
-  const otherVars = characterData.otherVariables || {};
-
-  // Check for Ki (Monk)
-  if (otherVars.ki !== undefined || otherVars.kiPoints !== undefined) {
-    const ki = otherVars.ki || otherVars.kiPoints || 0;
-    const kiMax = otherVars.kiMax || otherVars.kiPointsMax || 0;
-    const kiVarName = otherVars.ki !== undefined ? 'ki' : 'kiPoints';
-    // Always include Ki if max > 0, even when current is 0 (for proper sync)
-    if (kiMax > 0) {
-      resources.push({
-        name: 'Ki',
-        current: ki,
-        max: kiMax,
-        varName: kiVarName,
-        variableName: kiVarName // Add variableName for resource deduction
-      });
-    }
-  }
-
-  // NOTE: Sorcery Points are NOT a casting resource - they're only used for metamagic
-  // Metamagic is handled in the spell slot casting flow, not as an alternative resource
-
-  // Check for Pact Magic slots (Warlock)
-  if (otherVars.pactMagicSlots !== undefined) {
-    const slots = otherVars.pactMagicSlots || 0;
-    const slotsMax = otherVars.pactMagicSlotsMax || 0;
-    // Always include Pact Magic if max > 0, even when current is 0 (for proper sync)
-    if (slotsMax > 0) {
-      resources.push({
-        name: 'Pact Magic',
-        current: slots,
-        max: slotsMax,
-        varName: 'pactMagicSlots',
-        variableName: 'pactMagicSlots' // Add variableName for resource deduction
-      });
-    }
-  }
-
-  // Check for Channel Divinity (Cleric/Paladin)
-  // Try class-specific variable names first (channelDivinityCleric, channelDivinityPaladin), then fall back to generic
-  let channelDivinityVarName = null;
-  let channelDivinityUses = 0;
-  let channelDivinityMax = 0;
-
-  if (otherVars.channelDivinityCleric !== undefined) {
-    channelDivinityVarName = 'channelDivinityCleric';
-    channelDivinityUses = otherVars.channelDivinityCleric || 0;
-    channelDivinityMax = otherVars.channelDivinityClericMax || 0;
-  } else if (otherVars.channelDivinityPaladin !== undefined) {
-    channelDivinityVarName = 'channelDivinityPaladin';
-    channelDivinityUses = otherVars.channelDivinityPaladin || 0;
-    channelDivinityMax = otherVars.channelDivinityPaladinMax || 0;
-  } else if (otherVars.channelDivinity !== undefined) {
-    channelDivinityVarName = 'channelDivinity';
-    channelDivinityUses = otherVars.channelDivinity || 0;
-    channelDivinityMax = otherVars.channelDivinityMax || 0;
-  }
-
-  if (channelDivinityVarName && channelDivinityMax > 0) {
-    resources.push({
-      name: 'Channel Divinity',
-      current: channelDivinityUses,
-      max: channelDivinityMax,
-      varName: channelDivinityVarName,
-      variableName: channelDivinityVarName // Add variableName for resource deduction
-    });
-  }
-
-  return resources;
+  return executorDetectClassResources(characterData);
 }
 
 function showResourceChoice(spell, spellLevel, spellSlots, maxSlots, classResources) {
@@ -6937,87 +6880,13 @@ function announceSpellCast(spell, resourceUsed) {
 // ===== METAMAGIC SYSTEM =====
 
 function getAvailableMetamagic() {
-  // Metamagic costs (in sorcery points)
-  const metamagicCosts = {
-    'Careful Spell': 1,
-    'Distant Spell': 1,
-    'Empowered Spell': 1,
-    'Extended Spell': 1,
-    'Heightened Spell': 3,
-    'Quickened Spell': 2,
-    'Subtle Spell': 1,
-    'Twinned Spell': 'variable' // Cost equals spell level (min 1 for cantrips)
-  };
-
-  if (!characterData || !characterData.features) {
-    debug.log('🔮 No characterData or features for metamagic detection');
-    return [];
-  }
-
-  // DEBUG: Log all features to see what we have
-  debug.log('🔮 All character features:', characterData.features.map(f => f.name));
-
-  // Find metamagic features (case-insensitive matching)
-  const metamagicOptions = characterData.features.filter(feature => {
-    const name = feature.name.trim();
-    // Try exact match first
-    let matchedName = null;
-    if (metamagicCosts.hasOwnProperty(name)) {
-      matchedName = name;
-    } else {
-      // Try case-insensitive match
-      matchedName = Object.keys(metamagicCosts).find(key =>
-        key.toLowerCase() === name.toLowerCase()
-      );
-    }
-
-    if (matchedName) {
-      debug.log(`🔮 Found metamagic feature: "${name}" (matched as "${matchedName}")`);
-      feature._matchedName = matchedName; // Store for later use
-      return true;
-    }
-    return false;
-  }).map(feature => {
-    const matchedName = feature._matchedName || feature.name.trim();
-    return {
-      name: matchedName,
-      cost: metamagicCosts[matchedName],
-      description: feature.description || ''
-    };
-  });
-
-  debug.log('🔮 Found metamagic options:', metamagicOptions.map(m => m.name));
-  return metamagicOptions;
+  const options = executorGetAvailableMetamagic(characterData);
+  debug.log('🔮 Found metamagic options:', options.map(m => m.name));
+  return options;
 }
 
 function getSorceryPointsResource() {
-  if (!characterData || !characterData.resources) {
-    debug.log('🔮 No characterData or resources for sorcery points detection');
-    return null;
-  }
-
-  // DEBUG: Log all resources to see what we have
-  debug.log('🔮 All character resources:', characterData.resources.map(r => ({ name: r.name, current: r.current, max: r.max })));
-
-  // Find sorcery points in resources (flexible matching)
-  const sorceryResource = characterData.resources.find(r => {
-    const lowerName = r.name.toLowerCase().trim();
-    const isSorceryPoints =
-      lowerName.includes('sorcery point') ||
-      lowerName === 'sorcery points' ||
-      lowerName === 'sorcery' ||
-      lowerName.includes('sorcerer point');
-    if (isSorceryPoints) {
-      debug.log(`🔮 Found sorcery points resource: "${r.name}" (${r.current}/${r.max})`);
-    }
-    return isSorceryPoints;
-  });
-
-  if (!sorceryResource) {
-    debug.log('🔮 No sorcery points resource found');
-  }
-
-  return sorceryResource || null;
+  return executorGetSorceryPointsResource(characterData);
 }
 
 function getKiPointsResource() {
@@ -7743,23 +7612,7 @@ function decrementActionResources(action) {
 }
 
 function calculateMetamagicCost(metamagicName, spellLevel) {
-  const metamagicCosts = {
-    'Careful Spell': 1,
-    'Distant Spell': 1,
-    'Empowered Spell': 1,
-    'Extended Spell': 1,
-    'Heightened Spell': 3,
-    'Quickened Spell': 2,
-    'Subtle Spell': 1,
-    'Twinned Spell': 'variable'
-  };
-
-  const cost = metamagicCosts[metamagicName];
-  if (cost === 'variable') {
-    // Twinned Spell costs spell level (minimum 1 for cantrips)
-    return Math.max(1, spellLevel);
-  }
-  return cost || 0;
+  return executorCalculateMetamagicCost(metamagicName, spellLevel);
 }
 
 function showConvertSlotToPointsModal() {
