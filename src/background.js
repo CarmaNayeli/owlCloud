@@ -247,6 +247,14 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
           break;
         }
 
+        case 'toggleGMMode': {
+          // Forward GM Mode toggle to all Roll20 tabs
+          debug.log('👑 Received toggleGMMode request, forwarding to Roll20 tabs');
+          await sendGMModeToggleToRoll20Tabs(request.enabled);
+          response = { success: true };
+          break;
+        }
+
         case 'createDiscordPairing': {
           const pairingResult = await createDiscordPairing(request.code, request.username, request.diceCloudUserId);
           response = pairingResult;
