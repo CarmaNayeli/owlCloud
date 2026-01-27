@@ -11,6 +11,25 @@ if (typeof importScripts === 'function' && typeof chrome !== 'undefined') {
 
 debug.log('RollCloud: Background script starting...');
 
+// Add startup storage check to debug auth persistence
+(async () => {
+  try {
+    const startupStorage = await browserAPI.storage.local.get(['diceCloudToken', 'diceCloudUserId', 'tokenExpires', 'username', 'explicitlyLoggedOut']);
+    debug.log('🚀 Background script startup storage state:', {
+      hasToken: !!startupStorage.diceCloudToken,
+      tokenLength: startupStorage.diceCloudToken ? startupStorage.diceCloudToken.length : 0,
+      tokenStart: startupStorage.diceCloudToken ? startupStorage.diceCloudToken.substring(0, 20) + '...' : 'none',
+      username: startupStorage.username,
+      diceCloudUserId: startupStorage.diceCloudUserId,
+      tokenExpires: startupStorage.tokenExpires,
+      explicitlyLoggedOut: startupStorage.explicitlyLoggedOut,
+      allKeys: Object.keys(startupStorage)
+    });
+  } catch (error) {
+    debug.error('Failed to check startup storage:', error);
+  }
+})();
+
 // Detect browser and use appropriate API
 // For Firefox, use the native Promise-based 'browser' API
 // For Chrome, use native 'chrome' API directly (no polyfill needed in service worker)
@@ -452,6 +471,14 @@ async function loginToDiceCloud(username, password) {
  */
 async function setApiToken(token, userId = null, tokenExpires = null, username = null) {
   try {
+    debug.log('🔐 setApiToken called:', {
+      tokenLength: token ? token.length : 0,
+      tokenStart: token ? token.substring(0, 20) + '...' : 'none',
+      userId,
+      tokenExpires,
+      username
+    });
+
     // Validate token format (basic check)
     if (!token || token.length < 10) {
       throw new Error('Invalid API token format');
@@ -486,6 +513,15 @@ async function setApiToken(token, userId = null, tokenExpires = null, username =
       }
     }
 
+    // Verify the token was stored correctly
+    const verification = await browserAPI.storage.local.get(['diceCloudToken', 'diceCloudUserId', 'tokenExpires', 'username']);
+    debug.log('✅ setApiToken verification:', {
+      storedToken: verification.diceCloudToken ? verification.diceCloudToken.substring(0, 20) + '...' : 'none',
+      storedUserId: verification.diceCloudUserId,
+      storedUsername: verification.username,
+      storedExpires: verification.tokenExpires
+    });
+
     debug.log('Successfully stored API token');
     return { success: true };
   } catch (error) {
@@ -501,8 +537,17 @@ async function setApiToken(token, userId = null, tokenExpires = null, username =
 async function getApiToken() {
   try {
     const result = await browserAPI.storage.local.get(['diceCloudToken', 'tokenExpires']);
+    
+    debug.log('🔍 getApiToken called, storage result:', {
+      hasToken: !!result.diceCloudToken,
+      tokenLength: result.diceCloudToken ? result.diceCloudToken.length : 0,
+      tokenStart: result.diceCloudToken ? result.diceCloudToken.substring(0, 20) + '...' : 'none',
+      tokenExpires: result.tokenExpires,
+      allKeys: Object.keys(result)
+    });
 
     if (!result.diceCloudToken) {
+      debug.warn('❌ No diceCloudToken found in storage');
       return null;
     }
 
@@ -540,6 +585,7 @@ async function getApiToken() {
       }
     }
 
+    debug.log('✅ getApiToken returning valid token');
     return result.diceCloudToken;
   } catch (error) {
     debug.error('Failed to retrieve API token:', error);
@@ -554,8 +600,19 @@ async function getApiToken() {
 async function checkLoginStatus() {
   try {
     const result = await browserAPI.storage.local.get(['diceCloudToken', 'username', 'tokenExpires', 'diceCloudUserId']);
+    
+    debug.log('🔍 checkLoginStatus called, storage result:', {
+      hasToken: !!result.diceCloudToken,
+      tokenLength: result.diceCloudToken ? result.diceCloudToken.length : 0,
+      tokenStart: result.diceCloudToken ? result.diceCloudToken.substring(0, 20) + '...' : 'none',
+      username: result.username,
+      diceCloudUserId: result.diceCloudUserId,
+      tokenExpires: result.tokenExpires,
+      allKeys: Object.keys(result)
+    });
 
     if (!result.diceCloudToken) {
+      debug.warn('❌ checkLoginStatus: No diceCloudToken found');
       return { loggedIn: false };
     }
 
@@ -593,6 +650,7 @@ async function checkLoginStatus() {
       }
     }
 
+    debug.log('✅ checkLoginStatus: User is logged in');
     return {
       loggedIn: true,
       username: result.username || 'DiceCloud User',
@@ -609,10 +667,24 @@ async function checkLoginStatus() {
  */
 async function logout() {
   try {
+    debug.warn('🚪 logout() called - getting current storage state...');
+    
+    // Get current state before clearing
+    const currentState = await browserAPI.storage.local.get(['diceCloudToken', 'diceCloudUserId', 'tokenExpires', 'username', 'explicitlyLoggedOut']);
+    debug.log('🔍 Current storage before logout:', {
+      hasToken: !!currentState.diceCloudToken,
+      tokenLength: currentState.diceCloudToken ? currentState.diceCloudToken.length : 0,
+      username: currentState.username,
+      diceCloudUserId: currentState.diceCloudUserId,
+      tokenExpires: currentState.tokenExpires,
+      explicitlyLoggedOut: currentState.explicitlyLoggedOut
+    });
+
     // Set flag first to prevent autoRefreshToken from re-saving the token
     await browserAPI.storage.local.set({ explicitlyLoggedOut: true });
     await browserAPI.storage.local.remove(['diceCloudToken', 'diceCloudUserId', 'tokenExpires', 'username']);
-    debug.log('Logged out successfully');
+    
+    debug.warn('🚪 logout() completed - storage cleared');
   } catch (error) {
     debug.error('Failed to logout:', error);
     throw error;
