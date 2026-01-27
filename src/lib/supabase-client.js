@@ -92,9 +92,15 @@ class SupabaseTokenManager {
       const visitorId = this.generateUserId();
       const sessionId = this.generateSessionId();
 
-      // Check for existing sessions with different tokens
+      // Invalidate all OTHER sessions for this DiceCloud account (different browsers)
+      // This ensures only one browser can be logged in at a time per account
+      if (tokenData.userId) {
+        await this.invalidateOtherSessions(tokenData.userId, sessionId);
+      }
+
+      // Check for existing sessions with different tokens (same browser, different account)
       const conflictCheck = await this.checkForTokenConflicts(visitorId, tokenData.token);
-      
+
       if (conflictCheck.hasConflict) {
         debug.log('⚠️ Token conflict detected - different browser logged in');
         // Store conflict info for later display
@@ -103,6 +109,9 @@ class SupabaseTokenManager {
 
       // Normalize token_expires to ISO 8601 format for PostgreSQL
       const normalizedTokenExpires = this.normalizeDate(tokenData.tokenExpires);
+
+      // Clear any previous invalidation info when logging in
+      await browserAPI.storage.local.remove(['sessionInvalidated', 'sessionConflict']);
 
       const payload = {
         user_id: visitorId, // Browser fingerprint for cross-session lookup
@@ -118,7 +127,11 @@ class SupabaseTokenManager {
           sessionId: sessionId
         },
         updated_at: new Date().toISOString(),
-        last_seen: new Date().toISOString()
+        last_seen: new Date().toISOString(),
+        // Clear any previous invalidation (this is a fresh login)
+        invalidated_at: null,
+        invalidated_by_session: null,
+        invalidated_reason: null
       };
 
       // Only include Discord fields if provided, to avoid overwriting existing data with null
@@ -168,7 +181,11 @@ class SupabaseTokenManager {
             sessionId: sessionId
           },
           updated_at: new Date().toISOString(),
-          last_seen: new Date().toISOString()
+          last_seen: new Date().toISOString(),
+          // Clear any previous invalidation (this is a fresh login)
+          invalidated_at: null,
+          invalidated_by_session: null,
+          invalidated_reason: null
         };
 
         // Only include Discord fields if provided, to avoid overwriting existing data with null
@@ -250,13 +267,41 @@ class SupabaseTokenManager {
       if (data && data.length > 0) {
         const tokenData = data[0];
         debug.log('🔍 Found token data:', tokenData);
-        
+
+        // Check if this session was invalidated by another login
+        if (tokenData.invalidated_at) {
+          debug.log('🚫 Session was invalidated at:', tokenData.invalidated_at);
+          debug.log('🚫 Invalidated reason:', tokenData.invalidated_reason);
+
+          // Clear local auth data to prevent auto-restore loops
+          await browserAPI.storage.local.remove(['diceCloudToken', 'diceCloudUserId', 'tokenExpires', 'username', 'currentSessionId']);
+
+          // Store info about who logged us out for display
+          await browserAPI.storage.local.set({
+            sessionInvalidated: {
+              at: tokenData.invalidated_at,
+              reason: tokenData.invalidated_reason || 'logged_in_elsewhere',
+              bySession: tokenData.invalidated_by_session
+            }
+          });
+
+          // Delete the invalidated record from Supabase to clean up
+          await this.deleteToken();
+
+          return {
+            success: false,
+            error: 'Session invalidated',
+            invalidated: true,
+            reason: tokenData.invalidated_reason || 'Another browser logged in with this account'
+          };
+        }
+
         // Check if token is expired
         if (tokenData.token_expires) {
           const expiryDate = new Date(tokenData.token_expires);
           const now = new Date();
           debug.log('⏰ Token expiry check:', { expiryDate, now, expired: now >= expiryDate });
-          
+
           if (now >= expiryDate) {
             debug.log('⚠️ Supabase token expired, removing...');
             await this.deleteToken();
@@ -688,6 +733,69 @@ class SupabaseTokenManager {
   }
 
   /**
+   * Invalidate all other sessions for the same DiceCloud account
+   * Called when logging in to ensure only one browser is logged in at a time
+   */
+  async invalidateOtherSessions(diceCloudUserId, currentSessionId) {
+    try {
+      debug.log('🔒 Invalidating other sessions for DiceCloud user:', diceCloudUserId);
+
+      // Find all sessions for this DiceCloud account
+      const response = await fetch(
+        `${this.supabaseUrl}/rest/v1/${this.tableName}?user_id_dicecloud=eq.${diceCloudUserId}&select=user_id,session_id,username,browser_info`,
+        {
+          headers: {
+            'apikey': this.supabaseKey,
+            'Authorization': `Bearer ${this.supabaseKey}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        debug.warn('⚠️ Failed to fetch other sessions:', response.status);
+        return;
+      }
+
+      const otherSessions = await response.json();
+      debug.log('🔍 Found sessions for this account:', otherSessions.length);
+
+      // Mark all OTHER sessions as invalidated (not our current session)
+      for (const session of otherSessions) {
+        if (session.session_id !== currentSessionId) {
+          debug.log('🚫 Invalidating session:', session.session_id, 'for browser:', session.user_id);
+
+          // Update the session to mark it as invalidated
+          const invalidateResponse = await fetch(
+            `${this.supabaseUrl}/rest/v1/${this.tableName}?user_id=eq.${session.user_id}`,
+            {
+              method: 'PATCH',
+              headers: {
+                'apikey': this.supabaseKey,
+                'Authorization': `Bearer ${this.supabaseKey}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=minimal'
+              },
+              body: JSON.stringify({
+                invalidated_at: new Date().toISOString(),
+                invalidated_by_session: currentSessionId,
+                invalidated_reason: 'logged_in_elsewhere'
+              })
+            }
+          );
+
+          if (invalidateResponse.ok) {
+            debug.log('✅ Session invalidated:', session.session_id);
+          } else {
+            debug.warn('⚠️ Failed to invalidate session:', session.session_id);
+          }
+        }
+      }
+    } catch (error) {
+      debug.error('❌ Error invalidating other sessions:', error);
+    }
+  }
+
+  /**
    * Check for token conflicts with existing sessions
    */
   async checkForTokenConflicts(userId, newToken) {
@@ -755,10 +863,20 @@ class SupabaseTokenManager {
    */
   async checkSessionValidity() {
     try {
-      const { currentSessionId, sessionConflict } = await browserAPI.storage.local.get(['currentSessionId', 'sessionConflict']);
-      
+      const { currentSessionId, sessionConflict, sessionInvalidated } = await browserAPI.storage.local.get(['currentSessionId', 'sessionConflict', 'sessionInvalidated']);
+
       if (!currentSessionId) {
         return { valid: true, reason: 'no_session' };
+      }
+
+      // Check if we already have an invalidation notification (another browser logged in)
+      if (sessionInvalidated) {
+        return {
+          valid: false,
+          reason: 'invalidated_by_other_login',
+          invalidatedAt: sessionInvalidated.at,
+          invalidatedReason: sessionInvalidated.reason
+        };
       }
 
       // Check if we already have a conflict notification
@@ -766,13 +884,10 @@ class SupabaseTokenManager {
         return { valid: false, reason: 'conflict_detected', conflict: sessionConflict };
       }
 
-      // Update last_seen timestamp to keep session alive
-      await this.updateSessionHeartbeat(currentSessionId);
-
-      // Verify session still exists in Supabase with same token
+      // Verify session still exists in Supabase and check for invalidation
       const userId = this.generateUserId();
       const response = await fetch(
-        `${this.supabaseUrl}/rest/v1/${this.tableName}?user_id=eq.${userId}&session_id=eq.${currentSessionId}&select=dicecloud_token,username`,
+        `${this.supabaseUrl}/rest/v1/${this.tableName}?user_id=eq.${userId}&select=dicecloud_token,username,session_id,invalidated_at,invalidated_reason,invalidated_by_session`,
         {
           headers: {
             'apikey': this.supabaseKey,
@@ -786,16 +901,48 @@ class SupabaseTokenManager {
       }
 
       const sessions = await response.json();
-      
+
       if (sessions.length === 0) {
         return { valid: false, reason: 'session_not_found' };
       }
 
+      const session = sessions[0];
+
+      // Check if session was invalidated by another login
+      if (session.invalidated_at) {
+        debug.log('🚫 Session was invalidated by another login at:', session.invalidated_at);
+
+        // Store invalidation info locally so we don't keep checking
+        await browserAPI.storage.local.set({
+          sessionInvalidated: {
+            at: session.invalidated_at,
+            reason: session.invalidated_reason || 'logged_in_elsewhere',
+            bySession: session.invalidated_by_session
+          }
+        });
+
+        return {
+          valid: false,
+          reason: 'invalidated_by_other_login',
+          invalidatedAt: session.invalidated_at,
+          invalidatedReason: session.invalidated_reason
+        };
+      }
+
+      // Check if session ID matches (another browser might have taken over)
+      if (session.session_id !== currentSessionId) {
+        debug.log('⚠️ Session ID mismatch - session was replaced');
+        return { valid: false, reason: 'session_replaced' };
+      }
+
       // Check if local token matches remote token
       const { diceCloudToken } = await browserAPI.storage.local.get('diceCloudToken');
-      if (diceCloudToken && sessions[0].dicecloud_token !== diceCloudToken) {
+      if (diceCloudToken && session.dicecloud_token !== diceCloudToken) {
         return { valid: false, reason: 'token_mismatch' };
       }
+
+      // Session is valid - update heartbeat
+      await this.updateSessionHeartbeat(currentSessionId);
 
       return { valid: true };
     } catch (error) {
