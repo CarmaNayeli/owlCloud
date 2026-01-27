@@ -740,31 +740,44 @@ class SupabaseTokenManager {
    */
   async invalidateOtherSessions(diceCloudUserId, currentSessionId) {
     try {
+      if (!diceCloudUserId) {
+        debug.warn('⚠️ No DiceCloud user ID provided, skipping invalidation');
+        return;
+      }
+
       debug.log('🔒 Invalidating other sessions for DiceCloud user:', diceCloudUserId);
 
       // Get our browser fingerprint to exclude our own sessions
       const ourBrowserId = this.generateUserId();
+      debug.log('🔍 Our browser ID:', ourBrowserId);
 
       // Find all sessions for this DiceCloud account
-      const response = await fetch(
-        `${this.supabaseUrl}/rest/v1/${this.tableName}?user_id_dicecloud=eq.${diceCloudUserId}&select=user_id,session_id,username,browser_info`,
-        {
-          headers: {
-            'apikey': this.supabaseKey,
-            'Authorization': `Bearer ${this.supabaseKey}`
-          }
+      const queryUrl = `${this.supabaseUrl}/rest/v1/${this.tableName}?user_id_dicecloud=eq.${encodeURIComponent(diceCloudUserId)}&select=user_id,session_id,username,browser_info,invalidated_at`;
+      debug.log('🔍 Query URL:', queryUrl);
+
+      const response = await fetch(queryUrl, {
+        headers: {
+          'apikey': this.supabaseKey,
+          'Authorization': `Bearer ${this.supabaseKey}`
         }
-      );
+      });
 
       if (!response.ok) {
-        debug.warn('⚠️ Failed to fetch other sessions:', response.status);
+        const errorText = await response.text();
+        debug.warn('⚠️ Failed to fetch other sessions:', response.status, errorText);
         return;
       }
 
       const otherSessions = await response.json();
-      debug.log('🔍 Found sessions for this account:', otherSessions.length);
+      debug.log('🔍 Found sessions for this account:', otherSessions.length, otherSessions);
+
+      if (otherSessions.length === 0) {
+        debug.log('ℹ️ No other sessions found for this DiceCloud account');
+        return;
+      }
 
       // Mark sessions from OTHER browsers as invalidated (exclude our browser)
+      let invalidatedCount = 0;
       for (const session of otherSessions) {
         // Skip our own browser's sessions - we're replacing them, not invalidating
         if (session.user_id === ourBrowserId) {
@@ -772,18 +785,24 @@ class SupabaseTokenManager {
           continue;
         }
 
+        // Skip already invalidated sessions
+        if (session.invalidated_at) {
+          debug.log('⏭️ Session already invalidated:', session.session_id);
+          continue;
+        }
+
         debug.log('🚫 Invalidating session from other browser:', session.session_id, 'browser:', session.user_id);
 
         // Update the session to mark it as invalidated
         const invalidateResponse = await fetch(
-          `${this.supabaseUrl}/rest/v1/${this.tableName}?user_id=eq.${session.user_id}`,
+          `${this.supabaseUrl}/rest/v1/${this.tableName}?user_id=eq.${encodeURIComponent(session.user_id)}`,
           {
             method: 'PATCH',
             headers: {
               'apikey': this.supabaseKey,
               'Authorization': `Bearer ${this.supabaseKey}`,
               'Content-Type': 'application/json',
-              'Prefer': 'return=minimal'
+              'Prefer': 'return=representation'
             },
             body: JSON.stringify({
               invalidated_at: new Date().toISOString(),
@@ -794,11 +813,21 @@ class SupabaseTokenManager {
         );
 
         if (invalidateResponse.ok) {
-          debug.log('✅ Session invalidated:', session.session_id);
+          const result = await invalidateResponse.json();
+          debug.log('✅ Session invalidated:', session.session_id, 'Result:', result);
+          invalidatedCount++;
         } else {
-          debug.warn('⚠️ Failed to invalidate session:', session.session_id);
+          const errorText = await invalidateResponse.text();
+          debug.warn('⚠️ Failed to invalidate session:', session.session_id, 'Status:', invalidateResponse.status, 'Error:', errorText);
+
+          // If the column doesn't exist, log a helpful message
+          if (errorText.includes('column') && errorText.includes('does not exist')) {
+            debug.error('❌ Database migration needed! Run supabase/add_session_invalidation.sql');
+          }
         }
       }
+
+      debug.log(`🔒 Invalidation complete: ${invalidatedCount} session(s) invalidated`);
     } catch (error) {
       debug.error('❌ Error invalidating other sessions:', error);
     }
@@ -874,12 +903,18 @@ class SupabaseTokenManager {
     try {
       const { currentSessionId, sessionConflict, sessionInvalidated } = await browserAPI.storage.local.get(['currentSessionId', 'sessionConflict', 'sessionInvalidated']);
 
+      debug.log('🔍 checkSessionValidity - currentSessionId:', currentSessionId);
+      debug.log('🔍 checkSessionValidity - sessionConflict:', sessionConflict);
+      debug.log('🔍 checkSessionValidity - sessionInvalidated:', sessionInvalidated);
+
       if (!currentSessionId) {
+        debug.log('✅ No session ID stored - session valid (new/fresh state)');
         return { valid: true, reason: 'no_session' };
       }
 
       // Check if we already have an invalidation notification (another browser logged in)
       if (sessionInvalidated) {
+        debug.log('⚠️ Found sessionInvalidated flag in local storage');
         return {
           valid: false,
           reason: 'invalidated_by_other_login',
@@ -890,11 +925,14 @@ class SupabaseTokenManager {
 
       // Check if we already have a conflict notification
       if (sessionConflict && sessionConflict.detected) {
+        debug.log('⚠️ Found sessionConflict flag in local storage');
         return { valid: false, reason: 'conflict_detected', conflict: sessionConflict };
       }
 
       // Verify session still exists in Supabase and check for invalidation
       const userId = this.generateUserId();
+      debug.log('🔍 Checking session in database for user:', userId);
+
       const response = await fetch(
         `${this.supabaseUrl}/rest/v1/${this.tableName}?user_id=eq.${userId}&select=dicecloud_token,username,session_id,invalidated_at,invalidated_reason,invalidated_by_session`,
         {
@@ -906,12 +944,15 @@ class SupabaseTokenManager {
       );
 
       if (!response.ok) {
+        debug.warn('⚠️ Database check failed with status:', response.status);
         return { valid: false, reason: 'check_failed' };
       }
 
       const sessions = await response.json();
+      debug.log('🔍 Found sessions in database:', sessions.length, sessions);
 
       if (sessions.length === 0) {
+        debug.warn('⚠️ No session found in database for this browser');
         return { valid: false, reason: 'session_not_found' };
       }
 
@@ -940,15 +981,18 @@ class SupabaseTokenManager {
 
       // Check if session ID matches (another browser might have taken over)
       if (session.session_id !== currentSessionId) {
-        debug.log('⚠️ Session ID mismatch - session was replaced');
+        debug.log('⚠️ Session ID mismatch - local:', currentSessionId, 'remote:', session.session_id);
         return { valid: false, reason: 'session_replaced' };
       }
 
       // Check if local token matches remote token
       const { diceCloudToken } = await browserAPI.storage.local.get('diceCloudToken');
       if (diceCloudToken && session.dicecloud_token !== diceCloudToken) {
+        debug.log('⚠️ Token mismatch - local token differs from database');
         return { valid: false, reason: 'token_mismatch' };
       }
+
+      debug.log('✅ Session is valid');
 
       // Session is valid - update heartbeat
       await this.updateSessionHeartbeat(currentSessionId);
