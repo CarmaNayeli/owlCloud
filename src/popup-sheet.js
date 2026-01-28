@@ -757,8 +757,16 @@ function buildSheet(data) {
   debug.log('✨ Spell slots data:', data.spellSlots);
 
   // Normalize snake_case fields to camelCase (database uses snake_case, UI expects camelCase)
+  debug.log('🔄 HP normalization check:', {
+    has_hit_points: !!data.hit_points,
+    has_hitPoints: !!data.hitPoints,
+    hit_points_value: data.hit_points,
+    hitPoints_value: data.hitPoints
+  });
+
   if (data.hit_points && !data.hitPoints) {
     data.hitPoints = data.hit_points;
+    debug.log('✅ Normalized hit_points to hitPoints:', data.hitPoints);
   }
   if (data.character_name && !data.name) {
     data.name = data.character_name;
@@ -946,12 +954,17 @@ function buildSheet(data) {
 
   // Layer 3: Hit Points
   const hpValue = document.getElementById('hp-value');
-  
-  // Defensive initialization for hitPoints
-  if (!data.hitPoints) {
-    data.hitPoints = { current: 0, max: 0, temporaryHP: 0 };
+
+  // Defensive initialization for hitPoints - ensure proper structure
+  if (!data.hitPoints || typeof data.hitPoints !== 'object') {
+    data.hitPoints = { current: 0, max: 0 };
   }
-  
+  // Ensure current and max exist (hitPoints might be an object but missing these)
+  if (data.hitPoints.current === undefined) data.hitPoints.current = 0;
+  if (data.hitPoints.max === undefined) data.hitPoints.max = 0;
+
+  debug.log('💚 HP display values:', { current: data.hitPoints.current, max: data.hitPoints.max, tempHP: data.temporaryHP });
+
   hpValue.textContent = `${data.hitPoints.current}${data.temporaryHP > 0 ? `+${data.temporaryHP}` : ''} / ${data.hitPoints.max}`;
 
   // Initiative
