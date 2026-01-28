@@ -1091,6 +1091,43 @@ ipcMain.handle('toggle-browser-tracking', async (event, browserName) => {
   }
 });
 
+ipcMain.handle('browse-for-browser', async () => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Select Browser Executable',
+      filters: [
+        { name: 'Executable Files', extensions: ['exe'] },
+        { name: 'All Files', extensions: ['*'] }
+      ],
+      properties: ['openFile']
+    });
+
+    if (result.canceled || !result.filePaths || result.filePaths.length === 0) {
+      return { success: false, canceled: true };
+    }
+
+    const filePath = result.filePaths[0];
+    const fileName = path.basename(filePath);
+
+    // Try to extract a friendly name from the executable
+    const baseName = path.basename(filePath, '.exe');
+    const friendlyName = baseName
+      .replace(/[-_]/g, ' ')
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+
+    return {
+      success: true,
+      filePath,
+      fileName,
+      suggestedName: friendlyName
+    };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
 ipcMain.handle('add-custom-browser', async (event, browserData) => {
   try {
     if (!notificationSettings.customBrowsers) {
@@ -1098,13 +1135,13 @@ ipcMain.handle('add-custom-browser', async (event, browserData) => {
     }
 
     // Validate browser data
-    if (!browserData.name || !browserData.appName) {
-      return { success: false, error: 'Browser name and application name are required' };
+    if (!browserData.name || !browserData.executablePath) {
+      return { success: false, error: 'Browser name and executable path are required' };
     }
 
-    // Check if already exists
+    // Check if this executable already exists
     const exists = notificationSettings.customBrowsers.some(b =>
-      b.appName.toLowerCase() === browserData.appName.toLowerCase()
+      b.executablePath.toLowerCase() === browserData.executablePath.toLowerCase()
     );
 
     if (exists) {
@@ -1115,7 +1152,8 @@ ipcMain.handle('add-custom-browser', async (event, browserData) => {
     const newBrowser = {
       id: `custom-${Date.now()}`,
       name: browserData.name,
-      appName: browserData.appName,
+      executablePath: browserData.executablePath,
+      fileName: path.basename(browserData.executablePath),
       icon: browserData.icon || '🌐',
       addedAt: new Date().toISOString()
     };

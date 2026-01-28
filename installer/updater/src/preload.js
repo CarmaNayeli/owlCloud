@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Browser tracking management
   getTrackedBrowsers: () => ipcRenderer.invoke('get-tracked-browsers'),
   toggleBrowserTracking: (browserName) => ipcRenderer.invoke('toggle-browser-tracking', browserName),
+  browseForBrowser: () => ipcRenderer.invoke('browse-for-browser'),
   addCustomBrowser: (browserData) => ipcRenderer.invoke('add-custom-browser', browserData),
   removeCustomBrowser: (browserId) => ipcRenderer.invoke('remove-custom-browser', browserId),
 

@@ -11,7 +11,8 @@
     "build:mac": "node build-safe.js --mac",
     "build:linux": "node build-safe.js --linux",
     "build:all": "node build-safe.js --win --mac --linux",
-    "pack": "node build-safe.js --dir"
+    "pack": "node build-safe.js --dir",
+    "build:updater": "node build-updater.js"
   },
   "build": {
     "appId": "com.dicecat.rollcloud.setup",

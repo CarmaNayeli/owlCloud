@@ -378,17 +378,23 @@
             <div style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-top: 15px;">
               <h3 style="font-size: 1.1em; margin-top: 0;">➕ Add Custom Browser</h3>
               <p style="font-size: 0.85em; opacity: 0.8; margin-bottom: 10px;">
-                Track extensions in other Chromium-based browsers by adding them here.
+                Track extensions in other Chromium-based browsers by selecting the browser executable.
               </p>
               <div style="display: flex; gap: 10px; margin-bottom: 10px;">
                 <input type="text" id="customBrowserName" placeholder="Browser Name (e.g., Brave)"
                   style="flex: 1; padding: 8px; border-radius: 6px; background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2);">
-                <input type="text" id="customBrowserApp" placeholder="App Name (e.g., brave.exe)"
-                  style="flex: 1; padding: 8px; border-radius: 6px; background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2);">
                 <input type="text" id="customBrowserIcon" placeholder="Icon (emoji)" maxlength="2" value="🌐"
                   style="width: 60px; padding: 8px; border-radius: 6px; background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); text-align: center;">
               </div>
-              <button class="btn btn-primary" onclick="addCustomBrowser()" style="width: 100%;">➕ Add Browser</button>
+              <div style="margin-bottom: 10px;">
+                <button class="btn btn-outline" onclick="browseForBrowser()" style="width: 100%; margin-bottom: 8px;">
+                  📁 Browse for Browser Executable
+                </button>
+                <div id="selectedBrowserPath" style="font-size: 0.85em; padding: 8px; background: rgba(0,0,0,0.2); border-radius: 6px; min-height: 32px; display: flex; align-items: center; opacity: 0.7;">
+                  <span id="browserPathText">No browser selected</span>
+                </div>
+              </div>
+              <button class="btn btn-primary" onclick="addCustomBrowser()" style="width: 100%;" id="addBrowserBtn" disabled>➕ Add Browser</button>
             </div>
 
             <div id="customBrowsersList" style="margin-top: 15px;">
@@ -539,7 +545,7 @@
                             onchange="toggleBrowserTracking('${browser.id}')"
                             style="width: 18px; height: 18px; cursor: pointer;">
                         <label for="track-${browser.id}" style="cursor: pointer; flex: 1;">
-                            ${browser.icon || '🌐'} ${browser.name} <span style="opacity: 0.6; font-size: 0.85em;">(${browser.appName})</span>
+                            ${browser.icon || '🌐'} ${browser.name} <span style="opacity: 0.6; font-size: 0.85em;">(${browser.fileName || browser.appName || 'Unknown'})</span>
                         </label>
                         <button onclick="removeCustomBrowser('${browser.id}')"
                             style="background: rgba(248,113,113,0.3); color: white; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
@@ -565,24 +571,66 @@
             }
         }
 
+        // Store the selected browser executable path
+        let selectedBrowserPath = null;
+
+        async function browseForBrowser() {
+            try {
+                const result = await window.electronAPI.browseForBrowser();
+                if (result.success && !result.canceled) {
+                    selectedBrowserPath = result.filePath;
+
+                    // Update UI
+                    document.getElementById('browserPathText').textContent = result.filePath;
+                    document.getElementById('selectedBrowserPath').style.opacity = '1';
+
+                    // Auto-fill browser name if empty
+                    const nameInput = document.getElementById('customBrowserName');
+                    if (!nameInput.value.trim()) {
+                        nameInput.value = result.suggestedName;
+                    }
+
+                    // Enable add button
+                    document.getElementById('addBrowserBtn').disabled = false;
+                } else if (result.error) {
+                    showError('Failed to browse for browser: ' + result.error);
+                }
+            } catch (error) {
+                showError('Error browsing for browser: ' + error.message);
+            }
+        }
+
         async function addCustomBrowser() {
             const name = document.getElementById('customBrowserName').value.trim();
-            const appName = document.getElementById('customBrowserApp').value.trim();
             const icon = document.getElementById('customBrowserIcon').value.trim() || '🌐';
 
-            if (!name || !appName) {
-                showError('Please enter both browser name and application name');
+            if (!name) {
+                showError('Please enter a browser name');
+                return;
+            }
+
+            if (!selectedBrowserPath) {
+                showError('Please select a browser executable');
                 return;
             }
 
             try {
-                const result = await window.electronAPI.addCustomBrowser({ name, appName, icon });
+                const result = await window.electronAPI.addCustomBrowser({
+                    name,
+                    executablePath: selectedBrowserPath,
+                    icon
+                });
+
                 if (result.success) {
                     showSuccess(`Added ${name} to tracked browsers`);
                     // Clear form
                     document.getElementById('customBrowserName').value = '';
-                    document.getElementById('customBrowserApp').value = '';
                     document.getElementById('customBrowserIcon').value = '🌐';
+                    document.getElementById('browserPathText').textContent = 'No browser selected';
+                    document.getElementById('selectedBrowserPath').style.opacity = '0.7';
+                    document.getElementById('addBrowserBtn').disabled = true;
+                    selectedBrowserPath = null;
+
                     // Refresh UI
                     await loadBrowserTracking();
                     await checkExtensions();
