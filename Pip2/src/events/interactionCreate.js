@@ -4,6 +4,78 @@ import { Events, ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilder, But
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
+// Cache for guild command configs (5 minute TTL)
+const guildConfigCache = new Map();
+const GUILD_CONFIG_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Check if a command is enabled for a specific guild
+ * @param {string} commandName - The slash command name
+ * @param {string} guildId - The Discord guild ID
+ * @returns {Promise<boolean>} - Whether the command is enabled
+ */
+async function isCommandEnabledForGuild(commandName, guildId) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+    // If Supabase isn't configured, allow all commands
+    return true;
+  }
+
+  try {
+    // Check cache first
+    const cacheKey = guildId;
+    const cached = guildConfigCache.get(cacheKey);
+    const now = Date.now();
+
+    if (cached && (now - cached.timestamp) < GUILD_CONFIG_CACHE_TTL) {
+      // Use cached config
+      return !cached.disabledCommands.includes(commandName);
+    }
+
+    // Fetch from Supabase
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/guild_command_config?guild_id=eq.${guildId}&select=disabled_commands`,
+      {
+        headers: {
+          'apikey': SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+        }
+      }
+    );
+
+    if (!response.ok) {
+      console.error('Failed to fetch guild config:', response.status);
+      // On error, allow the command (fail open)
+      return true;
+    }
+
+    const data = await response.json();
+
+    // If no config exists for this guild, all commands are enabled
+    if (!data || data.length === 0) {
+      // Cache the empty result
+      guildConfigCache.set(cacheKey, {
+        disabledCommands: [],
+        timestamp: now
+      });
+      return true;
+    }
+
+    const disabledCommands = data[0].disabled_commands || [];
+
+    // Cache the result
+    guildConfigCache.set(cacheKey, {
+      disabledCommands,
+      timestamp: now
+    });
+
+    return !disabledCommands.includes(commandName);
+  } catch (error) {
+    console.error('Error checking command enablement:', error);
+    // On error, allow the command (fail open)
+    return true;
+  }
+}
+
 export default {
   name: Events.InteractionCreate,
   once: false,
@@ -48,6 +120,23 @@ async function handleCommand(interaction) {
   if (!command) {
     console.error(`No command matching ${interaction.commandName} was found.`);
     return;
+  }
+
+  // Check if command is enabled for this guild
+  if (interaction.guildId) {
+    const isEnabled = await isCommandEnabledForGuild(interaction.commandName, interaction.guildId);
+    if (!isEnabled) {
+      console.log(`⛔ Command /${interaction.commandName} is disabled for guild ${interaction.guildId}`);
+      try {
+        await interaction.reply({
+          content: `The \`/${interaction.commandName}\` command is disabled on this server. A server admin can enable it in the [Pip Dashboard](https://rollcloud.app/configure-pip).`,
+          flags: 64 // ephemeral
+        });
+      } catch (replyError) {
+        console.error('Failed to reply about disabled command:', replyError.message);
+      }
+      return;
+    }
   }
 
   console.log(`📦 Found command handler for: ${interaction.commandName}`);
