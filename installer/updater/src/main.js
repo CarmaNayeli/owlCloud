@@ -341,16 +341,6 @@ function createTray() {
 // IPC handlers for settings access from renderer
 const { app: electronApp } = require('electron');
 
-ipcMain.handle('get-notification-settings', async () => {
-  try {
-    // Ensure settings loaded
-    loadNotificationSettings();
-    return notificationSettings;
-  } catch (e) {
-    return notificationSettings;
-  }
-});
-
 function showNotification(title, body, options = {}) {
   if (!notificationSettings.enabled) return;
   
