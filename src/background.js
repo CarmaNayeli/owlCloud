@@ -3561,17 +3561,18 @@ async function executeCastCommand(command) {
     debug.log('🔮 Discord spell execution result:', castResult);
 
     // Build enhanced spell data with all processed effects
+    const rolls = castResult.rolls || [];
     const enhancedSpellData = {
       ...command_data,
       spell_data: {
-        ...command_data.spell_data,
-        // Apply metamagic modifications to damage rolls if any
-        damageRolls: castResult.rolls.map(roll => ({
-          damage: roll.formula,
-          damageType: roll.type || 'damage',
-          name: roll.name
-        }))
+        ...command_data.spell_data
       },
+      // Apply metamagic modifications to damage rolls if any (at top level for content script)
+      damageRolls: rolls.map(roll => ({
+        damage: roll.formula,
+        damageType: roll.damageType || roll.type || 'damage',
+        name: roll.name
+      })),
       // Include all processed effects for Roll20 display
       metamagicUsed: castResult.metamagicUsed,
       slotUsed: castResult.slotUsed,
@@ -3582,7 +3583,7 @@ async function executeCastCommand(command) {
       executionResult: castResult,
       // Upcasting information
       isUpcast: castResult.embed?.isUpcast || false,
-      actualCastLevel: castResult.embed?.castLevel || parseInt(castLevel) || 0
+      actualCastLevel: castResult.embed?.castLevel || parseInt(command_data.cast_level) || 0
     };
 
     // Send to all Roll20 tabs
