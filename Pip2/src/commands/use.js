@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
@@ -165,7 +165,10 @@ export default {
         .setFooter({ text: '✅ Sent to Roll20' })
         .setTimestamp();
 
-      await interaction.reply({ embeds: [embed] });
+      // Create action buttons for attack and damage rolls
+      const components = buildActionButtons(action, character.character_name, pairing.id, discordUserId);
+
+      await interaction.reply({ embeds: [embed], components });
 
     } catch (error) {
       console.error('Use command error:', error);
@@ -239,11 +242,13 @@ function getActionColor(actionType) {
 function formatActionDescription(action) {
   let description = '';
 
-  if (action.actionType === 'attack') {
-    if (action.damageRoll) description += `**Damage:** ${action.damageRoll}\n`;
-    if (action.attackBonus) description += `**Attack Bonus:** ${action.attackBonus}\n`;
-    if (action.saveDC && action.saveAbility) description += `**Save:** ${action.saveAbility} DC ${action.saveDC}\n`;
-  }
+  // Check both field name variants for compatibility
+  const attackRoll = action.attackRoll || action.attackBonus;
+  const damageRoll = action.damage || action.damageRoll;
+
+  if (attackRoll) description += `**Attack:** ${attackRoll.includes?.('d') ? attackRoll : `1d20+${attackRoll}`}\n`;
+  if (damageRoll) description += `**Damage:** ${damageRoll}${action.damageType ? ` (${action.damageType})` : ''}\n`;
+  if (action.saveDC && action.saveAbility) description += `**Save:** ${action.saveAbility} DC ${action.saveDC}\n`;
 
   if (action.range) description += `**Range:** ${action.range}\n`;
   if (action.duration && action.duration !== 'Instantaneous') description += `**Duration:** ${action.duration}\n`;
@@ -253,4 +258,73 @@ function formatActionDescription(action) {
   }
 
   return description || 'Action sent to Roll20.';
+}
+
+/**
+ * Build action buttons for attack and damage rolls
+ */
+function buildActionButtons(action, characterName, pairingId, discordUserId) {
+  const rows = [];
+  const buttons = [];
+
+  // Check both field name variants for compatibility
+  const attackRoll = action.attackRoll || action.attackBonus;
+  const damageRoll = action.damage || action.damageRoll;
+
+  // Add attack button if action has attack roll
+  if (attackRoll) {
+    const attackFormula = attackRoll.includes?.('d') ? attackRoll : `1d20+${attackRoll}`;
+    buttons.push(
+      new ButtonBuilder()
+        .setCustomId(`rollcloud:roll:${action.name} - Attack:${attackFormula}`)
+        .setLabel('Attack')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('⚔️')
+    );
+  }
+
+  // Add damage button if action has damage roll
+  if (damageRoll) {
+    const damageType = action.damageType || 'damage';
+    buttons.push(
+      new ButtonBuilder()
+        .setCustomId(`rollcloud:roll:${action.name} - ${damageType}:${damageRoll}`)
+        .setLabel(`Damage${action.damageType ? ` (${action.damageType})` : ''}`)
+        .setStyle(ButtonStyle.Danger)
+        .setEmoji('💥')
+    );
+  }
+
+  // Add all damage rolls if action has multiple (damageRolls array)
+  if (action.damageRolls && Array.isArray(action.damageRolls)) {
+    for (const roll of action.damageRolls) {
+      if (roll.damage && buttons.length < 5) { // Discord limit is 5 buttons per row
+        const damageType = roll.damageType || roll.type || 'damage';
+        buttons.push(
+          new ButtonBuilder()
+            .setCustomId(`rollcloud:roll:${action.name} - ${damageType}:${roll.damage}`)
+            .setLabel(roll.name || damageType)
+            .setStyle(ButtonStyle.Danger)
+            .setEmoji('💥')
+        );
+      }
+    }
+  }
+
+  // Add buttons to rows (max 5 per row)
+  if (buttons.length > 0) {
+    let currentRow = new ActionRowBuilder();
+    for (let i = 0; i < buttons.length; i++) {
+      if (i > 0 && i % 5 === 0) {
+        rows.push(currentRow);
+        currentRow = new ActionRowBuilder();
+      }
+      currentRow.addComponents(buttons[i]);
+    }
+    if (currentRow.components.length > 0) {
+      rows.push(currentRow);
+    }
+  }
+
+  return rows;
 }

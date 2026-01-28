@@ -586,21 +586,55 @@
         const commandData = request.commandData || {};
         const charName = commandData.character_name || 'Character';
 
-        // If the action has a damage roll or attack bonus, roll it
-        const actionData = commandData.action_data || {};
-        if (actionData.damageRoll || actionData.attackBonus) {
-          const rollFormula = actionData.attackBonus
-            ? `1d20+${actionData.attackBonus}`
-            : actionData.damageRoll;
-          const msg = formatRollForRoll20({
-            name: `${charName} - ${actionName}`,
-            formula: rollFormula,
-            characterName: charName
-          });
-          postChatMessage(msg);
-        } else {
-          postChatMessage(`&{template:default} {{name=${charName} uses ${actionName}}}`);
+        // Get action data - check multiple possible locations
+        const actionData = commandData.action_data || commandData || {};
+        debug.log('⚔️ Action data:', actionData);
+
+        // Build announcement message
+        let announcement = `&{template:default} {{name=${charName} uses ${actionData.name || actionName}!}}`;
+
+        // Add action type if available
+        if (actionData.actionType) {
+          announcement += ` {{Type=${actionData.actionType}}}`;
         }
+
+        // Add description if available
+        if (actionData.description) {
+          announcement += ` {{Description=${actionData.description}}}`;
+        }
+
+        // Post the announcement first
+        postChatMessage(announcement);
+
+        // Roll attack if action has attack roll (check both field names for compatibility)
+        const attackRoll = actionData.attackRoll || actionData.attackBonus;
+        if (attackRoll) {
+          setTimeout(() => {
+            // If it's just a number (bonus), format as d20+bonus
+            const attackFormula = attackRoll.includes('d') ? attackRoll : `1d20+${attackRoll}`;
+            const attackMsg = formatRollForRoll20({
+              name: `${actionData.name || actionName} - Attack`,
+              formula: attackFormula,
+              characterName: charName
+            });
+            postChatMessage(attackMsg);
+          }, 100);
+        }
+
+        // Roll damage if available (check both field names for compatibility)
+        const damageRoll = actionData.damage || actionData.damageRoll;
+        if (damageRoll) {
+          setTimeout(() => {
+            const damageType = actionData.damageType || 'damage';
+            const damageMsg = formatRollForRoll20({
+              name: `${actionData.name || actionName} - ${damageType}`,
+              formula: damageRoll,
+              characterName: charName
+            });
+            postChatMessage(damageMsg);
+          }, 200);
+        }
+
         sendResponse({ success: true });
       } catch (useActionError) {
         debug.error('❌ Error in useActionFromDiscord:', useActionError);
