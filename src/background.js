@@ -3820,21 +3820,22 @@ async function executeCastCommand(command) {
 
     // Process metamagic using action-executor
     const castResult = executeDiscordCast(command_data, characterData);
-    
+
     debug.log('🔮 Discord spell execution result:', castResult);
 
     // Build enhanced spell data with all processed effects
+    const rolls = castResult.rolls || [];
     const enhancedSpellData = {
       ...command_data,
       spell_data: {
-        ...command_data.spell_data,
-        // Apply metamagic modifications to damage rolls if any
-        damageRolls: castResult.rolls.map(roll => ({
-          damage: roll.formula,
-          damageType: roll.type || 'damage',
-          name: roll.name
-        }))
+        ...command_data.spell_data
       },
+      // Apply metamagic modifications to damage rolls if any (at top level for content script)
+      damageRolls: rolls.map(roll => ({
+        damage: roll.formula,
+        damageType: roll.damageType || roll.type || 'damage',
+        name: roll.name
+      })),
       // Include all processed effects for Roll20 display
       metamagicUsed: castResult.metamagicUsed,
       slotUsed: castResult.slotUsed,
