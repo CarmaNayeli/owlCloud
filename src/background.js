@@ -13,6 +13,11 @@ if (typeof importScripts === 'function' && typeof chrome !== 'undefined') {
 
 debug.log('RollCloud: Background script starting...');
 
+// Detect browser and use appropriate API
+// For Firefox, use the native Promise-based 'browser' API
+// For Chrome, use native 'chrome' API directly (no polyfill needed in service worker)
+const browserAPI = (typeof browser !== 'undefined' && browser.runtime) ? browser : chrome;
+
 // Listen for storage changes to help debug unexpected logout/token removal
 if (browserAPI && browserAPI.storage && browserAPI.storage.onChanged) {
   browserAPI.storage.onChanged.addListener((changes, area) => {
@@ -72,11 +77,6 @@ if (browserAPI && browserAPI.storage && browserAPI.storage.onChanged) {
     debug.error('Failed to check startup storage:', error);
   }
 })();
-
-// Detect browser and use appropriate API
-// For Firefox, use the native Promise-based 'browser' API
-// For Chrome, use native 'chrome' API directly (no polyfill needed in service worker)
-const browserAPI = (typeof browser !== 'undefined' && browser.runtime) ? browser : chrome;
 
 // Detect which browser we're running on
 const isFirefox = typeof browser !== 'undefined';
