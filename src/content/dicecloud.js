@@ -2463,6 +2463,8 @@
 
     // Post-process HP resources to map them to hitPoints structure
     if (characterData.resources && characterData.resources.length > 0) {
+      debug.log(`🔍 Found ${characterData.resources.length} resources:`, characterData.resources.map(r => r.name));
+      
       const hpResource = characterData.resources.find(r => 
         r.name.toLowerCase().includes('hit points') || 
         r.name.toLowerCase() === 'hp' ||
@@ -2474,6 +2476,9 @@
         r.name.toLowerCase().includes('temp hp') ||
         r.variableName?.toLowerCase() === 'temphitpoints'
       );
+
+      debug.log(`🔍 HP resource found: ${hpResource ? hpResource.name : 'none'}`);
+      debug.log(`🔍 Temp HP resource found: ${tempHpResource ? tempHpResource.name : 'none'}`);
 
       if (hpResource) {
         characterData.hitPoints = {
@@ -2487,6 +2492,8 @@
         characterData.temporaryHP = tempHpResource.current;
         debug.log(`💙 Mapped Temp HP resource: ${tempHpResource.name} (${tempHpResource.current})`);
       }
+    } else {
+      debug.log('🔍 No resources found in character data');
     }
 
     debug.log('Parsed character data:', characterData);
