@@ -3,8 +3,8 @@
  * Handles data storage, API authentication, and communication between Dice Cloud and Roll20
  */
 
-// For Chrome service workers, import debug utility
-if (typeof importScripts === 'function' && typeof chrome !== 'undefined') {
+// For service workers (Chrome) and event pages (Firefox), import utility modules
+if (typeof importScripts === 'function' && (typeof chrome !== 'undefined' || typeof browser !== 'undefined')) {
   // Service worker is at src/background.js, so paths are relative to src/ directory
   importScripts('./common/debug.js');
   importScripts('./lib/supabase-client.js');
