@@ -12,6 +12,37 @@ const fs = require('fs');
 // Suppress deprecation warnings
 process.noDeprecationWarning = true;
 
+/**
+ * Safely remove a directory with retries (handles Windows file locking)
+ * @param {string} dirPath - Path to directory to remove
+ * @param {number} maxRetries - Maximum number of retry attempts
+ * @param {number} delayMs - Delay between retries in milliseconds
+ */
+async function safeRmDir(dirPath, maxRetries = 5, delayMs = 1000) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      fs.rmSync(dirPath, { recursive: true, force: true });
+      return true;
+    } catch (error) {
+      if (error.code === 'EPERM' || error.code === 'EBUSY' || error.code === 'ENOTEMPTY') {
+        if (attempt < maxRetries) {
+          console.log(`⏳ Directory locked, retrying in ${delayMs}ms... (attempt ${attempt}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        } else {
+          console.warn(`⚠️ Could not remove ${dirPath} after ${maxRetries} attempts - continuing anyway`);
+          return false;
+        }
+      } else if (error.code === 'ENOENT') {
+        // Directory doesn't exist, that's fine
+        return true;
+      } else {
+        throw error;
+      }
+    }
+  }
+  return false;
+}
+
 async function buildUpdater() {
   console.log('🔄 Building RollCloud Updater...');
   
@@ -103,14 +134,14 @@ async function buildUpdater() {
 }
 
 // Build updater first, then main installer
-buildUpdater().then(() => {
+buildUpdater().then(async () => {
   console.log('🏗️ Building main installer...');
 
-  // Clean dist folder before building
+  // Clean dist folder before building (with retries for Windows file locking)
   const distPath = path.join(__dirname, 'dist');
   if (fs.existsSync(distPath)) {
     console.log('🧹 Cleaning dist folder...');
-    fs.rmSync(distPath, { recursive: true, force: true });
+    await safeRmDir(distPath);
   }
 
   // Run electron-builder with original arguments
