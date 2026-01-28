@@ -121,6 +121,18 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Step 6: Create automatic trigger to set expires_at on insert (only if trigger doesn't exist)
+
+-- First, create the function (safe to replace)
+CREATE OR REPLACE FUNCTION set_command_expires_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Set expiration time (5 minutes from creation)
+    NEW.expires_at = NOW() + INTERVAL '5 minutes';
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Then, create the trigger only if it doesn't exist
 DO $$
 BEGIN
     IF NOT EXISTS (
@@ -128,17 +140,6 @@ BEGIN
         WHERE trigger_name = 'set_rollcloud_command_expires_at' 
         AND event_object_table = 'rollcloud_commands'
     ) THEN
-        -- Create the function first
-        CREATE OR REPLACE FUNCTION set_command_expires_at()
-        RETURNS TRIGGER AS $$
-        BEGIN
-            -- Set expiration time (5 minutes from creation)
-            NEW.expires_at = NOW() + INTERVAL '5 minutes';
-            RETURN NEW;
-        END;
-        $$ LANGUAGE plpgsql;
-
-        -- Create the trigger
         CREATE TRIGGER set_rollcloud_command_expires_at
             BEFORE INSERT ON public.rollcloud_commands
             FOR EACH ROW
