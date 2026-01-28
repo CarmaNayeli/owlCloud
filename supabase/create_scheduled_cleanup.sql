@@ -68,6 +68,7 @@ EXCEPTION
 END $$;
 
 -- Step 3: Create a view for monitoring command status
+DROP VIEW IF EXISTS public.rollcloud_command_stats;
 CREATE OR REPLACE VIEW rollcloud_command_stats AS
 SELECT 
     status,

@@ -1,7 +1,14 @@
 -- Migration: Add timeout and cleanup functionality to rollcloud_commands table
 -- Run this in your Supabase SQL Editor to add command timeout and cleanup features
 
--- Step 1: Add expires_at column for command timeout
+-- Step 1: Drop dependent objects first (if they exist)
+DROP VIEW IF EXISTS public.rollcloud_command_stats;
+DROP FUNCTION IF EXISTS public.cleanup_old_commands();
+DROP FUNCTION IF EXISTS public.mark_expired_commands_failed();
+DROP TRIGGER IF EXISTS set_rollcloud_command_expires_at ON public.rollcloud_commands;
+DROP FUNCTION IF EXISTS public.set_command_expires_at();
+
+-- Step 2: Add expires_at column for command timeout
 DO $$
 BEGIN
     IF NOT EXISTS (
@@ -15,7 +22,7 @@ BEGIN
     END IF;
 END $$;
 
--- Step 2: Add processed_at column for tracking when commands were actually processed
+-- Step 3: Add processed_at column for tracking when commands were actually processed
 DO $$
 BEGIN
     IF NOT EXISTS (
@@ -29,7 +36,7 @@ BEGIN
     END IF;
 END $$;
 
--- Step 3: Add indexes for performance
+-- Step 4: Add indexes for performance
 DO $$
 BEGIN
     IF NOT EXISTS (
@@ -56,7 +63,7 @@ BEGIN
     END IF;
 END $$;
 
--- Step 4: Create cleanup function for expired and old commands
+-- Step 5: Create cleanup function for expired and old commands
 CREATE OR REPLACE FUNCTION cleanup_old_commands()
 RETURNS TABLE(
     expired_count INTEGER,
@@ -99,7 +106,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Step 5: Create function to mark expired commands as failed
+-- Step 6: Create function to mark expired commands as failed
 CREATE OR REPLACE FUNCTION mark_expired_commands_failed()
 RETURNS INTEGER AS $$
 DECLARE
@@ -121,7 +128,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Step 6: Create automatic trigger to set expires_at on insert
+-- Step 7: Create automatic trigger to set expires_at on insert
 CREATE OR REPLACE FUNCTION set_command_expires_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -131,27 +138,26 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Step 7: Add the trigger
-DROP TRIGGER IF EXISTS set_rollcloud_command_expires_at ON public.rollcloud_commands;
+-- Step 8: Add the trigger
 CREATE TRIGGER set_rollcloud_command_expires_at
     BEFORE INSERT ON public.rollcloud_commands
     FOR EACH ROW
     EXECUTE FUNCTION set_command_expires_at();
 
--- Step 8: Add comments for documentation
+-- Step 9: Add comments for documentation
 COMMENT ON COLUMN public.rollcloud_commands.expires_at IS 'Command expiration time (5 minutes after creation)';
 COMMENT ON COLUMN public.rollcloud_commands.processed_at IS 'When the command was actually processed by the extension';
 COMMENT ON FUNCTION public.cleanup_old_commands() IS 'Cleans up expired and old commands to prevent database clutter';
 COMMENT ON FUNCTION public.mark_expired_commands_failed() IS 'Marks expired pending commands as failed';
 COMMENT ON FUNCTION public.set_command_expires_at() IS 'Automatically sets expiration time for new commands';
 
--- Step 9: Verify the migration worked
+-- Step 10: Verify the migration worked
 SELECT column_name, data_type, is_nullable 
 FROM information_schema.columns 
 WHERE table_name = 'rollcloud_commands' 
 AND column_name IN ('expires_at', 'processed_at')
 ORDER BY column_name;
 
--- Step 10: Test the cleanup function (optional)
+-- Step 11: Test the cleanup function (optional)
 -- SELECT * FROM cleanup_old_commands();
 -- SELECT mark_expired_commands_failed();
