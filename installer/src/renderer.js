@@ -741,8 +741,8 @@ function setupStep3() {
 // ============================================================================
 
 function setupStep4() {
-  const finishBtn = document.getElementById('finishInstallation');
-  const continueBtn = document.getElementById('continueWithUpdaterChoice');
+  const finishBtn = document.getElementById('finishSetup');
+  const continueBtn = document.getElementById('continueToStep4');
 
   finishBtn.addEventListener('click', async () => {
     await window.api.quitApp();
