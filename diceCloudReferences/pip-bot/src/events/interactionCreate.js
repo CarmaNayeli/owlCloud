@@ -307,6 +307,13 @@ async function createRollCloudCommand(options) {
   }
 
   try {
+    console.log(`[RollCloud] Creating command:`, {
+      pairingId: options.pairingId,
+      commandType: options.commandType,
+      actionName: options.actionName,
+      discordUserId: options.discordUserId
+    });
+
     const response = await fetch(`${SUPABASE_URL}/rest/v1/rollcloud_commands`, {
       method: 'POST',
       headers: {
@@ -329,15 +336,28 @@ async function createRollCloudCommand(options) {
 
     if (response.ok) {
       const data = await response.json();
+      console.log(`[RollCloud] Command created successfully:`, data[0]?.id);
       return { success: true, command: data[0] };
     } else {
-      const error = await response.text();
-      console.error('Failed to create command:', error);
-      return { success: false, error: 'Failed to create command' };
+      const errorText = await response.text();
+      console.error(`[RollCloud] Failed to create command (${response.status}):`, errorText);
+      
+      // Provide more specific error messages
+      if (response.status === 400) {
+        return { success: false, error: 'Invalid command data. Please check the command format.' };
+      } else if (response.status === 403) {
+        return { success: false, error: 'Permission denied. Check bot permissions.' };
+      } else if (response.status === 422) {
+        return { success: false, error: 'Command validation failed. Missing required fields.' };
+      } else if (errorText.includes('column') && errorText.includes('does not exist')) {
+        return { success: false, error: 'Database schema mismatch. Please run the latest migration.' };
+      } else {
+        return { success: false, error: `Database error (${response.status}): ${errorText}` };
+      }
     }
   } catch (error) {
-    console.error('Error creating command:', error);
-    return { success: false, error: error.message };
+    console.error('[RollCloud] Error creating command:', error);
+    return { success: false, error: `Network error: ${error.message}` };
   }
 }
 
