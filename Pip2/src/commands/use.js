@@ -113,48 +113,6 @@ export default {
 
       const pairing = pairings[0];
 
-      // Get notification color from character data
-      const rawData = character.raw_dicecloud_data || {};
-      const notificationColor = (typeof rawData === 'object' ? rawData.notificationColor : null) || '#3498db';
-
-      // Create use_action command in Supabase
-      const commandPayload = {
-        pairing_id: pairing.id,
-        discord_user_id: discordUserId,
-        discord_username: interaction.user.username,
-        command_type: 'use_action',
-        action_name: action.name,
-        command_data: {
-          action_name: action.name,
-          action_type: action.actionType || 'action',
-          character_name: character.character_name,
-          character_id: character.dicecloud_character_id || character.id,
-          notification_color: notificationColor,
-          action_data: action
-        },
-        status: 'pending'
-      };
-
-      // Call Edge Function to insert and broadcast (same as /roll command)
-      const commandResponse = await fetch(`${SUPABASE_URL}/functions/v1/broadcast-command`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
-        },
-        body: JSON.stringify({ command: commandPayload })
-      });
-
-      if (!commandResponse.ok) {
-        const errorBody = await commandResponse.text().catch(() => 'no body');
-        console.error('Failed to create use command:', commandResponse.status, errorBody);
-        console.error('Payload was:', JSON.stringify(commandPayload));
-        return await interaction.reply({
-          content: `❌ Failed to send action to extension. (${commandResponse.status})`,
-          flags: 64
-        });
-      }
-
       const embed = new EmbedBuilder()
         .setTitle(`⚔️ ${character.character_name} uses ${action.name}`)
         .setColor(getActionColor(action.actionType))
@@ -162,7 +120,7 @@ export default {
         .addFields(
           { name: 'Type', value: action.actionType || 'action', inline: true }
         )
-        .setFooter({ text: '✅ Sent to Roll20' })
+        .setFooter({ text: 'Click buttons below to roll attack/damage' })
         .setTimestamp();
 
       // Create action buttons for attack and damage rolls

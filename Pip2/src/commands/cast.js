@@ -140,49 +140,6 @@ export default {
 
       const pairing = pairings[0];
 
-      // Get notification color from character data
-      const rawData = character.raw_dicecloud_data || {};
-      const notificationColor = (typeof rawData === 'object' ? rawData.notificationColor : null) || '#3498db';
-
-      // Create cast command in Supabase
-      const commandPayload = {
-        pairing_id: pairing.id,
-        discord_user_id: discordUserId,
-        discord_username: interaction.user.username,
-        command_type: 'cast',
-        action_name: spell.name,
-        command_data: {
-          spell_name: spell.name,
-          spell_level: spellLevel,
-          cast_level: castLevel || spellLevel,
-          character_name: character.character_name,
-          character_id: character.dicecloud_character_id || character.id,
-          notification_color: notificationColor,
-          spell_data: spell
-        },
-        status: 'pending'
-      };
-
-      // Call Edge Function to insert and broadcast (same as /roll command)
-      const commandResponse = await fetch(`${SUPABASE_URL}/functions/v1/broadcast-command`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
-        },
-        body: JSON.stringify({ command: commandPayload })
-      });
-
-      if (!commandResponse.ok) {
-        const errorBody = await commandResponse.text().catch(() => 'no body');
-        console.error('Failed to create cast command:', commandResponse.status, errorBody);
-        console.error('Payload was:', JSON.stringify(commandPayload));
-        return await interaction.reply({
-          content: `❌ Failed to send spell to extension. (${commandResponse.status})`,
-          flags: 64
-        });
-      }
-
       // Build title with tags
       let titleTags = '';
       if (spell.concentration) titleTags += ' 🧠 Concentration';
@@ -201,7 +158,7 @@ export default {
         .setTitle(`🔮 ${character.character_name} casts ${spell.name}`)
         .setColor(0x9b59b6)
         .setDescription(`${levelText}${titleTags}\n\n${formatSpellDescription(spell, castLevel)}`)
-        .setFooter({ text: '✅ Sent to Roll20' })
+        .setFooter({ text: 'Click buttons below to roll attack/damage' })
         .setTimestamp();
 
       // Create spell buttons for attack and damage rolls
