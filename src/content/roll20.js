@@ -67,31 +67,54 @@
 
   /**
    * Handles roll messages from Dice Cloud
+   * Wrapped in try-catch to ensure one failure doesn't break subsequent rolls
    */
   function handleDiceCloudRoll(rollData) {
-    debug.log('🎲 Handling roll:', rollData);
-    debug.log('🎲 Roll data keys:', Object.keys(rollData || {}));
-    if (rollData.source === 'discord') {
-      debug.log('📡 Roll originated from Discord command');
-    }
+    try {
+      debug.log('🎲 Handling roll:', rollData);
+      debug.log('🎲 Roll data keys:', Object.keys(rollData || {}));
+      if (rollData && rollData.source === 'discord') {
+        debug.log('📡 Roll originated from Discord command');
+      }
 
-    // Use pre-formatted message if it exists (for spells, actions, etc.)
-    // Otherwise format the roll data
-    const formattedMessage = rollData.message || formatRollForRoll20(rollData);
-    debug.log('🎲 Formatted message:', formattedMessage);
+      // Validate rollData exists
+      if (!rollData) {
+        debug.error('❌ No roll data provided');
+        return { success: false, error: 'No roll data provided' };
+      }
 
-    const success = postChatMessage(formattedMessage);
+      // Use pre-formatted message if it exists (for spells, actions, etc.)
+      // Otherwise format the roll data
+      let formattedMessage;
+      try {
+        formattedMessage = rollData.message || formatRollForRoll20(rollData);
+      } catch (formatError) {
+        debug.error('❌ Error formatting roll:', formatError);
+        formattedMessage = `&{template:default} {{name=${rollData.name || 'Roll'}}} {{Roll=[[${rollData.formula || '1d20'}]]}}`;
+      }
+      debug.log('🎲 Formatted message:', formattedMessage);
 
-    if (success) {
-      debug.log('✅ Roll successfully posted to Roll20');
+      const success = postChatMessage(formattedMessage);
 
-      // Wait for Roll20 to process the roll and add it to chat
-      // Then parse the actual Roll20 result (not DiceCloud's roll)
-      observeNextRollResult(rollData);
-      return { success: true };
-    } else {
-      debug.error('❌ Failed to post roll to Roll20 - chat input or send button not found');
-      return { success: false, error: 'Roll20 chat not ready. Make sure you are in a Roll20 game.' };
+      if (success) {
+        debug.log('✅ Roll successfully posted to Roll20');
+
+        // Wait for Roll20 to process the roll and add it to chat
+        // Then parse the actual Roll20 result (not DiceCloud's roll)
+        try {
+          observeNextRollResult(rollData);
+        } catch (observeError) {
+          // Non-fatal - roll was posted, just couldn't observe result
+          debug.warn('⚠️ Could not set up roll observer:', observeError.message);
+        }
+        return { success: true };
+      } else {
+        debug.error('❌ Failed to post roll to Roll20 - chat input or send button not found');
+        return { success: false, error: 'Roll20 chat not ready. Make sure you are in a Roll20 game.' };
+      }
+    } catch (error) {
+      debug.error('❌ Unexpected error in handleDiceCloudRoll:', error);
+      return { success: false, error: 'Unexpected error: ' + error.message };
     }
   }
 
@@ -557,32 +580,38 @@
         sendResponse({ success: false, error: 'Sync not available' });
       }
     } else if (request.action === 'useActionFromDiscord') {
-      debug.log('⚔️ Received useActionFromDiscord:', request);
-      const actionName = request.actionName || 'Unknown Action';
-      const commandData = request.commandData || {};
-      const charName = commandData.character_name || 'Character';
+      try {
+        debug.log('⚔️ Received useActionFromDiscord:', request);
+        const actionName = request.actionName || 'Unknown Action';
+        const commandData = request.commandData || {};
+        const charName = commandData.character_name || 'Character';
 
-      // If the action has a damage roll or attack bonus, roll it
-      const actionData = commandData.action_data || {};
-      if (actionData.damageRoll || actionData.attackBonus) {
-        const rollFormula = actionData.attackBonus
-          ? `1d20+${actionData.attackBonus}`
-          : actionData.damageRoll;
-        const msg = formatRollForRoll20({
-          name: `${charName} - ${actionName}`,
-          formula: rollFormula,
-          characterName: charName
-        });
-        postChatMessage(msg);
-      } else {
-        postChatMessage(`&{template:default} {{name=${charName} uses ${actionName}}}`);
+        // If the action has a damage roll or attack bonus, roll it
+        const actionData = commandData.action_data || {};
+        if (actionData.damageRoll || actionData.attackBonus) {
+          const rollFormula = actionData.attackBonus
+            ? `1d20+${actionData.attackBonus}`
+            : actionData.damageRoll;
+          const msg = formatRollForRoll20({
+            name: `${charName} - ${actionName}`,
+            formula: rollFormula,
+            characterName: charName
+          });
+          postChatMessage(msg);
+        } else {
+          postChatMessage(`&{template:default} {{name=${charName} uses ${actionName}}}`);
+        }
+        sendResponse({ success: true });
+      } catch (useActionError) {
+        debug.error('❌ Error in useActionFromDiscord:', useActionError);
+        sendResponse({ success: false, error: useActionError.message });
       }
-      sendResponse({ success: true });
     } else if (request.action === 'castSpellFromDiscord') {
-      debug.log('🔮 Received castSpellFromDiscord:', request);
-      const spellName = request.spellName || 'Unknown Spell';
-      const spellData = request.spellData || {};
-      const charName = spellData.character_name || 'Character';
+      try {
+        debug.log('🔮 Received castSpellFromDiscord:', request);
+        const spellName = request.spellName || 'Unknown Spell';
+        const spellData = request.spellData || {};
+        const charName = spellData.character_name || 'Character';
       const spell = spellData.spell_data || {};
       const castLevel = parseInt(spellData.cast_level) || parseInt(spell.level) || 0;
       const notificationColor = spellData.notification_color || '#3498db';
@@ -754,9 +783,14 @@
         }, 200);
       }
 
-      sendResponse({ success: true });
+        sendResponse({ success: true });
+      } catch (castError) {
+        debug.error('❌ Error in castSpellFromDiscord:', castError);
+        sendResponse({ success: false, error: castError.message });
+      }
     } else if (request.action === 'useAbilityFromDiscord') {
-      debug.log('✨ Received useAbilityFromDiscord:', request);
+      try {
+        debug.log('✨ Received useAbilityFromDiscord:', request);
       const abilityName = request.abilityName || 'Unknown Ability';
       const abilityData = request.abilityData || {};
       const charName = abilityData.character_name || 'Character';
@@ -816,11 +850,20 @@
         }, 200);
       }
 
-      sendResponse({ success: true });
+        sendResponse({ success: true });
+      } catch (abilityError) {
+        debug.error('❌ Error in useAbilityFromDiscord:', abilityError);
+        sendResponse({ success: false, error: abilityError.message });
+      }
     } else if (request.action === 'endTurnFromDiscord') {
-      debug.log('⏭️ Received endTurnFromDiscord');
-      postChatMessage('/e ends their turn.');
-      sendResponse({ success: true });
+      try {
+        debug.log('⏭️ Received endTurnFromDiscord');
+        postChatMessage('/e ends their turn.');
+        sendResponse({ success: true });
+      } catch (endTurnError) {
+        debug.error('❌ Error in endTurnFromDiscord:', endTurnError);
+        sendResponse({ success: false, error: endTurnError.message });
+      }
     }
     } catch (outerError) {
       // Catch any unexpected errors to prevent breaking the message listener
