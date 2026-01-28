@@ -4166,12 +4166,9 @@ function showHPModal() {
 
     <div style="margin-bottom: 25px;">
       <label style="display: block; margin-bottom: 10px; font-weight: bold; color: #2c3e50;">Action:</label>
-      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
         <button id="hp-toggle-heal" style="padding: 12px; font-size: 0.9em; font-weight: bold; border: 2px solid #27ae60; background: #27ae60; color: white; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
           💚 Heal
-        </button>
-        <button id="hp-toggle-damage" style="padding: 12px; font-size: 0.9em; font-weight: bold; border: 2px solid #bdc3c7; background: white; color: #7f8c8d; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
-          💔 Damage
         </button>
         <button id="hp-toggle-temp" style="padding: 12px; font-size: 0.9em; font-weight: bold; border: 2px solid #bdc3c7; background: white; color: #7f8c8d; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
           🛡️ Temp HP
@@ -4192,11 +4189,10 @@ function showHPModal() {
   modal.appendChild(modalContent);
   document.body.appendChild(modal);
 
-  // Toggle state: 'heal', 'damage', or 'temp'
+  // Toggle state: 'heal' or 'temp'
   let actionType = 'heal';
 
   const healBtn = document.getElementById('hp-toggle-heal');
-  const damageBtn = document.getElementById('hp-toggle-damage');
   const tempBtn = document.getElementById('hp-toggle-temp');
   const amountInput = document.getElementById('hp-amount');
 
@@ -4205,9 +4201,6 @@ function showHPModal() {
     healBtn.style.background = 'white';
     healBtn.style.color = '#7f8c8d';
     healBtn.style.borderColor = '#bdc3c7';
-    damageBtn.style.background = 'white';
-    damageBtn.style.color = '#7f8c8d';
-    damageBtn.style.borderColor = '#bdc3c7';
     tempBtn.style.background = 'white';
     tempBtn.style.color = '#7f8c8d';
     tempBtn.style.borderColor = '#bdc3c7';
@@ -4220,14 +4213,6 @@ function showHPModal() {
     healBtn.style.background = '#27ae60';
     healBtn.style.color = 'white';
     healBtn.style.borderColor = '#27ae60';
-  });
-
-  damageBtn.addEventListener('click', () => {
-    actionType = 'damage';
-    resetButtons();
-    damageBtn.style.background = '#e74c3c';
-    damageBtn.style.color = 'white';
-    damageBtn.style.borderColor = '#e74c3c';
   });
 
   tempBtn.addEventListener('click', () => {
