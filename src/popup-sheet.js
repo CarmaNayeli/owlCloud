@@ -9074,9 +9074,9 @@ function resolveVariablesInFormula(formula) {
           evalExpression = evalExpression.replace(new RegExp(name.replace(/\./g, '\\.'), 'g'), value);
         }
 
-        // Evaluate the expression
+        // Evaluate the expression using safeMathEval
         if (/^[\d\s+\-*/().]+$/.test(evalExpression)) {
-          const evalResult = eval(evalExpression);
+          const evalResult = safeMathEval(evalExpression);
           let result;
 
           switch (funcName) {

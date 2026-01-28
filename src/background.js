@@ -3876,7 +3876,34 @@ async function executeCastCommand(command) {
  */
 async function getCharacterDataForDiscordCommand(characterName, characterId) {
   try {
-    // Try to get from Supabase first
+    // First try to get active character from local storage (this is what /roll uses)
+    const result = await browserAPI.storage.local.get(['characterProfiles', 'activeCharacterId']);
+    const characterProfiles = result.characterProfiles || {};
+    const activeCharacterId = result.activeCharacterId;
+    
+    debug.log(`🎯 Discord command looking for character: ${characterName}, activeCharacterId: ${activeCharacterId}`);
+    
+    // If we have an active character, use it
+    if (activeCharacterId && characterProfiles[activeCharacterId]) {
+      const activeChar = characterProfiles[activeCharacterId];
+      // Check if the active character matches the requested name (if provided)
+      if (!characterName || activeChar.character?.name === characterName || activeChar.name === characterName) {
+        debug.log(`📥 Using active character for Discord command: ${activeChar.character?.name || activeChar.name}`);
+        return activeChar.character || activeChar;
+      }
+    }
+    
+    // Fallback: try to find character by name in local storage
+    if (characterName && characterProfiles) {
+      for (const [id, profile] of Object.entries(characterProfiles)) {
+        if (profile.type === 'dicecloud' && (profile.character?.name === characterName || profile.name === characterName)) {
+          debug.log(`📥 Found character by name in local storage for ${characterName}`);
+          return profile.character || profile;
+        }
+      }
+    }
+    
+    // Last resort: try Supabase (but this is unlikely to work for most users)
     if (characterId && isSupabaseConfigured()) {
       const response = await fetch(
         `${SUPABASE_URL}/rest/v1/raw_dicecloud_data?character_id=eq.${characterId}&select=*`,
@@ -3897,18 +3924,7 @@ async function getCharacterDataForDiscordCommand(characterName, characterId) {
       }
     }
 
-    // Fallback to local storage
-    const profiles = await browserAPI.storage.local.get(['characterProfiles']);
-    if (profiles.characterProfiles) {
-      for (const [id, profile] of Object.entries(profiles.characterProfiles)) {
-        if (profile.type === 'dicecloud' && profile.character?.name === characterName) {
-          debug.log(`📥 Retrieved character data from local storage for ${characterName}`);
-          return profile.character;
-        }
-      }
-    }
-
-    debug.warn(`No character data found for ${characterName}`);
+    debug.warn(`No character data found for ${characterName || 'unknown character'}`);
     return null;
   } catch (error) {
     debug.error(`Error getting character data for ${characterName}:`, error);
