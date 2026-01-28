@@ -756,6 +756,38 @@ function buildSheet(data) {
   debug.log('📊 Character data received:', data);
   debug.log('✨ Spell slots data:', data.spellSlots);
 
+  // Normalize snake_case fields to camelCase (database uses snake_case, UI expects camelCase)
+  if (data.hit_points && !data.hitPoints) {
+    data.hitPoints = data.hit_points;
+  }
+  if (data.character_name && !data.name) {
+    data.name = data.character_name;
+  }
+  if (data.armor_class !== undefined && data.armorClass === undefined) {
+    data.armorClass = data.armor_class;
+  }
+  if (data.hit_dice && !data.hitDice) {
+    data.hitDice = data.hit_dice;
+  }
+  if (data.temporary_hp !== undefined && data.temporaryHP === undefined) {
+    data.temporaryHP = data.temporary_hp;
+  }
+  if (data.death_saves && !data.deathSaves) {
+    data.deathSaves = data.death_saves;
+  }
+  if (data.proficiency_bonus !== undefined && data.proficiencyBonus === undefined) {
+    data.proficiencyBonus = data.proficiency_bonus;
+  }
+  if (data.spell_slots && !data.spellSlots) {
+    data.spellSlots = data.spell_slots;
+  }
+  if (data.attribute_mods && !data.attributeMods) {
+    data.attributeMods = data.attribute_mods;
+  }
+  if (data.notification_color && !data.notificationColor) {
+    data.notificationColor = data.notification_color;
+  }
+
   // Safety check: Ensure critical DOM elements exist before building
   const charNameEl = document.getElementById('char-name');
   if (!charNameEl) {
@@ -6908,7 +6940,7 @@ function announceSpellDescription(spell, castLevel = null) {
   if (spell.concentration) tags += ' 🧠 Concentration';
   if (spell.ritual) tags += ' 📖 Ritual';
 
-  let message = `&{template:default} {{name=${colorBanner}${characterData.name} casts ${spell.name}!${tags}}}`;
+  let message = `&{template:default} {{name=${colorBanner}${characterData.name}}} {{🔮 Spell=${spell.name}${tags}}}`;
 
   // Add spell level and school - show upcast level if different
   const spellLevel = parseInt(spell.level) || 0;
@@ -8022,7 +8054,7 @@ function announceAction(action) {
   const emoji = actionTypeEmoji[action.actionType?.toLowerCase()] || '✨';
   const actionTypeText = action.actionType ? ` (${action.actionType})` : '';
 
-  let message = `&{template:default} {{name=${colorBanner}${characterData.name} uses ${action.name}${emoji}}} {{Action Type=${action.actionType || 'Other'}}}`;
+  let message = `&{template:default} {{name=${colorBanner}${characterData.name}}} {{${emoji} Action=${action.name}}} {{Type=${action.actionType || 'action'}}}`;
 
   // Add description (resolve variables first)
   if (action.description) {
