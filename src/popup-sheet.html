@@ -384,6 +384,14 @@
       justify-content: space-between;
       cursor: pointer;
       padding: 5px;
+      align-items: flex-start;
+    }
+    .spell-header > div:first-child {
+      flex: 1;
+      min-width: 0;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      hyphens: auto;
     }
     .spell-header:hover {
       background: var(--bg-feature);
@@ -530,6 +538,11 @@
     .action-name {
       font-weight: bold;
       font-size: 1.1em;
+      flex: 1;
+      min-width: 0;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      hyphens: auto;
     }
     .action-buttons {
       display: flex;
