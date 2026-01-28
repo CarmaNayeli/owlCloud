@@ -857,3 +857,8 @@ function formatActionSummary(action) {
 
   return desc || 'Action sent to Roll20.';
 }
+
+// Make executeDiscordCast globally available for importScripts usage
+if (typeof globalThis !== 'undefined') {
+  globalThis.executeDiscordCast = executeDiscordCast;
+}
