@@ -5,7 +5,8 @@
       "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: Correct button IDs in installer step 4 setup\n\nFixed mismatch between HTML button IDs and JavaScript selectors.\nThe HTML uses ''finishSetup'' and ''continueToStep4'', but the JS\nwas looking for ''finishInstallation'' and ''continueWithUpdaterChoice''.\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(git commit:*)",
       "Bash(7z l:*)",
-      "Bash(npm run build:win:*)"
+      "Bash(npm run build:win:*)",
+      "Bash(tasklist:*)"
     ]
   }
 }

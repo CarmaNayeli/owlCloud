@@ -1,10 +1,8 @@
 /**
  * Pairing Module
  * Handles pairing code generation and Supabase communication
- * Now integrates with native messaging to pass codes to extension
+ * Extension polls Supabase for pairing codes
  */
-
-const { sendPairingCodeToExtension } = require('./native-messaging');
 
 /**
  * Generate a random 6-character pairing code
@@ -20,36 +18,25 @@ function generatePairingCode() {
 }
 
 /**
- * Create a pairing entry in Supabase and send to extension
+ * Create a pairing entry in Supabase
+ * Extension will poll Supabase to retrieve the code
  */
 async function createPairingAndSend(browser, config) {
   try {
     // Generate pairing code
     const code = generatePairingCode();
-    
+
     // Create pairing in Supabase
     await createPairing(code, config);
-    
-    // Send pairing code to extension via native messaging
-    const sent = await sendPairingCodeToExtension(browser, code);
-    
-    if (sent) {
-      return {
-        success: true,
-        code,
-        message: 'Pairing code generated and sent to extension'
-      };
-    } else {
-      // Native messaging failed, but pairing was created
-      return {
-        success: true,
-        code,
-        message: 'Pairing code generated (extension communication failed)',
-        fallback: true
-      };
-    }
+
+    // Native messaging no longer needed - extension uses Supabase polling
+    return {
+      success: true,
+      code,
+      message: 'Pairing code generated'
+    };
   } catch (error) {
-    throw new Error(`Failed to create and send pairing: ${error.message}`);
+    throw new Error(`Failed to create pairing: ${error.message}`);
   }
 }
 

@@ -1,11 +1,9 @@
-const electron = require('electron');
-const { app, BrowserWindow, ipcMain, shell, dialog } = electron;
+const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
 const https = require('https');
 const fs = require('fs');
 const os = require('os');
 const { installExtension, uninstallExtension, isExtensionInstalled, installFirefoxDeveloperEdition, restartBrowser } = require('./extension-installer');
-const { sendPairingCodeToExtension } = require('./native-messaging');
 const { generatePairingCode, createPairing, createPairingAndSend, checkPairing } = require('./pairing');
 
 // Get installer version from package.json
@@ -234,14 +232,10 @@ ipcMain.handle('check-pairing', async (event, code) => {
   }
 });
 
-// Send pairing code to extension
+// Send pairing code to extension (no longer needed - extension polls Supabase)
 ipcMain.handle('send-pairing-to-extension', async (event, browser, code) => {
-  try {
-    const success = await sendPairingCodeToExtension(browser, code);
-    return { success };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
+  // Native messaging removed - extension now polls Supabase for pairing codes
+  return { success: true, message: 'Pairing code stored in Supabase for extension to poll' };
 });
 
 // Open external URL

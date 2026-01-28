@@ -7,7 +7,6 @@ const { exec, execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { installChromeNativeMessaging, installFirefoxNativeMessaging, sendPairingCodeToExtension } = require('./native-messaging');
 
 // Browser-specific configuration
 const BROWSER_CONFIG = {
