@@ -80,7 +80,8 @@
       "createStartMenuShortcut": false,
       "runAfterFinish": true,
       "deleteAppDataOnUninstall": false,
-      "perMachine": true
+      "perMachine": true,
+      "include": "nsis/installer.nsh"
     }
   },
   "keywords": [
