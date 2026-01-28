@@ -162,7 +162,7 @@ async function rollCharacterCheck(interaction, checkType, advantage, disadvantag
     rollName: `${character.character_name} - ${rollName}`,
     checkType,
     characterName: character.character_name,
-    characterId: character.id
+    characterId: character.dicecloud_character_id || character.id
   });
 }
 

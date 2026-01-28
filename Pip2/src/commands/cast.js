@@ -156,7 +156,7 @@ export default {
           spell_level: spellLevel,
           cast_level: castLevel || spellLevel,
           character_name: character.character_name,
-          character_id: character.id,
+          character_id: character.dicecloud_character_id || character.id,
           notification_color: notificationColor,
           spell_data: spell
         },
