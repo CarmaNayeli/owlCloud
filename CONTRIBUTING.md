@@ -539,7 +539,7 @@ If applicable, add screenshots.
 **Environment:**
 - Browser: [e.g., Chrome 120, Firefox 121]
 - OS: [e.g., Windows 11, macOS 14]
-- Extension Version: [e.g., 1.2.3]
+- Extension Version: [e.g., 1.2.4]
 
 **Console Errors**
 Paste any console errors (F12 → Console)

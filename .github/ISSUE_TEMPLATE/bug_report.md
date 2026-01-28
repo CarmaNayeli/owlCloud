@@ -45,7 +45,7 @@ Steps to reproduce the behavior:
 - [ ] macOS (version: )
 - [ ] Linux (distro: )
 
-**Extension Version:** <!-- e.g., 1.2.3 - found in extension popup -->
+**Extension Version:** <!-- e.g., 1.2.4 - found in extension popup -->
 
 **Installation Method:**
 - [ ] Chrome Web Store

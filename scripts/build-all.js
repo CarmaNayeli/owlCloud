@@ -289,7 +289,7 @@ async function buildAll() {
       for (const file of installerFiles) {
         const srcPath = path.join(installerDistDir, file);
         // Standardize name: replace spaces with dashes, remove version number
-        // e.g., "RollCloud Setup 1.2.3.exe" -> "RollCloud-Setup.exe"
+        // e.g., "RollCloud Setup 1.2.4.exe" -> "RollCloud-Setup.exe"
         let destName = file.replace(/\s+/g, '-').replace(/-\d+\.\d+\.\d+/, '');
         const destPath = path.join(RELEASES_DIR, destName);
 

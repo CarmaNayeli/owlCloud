@@ -148,6 +148,15 @@
             </summary>
             <div style="margin-top: 10px; padding: 12px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 5px;">
 
+              <!-- Prompt shown after install/update to remind user to re-sync Discord -->
+              <div id="discordResyncPrompt" style="display: none; margin-bottom: 12px; padding: 10px; background: #fff8e1; border: 1px solid #f1c40f; border-radius: 6px;">
+                <p style="margin: 0 0 8px 0; color: #665200; font-weight: 600;">Heads up — please re-sync your Discord integration</p>
+                <div style="display:flex; gap:8px;">
+                  <button id="discordResyncBtn" class="btn btn-primary">Re-sync Discord</button>
+                  <button id="discordDismissResyncBtn" class="btn btn-outline">Dismiss</button>
+                </div>
+              </div>
+
               <!-- Not Connected State -->
               <div id="discordNotConnected">
                 <p style="margin-top: 0; font-size: 0.9em; color: #666;">

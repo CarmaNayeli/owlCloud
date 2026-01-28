@@ -245,6 +245,8 @@ function initializePopup() {
   if (setupDiscordBtn) {
     // Load initial Discord state
     loadDiscordConnectionState();
+    // Check if we should prompt the user to re-sync Discord after install/update
+    checkDiscordResyncPrompt();
     // Add event listeners
     setupDiscordBtn.addEventListener('click', handleSetupDiscord);
     if (cancelPairingBtn) cancelPairingBtn.addEventListener('click', handleCancelPairing);
@@ -254,6 +256,42 @@ function initializePopup() {
     if (checkDiscordIntegrationNotConnectedBtn) checkDiscordIntegrationNotConnectedBtn.addEventListener('click', handleCheckDiscordIntegration);
     if (saveDiscordWebhookBtn) saveDiscordWebhookBtn.addEventListener('click', handleSaveDiscordWebhook);
   }
+
+    // Show a prompt if install/update requires the user to re-sync Discord
+    async function checkDiscordResyncPrompt() {
+      try {
+        const stored = await browserAPI.storage.local.get(['requireDiscordResync']);
+        if (stored && stored.requireDiscordResync) {
+          const prompt = document.getElementById('discordResyncPrompt');
+          if (prompt) prompt.style.display = 'block';
+
+          const resyncBtn = document.getElementById('discordResyncBtn');
+          const dismissBtn = document.getElementById('discordDismissResyncBtn');
+
+          if (resyncBtn) resyncBtn.addEventListener('click', async () => {
+            try {
+              // Clear the flag and open Discord setup
+              await browserAPI.storage.local.remove('requireDiscordResync');
+            } catch (e) {
+              console.warn('Failed to clear requireDiscordResync:', e);
+            }
+            if (prompt) prompt.style.display = 'none';
+            handleSetupDiscord();
+          });
+
+          if (dismissBtn) dismissBtn.addEventListener('click', async () => {
+            try {
+              await browserAPI.storage.local.remove('requireDiscordResync');
+            } catch (e) {
+              console.warn('Failed to clear requireDiscordResync:', e);
+            }
+            if (prompt) prompt.style.display = 'none';
+          });
+        }
+      } catch (error) {
+        console.warn('Error checking discord resync prompt:', error);
+      }
+    }
 
   /**
    * Checks if the user is logged in and shows appropriate section

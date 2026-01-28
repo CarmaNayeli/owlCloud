@@ -1629,9 +1629,22 @@ browserAPI.runtime.onInstalled.addListener((details) => {
     setTimeout(() => {
       openExtensionPopup();
     }, 1000); // Wait 1 second for extension to fully initialize
-    
+    // Prompt user to re-sync Discord integration after install
+    try {
+      browserAPI.storage.local.set({ requireDiscordResync: true });
+      debug.log('Set requireDiscordResync flag after install');
+    } catch (e) {
+      debug.warn('Could not set requireDiscordResync flag:', e);
+    }
   } else if (details.reason === 'update') {
     debug.log('Extension updated to version', browserAPI.runtime.getManifest().version);
+    // Prompt user to re-sync Discord integration after update
+    try {
+      browserAPI.storage.local.set({ requireDiscordResync: true });
+      debug.log('Set requireDiscordResync flag after update');
+    } catch (e) {
+      debug.warn('Could not set requireDiscordResync flag on update:', e);
+    }
   }
 });
 
