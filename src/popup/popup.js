@@ -115,8 +115,67 @@ function initializePopup() {
     showSheetBtn.style.visibility = 'visible';
   }
 
-  // Initialize
-  checkLoginStatus();
+  // Initialize - render cached UI immediately, then verify in background
+  renderFromCache().then(() => {
+    // After cached UI rendered, run full login/status checks
+    checkLoginStatus();
+  }).catch((e) => {
+    console.warn('Error rendering from cache:', e);
+    // Still run full check if cache render fails
+    checkLoginStatus();
+  });
+
+  /**
+   * Render UI from cached storage values so the popup shows instant data
+   * before any network/Supabase checks run.
+   */
+  async function renderFromCache() {
+    try {
+      const result = await browserAPI.storage.local.get(['diceCloudToken', 'username', 'characterProfiles', 'activeCharacterId', 'tokenExpires']);
+      // If no token cached, nothing to render
+      if (!result.diceCloudToken) {
+        return;
+      }
+
+      // Show main section immediately
+      showMainSection();
+
+      // Populate username if available
+      if (result.username) {
+        const userLabel = document.getElementById('usernameLabel');
+        if (userLabel) userLabel.textContent = result.username;
+      }
+
+      // Load cached character profiles if present
+      const profiles = result.characterProfiles || {};
+      const characterIds = Object.keys(profiles).filter(id => profiles[id].type !== 'rollcloudPlayer');
+
+      if (characterIds.length > 0) {
+        characterSelect.innerHTML = '';
+        characterIds.forEach(id => {
+          const char = profiles[id];
+          const option = document.createElement('option');
+          option.value = id;
+          option.textContent = `${char.name || 'Unknown'} (${char.class || 'No Class'} ${char.level || '?'})`;
+          if (id === result.activeCharacterId) option.selected = true;
+          characterSelect.appendChild(option);
+        });
+        characterSelector.classList.remove('hidden');
+        if (result.activeCharacterId && profiles[result.activeCharacterId]) {
+          displayCharacterData(profiles[result.activeCharacterId]);
+        } else {
+          clearCharacterDisplay();
+        }
+      } else {
+        characterSelect.innerHTML = '<option value="">No characters synced</option>';
+        characterSelector.classList.add('hidden');
+        clearCharacterDisplay();
+      }
+    } catch (error) {
+      debug.warn('Failed to render from cache:', error);
+      throw error;
+    }
+  }
   
   // Debug: Check if Supabase is available
   debug.log('🔍 Supabase availability check:', typeof SupabaseTokenManager !== 'undefined' ? 'Available' : 'Not available');

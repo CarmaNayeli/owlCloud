@@ -266,6 +266,28 @@
     debug.log('📊 Variables count:', Object.keys(variables).length);
     debug.log('📋 Properties count:', properties.length);
 
+    // Explicitly log any properties whose type or name looks like armor/AC to aid debugging
+    try {
+      const propArmorMatches = properties.filter(p => {
+        const name = (p && p.name) ? String(p.name) : '';
+        const type = (p && p.type) ? String(p.type) : '';
+        return (/armor|\bac\b/i.test(name) || /armor|\bac\b/i.test(type));
+      });
+      debug.log(`🛡️ Properties with type/name containing armor/AC: ${propArmorMatches.length}`, propArmorMatches.map(p => ({
+        id: p._id || p.id || null,
+        name: p.name,
+        type: p.type,
+        stat: p.stat,
+        stats: p.stats,
+        operation: p.operation,
+        amount: p.amount,
+        inactive: p.inactive,
+        disabled: p.disabled
+      })));
+    } catch (e) {
+      debug.warn('⚠️ Error while listing armor-like properties:', e && e.message ? e.message : e);
+    }
+
     // Calculate AC from properties with armor stat effects
     const calculateArmorClass = () => {
       let baseAC = 10;
@@ -273,6 +295,231 @@
       const acBonuses = [];
       
       debug.log('🛡️ Calculating AC from properties...');
+      // Quick wins: check denormalized stats or creature-level AC fields
+      try {
+        // Helper: try to coerce a variety of shapes into a numeric AC
+        const extractNumeric = (val) => {
+          if (val === null || val === undefined) return null;
+          if (typeof val === 'number' && !isNaN(val)) return val;
+          if (typeof val === 'string') {
+            const parsed = parseFloat(val);
+            return isNaN(parsed) ? null : parsed;
+          }
+          if (typeof val === 'object') {
+            // Common DiceCloud shapes: { total, value, calculation, text }
+            if (val.total !== undefined && typeof val.total === 'number') return val.total;
+            if (val.total !== undefined && typeof val.total === 'string') {
+              const p = parseFloat(val.total);
+              if (!isNaN(p)) return p;
+            }
+            if (val.value !== undefined && typeof val.value === 'number') return val.value;
+            if (val.value !== undefined && typeof val.value === 'string') {
+              const p = parseFloat(val.value);
+              if (!isNaN(p)) return p;
+            }
+            if (val.calculation && typeof val.calculation === 'string') {
+              const bm = val.calculation.match(/^(\d+)/);
+              if (bm) return parseInt(bm[1]);
+            }
+            if (val.text && typeof val.text === 'string') {
+              const p = parseFloat(val.text);
+              if (!isNaN(p)) return p;
+            }
+          }
+          return null;
+        };
+
+        if (creature && creature.denormalizedStats) {
+          const dn = creature.denormalizedStats;
+          const tryKeys = ['armorClass', 'ac', 'armor'];
+          for (const k of tryKeys) {
+            if (dn.hasOwnProperty(k)) {
+              const num = extractNumeric(dn[k]);
+              if (num !== null) {
+                debug.log(`🛡️ Using denormalizedStats.${k}:`, num);
+                return num;
+              }
+            }
+          }
+        }
+
+        // Also check top-level creature fields that may hold precomputed AC
+        if (creature && creature.armorClass !== undefined) {
+          const num = extractNumeric(creature.armorClass);
+          if (num !== null) {
+            debug.log('🛡️ Using creature.armorClass:', num);
+            return num;
+          }
+        }
+        if (creature && creature.stats && creature.stats.ac !== undefined) {
+          const num = extractNumeric(creature.stats.ac);
+          if (num !== null) {
+            debug.log('🛡️ Using creature.stats.ac:', num);
+            return num;
+          }
+        }
+
+        // Prefer DiceCloud variables that explicitly represent AC/armor
+        try {
+          if (variables && Object.keys(variables).length > 0) {
+            const varNamesToCheck = ['armor', 'armorClass', 'armor_class', 'ac', 'acTotal', 'ac_total'];
+            for (const vn of varNamesToCheck) {
+              if (Object.prototype.hasOwnProperty.call(variables, vn)) {
+                const v = variables[vn];
+                const candidate = extractNumeric(v && (v.total ?? v.value ?? v));
+                if (candidate !== null) {
+                  debug.log(`🛡️ Using variable ${vn}:`, candidate);
+                  return candidate;
+                }
+              }
+            }
+          }
+        } catch (e) {
+          debug.warn('⚠️ Error while checking variables for AC:', e && e.message ? e.message : e);
+        }
+
+        // Check properties for a named "Armor Class" property which directly sets base AC
+        try {
+          if (Array.isArray(properties) && properties.length > 0) {
+            const propAC = properties.find(p => p && p.name && /\barmor class\b/i.test(p.name));
+            if (propAC) {
+              const propAmount = propAC.amount ?? propAC.value ?? propAC.total ?? propAC.baseValue ?? propAC;
+              const propNum = extractNumeric(propAmount);
+              if (propNum !== null) {
+                debug.log('🛡️ Using property "Armor Class":', propNum, propAC);
+                return propNum;
+              }
+            }
+          }
+        } catch (e) {
+          debug.warn('⚠️ Error while checking properties for Armor Class:', e && e.message ? e.message : e);
+        }
+      } catch (e) {
+        debug.warn('⚠️ Error while checking denormalized AC fields:', e && e.message ? e.message : e);
+      }
+
+      // If we reach here, try a deeper search inside denormalizedStats for any numeric candidates
+      try {
+        const findNumericRecursively = (obj, depth = 0, path = '') => {
+          if (obj === null || obj === undefined || depth > 6) return null;
+          const lastKey = path.split('.').pop();
+          const ignoreKeyRegex = /^(xp|experience|milestoneLevels?|milestonelevel|level|levels|hp|hitPoints?|hit_points?)$/i;
+
+          if (typeof obj === 'number' && !isNaN(obj)) {
+            if (ignoreKeyRegex.test(lastKey || '')) return null;
+            return { value: obj, path };
+          }
+          if (typeof obj === 'string') {
+            const p = parseFloat(obj);
+            if (!isNaN(p)) {
+              if (ignoreKeyRegex.test(lastKey || '')) return null;
+              return { value: p, path };
+            }
+            return null;
+          }
+          if (typeof obj === 'object') {
+            // Prefer named keys first
+            const preferKeys = ['armorClass', 'armor', 'ac', 'total', 'value', 'computed'];
+            for (const k of preferKeys) {
+              if (Object.prototype.hasOwnProperty.call(obj, k)) {
+                const candidate = findNumericRecursively(obj[k], depth + 1, path ? `${path}.${k}` : k);
+                if (candidate) return candidate;
+              }
+            }
+
+            // Otherwise iterate all keys
+            for (const key of Object.keys(obj)) {
+              try {
+                const candidate = findNumericRecursively(obj[key], depth + 1, path ? `${path}.${key}` : key);
+                if (candidate) return candidate;
+              } catch (inner) {
+                // ignore
+              }
+            }
+          }
+          return null;
+        };
+
+        if (creature && creature.denormalizedStats) {
+          debug.log('🛡️ Deep-scanning denormalizedStats for numeric AC candidates...');
+          debug.log('🛡️ denormalizedStats snapshot:', creature.denormalizedStats);
+
+          // First: search for numeric candidates where the key/path clearly indicates armor/AC
+          const nameRegex = /armor|armorClass|armor_class|ac|ac_total/i;
+
+          const findNamedNumericRecursively = (obj, depth = 0, path = '') => {
+            if (obj === null || obj === undefined || depth > 6) return null;
+            // If current path or last key looks like armor/AC and value is numeric, return it
+            const lastKey = path.split('.').pop();
+            if (typeof obj === 'number' && !isNaN(obj) && nameRegex.test(lastKey || '')) return { value: obj, path };
+            if (typeof obj === 'string') {
+              const p = parseFloat(obj);
+              if (!isNaN(p) && nameRegex.test(lastKey || '')) return { value: p, path };
+              return null;
+            }
+            if (typeof obj === 'object') {
+              // Prefer named keys first
+              const preferKeys = ['armorClass', 'armor', 'ac', 'total', 'value', 'computed'];
+              for (const k of preferKeys) {
+                if (Object.prototype.hasOwnProperty.call(obj, k)) {
+                  const candidate = findNamedNumericRecursively(obj[k], depth + 1, path ? `${path}.${k}` : k);
+                  if (candidate) return candidate;
+                }
+              }
+
+              for (const key of Object.keys(obj)) {
+                try {
+                  const candidate = findNamedNumericRecursively(obj[key], depth + 1, path ? `${path}.${key}` : key);
+                  if (candidate) return candidate;
+                } catch (inner) {
+                  // ignore
+                }
+              }
+            }
+            return null;
+          };
+
+          // Try named search first
+          const namedFound = findNamedNumericRecursively(creature.denormalizedStats, 0, 'denormalizedStats');
+          if (namedFound) {
+            debug.log(`🛡️ Found named numeric candidate in denormalizedStats at ${namedFound.path}:`, namedFound.value);
+            return namedFound.value;
+          }
+
+          // Fallback: generic numeric search (keeps previous behavior)
+          const found = findNumericRecursively(creature.denormalizedStats, 0, 'denormalizedStats');
+          if (found) {
+            debug.log(`🛡️ Found numeric candidate in denormalizedStats at ${found.path}:`, found.value);
+            return found.value;
+          }
+        }
+      } catch (e) {
+        debug.warn('⚠️ Error during deep denormalizedStats scan:', e && e.message ? e.message : e);
+      }
+
+      // Check DiceCloud variables for any armor/AC-like variables (common names vary)
+      try {
+        const armorVarKeys = Object.keys(variables || {}).filter(k => /armor|\bac\b/i.test(k));
+        if (armorVarKeys.length > 0) {
+          debug.log('🛡️ armor variable candidates:', armorVarKeys);
+          for (const key of armorVarKeys) {
+            try {
+              const candidateVar = variables[key];
+              const candidateNum = extractNumeric(candidateVar && (candidateVar.total ?? candidateVar.value ?? candidateVar));
+              if (candidateNum !== null) {
+                debug.log(`🛡️ Using variable ${key}:`, candidateNum);
+                return candidateNum;
+              } else {
+                debug.log(`🛡️ Variable ${key} exists but did not yield numeric AC:`, candidateVar);
+              }
+            } catch (inner) {
+              debug.log('⚠️ Error inspecting variable', key, inner && inner.message ? inner.message : inner);
+            }
+          }
+        }
+      } catch (e) {
+        debug.warn('⚠️ Error while scanning variables for AC:', e && e.message ? e.message : e);
+      }
       debug.log(`🛡️ Total properties to scan: ${properties.length}`);
       
       // Debug: Log all properties with type 'effect' to see structure

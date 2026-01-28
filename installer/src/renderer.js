@@ -42,6 +42,7 @@ async function init() {
   setupStep2();
   setupStep3();
   setupStep4();
+  setupStep5();
   setupGlobalHandlers();
 }
 
@@ -189,6 +190,7 @@ async function saveUpdaterConfig() {
       minimizeToTray: updaterConfig.minimizeToTray,
       startMinimized: updaterConfig.minimizeToTray,
       enabled: updaterConfig.enableNotifications,
+      runOnStartup: updaterConfig.startWithWindows,
       checkInterval: 3600000 // 1 hour
     };
 
@@ -770,17 +772,38 @@ function setupStep4() {
   const continueBtn = document.getElementById('continueToStep4');
 
   finishBtn.addEventListener('click', async () => {
-    await window.api.quitApp();
+    // Check if updater was installed
+    const updaterInfo = await window.api.getUpdaterInfo();
+    if (updaterInfo.installed) {
+      // Show updater setup step
+      showStep(5);
+    } else {
+      // No updater, just quit
+      await window.api.quitApp();
+    }
   });
 
   // Handle continue button with checkbox choice
   if (continueBtn) {
     continueBtn.addEventListener('click', async () => {
-      const checkbox = document.getElementById('installUpdaterCheckbox');
-      const shouldInstallUpdater = checkbox && checkbox.checked;
-      
+      const installCheckbox = document.getElementById('installUpdaterCheckbox');
+      const runWizardCheckbox = document.getElementById('runWizardCheckbox');
+      const shouldInstallUpdater = installCheckbox && installCheckbox.checked;
+      const shouldRunWizard = runWizardCheckbox && runWizardCheckbox.checked;
+
+      // If both selected, install updater first, then launch wizard where possible
       if (shouldInstallUpdater) {
         await installUpdaterUtility();
+        if (shouldRunWizard) {
+          try { await window.api.launchWizard(); } catch (e) { console.warn('Failed to launch wizard after updater:', e); }
+          showCompletionMessage();
+        } else {
+          showCompletionMessage();
+        }
+      } else if (shouldRunWizard) {
+        // Launch wizard only
+        try { await window.api.launchWizard(); } catch (e) { console.warn('Failed to launch wizard:', e); }
+        showCompletionMessage();
       } else {
         showCompletionMessage();
       }
@@ -860,9 +883,39 @@ async function installUpdaterUtility() {
   }
 }
 
+// ============================================================================
+// Step 5: Updater Setup (conditional)
+// ============================================================================
+
+async function setupStep5() {
+  const finishBtn = document.getElementById('finishUpdaterSetup');
+  const runUpdaterCheckbox = document.getElementById('runUpdaterCheckbox');
+  const updaterPathEl = document.getElementById('updaterPath');
+
+  // Get updater info
+  const updaterInfo = await window.api.getUpdaterInfo();
+  if (updaterInfo.directory) {
+    updaterPathEl.textContent = updaterInfo.directory;
+  }
+
+  finishBtn.addEventListener('click', async () => {
+    // Launch updater if checkbox is checked
+    if (runUpdaterCheckbox && runUpdaterCheckbox.checked) {
+      try {
+        await window.api.launchUpdater();
+      } catch (e) {
+        console.warn('Failed to launch updater:', e);
+      }
+    }
+
+    // Quit the wizard
+    await window.api.quitApp();
+  });
+}
+
 function showCompletionMessage() {
   const statusText = document.getElementById('browserStatus');
-  
+
   statusText.innerHTML = `
     <div style="color: #4ade80;">✅ Installation Complete!</div>
     <div style="font-size: 0.9em; margin-top: 5px;">RollCloud extension is ready to use.</div>

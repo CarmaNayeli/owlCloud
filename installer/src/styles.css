@@ -328,6 +328,20 @@ header h1 {
   font-weight: bold;
 }
 
+/* Info Box */
+.info-box {
+  padding: 20px;
+  background: rgba(74, 158, 255, 0.1);
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border-left: 4px solid #4a9eff;
+}
+
+.info-box p {
+  margin: 0;
+  line-height: 1.6;
+}
+
 /* Next Steps */
 .next-steps {
   margin: 20px 0;

@@ -188,14 +188,6 @@ FunctionEnd
   ${EndIf}
 !macroend
 
-; Modify the run command to pass updater flag
-!macro customRunApp
-  ${If} $InstallUpdater == ${BST_CHECKED}
-    Exec '"$INSTDIR\$APPEXE" --updater-installed --updater-dir="$UpdaterInstallDir"'
-  ${Else}
-    Exec '"$INSTDIR\$APPEXE"'
-  ${EndIf}
-!macroend
 
 ; Uninstaller section for updater
 !macro customUnInstall
@@ -231,3 +223,12 @@ FunctionEnd
   ${EndIf}
 !macroend
 
+; Custom run app macro - called when user checks "Run" on finish page
+!macro customRunApp
+  ; Check if updater was installed and pass appropriate args
+  ${If} $InstallUpdater == ${BST_CHECKED}
+    Exec '"$INSTDIR\${APP_FILENAME}.exe" --updater-installed --updater-dir=$\"$UpdaterInstallDir$\"'
+  ${Else}
+    Exec '"$INSTDIR\${APP_FILENAME}.exe"'
+  ${EndIf}
+!macroend

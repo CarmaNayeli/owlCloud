@@ -338,6 +338,19 @@ function createTray() {
   });
 }
 
+// IPC handlers for settings access from renderer
+const { app: electronApp } = require('electron');
+
+ipcMain.handle('get-notification-settings', async () => {
+  try {
+    // Ensure settings loaded
+    loadNotificationSettings();
+    return notificationSettings;
+  } catch (e) {
+    return notificationSettings;
+  }
+});
+
 function showNotification(title, body, options = {}) {
   if (!notificationSettings.enabled) return;
   
@@ -590,6 +603,16 @@ ipcMain.handle('save-notification-settings', async (event, settings) => {
     const wasEnabled = notificationSettings.enabled;
     notificationSettings = { ...notificationSettings, ...settings };
     saveNotificationSettings();
+
+    // Apply run-on-startup setting using Electron API where supported
+    try {
+      const runOnStartup = !!notificationSettings.runOnStartup || !!notificationSettings.startWithWindows;
+      if (process.platform === 'win32' || process.platform === 'darwin') {
+        electronApp.setLoginItemSettings({ openAtLogin: runOnStartup });
+      }
+    } catch (e) {
+      console.warn('Could not apply login item settings:', e.message);
+    }
 
     // Update tray menu to reflect new settings
     updateTrayMenu();

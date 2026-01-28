@@ -917,6 +917,46 @@ async function storeCharacterData(characterData, slotId) {
     // Use slotId if provided, otherwise fall back to character ID from the data
     const storageId = slotId || characterData.id || characterData._id || 'default';
 
+    // --- Ensure armorClass is populated for local saves ---
+    try {
+      // Try to extract armor class from common locations in the raw payload
+      const extractArmor = (obj) => {
+        if (!obj || typeof obj !== 'object') return null;
+        if (typeof obj.armorClass === 'number') return obj.armorClass;
+        if (typeof obj.armor_class === 'number') return obj.armor_class;
+        if (obj.ac && typeof obj.ac === 'object') {
+          if (typeof obj.ac.base === 'number') return obj.ac.base;
+          if (typeof obj.ac.total === 'number') return obj.ac.total;
+        }
+        if (obj.defenses && typeof obj.defenses === 'object') {
+          if (typeof obj.defenses.armor_class === 'number') return obj.defenses.armor_class;
+          if (typeof obj.defenses.armorClass === 'number') return obj.defenses.armorClass;
+        }
+        return null;
+      };
+
+      let candidate = null;
+      if (characterData && characterData.raw_dicecloud_data) candidate = characterData.raw_dicecloud_data;
+      else if (characterData && characterData._fullData && characterData._fullData.raw_dicecloud_data) candidate = characterData._fullData.raw_dicecloud_data;
+      else if (characterData && characterData._fullData) candidate = characterData._fullData;
+
+      // Unwrap nested wrappers
+      const seenLocal = new Set();
+      while (candidate && typeof candidate === 'object' && candidate.raw_dicecloud_data && !seenLocal.has(candidate)) {
+        seenLocal.add(candidate);
+        candidate = candidate.raw_dicecloud_data;
+      }
+
+      const acFromRaw = extractArmor(candidate);
+      if (typeof acFromRaw === 'number') {
+        characterData.armorClass = acFromRaw;
+      } else if (!characterData.armorClass && characterData.ac && typeof characterData.ac === 'number') {
+        characterData.armorClass = characterData.ac;
+      }
+    } catch (e) {
+      debug.warn('⚠️ Failed to derive armorClass for local save:', e && e.message ? e.message : e);
+    }
+
     // Get existing profiles
     const result = await browserAPI.storage.local.get(['characterProfiles', 'activeCharacterId']);
     const characterProfiles = result.characterProfiles || {};
@@ -1040,12 +1080,38 @@ async function getAllCharacterProfiles() {
       if (typeof SupabaseTokenManager !== 'undefined') {
         const supabase = new SupabaseTokenManager();
 
-        // Get current user's DiceCloud ID from auth tokens
-        const tokenResult = await supabase.retrieveToken();
-        if (tokenResult.success && tokenResult.userId) {
-          currentDicecloudUserId = tokenResult.userId;
-          debug.log('🌐 Fetching database characters for DiceCloud user:', currentDicecloudUserId);
+        // Prefer local cached token/user when available to avoid hitting Supabase every popup open
+        try {
+          const stored = await browserAPI.storage.local.get(['diceCloudToken', 'diceCloudUserId', 'tokenExpires']);
+          if (stored.diceCloudToken && stored.diceCloudUserId) {
+            let useStored = true;
+            if (stored.tokenExpires) {
+              const expiry = new Date(stored.tokenExpires);
+              if (isNaN(expiry.getTime()) || expiry <= new Date()) {
+                useStored = false;
+              }
+            }
+            if (useStored) {
+              currentDicecloudUserId = stored.diceCloudUserId;
+              debug.log('🌐 Using cached DiceCloud user from storage:', currentDicecloudUserId);
+            } else {
+              debug.log('🔁 Cached token expired or invalid, falling back to Supabase lookup');
+            }
+          }
+        } catch (e) {
+          debug.warn('⚠️ Error reading stored token:', e);
+        }
 
+        // If we don't have a valid cached user ID, retrieve from Supabase
+        if (!currentDicecloudUserId) {
+          const tokenResult = await supabase.retrieveToken();
+          if (tokenResult.success && tokenResult.userId) {
+            currentDicecloudUserId = tokenResult.userId;
+            debug.log('🌐 Fetching database characters for DiceCloud user:', currentDicecloudUserId);
+          }
+        }
+
+        if (currentDicecloudUserId) {
           // Get all characters for this user from database
           const response = await fetch(
             `${supabase.supabaseUrl}/rest/v1/rollcloud_characters?user_id_dicecloud=eq.${currentDicecloudUserId}&select=*`,
@@ -1118,7 +1184,7 @@ async function getAllCharacterProfiles() {
 
     // --- Deduplication ---
     // Merge local and database profiles, keeping only one entry per unique
-    // character. Database entries take precedence over local ones.
+    // character. Local entries take precedence over database ones.
     //
     // We use two dedup strategies:
     //  1. By DiceCloud character ID (checking multiple possible field names)
@@ -1164,19 +1230,52 @@ async function getAllCharacterProfiles() {
       if (fp) seenFingerprints.set(fp, key);
     }
 
-    // Process database characters first (higher priority)
+    // Process local profiles first (local saves have priority)
+    for (const [key, profile] of Object.entries(localProfiles)) {
+      const fp = getFingerprint(profile);
+      const charId = getCharId(profile);
+
+      const existingById = charId ? seenCharacterIds.get(charId) : null;
+      const existingByFp = fp ? seenFingerprints.get(fp) : null;
+
+      // If there's an existing entry with the same character ID, decide
+      // whether to replace it. Prefer local `slot-` keys over DB keys.
+      if (existingById) {
+        if (key.startsWith('slot-') && existingById.startsWith('db-')) {
+          delete mergedProfiles[existingById];
+          markSeen(profile, key);
+          mergedProfiles[key] = profile;
+        } else {
+          debug.log(`🔄 Skipping duplicate "${profile.name || profile.character_name}" (key: ${key}), same char ID as: ${existingById}`);
+        }
+        continue;
+      }
+
+      // If there's an existing fingerprint match, prefer local slot keys
+      // over non-slot keys. If neither is a slot key, keep the first seen.
+      if (existingByFp) {
+        if (key.startsWith('slot-') && !existingByFp.startsWith('slot-')) {
+          delete mergedProfiles[existingByFp];
+          markSeen(profile, key);
+          mergedProfiles[key] = profile;
+        } else {
+          debug.log(`🔄 Skipping duplicate "${profile.name || profile.character_name}" (key: ${key}), same fingerprint as: ${existingByFp}`);
+        }
+        continue;
+      }
+
+      // Otherwise mark and add
+      markSeen(profile, key);
+      mergedProfiles[key] = profile;
+    }
+
+    // Then add database characters only if not already present
     for (const [key, profile] of Object.entries(databaseCharacters)) {
       if (!isDuplicate(profile, key)) {
         markSeen(profile, key);
         mergedProfiles[key] = profile;
-      }
-    }
-
-    // Process local profiles, skipping any character already seen
-    for (const [key, profile] of Object.entries(localProfiles)) {
-      if (!isDuplicate(profile, key)) {
-        markSeen(profile, key);
-        mergedProfiles[key] = profile;
+      } else {
+        debug.log(`🔒 Skipping database character ${key} because a local version exists`);
       }
     }
 
@@ -1207,39 +1306,78 @@ async function getCharacterDataFromDatabase(characterId) {
     // Scope the query to the current user so we never load another user's character
     let userFilter = '';
     try {
-      const tokenResult = await supabase.retrieveToken();
-      if (tokenResult.success && tokenResult.userId) {
-        userFilter = `&user_id_dicecloud=eq.${tokenResult.userId}`;
+      // Prefer local cached user id when available to avoid extra Supabase calls
+      try {
+        const stored = await browserAPI.storage.local.get(['diceCloudUserId', 'diceCloudToken', 'tokenExpires']);
+        if (stored.diceCloudUserId && stored.diceCloudToken) {
+          let useStored = true;
+          if (stored.tokenExpires) {
+            const expiry = new Date(stored.tokenExpires);
+            if (isNaN(expiry.getTime()) || expiry <= new Date()) {
+              useStored = false;
+            }
+          }
+          if (useStored) {
+            userFilter = `&user_id_dicecloud=eq.${stored.diceCloudUserId}`;
+            debug.log('🌐 Using cached DiceCloud user for DB query:', stored.diceCloudUserId);
+          }
+        }
+      } catch (e) {
+        debug.warn('⚠️ Error reading stored user for DB query:', e);
+      }
+
+      if (!userFilter) {
+        const tokenResult = await supabase.retrieveToken();
+        if (tokenResult.success && tokenResult.userId) {
+          userFilter = `&user_id_dicecloud=eq.${tokenResult.userId}`;
+        }
       }
     } catch (e) {
       debug.warn('Could not get user ID for database character query:', e);
     }
 
-    // Order by updated_at desc to always get the latest version
-    const response = await fetch(
-      `${supabase.supabaseUrl}/rest/v1/rollcloud_characters?dicecloud_character_id=eq.${characterId}${userFilter}&select=*&order=updated_at.desc&limit=1`,
-      {
+    // Try multiple lookup strategies so callers can pass either a DiceCloud ID,
+    // a storage key, or a DB primary key. Query order: exact dicecloud_character_id,
+    // dicecloud_character_id prefixed with/without `db-`, then primary `id`.
+    const tryQuery = async (field, value) => {
+      const url = `${supabase.supabaseUrl}/rest/v1/rollcloud_characters?${field}=eq.${encodeURIComponent(value)}${userFilter}&select=*&order=updated_at.desc&limit=1`;
+      const resp = await fetch(url, {
         headers: {
           'apikey': supabase.supabaseKey,
           'Authorization': `Bearer ${supabase.supabaseKey}`
         }
-      }
-    );
+      });
+      if (!resp.ok) return null;
+      const arr = await resp.json();
+      return (arr && arr.length > 0) ? arr[0] : null;
+    };
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch database character: ${response.status}`);
+    let dbCharacter = null;
+
+    // 1) Try as dicecloud_character_id exactly
+    dbCharacter = await tryQuery('dicecloud_character_id', characterId);
+
+    // 2) If not found, try adding/removing a leading `db-` prefix
+    if (!dbCharacter) {
+      if (characterId && characterId.startsWith('db-')) {
+        dbCharacter = await tryQuery('dicecloud_character_id', characterId.replace(/^db-/, ''));
+      } else {
+        dbCharacter = await tryQuery('dicecloud_character_id', `db-${characterId}`);
+      }
     }
 
-    const characters = await response.json();
-    if (characters.length === 0) {
+    // 3) If still not found, query by primary `id` (some callers pass DB PK)
+    if (!dbCharacter) {
+      dbCharacter = await tryQuery('id', characterId);
+    }
+
+    if (!dbCharacter) {
       throw new Error('Character not found in database');
     }
 
-    const dbCharacter = characters[0];
-
-    // If raw_dicecloud_data contains the full character object, use it directly
-    // This preserves all parsed data (spells, features, actions, etc.) exactly as synced
-    let rawData = dbCharacter.raw_dicecloud_data;
+    // If raw_dicecloud_data contains the full character object, prefer it.
+    // Also defensively unwrap any nested DB wrappers and normalize IDs.
+    let rawData = dbCharacter.raw_dicecloud_data || dbCharacter._fullData || null;
 
     // Handle raw_dicecloud_data being a JSON string (Supabase may return JSONB as string in some cases)
     if (rawData && typeof rawData === 'string') {
@@ -1253,7 +1391,24 @@ async function getCharacterDataFromDatabase(characterId) {
     }
 
     if (rawData && typeof rawData === 'object' && !Array.isArray(rawData)) {
-      const fullCharacter = rawData;
+      // Defensive unwrap: if rawData itself contains `raw_dicecloud_data`, drill down
+      let candidate = rawData;
+      const seen = new Set();
+      while (candidate && typeof candidate === 'object' && candidate.raw_dicecloud_data && !seen.has(candidate)) {
+        seen.add(candidate);
+        candidate = candidate.raw_dicecloud_data;
+      }
+
+      // If candidate.id looks like a DB-wrapped id (db-...), try to recover an original id
+      if (candidate && typeof candidate.id === 'string' && candidate.id.startsWith('db-')) {
+        if (candidate._id && typeof candidate._id === 'string' && !candidate._id.startsWith('db-')) {
+          candidate.id = candidate._id;
+        } else if (candidate.raw_dicecloud_data && candidate.raw_dicecloud_data.id && !candidate.raw_dicecloud_data.id.startsWith('db-')) {
+          candidate.id = candidate.raw_dicecloud_data.id;
+        }
+      }
+
+      const fullCharacter = candidate;
       // Add database metadata
       fullCharacter.source = 'database';
       fullCharacter.lastUpdated = dbCharacter.updated_at;
@@ -1264,10 +1419,27 @@ async function getCharacterDataFromDatabase(characterId) {
       if (!fullCharacter.name) {
         fullCharacter.name = dbCharacter.character_name;
       }
-      debug.log('✅ Loaded full character from database raw_dicecloud_data:', fullCharacter.name,
-        'HP:', JSON.stringify(fullCharacter.hitPoints),
-        'AC:', fullCharacter.armorClass,
-        'Prof:', fullCharacter.proficiencyBonus);
+      // Restore notification color from database
+      if (dbCharacter.notification_color) {
+        fullCharacter.notificationColor = dbCharacter.notification_color;
+      }
+      // Add a compact preview of the parsed raw data for debugging
+      try {
+        const keys = Object.keys(fullCharacter || {}).slice(0, 50);
+        let sample = '';
+        try {
+          sample = JSON.stringify(fullCharacter, keys);
+        } catch (e) {
+          sample = '[unserializable fullCharacter]';
+        }
+        debug.log('✅ Loaded full character from database raw_dicecloud_data:', fullCharacter.name, {
+          keys: keys,
+          sample: sample && sample.slice ? sample.slice(0, 2000) : sample,
+          lastUpdated: fullCharacter.lastUpdated
+        });
+      } catch (e) {
+        debug.log('✅ Loaded full character from database raw_dicecloud_data:', fullCharacter.name);
+      }
       return fullCharacter;
     }
 
@@ -1299,6 +1471,7 @@ async function getCharacterDataFromDatabase(characterId) {
       spellSlots: dbCharacter.spell_slots,
       resources: dbCharacter.resources,
       conditions: dbCharacter.conditions,
+      notificationColor: dbCharacter.notification_color,
       // Preserve the raw database record for debugging
       rawDiceCloudData: dbCharacter,
       source: 'database',
@@ -2283,6 +2456,69 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
       }
     }
 
+    // Prepare payload, ensuring we store the original DiceCloud raw object
+    // and avoid embedding previous DB wrapper objects (which cause deep nesting).
+    const prepareRawForPayload = (data) => {
+      try {
+        // Prefer explicit nested raw_dicecloud_data or _fullData.raw_dicecloud_data
+        let candidate = null;
+        if (data && data._fullData && data._fullData.raw_dicecloud_data) {
+          candidate = data._fullData.raw_dicecloud_data;
+        } else if (data && data.raw_dicecloud_data) {
+          candidate = data.raw_dicecloud_data;
+        } else if (data && data._fullData) {
+          candidate = data._fullData;
+        }
+
+        // Unwrap repeated wrappers like { raw_dicecloud_data: { raw_dicecloud_data: { ... } } }
+        const seen = new Set();
+        while (candidate && typeof candidate === 'object' && candidate.raw_dicecloud_data && !seen.has(candidate)) {
+          seen.add(candidate);
+          candidate = candidate.raw_dicecloud_data;
+        }
+
+        // If candidate looks like a DB wrapper (id starting with db-), try to recover original
+        if (candidate && typeof candidate.id === 'string' && candidate.id.startsWith('db-')) {
+          if (candidate._id && typeof candidate._id === 'string' && !candidate._id.startsWith('db-')) {
+            candidate.id = candidate._id;
+          } else if (candidate.raw_dicecloud_data && candidate.raw_dicecloud_data.id && !candidate.raw_dicecloud_data.id.startsWith('db-')) {
+            candidate.id = candidate.raw_dicecloud_data.id;
+          }
+        }
+
+        // Small normalization: if there are snake_case keys in raw payload, prefer camelCase aliases
+        if (candidate && typeof candidate === 'object') {
+          if (candidate.armor_class && !candidate.armorClass) candidate.armorClass = candidate.armor_class;
+          if (candidate.hit_points && !candidate.hitPoints) candidate.hitPoints = candidate.hit_points;
+        }
+
+        // If we managed to find a candidate that looks like a DiceCloud object, use it;
+        // otherwise fall back to the original `data` (best-effort).
+        if (candidate && typeof candidate === 'object') return candidate;
+      } catch (e) {
+        debug.warn('⚠️ Error while preparing raw_dicecloud_data for payload:', e && e.message ? e.message : e);
+      }
+      return data;
+    };
+
+    // Extract armor class from a prepared raw object using common field names
+    const extractArmorClass = (raw, fallback) => {
+      if (!raw || typeof raw !== 'object') return fallback;
+      if (typeof raw.armorClass === 'number') return raw.armorClass;
+      if (typeof raw.armor_class === 'number') return raw.armor_class;
+      if (raw.ac && typeof raw.ac === 'object') {
+        if (typeof raw.ac.base === 'number') return raw.ac.base;
+        if (typeof raw.ac.total === 'number') return raw.ac.total;
+      }
+      if (raw.defenses && typeof raw.defenses === 'object') {
+        if (typeof raw.defenses.armor_class === 'number') return raw.defenses.armor_class;
+        if (typeof raw.defenses.armorClass === 'number') return raw.defenses.armorClass;
+      }
+      return fallback;
+    };
+
+    const preparedRaw = prepareRawForPayload(characterData);
+
     const payload = {
       user_id_dicecloud: dicecloudUserId,
       dicecloud_character_id: resolvedCharId,
@@ -2296,7 +2532,7 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
       temporary_hp: characterData.temporaryHP || 0,
       death_saves: characterData.deathSaves || { successes: 0, failures: 0 },
       inspiration: characterData.inspiration || false,
-      armor_class: characterData.armorClass || 10,
+      armor_class: extractArmorClass(preparedRaw, characterData.armorClass || 10),
       speed: characterData.speed || 30,
       initiative: characterData.initiative || 0,
       proficiency_bonus: characterData.proficiencyBonus || 2,
@@ -2307,11 +2543,12 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
       spell_slots: characterData.spellSlots || {},
       resources: characterData.resources || [],
       conditions: characterData.conditions || [],
+      notification_color: characterData.notificationColor || '#3498db',
       // Mark character as active in Roll20 when synced
       is_active: true,
-      // Store the FULL parsed character object so it can be rebuilt exactly
+      // Store the FULL parsed character object (but unwrap DB wrappers first)
       // The individual fields above are for Discord bot quick access
-      raw_dicecloud_data: characterData,
+      raw_dicecloud_data: preparedRaw,
       updated_at: new Date().toISOString()
     };
 
@@ -2450,6 +2687,32 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
     }
 
     debug.log('📤 Sending character payload to Supabase:', payload.character_name);
+
+    // Lightweight payload preview for debugging: keys + small sample of raw data
+    try {
+      const raw = payload.raw_dicecloud_data;
+      const rawKeys = raw && typeof raw === 'object' && !Array.isArray(raw) ? Object.keys(raw) : [];
+      let rawSample = '';
+      try {
+        if (raw && typeof raw === 'object') {
+          const allowed = rawKeys.slice(0, 50);
+          rawSample = JSON.stringify(raw, allowed);
+        } else {
+          rawSample = String(raw);
+        }
+      } catch (e) {
+        rawSample = '[unserializable raw_dicecloud_data]';
+      }
+      debug.log('🔁 storeCharacterToCloud payload preview', {
+        dicecloud_character_id: payload.dicecloud_character_id,
+        character_name: payload.character_name,
+        raw_keys_count: rawKeys.length,
+        raw_keys: rawKeys.slice(0, 20),
+        raw_sample: rawSample && rawSample.slice ? rawSample.slice(0, 2000) : rawSample
+      });
+    } catch (e) {
+      debug.warn('⚠️ Failed to produce storeCharacterToCloud payload preview:', e && e.message ? e.message : e);
+    }
 
     // Delete any existing records for this user + character name to prevent duplicates
     // This handles cases where the same character was stored with different IDs

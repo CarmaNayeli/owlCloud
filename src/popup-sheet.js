@@ -375,16 +375,19 @@ function buildCharacterTabs(profiles, activeCharacterId) {
   tabsContainer.innerHTML = '';
   const maxSlots = 10; // Support up to 10 character slots (matches main's implementation)
 
-  // First, add database characters
-  const databaseCharacters = Object.entries(profiles).filter(([slotId, profile]) => 
-    slotId.startsWith('db-') && profile.source === 'database'
+  // First, add database characters. Some profiles may be missing a `source`
+  // property (older records), so treat any key starting with `db-` as a
+  // database character.
+  const databaseCharacters = Object.entries(profiles).filter(([slotId, profile]) =>
+    slotId.startsWith('db-')
   );
   
   // Add database character tabs
   databaseCharacters.forEach(([slotId, charInSlot], index) => {
     const isActive = slotId === activeCharacterId;
     
-    debug.log(`🌐 DB Character: ${charInSlot.name} (active: ${isActive})`);
+    const displayName = charInSlot.name || charInSlot.character_name || (charInSlot._fullData && (charInSlot._fullData.character_name || charInSlot._fullData.name)) || 'Unknown';
+    debug.log(`🌐 DB Character: ${displayName} (active: ${isActive})`);
     
     const tab = document.createElement('div');
     tab.className = 'character-tab database-tab';
@@ -396,7 +399,7 @@ function buildCharacterTabs(profiles, activeCharacterId) {
     // Create special styling for database characters
     tab.innerHTML = `
       <span class="slot-number">🌐</span>
-      <span class="char-name">${charInSlot.name || 'Unknown'}</span>
+      <span class="char-name">${displayName}</span>
       <span class="char-details">${charInSlot.level || 1} ${charInSlot.class || 'Unknown'}</span>
     `;
     

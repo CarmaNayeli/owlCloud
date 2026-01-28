@@ -678,15 +678,42 @@ async function getAllCharacterProfiles() {
     try {
       if (typeof SupabaseTokenManager !== 'undefined') {
         const supabase = new SupabaseTokenManager();
-        
-        // Get current user's DiceCloud ID from auth tokens
-        const tokenResult = await supabase.retrieveToken();
-        if (tokenResult.success && tokenResult.userId) {
-          debug.log('🌐 Fetching database characters for DiceCloud user:', tokenResult.userId);
-          
+
+        // Prefer local cached token/user when available to avoid hitting Supabase every popup open
+        try {
+          const stored = await browserAPI.storage.local.get(['diceCloudToken', 'diceCloudUserId', 'tokenExpires']);
+          if (stored.diceCloudToken && stored.diceCloudUserId) {
+            let useStored = true;
+            if (stored.tokenExpires) {
+              const expiry = new Date(stored.tokenExpires);
+              if (isNaN(expiry.getTime()) || expiry <= new Date()) {
+                useStored = false;
+              }
+            }
+            if (useStored) {
+              currentDicecloudUserId = stored.diceCloudUserId;
+              debug.log('🌐 Using cached DiceCloud user from storage:', currentDicecloudUserId);
+            } else {
+              debug.log('🔁 Cached token expired or invalid, falling back to Supabase lookup');
+            }
+          }
+        } catch (e) {
+          debug.warn('⚠️ Error reading stored token:', e);
+        }
+
+        // If we don't have a valid cached user ID, retrieve from Supabase
+        if (!currentDicecloudUserId) {
+          const tokenResult = await supabase.retrieveToken();
+          if (tokenResult.success && tokenResult.userId) {
+            currentDicecloudUserId = tokenResult.userId;
+            debug.log('🌐 Fetching database characters for DiceCloud user:', currentDicecloudUserId);
+          }
+        }
+
+        if (currentDicecloudUserId) {
           // Get all characters for this user from database
           const response = await fetch(
-            `${supabase.supabaseUrl}/rest/v1/rollcloud_characters?user_id_dicecloud=eq.${tokenResult.userId}&select=*`,
+            `${supabase.supabaseUrl}/rest/v1/rollcloud_characters?user_id_dicecloud=eq.${currentDicecloudUserId}&select=*`,
             {
               headers: {
                 'apikey': supabase.supabaseKey,
@@ -694,11 +721,11 @@ async function getAllCharacterProfiles() {
               }
             }
           );
-          
+
           if (response.ok) {
             const characters = await response.json();
             debug.log(`📦 Found ${characters.length} characters in database`);
-            
+
             // Convert database characters to profile format
             characters.forEach(character => {
               const slotId = `db-${character.dicecloud_character_id}`;

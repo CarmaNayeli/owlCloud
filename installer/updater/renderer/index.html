@@ -337,6 +337,12 @@
                 </div>
               </div>
             </div>
+                        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                            <input type="checkbox" id="runOnStartupToggle" style="width: 18px; height: 18px;">
+                            <label for="runOnStartupToggle" style="font-size: 1.05em; cursor: pointer;">
+                                Run RollCloud Updater on system startup
+                            </label>
+                        </div>
             <div style="margin: 15px 0; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <span style="font-size: 0.9em;">Monitoring Status:</span>
@@ -472,6 +478,39 @@
             <button class="btn btn-outline" id="quitBtn" style="margin-top: 10px;">Quit</button>
         </div>
     </div>
+
+        <script>
+            // Wire notification settings UI
+            (async function() {
+                try {
+                    const settings = await window.electronAPI.getNotificationSettings();
+                    if (settings) {
+                        document.getElementById('notificationToggle').checked = !!settings.enabled;
+                        document.getElementById('autoUpdateToggle').checked = !!settings.autoUpdate;
+                        document.getElementById('runOnStartupToggle').checked = !!settings.runOnStartup || !!settings.startWithWindows || false;
+                        document.getElementById('checkInterval').value = settings.checkInterval || '3600000';
+                        document.getElementById('lastChecked').textContent = settings.lastChecked || 'Never';
+                    }
+
+                    const saveSettings = async () => {
+                        const newSettings = {
+                            enabled: document.getElementById('notificationToggle').checked,
+                            autoUpdate: document.getElementById('autoUpdateToggle').checked,
+                            runOnStartup: document.getElementById('runOnStartupToggle').checked,
+                            checkInterval: Number(document.getElementById('checkInterval').value)
+                        };
+                        await window.electronAPI.saveNotificationSettings(newSettings);
+                    };
+
+                    document.getElementById('notificationToggle').addEventListener('change', saveSettings);
+                    document.getElementById('autoUpdateToggle').addEventListener('change', saveSettings);
+                    document.getElementById('runOnStartupToggle').addEventListener('change', saveSettings);
+                    document.getElementById('checkInterval').addEventListener('change', saveSettings);
+                } catch (e) {
+                    console.warn('Failed to initialize updater settings UI:', e);
+                }
+            })();
+        </script>
 
     <script>
         // Extension detection

@@ -263,8 +263,20 @@ ipcMain.handle('install-updater', async () => {
 ipcMain.handle('launch-updater', async () => {
   try {
     const { exec } = require('child_process');
-    const updaterPath = path.join('C:', 'Program Files', 'RollCloud', 'RollCloud-Updater.exe');
-    
+
+    // Get updater directory from command line args
+    const args = process.argv.slice(1);
+    const updaterDirArg = args.find(arg => arg.startsWith('--updater-dir='));
+    let updaterPath;
+
+    if (updaterDirArg) {
+      const updaterDir = updaterDirArg.split('=')[1].replace(/"/g, '');
+      updaterPath = path.join(updaterDir, 'RollCloud-Updater.exe');
+    } else {
+      // Fallback to default path
+      updaterPath = path.join('C:', 'Program Files', 'RollCloud', 'RollCloud-Updater.exe');
+    }
+
     if (fs.existsSync(updaterPath)) {
       exec(`"${updaterPath}"`, (error) => {
         if (error) {
@@ -273,8 +285,31 @@ ipcMain.handle('launch-updater', async () => {
       });
       return { success: true };
     } else {
-      throw new Error('Updater not found');
+      throw new Error('Updater not found at: ' + updaterPath);
     }
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Launch the RollCloud Wizard if present (best-effort)
+ipcMain.handle('launch-wizard', async () => {
+  try {
+    const { exec } = require('child_process');
+    // Common install locations - try Program Files first, then resources
+    const candidates = [
+      path.join('C:', 'Program Files', 'RollCloud', 'RollCloudWizard.exe'),
+      path.join(process.resourcesPath || __dirname, '..', 'resources', 'RollCloudWizard.exe')
+    ];
+
+    const found = candidates.find(p => fs.existsSync(p));
+    if (!found) throw new Error('RollCloud Wizard executable not found');
+
+    exec(`"${found}"`, (error) => {
+      if (error) console.error('Failed to launch RollCloud Wizard:', error);
+    });
+
+    return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
   }
