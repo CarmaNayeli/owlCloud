@@ -273,20 +273,35 @@ function formatSpellDescription(spell, castLevel) {
   if (spell.components) description += `**Components:** ${spell.components}\n`;
   if (spell.source) description += `**Source:** ${spell.source}\n`;
 
-  if (spell.damageRoll) {
-    description += `**Damage:** ${spell.damageRoll}`;
+  // Use correct field names from DiceCloud data
+  if (spell.damageRolls && Array.isArray(spell.damageRolls) && spell.damageRolls.length > 0) {
+    spell.damageRolls.forEach(roll => {
+      if (roll.damage) {
+        const type = roll.damageType || 'damage';
+        const isHealing = type.toLowerCase() === 'healing';
+        const label = isHealing ? 'Healing' : type.charAt(0).toUpperCase() + type.slice(1);
+        description += `**${label}:** ${roll.damage}`;
+        if (castLevel && parseInt(spell.level) > 0 && castLevel > parseInt(spell.level)) {
+          description += ` (upcast to level ${castLevel})`;
+        }
+        description += '\n';
+      }
+    });
+  } else if (spell.damage) {
+    const type = spell.damageType || 'damage';
+    const isHealing = type.toLowerCase() === 'healing';
+    const label = isHealing ? 'Healing' : 'Damage';
+    description += `**${label}:** ${spell.damage}`;
     if (castLevel && parseInt(spell.level) > 0 && castLevel > parseInt(spell.level)) {
       description += ` (upcast to level ${castLevel})`;
     }
     description += '\n';
   }
 
-  if (spell.healingRoll) {
-    description += `**Healing:** ${spell.healingRoll}`;
-    if (castLevel && parseInt(spell.level) > 0 && castLevel > parseInt(spell.level)) {
-      description += ` (upcast to level ${castLevel})`;
-    }
-    description += '\n';
+  // Backward compat: also check damageRoll/healingRoll if present (for old data)
+  if (!spell.damage && !spell.damageRolls) {
+    if (spell.damageRoll) description += `**Damage:** ${spell.damageRoll}\n`;
+    if (spell.healingRoll) description += `**Healing:** ${spell.healingRoll}\n`;
   }
 
   if (spell.saveDC && spell.saveAbility) {
