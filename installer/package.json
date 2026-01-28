@@ -1,7 +1,7 @@
 {
   "name": "rollcloud-setup",
   "version": "1.2.3",
-  "description": "RollCloud Enterprise Extension Installer",
+  "description": "RollCloud Extension Installation Wizard",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
@@ -102,5 +102,5 @@
   "dependencies": {
     "sudo-prompt": "^9.2.1"
   },
-  "productName": "RollCloud Enterprise Setup"
+  "productName": "RollCloud Wizard"
 }
