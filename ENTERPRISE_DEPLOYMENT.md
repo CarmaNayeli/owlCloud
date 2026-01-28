@@ -131,7 +131,7 @@ The manifest.json is already configured for enterprise deployment with the publi
   "key": "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----",
   "manifest_version": 3,
   "name": "RollCloud: DiceCloud + Roll20 + Discord Integration",
-  "version": "1.2.3",
+  "version": "1.2.4",
   // ... rest of manifest
 }
 ```

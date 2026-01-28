@@ -1,7 +1,7 @@
 # RollCloud Application Audit Report
 **Date:** January 27, 2026
 **Auditor:** Claude (Sonnet 4.5)
-**Version Audited:** 1.2.3
+**Version Audited:** 1.2.4
 **Branch:** claude/audit-app-state-Wh1s4
 
 ---
@@ -50,7 +50,7 @@ RollCloud is a comprehensive browser extension that integrates DiceCloud V2 with
 - Electron-based Windows/Mac/Linux installer
 - Includes signed extensions
 - Admin privilege elevation for policy installation
-- Version 1.2.3
+- Version 1.2.4
 
 ### 1.2 Directory Structure
 

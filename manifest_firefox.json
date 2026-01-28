@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "RollCloud: Dice Cloud Integration for Roll20",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "Import D&D characters from DiceCloud to Roll20 with enhanced authentication, interactive character sheets, and GM combat tools",
   "permissions": [
     "storage",

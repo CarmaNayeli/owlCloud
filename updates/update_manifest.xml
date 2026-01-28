@@ -15,6 +15,6 @@
   <app appid='mkckngoemfjdkhcpaomdndlecolckgdj'>
     <updatecheck
       codebase='https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-chrome-signed.crx'
-      version='1.2.3' />
+      version='1.2.4' />
   </app>
 </gupdate>
