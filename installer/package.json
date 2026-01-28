@@ -84,9 +84,6 @@
       "deleteAppDataOnUninstall": false,
       "perMachine": true,
       "include": "nsis/installer.nsh"
-    },
-    "win": {
-      "publisherName": "Carmabella"
     }
   },
   "keywords": [
