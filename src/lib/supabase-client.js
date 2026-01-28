@@ -19,8 +19,22 @@ class SupabaseTokenManager {
 
   /**
    * Generate a unique user ID based on browser fingerprint
+   * Uses a persistent stored ID if available to survive browser updates/resolution changes
    */
   generateUserId() {
+    // Try to return cached ID synchronously (set by async method)
+    if (this._cachedUserId) {
+      return this._cachedUserId;
+    }
+
+    // Fallback to fingerprint-based ID (used on first run before stored ID is loaded)
+    return this._generateFingerprintUserId();
+  }
+
+  /**
+   * Generate fingerprint-based user ID (internal helper)
+   */
+  _generateFingerprintUserId() {
     // Create a simple fingerprint from available browser info
     const fingerprint = [
       navigator.userAgent,
@@ -29,7 +43,7 @@ class SupabaseTokenManager {
       (typeof screen !== 'undefined' ? screen.width + 'x' + screen.height : 'unknown'),
       new Date().getTimezoneOffset()
     ].join('|');
-    
+
     // Simple hash to create a consistent ID
     let hash = 0;
     for (let i = 0; i < fingerprint.length; i++) {
@@ -38,6 +52,34 @@ class SupabaseTokenManager {
       hash = hash & hash; // Convert to 32-bit integer
     }
     return 'user_' + Math.abs(hash).toString(36);
+  }
+
+  /**
+   * Get or create a persistent user ID that survives browser updates
+   * This prevents auth loss when Firefox updates change the userAgent
+   */
+  async getOrCreatePersistentUserId() {
+    try {
+      // Check if we have a stored persistent ID
+      const stored = await browserAPI.storage.local.get(['persistentBrowserUserId']);
+
+      if (stored.persistentBrowserUserId) {
+        this._cachedUserId = stored.persistentBrowserUserId;
+        return stored.persistentBrowserUserId;
+      }
+
+      // Generate new ID based on fingerprint and store it
+      const newId = this._generateFingerprintUserId();
+      await browserAPI.storage.local.set({ persistentBrowserUserId: newId });
+      this._cachedUserId = newId;
+
+      debug.log('🔑 Created persistent browser user ID:', newId);
+      return newId;
+    } catch (error) {
+      debug.error('Failed to get/create persistent user ID:', error);
+      // Fall back to fingerprint-based ID
+      return this._generateFingerprintUserId();
+    }
   }
 
   /**
@@ -94,8 +136,8 @@ class SupabaseTokenManager {
       // This prevents stale data from causing login failures
       await browserAPI.storage.local.remove(['sessionInvalidated', 'sessionConflict']);
 
-      // Use browser fingerprint for consistent storage/retrieval
-      const visitorId = this.generateUserId();
+      // Use persistent browser ID for consistent storage/retrieval across browser updates
+      const visitorId = await this.getOrCreatePersistentUserId();
       const sessionId = this.generateSessionId();
 
       // Invalidate all OTHER sessions for this DiceCloud account (different browsers)
@@ -239,9 +281,10 @@ class SupabaseTokenManager {
   async retrieveToken() {
     try {
       debug.log('🌐 Retrieving token from Supabase...');
-      
-      const userId = this.generateUserId();
-      debug.log('🔍 Generated user ID for lookup:', userId);
+
+      // Use persistent user ID to survive browser updates
+      const userId = await this.getOrCreatePersistentUserId();
+      debug.log('🔍 Using persistent user ID for lookup:', userId);
       
       const url = `${this.supabaseUrl}/rest/v1/${this.tableName}?user_id=eq.${userId}&select=*`;
       debug.log('🌐 Supabase query URL:', url);
@@ -340,13 +383,60 @@ class SupabaseTokenManager {
   }
 
   /**
+   * Get raw token data from database (used for session checks)
+   * Returns the full database record without processing
+   */
+  async getTokenFromDatabase() {
+    try {
+      debug.log('🌐 Getting raw token data from Supabase...');
+
+      // Use persistent user ID
+      const userId = await this.getOrCreatePersistentUserId();
+      debug.log('🔍 Using persistent user ID:', userId);
+
+      const url = `${this.supabaseUrl}/rest/v1/${this.tableName}?user_id=eq.${userId}&select=*`;
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'apikey': this.supabaseKey,
+          'Authorization': `Bearer ${this.supabaseKey}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        debug.error('❌ Supabase fetch failed:', response.status, errorText);
+        return { success: false, error: `Fetch failed: ${response.status}` };
+      }
+
+      const data = await response.json();
+
+      if (data && data.length > 0) {
+        debug.log('✅ Found token data in database');
+        return {
+          success: true,
+          tokenData: data[0]
+        };
+      } else {
+        debug.log('ℹ️ No token found in database');
+        return { success: false, error: 'No token found' };
+      }
+    } catch (error) {
+      debug.error('❌ Failed to get token from database:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
    * Delete token from Supabase (logout)
    */
   async deleteToken() {
     try {
       debug.log('🌐 Deleting token from Supabase...');
 
-      const userId = this.generateUserId();
+      const userId = await this.getOrCreatePersistentUserId();
       const response = await fetch(`${this.supabaseUrl}/rest/v1/${this.tableName}?user_id=eq.${userId}`, {
         method: 'DELETE',
         headers: {
@@ -501,8 +591,9 @@ class SupabaseTokenManager {
 
         // First, check auth_tokens
         try {
+          const persistentUserId = await this.getOrCreatePersistentUserId();
           const authResponse = await fetch(
-            `${this.supabaseUrl}/rest/v1/auth_tokens?user_id=eq.${this.generateUserId()}&select=discord_user_id`,
+            `${this.supabaseUrl}/rest/v1/auth_tokens?user_id=eq.${persistentUserId}&select=discord_user_id`,
             {
               headers: {
                 'apikey': this.supabaseKey,
@@ -749,8 +840,8 @@ class SupabaseTokenManager {
 
       debug.log('🔒 Invalidating other sessions for DiceCloud user:', diceCloudUserId);
 
-      // Get our browser fingerprint to exclude our own sessions
-      const ourBrowserId = this.generateUserId();
+      // Get our persistent browser ID to exclude our own sessions
+      const ourBrowserId = await this.getOrCreatePersistentUserId();
       debug.log('🔍 Our browser ID:', ourBrowserId);
 
       // Find all sessions for this DiceCloud account
@@ -932,7 +1023,7 @@ class SupabaseTokenManager {
       }
 
       // Verify session still exists in Supabase and check for invalidation
-      const userId = this.generateUserId();
+      const userId = await this.getOrCreatePersistentUserId();
       debug.log('🔍 Checking session in database for user:', userId);
 
       const response = await fetch(
@@ -1011,7 +1102,7 @@ class SupabaseTokenManager {
    */
   async updateSessionHeartbeat(sessionId) {
     try {
-      const userId = this.generateUserId();
+      const userId = await this.getOrCreatePersistentUserId();
       const response = await fetch(
         `${this.supabaseUrl}/rest/v1/${this.tableName}?user_id=eq.${userId}&session_id=eq.${sessionId}`,
         {
