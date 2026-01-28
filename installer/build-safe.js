@@ -33,10 +33,14 @@ async function buildUpdater() {
     for (const platform of platforms) {
       console.log(`📦 Building updater for ${platform}...`);
       
-      const buildProcess = spawn('npm', ['run', `build${platform === '--win' ? ':win' : platform === '--mac' ? ':mac' : ':linux'}`], {
+      const buildScript = platform === '--win' ? 'build:win' :
+                          platform === '--mac' ? 'build:mac' :
+                          'build:linux';
+
+      const buildProcess = spawn('npm', ['run', buildScript], {
         cwd: updaterPath,
         stdio: 'inherit',
-        shell: true,
+        shell: process.platform === 'win32',
         env: {
           ...process.env,
           NODE_NO_WARNINGS: '1',
@@ -108,7 +112,7 @@ buildUpdater().then(() => {
 
   const child = spawn(electronBuilderPath, args, {
     stdio: 'inherit',
-    shell: true,
+    shell: process.platform === 'win32',
     env: {
       ...process.env,
       NODE_NO_WARNINGS: '1',
