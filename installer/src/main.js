@@ -137,6 +137,24 @@ ipcMain.handle('get-system-info', async () => {
   };
 });
 
+// Get updater installation info from command line
+ipcMain.handle('get-updater-info', async () => {
+  const args = process.argv.slice(1);
+  const updaterInstalled = args.includes('--updater-installed');
+  let updaterDir = null;
+
+  // Find --updater-dir argument
+  const updaterDirArg = args.find(arg => arg.startsWith('--updater-dir='));
+  if (updaterDirArg) {
+    updaterDir = updaterDirArg.split('=')[1].replace(/"/g, '');
+  }
+
+  return {
+    installed: updaterInstalled,
+    directory: updaterDir
+  };
+});
+
 // Check if extension is already installed
 ipcMain.handle('check-extension-installed', async (event, browser) => {
   return await isExtensionInstalled(browser);

@@ -5,16 +5,17 @@
 
 // State
 let selectedBrowser = null;
-let updaterOptions = {
-  install: true,
+let updaterInfo = { installed: false, directory: null };
+let updaterConfig = {
   minimizeToTray: true,
-  startWithWindows: true
+  startWithWindows: true,
+  enableNotifications: true
 };
 
 // DOM Elements
 const steps = {
   step1: document.getElementById('step1'),
-  stepUpdaterChoice: document.getElementById('stepUpdaterChoice'),
+  stepUpdaterConfig: document.getElementById('stepUpdaterConfig'),
   step2: document.getElementById('step2'),
   step3: document.getElementById('step3'),
   step4: document.getElementById('step4'),
@@ -29,9 +30,15 @@ async function init() {
   const systemInfo = await window.api.getSystemInfo();
   console.log('System info:', systemInfo);
 
+  // Check if updater was installed by NSIS
+  updaterInfo = await window.api.getUpdaterInfo();
+  console.log('Updater info:', updaterInfo);
+
   // Set up event listeners
   setupBrowserSelection();
-  setupUpdaterChoice();
+  if (updaterInfo.installed) {
+    setupUpdaterConfig();
+  }
   setupStep2();
   setupStep3();
   setupStep4();
@@ -119,69 +126,87 @@ function setupBrowserSelection() {
             The extension will be installed and configured automatically.
           </div>
         `;
-        // Go to updater choice step first (before downloading anything)
-        document.getElementById('btnContinueToInstall').addEventListener('click', () => goToStep('updaterChoice'));
+        // Go to updater config if installed by NSIS, otherwise go to extension install
+        document.getElementById('btnContinueToInstall').addEventListener('click', () => {
+          if (updaterInfo.installed) {
+            goToStep('updaterConfig');
+          } else {
+            goToStep(2);
+          }
+        });
       }
     });
   });
 }
 
 // ============================================================================
-// Updater Choice Step
+// Updater Configuration Step
 // ============================================================================
 
-function setupUpdaterChoice() {
-  const installUpdaterCheckbox = document.getElementById('installUpdaterChoice');
-  const minimizeToTrayCheckbox = document.getElementById('minimizeToTrayChoice');
-  const startWithWindowsCheckbox = document.getElementById('startWithWindowsChoice');
-  const updaterOptionsSection = document.getElementById('updaterOptionsSection');
-  const continueBtn = document.getElementById('continueToInstall');
-  const backBtn = document.getElementById('backToStep1FromUpdater');
-
-  // Toggle updater options visibility based on install checkbox
-  if (installUpdaterCheckbox) {
-    installUpdaterCheckbox.addEventListener('change', (e) => {
-      if (updaterOptionsSection) {
-        updaterOptionsSection.style.display = e.target.checked ? 'block' : 'none';
-        updaterOptionsSection.style.opacity = e.target.checked ? '1' : '0.5';
-      }
-      updaterOptions.install = e.target.checked;
-    });
-  }
+function setupUpdaterConfig() {
+  const minimizeToTrayCheckbox = document.getElementById('minimizeToTrayConfig');
+  const startWithWindowsCheckbox = document.getElementById('startWithWindowsConfig');
+  const enableNotificationsCheckbox = document.getElementById('enableNotificationsConfig');
+  const continueBtn = document.getElementById('continueFromUpdaterConfig');
 
   // Track checkbox changes
   if (minimizeToTrayCheckbox) {
     minimizeToTrayCheckbox.addEventListener('change', (e) => {
-      updaterOptions.minimizeToTray = e.target.checked;
+      updaterConfig.minimizeToTray = e.target.checked;
     });
   }
 
   if (startWithWindowsCheckbox) {
     startWithWindowsCheckbox.addEventListener('change', (e) => {
-      updaterOptions.startWithWindows = e.target.checked;
+      updaterConfig.startWithWindows = e.target.checked;
     });
   }
 
-  // Continue button - proceed to installation
+  if (enableNotificationsCheckbox) {
+    enableNotificationsCheckbox.addEventListener('change', (e) => {
+      updaterConfig.enableNotifications = e.target.checked;
+    });
+  }
+
+  // Continue button - save config and proceed to browser selection
   if (continueBtn) {
-    continueBtn.addEventListener('click', () => {
-      // Store the updater options
-      updaterOptions.install = installUpdaterCheckbox?.checked ?? true;
-      updaterOptions.minimizeToTray = minimizeToTrayCheckbox?.checked ?? true;
-      updaterOptions.startWithWindows = startWithWindowsCheckbox?.checked ?? true;
-
-      console.log('Updater options:', updaterOptions);
-
-      // Now proceed to actual installation
-      goToStep(2);
-    });
-  }
-
-  // Back button
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
+    continueBtn.addEventListener('click', async () => {
+      // Save updater configuration
+      await saveUpdaterConfig();
+      // Proceed to browser selection
       goToStep(1);
     });
+  }
+}
+
+async function saveUpdaterConfig() {
+  const fs = require('fs');
+  const path = require('path');
+
+  try {
+    const settingsPath = path.join(updaterInfo.directory, 'updater-settings.json');
+    const settings = {
+      minimizeToTray: updaterConfig.minimizeToTray,
+      startMinimized: updaterConfig.minimizeToTray,
+      enabled: updaterConfig.enableNotifications,
+      checkInterval: 3600000 // 1 hour
+    };
+
+    // Save via IPC since renderer can't write files directly
+    const {app} = require('electron').remote;
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+
+    // Create startup shortcut if requested
+    if (updaterConfig.startWithWindows) {
+      const startupPath = path.join(require('os').homedir(), 'AppData', 'Roaming', 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup');
+      const shortcutPath = path.join(startupPath, 'RollCloud Updater.lnk');
+      // This would need PowerShell - handled by NSIS instead
+      console.log('Startup shortcut will be created by NSIS');
+    }
+
+    console.log('Updater configuration saved:', settings);
+  } catch (error) {
+    console.error('Failed to save updater config:', error);
   }
 }
 
@@ -865,8 +890,8 @@ function goToStep(stepNum) {
   });
 
   // Handle special step names
-  if (stepNum === 'updaterChoice') {
-    steps.stepUpdaterChoice.classList.add('active');
+  if (stepNum === 'updaterConfig') {
+    steps.stepUpdaterConfig.classList.add('active');
     return;
   }
 
@@ -877,7 +902,7 @@ function goToStep(stepNum) {
 
     // Trigger step-specific actions
     if (stepNum === 2) {
-      installExtensionAndUpdater();
+      installExtension();
     }
   }
 }

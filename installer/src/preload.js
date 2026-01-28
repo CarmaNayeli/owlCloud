@@ -4,6 +4,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('api', {
   // System info
   getSystemInfo: () => ipcRenderer.invoke('get-system-info'),
+  getUpdaterInfo: () => ipcRenderer.invoke('get-updater-info'),
 
   // Extension management
   checkExtensionInstalled: (browser) => ipcRenderer.invoke('check-extension-installed', browser),

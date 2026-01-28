@@ -36,50 +36,45 @@
       </div>
     </section>
 
-    <!-- Step 1.5: Updater Choice (shown before downloading) -->
-    <section id="stepUpdaterChoice" class="step">
+    <!-- Step 1.5: Updater Configuration (shown only if updater was installed by NSIS) -->
+    <section id="stepUpdaterConfig" class="step">
       <div class="step-header">
-        <span class="step-number">+</span>
-        <h2>Install RollCloud Updater?</h2>
+        <span class="step-number">⚙</span>
+        <h2>Configure RollCloud Updater</h2>
       </div>
       <div class="step-content">
-        <div class="updater-choice-box" style="background: rgba(96, 165, 250, 0.1); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-          <p style="margin-top: 0;">The RollCloud Updater is a small utility that runs in your system tray and notifies you when updates are available.</p>
+        <p style="margin-bottom: 20px;">The RollCloud Updater was installed. Configure how it should run:</p>
 
-          <div style="margin: 20px 0;">
-            <label style="display: flex; align-items: center; cursor: pointer; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 10px;">
-              <input type="checkbox" id="installUpdaterChoice" checked style="width: 18px; height: 18px; margin-right: 12px;">
-              <div>
-                <strong>Install RollCloud Updater</strong>
-                <div style="font-size: 0.9em; opacity: 0.8; margin-top: 4px;">Recommended - Get notified about new features and fixes</div>
-              </div>
-            </label>
-
-            <div id="updaterOptionsSection" style="margin-left: 30px; margin-top: 15px;">
-              <label style="display: flex; align-items: center; cursor: pointer; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 6px; margin-bottom: 8px;">
-                <input type="checkbox" id="minimizeToTrayChoice" checked style="width: 16px; height: 16px; margin-right: 10px;">
-                <div>
-                  <span>Start minimized in system tray</span>
-                  <div style="font-size: 0.85em; opacity: 0.7; margin-top: 2px;">Runs quietly in background to check for updates</div>
-                </div>
-              </label>
-
-              <label style="display: flex; align-items: center; cursor: pointer; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 6px;">
-                <input type="checkbox" id="startWithWindowsChoice" checked style="width: 16px; height: 16px; margin-right: 10px;">
-                <div>
-                  <span>Start with Windows</span>
-                  <div style="font-size: 0.85em; opacity: 0.7; margin-top: 2px;">Automatically launch when you log in</div>
-                </div>
-              </label>
+        <div style="margin: 20px 0;">
+          <label style="display: flex; align-items: center; cursor: pointer; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 10px;">
+            <input type="checkbox" id="minimizeToTrayConfig" checked style="width: 18px; height: 18px; margin-right: 12px;">
+            <div>
+              <strong>Start minimized in system tray</strong>
+              <div style="font-size: 0.9em; opacity: 0.8; margin-top: 4px;">Runs quietly in background to check for updates</div>
             </div>
-          </div>
+          </label>
 
-          <p style="font-size: 0.85em; opacity: 0.7; margin-bottom: 0;">You can change these settings anytime from the updater.</p>
+          <label style="display: flex; align-items: center; cursor: pointer; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 10px;">
+            <input type="checkbox" id="startWithWindowsConfig" checked style="width: 18px; height: 18px; margin-right: 12px;">
+            <div>
+              <strong>Start with Windows</strong>
+              <div style="font-size: 0.9em; opacity: 0.8; margin-top: 4px;">Automatically launch when you log in</div>
+            </div>
+          </label>
+
+          <label style="display: flex; align-items: center; cursor: pointer; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+            <input type="checkbox" id="enableNotificationsConfig" checked style="width: 18px; height: 18px; margin-right: 12px;">
+            <div>
+              <strong>Enable update notifications</strong>
+              <div style="font-size: 0.9em; opacity: 0.8; margin-top: 4px;">Get notified when new versions are available</div>
+            </div>
+          </label>
         </div>
 
-        <div class="button-row">
-          <button id="backToStep1FromUpdater" class="btn btn-secondary">Back</button>
-          <button id="continueToInstall" class="btn btn-primary">Continue to Install</button>
+        <p style="font-size: 0.85em; opacity: 0.7; margin-top: 20px;">You can change these settings anytime from the updater.</p>
+
+        <div class="button-row" style="margin-top: 20px;">
+          <button id="continueFromUpdaterConfig" class="btn btn-primary">Continue</button>
         </div>
       </div>
     </section>
