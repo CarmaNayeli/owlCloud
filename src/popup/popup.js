@@ -2004,17 +2004,70 @@ function initializePopup() {
       checkBtn.disabled = true;
       checkBtn.textContent = '⏳ Checking...';
 
-      // Get current character data
-      const result = await browserAPI.storage.local.get(['activeCharacterId', 'characterProfiles']);
+      // Get current character data from local storage first
+      const result = await browserAPI.storage.local.get(['activeCharacterId', 'characterProfiles', 'diceCloudUserId']);
       const activeCharacterId = result.activeCharacterId;
       const characterProfiles = result.characterProfiles || {};
 
-      if (!activeCharacterId || !characterProfiles[activeCharacterId]) {
-        showDiscordStatus('No active character found', 'error');
+      let currentCharacter = null;
+
+      // First try local storage
+      if (activeCharacterId && characterProfiles[activeCharacterId]) {
+        currentCharacter = characterProfiles[activeCharacterId];
+        debug.log('🔍 Found active character in local storage:', currentCharacter.name);
+      }
+
+      // If no local character, try to get active character from Supabase
+      if (!currentCharacter) {
+        debug.log('📋 No local active character, checking Supabase...');
+        const supabaseManager = new SupabaseTokenManager();
+        const userId = await supabaseManager.getOrCreatePersistentUserId();
+
+        // Get auth token to find Discord user ID
+        const tokenResult = await supabaseManager.getTokenFromDatabase();
+        if (tokenResult.success && tokenResult.tokenData) {
+          const discordUserId = tokenResult.tokenData.discord_user_id;
+          const dicecloudUserId = tokenResult.tokenData.user_id_dicecloud || result.diceCloudUserId;
+
+          if (discordUserId || dicecloudUserId) {
+            // Query Supabase for active character
+            let charQuery = discordUserId
+              ? `discord_user_id=eq.${discordUserId}&is_active=eq.true`
+              : `user_id_dicecloud=eq.${dicecloudUserId}&is_active=eq.true`;
+
+            const charResponse = await fetch(
+              `${supabaseManager.supabaseUrl}/rest/v1/rollcloud_characters?${charQuery}&select=*&limit=1`,
+              {
+                headers: {
+                  'apikey': supabaseManager.supabaseKey,
+                  'Authorization': `Bearer ${supabaseManager.supabaseKey}`
+                }
+              }
+            );
+
+            if (charResponse.ok) {
+              const characters = await charResponse.json();
+              if (characters.length > 0) {
+                const dbChar = characters[0];
+                currentCharacter = {
+                  name: dbChar.character_name,
+                  id: dbChar.dicecloud_character_id,
+                  level: dbChar.level,
+                  class: dbChar.class,
+                  race: dbChar.race
+                };
+                debug.log('🔍 Found active character in Supabase:', currentCharacter.name);
+              }
+            }
+          }
+        }
+      }
+
+      if (!currentCharacter) {
+        showDiscordStatus('No active character found. Set one with /character in Discord or open a character on DiceCloud.', 'error');
         return;
       }
 
-      const currentCharacter = characterProfiles[activeCharacterId];
       debug.log('🔍 Checking Discord integration for character:', currentCharacter.name);
 
       // Send message to background script to check Discord integration
