@@ -8,6 +8,10 @@
     "build:extension": "node scripts/build-extension-clean.js",
     "build:signed": "node scripts/build-signed.js",
     "build:installer": "cd installer && npm run build",
+    "build:installer:win": "cd installer && npm run build:win",
+    "build:installer:mac": "cd installer && npm run build:mac",
+    "build:installer:linux": "cd installer && npm run build:linux",
+    "build:installer:all": "cd installer && npm run build:all",
     "build:enterprise": "node scripts/build-enterprise-installer.js"
   },
   "keywords": [
