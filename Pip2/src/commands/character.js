@@ -3,6 +3,27 @@ import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
+// Helper to add timeout to fetch requests
+async function fetchWithTimeout(url, options, timeoutMs = 5000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetchWithTimeout(url, {
+      ...options,
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+    return response;
+  } catch (error) {
+    clearTimeout(timeout);
+    if (error.name === 'AbortError') {
+      throw new Error('Database query timed out');
+    }
+    throw error;
+  }
+}
+
 export default {
   data: new SlashCommandBuilder()
     .setName('character')
@@ -47,10 +68,11 @@ export default {
   },
 
   async execute(interaction) {
-    // IMPORTANT: deferReply MUST happen first - Discord only gives 3 seconds!
-    await interaction.deferReply({ flags: 64 }); // ephemeral
-
     try {
+      // CRITICAL: Defer IMMEDIATELY - Discord only gives 3 seconds!
+      // Do this BEFORE any other operations
+      await interaction.deferReply({ flags: 64 }); // ephemeral
+
       const characterName = interaction.options.getString('name');
       const targetUser = interaction.options.getUser('user') || interaction.user;
       const isOwnCharacter = targetUser.id === interaction.user.id;
@@ -123,13 +145,30 @@ export default {
 
     } catch (error) {
       console.error('Character command error:', error);
-      await interaction.editReply({
-        embeds: [new EmbedBuilder()
-          .setColor(0xE74C3C)
-          .setTitle('❌ Error')
-          .setDescription(`Failed to fetch character: ${error.message}`)
-        ]
-      });
+
+      // Check if we can still reply
+      try {
+        if (interaction.deferred || interaction.replied) {
+          await interaction.editReply({
+            embeds: [new EmbedBuilder()
+              .setColor(0xE74C3C)
+              .setTitle('❌ Error')
+              .setDescription(`Failed to fetch character: ${error.message}`)
+            ]
+          });
+        } else {
+          await interaction.reply({
+            embeds: [new EmbedBuilder()
+              .setColor(0xE74C3C)
+              .setTitle('❌ Error')
+              .setDescription(`Failed to fetch character: ${error.message}`)
+            ],
+            flags: 64
+          });
+        }
+      } catch (replyError) {
+        console.error('Failed to send error message:', replyError);
+      }
     }
   }
 };
@@ -189,7 +228,7 @@ async function getActiveCharacter(discordUserId) {
   }
 
   // First try to get active character by discord_user_id
-  let response = await fetch(
+  let response = await fetchWithTimeout(
     `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}&is_active=eq.true&select=*&limit=1`,
     {
       headers: {
@@ -207,7 +246,7 @@ async function getActiveCharacter(discordUserId) {
 
   // If no active character, get most recently updated
   if (data.length === 0) {
-    response = await fetch(
+    response = await fetchWithTimeout(
       `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}&select=*&order=updated_at.desc&limit=1`,
       {
         headers: {
@@ -226,7 +265,7 @@ async function getActiveCharacter(discordUserId) {
   if (data.length === 0) {
     console.log(`📋 No character found by discord_user_id=${discordUserId}, checking via pairing...`);
 
-    const pairingResponse = await fetch(
+    const pairingResponse = await fetchWithTimeout(
       `${SUPABASE_URL}/rest/v1/rollcloud_pairings?discord_user_id=eq.${discordUserId}&status=eq.connected&select=dicecloud_user_id`,
       {
         headers: {
@@ -243,7 +282,7 @@ async function getActiveCharacter(discordUserId) {
         console.log(`🔗 Found pairing with dicecloud_user_id: ${dicecloudUserId}`);
 
         // Get active or most recent by dicecloud_user_id
-        let fallbackResponse = await fetch(
+        let fallbackResponse = await fetchWithTimeout(
           `${SUPABASE_URL}/rest/v1/rollcloud_characters?user_id_dicecloud=eq.${dicecloudUserId}&is_active=eq.true&select=*&limit=1`,
           {
             headers: {
@@ -259,7 +298,7 @@ async function getActiveCharacter(discordUserId) {
 
         // If still no active, get most recent
         if (data.length === 0) {
-          fallbackResponse = await fetch(
+          fallbackResponse = await fetchWithTimeout(
             `${SUPABASE_URL}/rest/v1/rollcloud_characters?user_id_dicecloud=eq.${dicecloudUserId}&select=*&order=updated_at.desc&limit=1`,
             {
               headers: {
@@ -277,7 +316,7 @@ async function getActiveCharacter(discordUserId) {
         // Link the character to discord_user_id for future lookups
         if (data.length > 0 && data[0].discord_user_id !== discordUserId) {
           console.log(`🔗 Linking character "${data[0].character_name}" to discord_user_id=${discordUserId}`);
-          await fetch(
+          await fetchWithTimeout(
             `${SUPABASE_URL}/rest/v1/rollcloud_characters?id=eq.${data[0].id}`,
             {
               method: 'PATCH',
@@ -307,7 +346,7 @@ async function setActiveCharacter(discordUserId, characterName) {
   const encodedName = encodeURIComponent(characterName);
 
   // Find character by name (case-insensitive partial match)
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}&character_name=ilike.*${encodedName}*&select=*`,
     {
       headers: {
@@ -333,7 +372,7 @@ async function setActiveCharacter(discordUserId, characterName) {
     console.log('📋 No direct match, checking via pairing...');
 
     // Get dicecloud_user_id from pairings for this Discord user
-    const pairingResponse = await fetch(
+    const pairingResponse = await fetchWithTimeout(
       `${SUPABASE_URL}/rest/v1/rollcloud_pairings?discord_user_id=eq.${discordUserId}&status=eq.connected&select=dicecloud_user_id`,
       {
         headers: {
@@ -350,7 +389,7 @@ async function setActiveCharacter(discordUserId, characterName) {
         console.log(`🔗 Found pairing with dicecloud_user_id: ${dicecloudUserId}`);
 
         // Search by dicecloud_user_id instead
-        const fallbackResponse = await fetch(
+        const fallbackResponse = await fetchWithTimeout(
           `${SUPABASE_URL}/rest/v1/rollcloud_characters?user_id_dicecloud=eq.${dicecloudUserId}&character_name=ilike.*${encodedName}*&select=*`,
           {
             headers: {
@@ -369,7 +408,7 @@ async function setActiveCharacter(discordUserId, characterName) {
             const character = fallbackMatches[0];
             console.log(`🔗 Linking character "${character.character_name}" to discord_user_id=${discordUserId}`);
 
-            await fetch(
+            await fetchWithTimeout(
               `${SUPABASE_URL}/rest/v1/rollcloud_characters?id=eq.${character.id}`,
               {
                 method: 'PATCH',
@@ -397,7 +436,7 @@ async function setActiveCharacter(discordUserId, characterName) {
   const character = matches[0];
 
   // Deactivate all other characters for this user
-  await fetch(
+  await fetchWithTimeout(
     `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}`,
     {
       method: 'PATCH',
@@ -411,7 +450,7 @@ async function setActiveCharacter(discordUserId, characterName) {
   );
 
   // Activate the selected character
-  await fetch(
+  await fetchWithTimeout(
     `${SUPABASE_URL}/rest/v1/rollcloud_characters?id=eq.${character.id}`,
     {
       method: 'PATCH',
@@ -435,7 +474,7 @@ async function getUserCharacters(discordUserId) {
   let characters = [];
 
   // First try direct lookup by discord_user_id
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}&select=character_name,class,level&order=character_name`,
     {
       headers: {
@@ -451,7 +490,7 @@ async function getUserCharacters(discordUserId) {
 
   // If no characters found, try via pairing
   if (characters.length === 0) {
-    const pairingResponse = await fetch(
+    const pairingResponse = await fetchWithTimeout(
       `${SUPABASE_URL}/rest/v1/rollcloud_pairings?discord_user_id=eq.${discordUserId}&status=eq.connected&select=dicecloud_user_id`,
       {
         headers: {
@@ -464,7 +503,7 @@ async function getUserCharacters(discordUserId) {
     if (pairingResponse.ok) {
       const pairings = await pairingResponse.json();
       if (pairings.length > 0 && pairings[0].dicecloud_user_id) {
-        const fallbackResponse = await fetch(
+        const fallbackResponse = await fetchWithTimeout(
           `${SUPABASE_URL}/rest/v1/rollcloud_characters?user_id_dicecloud=eq.${pairings[0].dicecloud_user_id}&select=character_name,class,level&order=character_name`,
           {
             headers: {
