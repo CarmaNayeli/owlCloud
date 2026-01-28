@@ -15,7 +15,7 @@
   },
   "build": {
     "appId": "com.dicecat.rollcloud.setup",
-    "productName": "RollCloud Setup v2",
+    "artifactName": "RollCloudWizard.${ext}",
     "directories": {
       "output": "dist"
     },
