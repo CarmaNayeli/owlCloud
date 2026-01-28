@@ -105,7 +105,14 @@ async function buildUpdater() {
 // Build updater first, then main installer
 buildUpdater().then(() => {
   console.log('🏗️ Building main installer...');
-  
+
+  // Clean dist folder before building
+  const distPath = path.join(__dirname, 'dist');
+  if (fs.existsSync(distPath)) {
+    console.log('🧹 Cleaning dist folder...');
+    fs.rmSync(distPath, { recursive: true, force: true });
+  }
+
   // Run electron-builder with original arguments
   const electronBuilderPath = path.join(__dirname, 'node_modules', '.bin', 'electron-builder');
   const args = process.argv.slice(2);
