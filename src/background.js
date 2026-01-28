@@ -3846,7 +3846,7 @@ async function executeCastCommand(command) {
       executionResult: castResult,
       // Upcasting information
       isUpcast: castResult.embed?.isUpcast || false,
-      actualCastLevel: castResult.embed?.castLevel || parseInt(castLevel) || 0
+      actualCastLevel: castResult.embed?.castLevel || parseInt(command_data.cast_level) || 0
     };
 
     // Send to all Roll20 tabs
