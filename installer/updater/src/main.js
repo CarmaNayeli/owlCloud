@@ -8,6 +8,7 @@ const { execSync } = require('child_process');
 // Configuration
 const CONFIG = {
   extensionId: 'mkckngoemfjdkhcpaomdndlecolckgdj',
+  firefoxExtensionIds: ['rollcloud@dicecat.com', 'rollcloud@dicecat.dev'],
   chromeUpdateUrl: 'https://raw.githubusercontent.com/CarmaNayeli/rollCloud/main/updates/update_manifest.xml',
   firefoxUpdateUrl: 'https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-firefox-signed.xpi',
   githubApiUrl: 'https://api.github.com/repos/CarmaNayeli/rollCloud/releases/latest'
@@ -25,7 +26,9 @@ let notificationSettings = {
   autoUpdate: false,  // Default to manual approval
   lastChecked: null,
   lastVersion: null,
-  checkInterval: 3600000 // 1 hour in milliseconds
+  checkInterval: 3600000, // 1 hour in milliseconds
+  trackedBrowsers: ['chrome', 'edge', 'firefox'], // Default browsers to track
+  customBrowsers: [] // User-added custom browsers [{name, appName, icon}]
 };
 
 // Background update checking
@@ -699,23 +702,55 @@ async function detectEdgeExtension() {
 
 async function detectFirefoxExtension() {
   try {
-    const firefoxPaths = [
-      path.join(os.homedir(), 'AppData', 'Local', 'Mozilla', 'Firefox'),
-      path.join(os.homedir(), 'Library', 'Application Support', 'Firefox'),
-      path.join(os.homedir(), '.mozilla', 'firefox')
-    ];
-
-    for (const firefoxPath of firefoxPaths) {
-      const policiesPath = path.join(firefoxPath, 'distribution', 'policies.json');
-      if (fs.existsSync(policiesPath)) {
-        const policies = JSON.parse(fs.readFileSync(policiesPath, 'utf8'));
-        if (policies.extensions && policies.extensions[CONFIG.extensionId]) {
-          return true;
+    // Check user profile extensions (most common location)
+    const profilesPath = path.join(os.homedir(), 'AppData', 'Roaming', 'Mozilla', 'Firefox', 'Profiles');
+    if (fs.existsSync(profilesPath)) {
+      const profiles = fs.readdirSync(profilesPath);
+      for (const profile of profiles) {
+        const extensionsDir = path.join(profilesPath, profile, 'extensions');
+        if (fs.existsSync(extensionsDir)) {
+          const extensions = fs.readdirSync(extensionsDir);
+          for (const extensionId of CONFIG.firefoxExtensionIds) {
+            if (extensions.includes(`${extensionId}.xpi`)) {
+              return true;
+            }
+          }
         }
       }
     }
+
+    // Check Program Files distribution folder (enterprise/system-wide installs)
+    const firefoxProgramPaths = [
+      path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'Mozilla Firefox'),
+      path.join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'Mozilla Firefox')
+    ];
+
+    for (const firefoxPath of firefoxProgramPaths) {
+      const distributionExtensions = path.join(firefoxPath, 'distribution', 'extensions');
+      if (fs.existsSync(distributionExtensions)) {
+        const extensions = fs.readdirSync(distributionExtensions);
+        for (const extensionId of CONFIG.firefoxExtensionIds) {
+          if (extensions.includes(`${extensionId}.xpi`)) {
+            return true;
+          }
+        }
+      }
+
+      // Also check policies.json
+      const policiesPath = path.join(firefoxPath, 'distribution', 'policies.json');
+      if (fs.existsSync(policiesPath)) {
+        const policies = JSON.parse(fs.readFileSync(policiesPath, 'utf8'));
+        for (const extensionId of CONFIG.firefoxExtensionIds) {
+          if (policies.extensions && policies.extensions[extensionId]) {
+            return true;
+          }
+        }
+      }
+    }
+
     return false;
   } catch (error) {
+    console.error('Firefox detection error:', error);
     return false;
   }
 }
@@ -754,12 +789,34 @@ async function checkForUpdates() {
 // IPC Handlers
 ipcMain.handle('detect-extensions', async () => {
   try {
-    const results = {
-      chrome: await detectChromeExtension(),
-      edge: await detectEdgeExtension(),
-      firefox: await detectFirefoxExtension()
+    const results = {};
+    const trackedBrowsers = notificationSettings.trackedBrowsers || ['chrome', 'edge', 'firefox'];
+    const customBrowsers = notificationSettings.customBrowsers || [];
+
+    // Detect standard browsers
+    if (trackedBrowsers.includes('chrome')) {
+      results.chrome = await detectChromeExtension();
+    }
+    if (trackedBrowsers.includes('edge')) {
+      results.edge = await detectEdgeExtension();
+    }
+    if (trackedBrowsers.includes('firefox')) {
+      results.firefox = await detectFirefoxExtension();
+    }
+
+    // Detect custom browsers
+    for (const browser of customBrowsers) {
+      if (trackedBrowsers.includes(browser.id)) {
+        results[browser.id] = await detectCustomBrowserExtension(browser);
+      }
+    }
+
+    return {
+      success: true,
+      results,
+      trackedBrowsers,
+      customBrowsers
     };
-    return { success: true, results };
   } catch (error) {
     return { success: false, error: error.message };
   }
@@ -998,3 +1055,124 @@ ipcMain.handle('complete-first-run', async () => {
 ipcMain.handle('quit-app', () => {
   app.quit();
 });
+
+// Browser tracking management
+ipcMain.handle('get-tracked-browsers', async () => {
+  try {
+    return {
+      success: true,
+      trackedBrowsers: notificationSettings.trackedBrowsers || ['chrome', 'edge', 'firefox'],
+      customBrowsers: notificationSettings.customBrowsers || []
+    };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('toggle-browser-tracking', async (event, browserName) => {
+  try {
+    if (!notificationSettings.trackedBrowsers) {
+      notificationSettings.trackedBrowsers = ['chrome', 'edge', 'firefox'];
+    }
+
+    const index = notificationSettings.trackedBrowsers.indexOf(browserName);
+    if (index > -1) {
+      // Remove from tracking
+      notificationSettings.trackedBrowsers.splice(index, 1);
+    } else {
+      // Add to tracking
+      notificationSettings.trackedBrowsers.push(browserName);
+    }
+
+    saveNotificationSettings();
+    return { success: true, trackedBrowsers: notificationSettings.trackedBrowsers };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('add-custom-browser', async (event, browserData) => {
+  try {
+    if (!notificationSettings.customBrowsers) {
+      notificationSettings.customBrowsers = [];
+    }
+
+    // Validate browser data
+    if (!browserData.name || !browserData.appName) {
+      return { success: false, error: 'Browser name and application name are required' };
+    }
+
+    // Check if already exists
+    const exists = notificationSettings.customBrowsers.some(b =>
+      b.appName.toLowerCase() === browserData.appName.toLowerCase()
+    );
+
+    if (exists) {
+      return { success: false, error: 'This browser is already added' };
+    }
+
+    // Add custom browser
+    const newBrowser = {
+      id: `custom-${Date.now()}`,
+      name: browserData.name,
+      appName: browserData.appName,
+      icon: browserData.icon || '🌐',
+      addedAt: new Date().toISOString()
+    };
+
+    notificationSettings.customBrowsers.push(newBrowser);
+
+    // Auto-track the new custom browser
+    if (!notificationSettings.trackedBrowsers) {
+      notificationSettings.trackedBrowsers = ['chrome', 'edge', 'firefox'];
+    }
+    if (!notificationSettings.trackedBrowsers.includes(newBrowser.id)) {
+      notificationSettings.trackedBrowsers.push(newBrowser.id);
+    }
+
+    saveNotificationSettings();
+    return { success: true, browser: newBrowser };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('remove-custom-browser', async (event, browserId) => {
+  try {
+    if (!notificationSettings.customBrowsers) {
+      notificationSettings.customBrowsers = [];
+    }
+
+    const index = notificationSettings.customBrowsers.findIndex(b => b.id === browserId);
+    if (index === -1) {
+      return { success: false, error: 'Browser not found' };
+    }
+
+    // Remove from custom browsers
+    notificationSettings.customBrowsers.splice(index, 1);
+
+    // Remove from tracked browsers if present
+    if (notificationSettings.trackedBrowsers) {
+      const trackIndex = notificationSettings.trackedBrowsers.indexOf(browserId);
+      if (trackIndex > -1) {
+        notificationSettings.trackedBrowsers.splice(trackIndex, 1);
+      }
+    }
+
+    saveNotificationSettings();
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Custom browser extension detection
+async function detectCustomBrowserExtension(browser) {
+  try {
+    // For custom browsers, we'll try to detect based on common patterns
+    // Users can implement their own detection logic later
+    return false; // Default to not detected for custom browsers
+  } catch (error) {
+    return false;
+  }
+}

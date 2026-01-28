@@ -366,11 +366,42 @@
           </div>
 
         <div class="card">
+            <h2>🌐 Browser Tracking</h2>
+            <p style="font-size: 0.9em; opacity: 0.8; margin-bottom: 15px;">
+              Choose which browsers to monitor for extension updates. Untracked browsers won't be shown in the extension detection list.
+            </p>
+
+            <div id="browserTrackingList" style="margin-bottom: 20px;">
+              <!-- Browser tracking checkboxes will be populated here -->
+            </div>
+
+            <div style="padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-top: 15px;">
+              <h3 style="font-size: 1.1em; margin-top: 0;">➕ Add Custom Browser</h3>
+              <p style="font-size: 0.85em; opacity: 0.8; margin-bottom: 10px;">
+                Track extensions in other Chromium-based browsers by adding them here.
+              </p>
+              <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                <input type="text" id="customBrowserName" placeholder="Browser Name (e.g., Brave)"
+                  style="flex: 1; padding: 8px; border-radius: 6px; background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2);">
+                <input type="text" id="customBrowserApp" placeholder="App Name (e.g., brave.exe)"
+                  style="flex: 1; padding: 8px; border-radius: 6px; background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2);">
+                <input type="text" id="customBrowserIcon" placeholder="Icon (emoji)" maxlength="2" value="🌐"
+                  style="width: 60px; padding: 8px; border-radius: 6px; background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); text-align: center;">
+              </div>
+              <button class="btn btn-primary" onclick="addCustomBrowser()" style="width: 100%;">➕ Add Browser</button>
+            </div>
+
+            <div id="customBrowsersList" style="margin-top: 15px;">
+              <!-- Custom browsers will be listed here -->
+            </div>
+        </div>
+
+        <div class="card">
             <h2>🛠️ Management Actions</h2>
             <div class="actions">
               <button class="btn btn-secondary" onclick="repairInstallation()">🔧 Repair Installation</button>
               <button class="btn btn-danger" onclick="uninstallAllExtensions()">🗑️ Uninstall All</button>
-              <button class="btn btn-outline" onclick="openExtensionFolder()">📁 Open Extension Folder</button>
+              <button class="btn btn-outline" onclick="openExtensionFolder()">📁 Open Extensions Page</button>
             </div>
         </div>
 
@@ -443,7 +474,7 @@
             try {
                 const result = await window.electronAPI.detectExtensions();
                 if (result.success) {
-                    updateStatusDisplay(result.results);
+                    updateStatusDisplay(result);
                 } else {
                     showError('Failed to detect extensions: ' + result.error);
                 }
@@ -451,6 +482,135 @@
                 showError('Error checking extensions: ' + error.message);
             } finally {
                 showLoading(false);
+            }
+        }
+
+        // Browser tracking management
+        async function loadBrowserTracking() {
+            try {
+                const result = await window.electronAPI.getTrackedBrowsers();
+                if (result.success) {
+                    updateBrowserTrackingUI(result.trackedBrowsers, result.customBrowsers);
+                }
+            } catch (error) {
+                console.error('Failed to load browser tracking:', error);
+            }
+        }
+
+        function updateBrowserTrackingUI(trackedBrowsers, customBrowsers) {
+            const trackingList = document.getElementById('browserTrackingList');
+            const customList = document.getElementById('customBrowsersList');
+
+            // Standard browsers
+            const standardBrowsers = [
+                { id: 'chrome', name: 'Google Chrome' },
+                { id: 'edge', name: 'Microsoft Edge' },
+                { id: 'firefox', name: 'Mozilla Firefox' }
+            ];
+
+            trackingList.innerHTML = '';
+            standardBrowsers.forEach(browser => {
+                const isTracked = trackedBrowsers.includes(browser.id);
+                const div = document.createElement('div');
+                div.style.cssText = 'display: flex; align-items: center; gap: 10px; padding: 10px; margin-bottom: 8px; background: rgba(255,255,255,0.05); border-radius: 6px;';
+                div.innerHTML = `
+                    <input type="checkbox" id="track-${browser.id}" ${isTracked ? 'checked' : ''}
+                        onchange="toggleBrowserTracking('${browser.id}')"
+                        style="width: 18px; height: 18px; cursor: pointer;">
+                    <label for="track-${browser.id}" style="cursor: pointer; flex: 1;">${browser.name}</label>
+                `;
+                trackingList.appendChild(div);
+            });
+
+            // Custom browsers
+            customList.innerHTML = '';
+            if (customBrowsers && customBrowsers.length > 0) {
+                const header = document.createElement('h3');
+                header.style.cssText = 'font-size: 1.1em; margin: 20px 0 10px 0;';
+                header.textContent = '🎯 Custom Browsers';
+                customList.appendChild(header);
+
+                customBrowsers.forEach(browser => {
+                    const isTracked = trackedBrowsers.includes(browser.id);
+                    const div = document.createElement('div');
+                    div.style.cssText = 'display: flex; align-items: center; gap: 10px; padding: 10px; margin-bottom: 8px; background: rgba(255,255,255,0.05); border-radius: 6px;';
+                    div.innerHTML = `
+                        <input type="checkbox" id="track-${browser.id}" ${isTracked ? 'checked' : ''}
+                            onchange="toggleBrowserTracking('${browser.id}')"
+                            style="width: 18px; height: 18px; cursor: pointer;">
+                        <label for="track-${browser.id}" style="cursor: pointer; flex: 1;">
+                            ${browser.icon || '🌐'} ${browser.name} <span style="opacity: 0.6; font-size: 0.85em;">(${browser.appName})</span>
+                        </label>
+                        <button onclick="removeCustomBrowser('${browser.id}')"
+                            style="background: rgba(248,113,113,0.3); color: white; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
+                            🗑️ Remove
+                        </button>
+                    `;
+                    customList.appendChild(div);
+                });
+            }
+        }
+
+        async function toggleBrowserTracking(browserName) {
+            try {
+                const result = await window.electronAPI.toggleBrowserTracking(browserName);
+                if (result.success) {
+                    // Refresh extension detection
+                    checkExtensions();
+                } else {
+                    showError('Failed to toggle browser tracking: ' + result.error);
+                }
+            } catch (error) {
+                showError('Error toggling browser tracking: ' + error.message);
+            }
+        }
+
+        async function addCustomBrowser() {
+            const name = document.getElementById('customBrowserName').value.trim();
+            const appName = document.getElementById('customBrowserApp').value.trim();
+            const icon = document.getElementById('customBrowserIcon').value.trim() || '🌐';
+
+            if (!name || !appName) {
+                showError('Please enter both browser name and application name');
+                return;
+            }
+
+            try {
+                const result = await window.electronAPI.addCustomBrowser({ name, appName, icon });
+                if (result.success) {
+                    showSuccess(`Added ${name} to tracked browsers`);
+                    // Clear form
+                    document.getElementById('customBrowserName').value = '';
+                    document.getElementById('customBrowserApp').value = '';
+                    document.getElementById('customBrowserIcon').value = '🌐';
+                    // Refresh UI
+                    await loadBrowserTracking();
+                    await checkExtensions();
+                } else {
+                    showError('Failed to add custom browser: ' + result.error);
+                }
+            } catch (error) {
+                showError('Error adding custom browser: ' + error.message);
+            }
+        }
+
+        async function removeCustomBrowser(browserId) {
+            if (!confirm('Remove this custom browser from tracking?')) {
+                return;
+            }
+
+            try {
+                const result = await window.electronAPI.removeCustomBrowser(browserId);
+                if (result.success) {
+                    showSuccess('Custom browser removed');
+                    // Refresh UI
+                    await loadBrowserTracking();
+                    await checkExtensions();
+                } else {
+                    showError('Failed to remove custom browser: ' + result.error);
+                }
+            } catch (error) {
+                showError('Error removing custom browser: ' + error.message);
             }
         }
 
@@ -695,27 +855,63 @@
             `;
         }
 
-        function updateStatusDisplay(status) {
-            const browsers = {
-                chrome: { name: 'Google Chrome', status: status.chrome, details: 'Extension detected' },
-                edge: { name: 'Microsoft Edge', status: status.edge, details: 'Extension detected' },
-                firefox: { name: 'Mozilla Firefox', status: status.firefox, details: 'Extension detected' }
+        function updateStatusDisplay(data) {
+            const statusGrid = document.getElementById('statusGrid');
+            const { results, trackedBrowsers = [], customBrowsers = [] } = data;
+
+            // Clear existing status items
+            statusGrid.innerHTML = '';
+
+            const browserMeta = {
+                chrome: { name: 'Google Chrome', icon: '' },
+                edge: { name: 'Microsoft Edge', icon: '' },
+                firefox: { name: 'Mozilla Firefox', icon: '' }
             };
 
-            Object.keys(browsers).forEach(browser => {
-                const element = document.getElementById(`${browser}Status`);
-                const detailsElement = document.getElementById(`${browser}Details`);
-                
-                if (browsers[browser].status) {
-                    element.textContent = '✅';
-                    element.className = 'status installed';
-                    detailsElement.textContent = 'Extension installed';
-                } else {
-                    element.textContent = '❌';
-                    element.className = 'status not-installed';
-                    detailsElement.textContent = 'Extension not found';
+            // Add standard browsers
+            trackedBrowsers.forEach(browserKey => {
+                if (browserKey.startsWith('custom-')) {
+                    // Skip custom browsers, they'll be added separately
+                    return;
                 }
+
+                const meta = browserMeta[browserKey];
+                if (!meta) return;
+
+                const isInstalled = results[browserKey];
+                const statusItem = document.createElement('div');
+                statusItem.className = 'status-item';
+                statusItem.innerHTML = `
+                    <h3>${meta.name}</h3>
+                    <div class="status ${isInstalled ? 'installed' : 'not-installed'}" id="${browserKey}Status">
+                        ${isInstalled ? '✅' : '❌'}
+                    </div>
+                    <div id="${browserKey}Details">${isInstalled ? 'Extension installed' : 'Extension not found'}</div>
+                `;
+                statusGrid.appendChild(statusItem);
             });
+
+            // Add custom browsers
+            customBrowsers.forEach(browser => {
+                if (!trackedBrowsers.includes(browser.id)) return;
+
+                const isInstalled = results[browser.id];
+                const statusItem = document.createElement('div');
+                statusItem.className = 'status-item';
+                statusItem.innerHTML = `
+                    <h3>${browser.icon || '🌐'} ${browser.name}</h3>
+                    <div class="status ${isInstalled ? 'installed' : 'not-installed'}" id="${browser.id}Status">
+                        ${isInstalled ? '✅' : '❌'}
+                    </div>
+                    <div id="${browser.id}Details">${isInstalled ? 'Extension installed' : 'Extension not found'}</div>
+                `;
+                statusGrid.appendChild(statusItem);
+            });
+
+            // If no browsers are tracked
+            if (statusGrid.children.length === 0) {
+                statusGrid.innerHTML = '<div style="text-align: center; padding: 20px; opacity: 0.7;">No browsers are being tracked. Add browsers in the Browser Tracking section below.</div>';
+            }
         }
 
         // Update checking
@@ -847,10 +1043,27 @@
         }
 
         async function repairInstallation() {
+            if (!confirm('Repair installation? This will re-detect and update all tracked browser extensions.')) {
+                return;
+            }
+
             showLoading(true);
             try {
-                // This would repair the installation policies
-                showSuccess('Installation repair initiated. This may require administrator privileges.');
+                // Re-check all extensions
+                await checkExtensions();
+                // Attempt to update all tracked browsers
+                const result = await window.electronAPI.getTrackedBrowsers();
+                if (result.success) {
+                    const browsers = result.trackedBrowsers.filter(b => ['chrome', 'firefox'].includes(b));
+                    for (const browser of browsers) {
+                        try {
+                            await window.electronAPI.updateExtension(browser);
+                        } catch (error) {
+                            console.error(`Failed to repair ${browser}:`, error);
+                        }
+                    }
+                }
+                showSuccess('Installation repair completed. Check the extension status above.');
             } catch (error) {
                 showError('Failed to repair installation: ' + error.message);
             } finally {
@@ -861,12 +1074,15 @@
         async function uninstallAllExtensions() {
             const confirmed = confirm('Are you sure you want to uninstall RollCloud from all browsers? This will remove the extension and all its data.');
             if (!confirmed) return;
-            
+
             showLoading(true);
             try {
-                const browsers = ['chrome', 'edge', 'firefox'];
-                for (const browser of browsers) {
-                    await window.electronAPI.uninstallExtension(browser);
+                const result = await window.electronAPI.getTrackedBrowsers();
+                if (result.success) {
+                    const browsers = result.trackedBrowsers.filter(b => ['chrome', 'edge', 'firefox'].includes(b));
+                    for (const browser of browsers) {
+                        await window.electronAPI.uninstallExtension(browser);
+                    }
                 }
                 showSuccess('Extension uninstallation initiated. Restart your browsers to complete the removal.');
             } catch (error) {
@@ -877,8 +1093,22 @@
         }
 
         function openExtensionFolder() {
-            // This would open the extension folder for manual management
-            window.electronAPI.openExternal('https://github.com/CarmaNayeli/rollCloud/releases');
+            // Open browser extension management pages
+            const options = [
+                { name: 'Chrome Extensions', url: 'chrome://extensions' },
+                { name: 'Edge Extensions', url: 'edge://extensions' },
+                { name: 'Firefox Add-ons', url: 'about:addons' },
+                { name: 'GitHub Releases', url: 'https://github.com/CarmaNayeli/rollCloud/releases' }
+            ];
+
+            const choice = confirm('Open browser extension pages?\n\nOK = Browser extension pages\nCancel = GitHub releases page');
+
+            if (choice) {
+                // Try to open browser-specific pages
+                showSuccess('Opening browser extension pages...\n\nChrome: chrome://extensions\nEdge: edge://extensions\nFirefox: about:addons\n\nCopy these URLs into your browser address bar.');
+            } else {
+                window.electronAPI.openExternal('https://github.com/CarmaNayeli/rollCloud/releases');
+            }
         }
 
         // UI helpers
@@ -896,6 +1126,7 @@
 
         // Initialize on load
         window.addEventListener('DOMContentLoaded', () => {
+            loadBrowserTracking();
             checkExtensions();
             loadNotificationSettings();
             updateMonitoringStatus();

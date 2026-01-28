@@ -18,6 +18,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getMonitoringStatus: () => ipcRenderer.invoke('get-monitoring-status'),
   setCheckInterval: (interval) => ipcRenderer.invoke('set-check-interval', interval),
 
+  // Browser tracking management
+  getTrackedBrowsers: () => ipcRenderer.invoke('get-tracked-browsers'),
+  toggleBrowserTracking: (browserName) => ipcRenderer.invoke('toggle-browser-tracking', browserName),
+  addCustomBrowser: (browserData) => ipcRenderer.invoke('add-custom-browser', browserData),
+  removeCustomBrowser: (browserId) => ipcRenderer.invoke('remove-custom-browser', browserId),
+
   // Event listeners
   onShowNotificationSetup: (callback) => ipcRenderer.on('show-notification-setup', callback),
   onNotificationSettingsChanged: (callback) => ipcRenderer.on('notification-settings-changed', callback),
