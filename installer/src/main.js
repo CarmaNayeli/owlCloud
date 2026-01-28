@@ -262,7 +262,7 @@ ipcMain.handle('install-updater', async () => {
 // Launch updater utility
 ipcMain.handle('launch-updater', async () => {
   try {
-    const { exec } = require('child_process');
+    const { spawn } = require('child_process');
 
     // Get updater directory from command line args
     const args = process.argv.slice(1);
@@ -277,17 +277,26 @@ ipcMain.handle('launch-updater', async () => {
       updaterPath = path.join('C:', 'Program Files', 'RollCloud', 'RollCloud-Updater.exe');
     }
 
+    console.log('Attempting to launch updater at:', updaterPath);
+
     if (fs.existsSync(updaterPath)) {
-      exec(`"${updaterPath}"`, (error) => {
-        if (error) {
-          console.error('Failed to launch updater:', error);
-        }
+      // Use spawn with detached to launch updater independently
+      const child = spawn(updaterPath, [], {
+        detached: true,
+        stdio: 'ignore'
       });
+
+      // Unref so wizard can close without waiting for updater
+      child.unref();
+
+      console.log('Updater launched successfully');
       return { success: true };
     } else {
+      console.error('Updater not found at:', updaterPath);
       throw new Error('Updater not found at: ' + updaterPath);
     }
   } catch (error) {
+    console.error('Failed to launch updater:', error);
     return { success: false, error: error.message };
   }
 });

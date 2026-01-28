@@ -410,8 +410,14 @@
       } else if (request.action === 'sendRollToRoll20') {
       // Handle the message that Dice Cloud is actually sending
       debug.log('🎲 Received sendRollToRoll20 message:', request.roll);
-      const result = handleDiceCloudRoll(request.roll);
-      sendResponse(result || { success: true });
+      try {
+        const result = handleDiceCloudRoll(request.roll);
+        sendResponse(result || { success: true });
+      } catch (rollError) {
+        debug.error('❌ Error handling sendRollToRoll20:', rollError);
+        sendResponse({ success: false, error: rollError.message || 'Failed to process roll' });
+      }
+      return true; // Keep message channel open
     } else if (request.action === 'rollFromPopout') {
       // Post roll directly to Roll20 - no DiceCloud needed!
       debug.log('🎲 Received roll request from popup:', request);
@@ -757,12 +763,17 @@
       // Roll attack if spell has attack roll
       if (spell.attackRoll && spell.attackRoll !== '(none)') {
         setTimeout(() => {
-          const attackMsg = formatRollForRoll20({
-            name: `${spell.name || spellName} - Attack`,
-            formula: spell.attackRoll,
-            characterName: charName
-          });
-          postChatMessage(attackMsg);
+          try {
+            const attackMsg = formatRollForRoll20({
+              name: `${spell.name || spellName} - Attack`,
+              formula: spell.attackRoll,
+              characterName: charName
+            });
+            postChatMessage(attackMsg);
+          } catch (attackError) {
+            debug.error(`❌ Failed to roll attack for ${spell.name}:`, attackError);
+            postChatMessage(`&{template:default} {{name=⚠️ Roll Failed}} {{error=Attack roll for ${spell.name} failed: ${attackError.message}}}`);
+          }
         }, 100);
       }
 
@@ -774,46 +785,56 @@
         damageRollsToUse.forEach((roll, index) => {
           if (roll.damage) {
             setTimeout(() => {
-              const damageType = roll.damageType || 'damage';
-              const isHealing = damageType.toLowerCase() === 'healing';
-              const isTempHP = damageType.toLowerCase().includes('temp');
-              let rollName;
-              if (isHealing) {
-                rollName = `${spell.name || spellName} - Healing`;
-              } else if (isTempHP) {
-                rollName = `${spell.name || spellName} - Temp HP`;
-              } else {
-                rollName = roll.name || `${spell.name || spellName} - ${damageType}`;
+              try {
+                const damageType = roll.damageType || 'damage';
+                const isHealing = damageType.toLowerCase() === 'healing';
+                const isTempHP = damageType.toLowerCase().includes('temp');
+                let rollName;
+                if (isHealing) {
+                  rollName = `${spell.name || spellName} - Healing`;
+                } else if (isTempHP) {
+                  rollName = `${spell.name || spellName} - Temp HP`;
+                } else {
+                  rollName = roll.name || `${spell.name || spellName} - ${damageType}`;
+                }
+
+                // Scale formula for upcasting (already processed by action-executor, but ensure consistency)
+                const scaledFormula = scaleFormulaForUpcast(roll.damage, spellLevel, actualCastLevel);
+
+                const damageMsg = formatRollForRoll20({
+                  name: rollName,
+                  formula: scaledFormula,
+                  characterName: charName
+                });
+                postChatMessage(damageMsg);
+              } catch (damageError) {
+                debug.error(`❌ Failed to roll damage for ${spell.name}:`, damageError);
+                postChatMessage(`&{template:default} {{name=⚠️ Roll Failed}} {{error=Damage roll ${index + 1} for ${spell.name} failed: ${damageError.message}}}`);
               }
-
-              // Scale formula for upcasting (already processed by action-executor, but ensure consistency)
-              const scaledFormula = scaleFormulaForUpcast(roll.damage, spellLevel, actualCastLevel);
-
-              const damageMsg = formatRollForRoll20({
-                name: rollName,
-                formula: scaledFormula,
-                characterName: charName
-              });
-              postChatMessage(damageMsg);
             }, 200 + (index * 100));
           }
         });
       } else if (spell.damage) {
         // Fallback to single damage field for backward compatibility
         setTimeout(() => {
-          const damageType = spell.damageType || 'damage';
-          const isHealing = damageType.toLowerCase() === 'healing';
-          const rollName = isHealing ? `${spell.name || spellName} - Healing` : `${spell.name || spellName} - ${damageType}`;
+          try {
+            const damageType = spell.damageType || 'damage';
+            const isHealing = damageType.toLowerCase() === 'healing';
+            const rollName = isHealing ? `${spell.name || spellName} - Healing` : `${spell.name || spellName} - ${damageType}`;
 
-          // Scale formula for upcasting
-          const scaledFormula = scaleFormulaForUpcast(spell.damage, spellLevel, actualCastLevel);
+            // Scale formula for upcasting
+            const scaledFormula = scaleFormulaForUpcast(spell.damage, spellLevel, actualCastLevel);
 
-          const damageMsg = formatRollForRoll20({
-            name: rollName,
-            formula: scaledFormula,
-            characterName: charName
-          });
-          postChatMessage(damageMsg);
+            const damageMsg = formatRollForRoll20({
+              name: rollName,
+              formula: scaledFormula,
+              characterName: charName
+            });
+            postChatMessage(damageMsg);
+          } catch (damageError) {
+            debug.error(`❌ Failed to roll damage for ${spell.name}:`, damageError);
+            postChatMessage(`&{template:default} {{name=⚠️ Roll Failed}} {{error=Damage roll for ${spell.name} failed: ${damageError.message}}}`);
+          }
         }, 200);
       }
 
@@ -858,29 +879,39 @@
       // Roll attack if action has attack roll
       if (action.attackRoll || action.attackBonus) {
         setTimeout(() => {
-          const attackFormula = action.attackRoll || `1d20+${action.attackBonus}`;
-          const attackMsg = formatRollForRoll20({
-            name: `${action.name || abilityName} - Attack`,
-            formula: attackFormula,
-            characterName: charName
-          });
-          postChatMessage(attackMsg);
+          try {
+            const attackFormula = action.attackRoll || `1d20+${action.attackBonus}`;
+            const attackMsg = formatRollForRoll20({
+              name: `${action.name || abilityName} - Attack`,
+              formula: attackFormula,
+              characterName: charName
+            });
+            postChatMessage(attackMsg);
+          } catch (attackError) {
+            debug.error(`❌ Failed to roll attack for ${action.name || abilityName}:`, attackError);
+            postChatMessage(`&{template:default} {{name=⚠️ Roll Failed}} {{error=Attack roll for ${action.name || abilityName} failed: ${attackError.message}}}`);
+          }
         }, 100);
       }
 
       // Roll damage if available
       if (action.damageRoll || action.damage) {
         setTimeout(() => {
-          const damageFormula = action.damageRoll || action.damage;
-          const damageType = action.damageType || 'damage';
-          const isHealing = damageType.toLowerCase() === 'healing';
-          const rollName = isHealing ? `${action.name || abilityName} - Healing` : `${action.name || abilityName} - ${damageType}`;
-          const damageMsg = formatRollForRoll20({
-            name: rollName,
-            formula: damageFormula,
-            characterName: charName
-          });
-          postChatMessage(damageMsg);
+          try {
+            const damageFormula = action.damageRoll || action.damage;
+            const damageType = action.damageType || 'damage';
+            const isHealing = damageType.toLowerCase() === 'healing';
+            const rollName = isHealing ? `${action.name || abilityName} - Healing` : `${action.name || abilityName} - ${damageType}`;
+            const damageMsg = formatRollForRoll20({
+              name: rollName,
+              formula: damageFormula,
+              characterName: charName
+            });
+            postChatMessage(damageMsg);
+          } catch (damageError) {
+            debug.error(`❌ Failed to roll damage for ${action.name || abilityName}:`, damageError);
+            postChatMessage(`&{template:default} {{name=⚠️ Roll Failed}} {{error=Damage roll for ${action.name || abilityName} failed: ${damageError.message}}}`);
+          }
         }, 200);
       }
 

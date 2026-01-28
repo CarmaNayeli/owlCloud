@@ -787,22 +787,11 @@ function setupStep4() {
   if (continueBtn) {
     continueBtn.addEventListener('click', async () => {
       const installCheckbox = document.getElementById('installUpdaterCheckbox');
-      const runWizardCheckbox = document.getElementById('runWizardCheckbox');
       const shouldInstallUpdater = installCheckbox && installCheckbox.checked;
-      const shouldRunWizard = runWizardCheckbox && runWizardCheckbox.checked;
 
-      // If both selected, install updater first, then launch wizard where possible
+      // Install updater if requested
       if (shouldInstallUpdater) {
         await installUpdaterUtility();
-        if (shouldRunWizard) {
-          try { await window.api.launchWizard(); } catch (e) { console.warn('Failed to launch wizard after updater:', e); }
-          showCompletionMessage();
-        } else {
-          showCompletionMessage();
-        }
-      } else if (shouldRunWizard) {
-        // Launch wizard only
-        try { await window.api.launchWizard(); } catch (e) { console.warn('Failed to launch wizard:', e); }
         showCompletionMessage();
       } else {
         showCompletionMessage();
