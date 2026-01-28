@@ -1546,9 +1546,13 @@ function initializePopup() {
    * @param {boolean} skipSessionCheck - If true, skip checking session match and always show "Sync Account"
    */
   async function showDiscordNotConnected(skipSessionCheck = false) {
-    document.getElementById('discordNotConnected').style.display = 'block';
-    document.getElementById('discordPairing').style.display = 'none';
-    document.getElementById('discordConnected').style.display = 'none';
+    const discordNotConnected = document.getElementById('discordNotConnected');
+    const discordPairing = document.getElementById('discordPairing');
+    const discordConnected = document.getElementById('discordConnected');
+
+    if (discordNotConnected) discordNotConnected.style.display = 'block';
+    if (discordPairing) discordPairing.style.display = 'none';
+    if (discordConnected) discordConnected.style.display = 'none';
     
     // Check if current session matches auth token session
     // Skip session check on initial load to force resync after reinstall
@@ -1686,8 +1690,10 @@ function initializePopup() {
         showDiscordStatus('Your session has changed. Please sync your DiceCloud account first, then set up Discord.', 'info');
         
         // Switch to login section to guide them
-        document.getElementById('mainSection').classList.add('hidden');
-        document.getElementById('loginSection').classList.remove('hidden');
+        const mainSection = document.getElementById('mainSection');
+        const loginSection = document.getElementById('loginSection');
+        if (mainSection) mainSection.classList.add('hidden');
+        if (loginSection) loginSection.classList.remove('hidden');
         
         // Reset button
         setupBtn.disabled = false;
