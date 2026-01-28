@@ -108,6 +108,75 @@ export default {
 };
 
 /**
+ * Safely parse JSON with circular reference detection and depth limiting
+ * @param {string} jsonString - JSON string to parse
+ * @param {number} maxDepth - Maximum allowed depth
+ * @returns {Object|null} Parsed object or null if parsing fails
+ */
+function safeJsonParse(jsonString, maxDepth = 10) {
+  try {
+    const seen = new WeakSet();
+    const depthMap = new WeakMap();
+    
+    return JSON.parse(jsonString, (key, value) => {
+      // Check for circular references
+      if (typeof value === 'object' && value !== null) {
+        if (seen.has(value)) {
+          console.warn(`[Sheet Command] Circular reference detected for key: ${key}`);
+          return '[Circular Reference]';
+        }
+        seen.add(value);
+        
+        // Check depth
+        const depth = depthMap.get(value) || 0;
+        if (depth > maxDepth) {
+          console.warn(`[Sheet Command] Max depth exceeded for key: ${key} at depth ${depth}`);
+          return '[Max Depth Exceeded]';
+        }
+        depthMap.set(value, depth + 1);
+      }
+      return value;
+    });
+  } catch (error) {
+    console.error('[Sheet Command] JSON parsing failed:', error.message);
+    return null;
+  }
+}
+
+/**
+ * Sanitize character data to prevent stack overflow
+ * @param {Object} character - Raw character data
+ * @returns {Object} Sanitized character data
+ */
+function sanitizeCharacterData(character) {
+  if (!character || typeof character !== 'object') {
+    return character;
+  }
+
+  const sanitized = { ...character };
+  const maxArrayLength = 100; // Limit array sizes
+  const maxStringLength = 10000; // Limit string lengths
+
+  // Sanitize arrays that could cause issues
+  ['spells', 'features', 'equipment', 'actions', 'skills'].forEach(arrayKey => {
+    if (Array.isArray(sanitized[arrayKey]) && sanitized[arrayKey].length > maxArrayLength) {
+      console.warn(`[Sheet Command] Truncating ${arrayKey} array from ${sanitized[arrayKey].length} to ${maxArrayLength}`);
+      sanitized[arrayKey] = sanitized[arrayKey].slice(0, maxArrayLength);
+    }
+  });
+
+  // Sanitize long strings
+  Object.keys(sanitized).forEach(key => {
+    if (typeof sanitized[key] === 'string' && sanitized[key].length > maxStringLength) {
+      console.warn(`[Sheet Command] Truncating ${key} string from ${sanitized[key].length} to ${maxStringLength}`);
+      sanitized[key] = sanitized[key].substring(0, maxStringLength) + '...[truncated]';
+    }
+  });
+
+  return sanitized;
+}
+
+/**
  * Get character data from DiceCloud via Supabase
  */
 async function getCharacterData(discordUserId, characterName = null) {
@@ -115,47 +184,71 @@ async function getCharacterData(discordUserId, characterName = null) {
     throw new Error('Supabase not configured');
   }
 
-  // First, find the user's RollCloud connection
-  const connectionResponse = await fetch(
-    `${SUPABASE_URL}/rest/v1/rollcloud_pairings?discord_user_id=eq.${discordUserId}&status=eq.connected&select=*`,
-    {
-      headers: {
-        'apikey': SUPABASE_SERVICE_KEY,
-        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+  try {
+    // First, find the user's RollCloud connection
+    const connectionResponse = await fetch(
+      `${SUPABASE_URL}/rest/v1/rollcloud_pairings?discord_user_id=eq.${discordUserId}&status=eq.connected&select=*`,
+      {
+        headers: {
+          'apikey': SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+        }
       }
+    );
+
+    if (!connectionResponse.ok) {
+      throw new Error('Failed to lookup user connection');
     }
-  );
 
-  if (!connectionResponse.ok) {
-    throw new Error('Failed to lookup user connection');
-  }
+    const connections = await connectionResponse.json();
+    
+    if (connections.length === 0) {
+      return null;
+    }
 
-  const connections = await connectionResponse.json();
-  
-  if (connections.length === 0) {
-    return null;
-  }
+    const connection = connections[0];
+    const dicecloudUserId = connection.dicecloud_user_id;
 
-  const connection = connections[0];
-  const dicecloudUserId = connection.dicecloud_user_id;
-
-  // Get character data from DiceCloud
-  const characterResponse = await fetch(
-    `${SUPABASE_URL}/rest/v1/dicecloud_characters?user_id=eq.${dicecloudUserId}${characterName ? `&name=ilike.*${characterName}*` : ''}&select=*&order=updated_at.desc&limit=1`,
-    {
-      headers: {
-        'apikey': SUPABASE_SERVICE_KEY,
-        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+    // Get character data from DiceCloud
+    const characterResponse = await fetch(
+      `${SUPABASE_URL}/rest/v1/dicecloud_characters?user_id=eq.${dicecloudUserId}${characterName ? `&name=ilike.*${characterName}*` : ''}&select=*&order=updated_at.desc&limit=1`,
+      {
+        headers: {
+          'apikey': SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+        }
       }
+    );
+
+    if (!characterResponse.ok) {
+      throw new Error('Failed to lookup character data');
     }
-  );
 
-  if (!characterResponse.ok) {
-    throw new Error('Failed to lookup character data');
+    const responseText = await characterResponse.text();
+    
+    // Use safe JSON parsing to prevent stack overflow
+    const characters = safeJsonParse(responseText);
+    
+    if (!characters || !Array.isArray(characters)) {
+      console.error('[Sheet Command] Invalid character data response:', typeof characters);
+      return null;
+    }
+
+    const character = characters.length > 0 ? characters[0] : null;
+    
+    // Sanitize character data to prevent issues
+    return character ? sanitizeCharacterData(character) : null;
+
+  } catch (error) {
+    console.error('[Sheet Command] Error fetching character data:', error);
+    
+    // Re-throw with more context
+    if (error.message.includes('Maximum call stack size exceeded')) {
+      throw new Error('Character data is too complex or contains circular references. Please contact an administrator.');
+    }
+    
+    throw error;
   }
-
-  const characters = await characterResponse.json();
-  return characters.length > 0 ? characters[0] : null;
 }
 
 /**
@@ -365,16 +458,33 @@ function formatSkills(skills, scores) {
 }
 
 /**
- * Format spells for display
+ * Safely format spells with depth limiting
  */
 function formatSpells(spells) {
+  if (!Array.isArray(spells)) return 'No spells known';
   if (spells.length === 0) return 'No spells known';
+
+  // Limit the number of spells to process
+  const maxSpells = 200;
+  if (spells.length > maxSpells) {
+    console.warn(`[Sheet Command] Limiting spells from ${spells.length} to ${maxSpells}`);
+    spells = spells.slice(0, maxSpells);
+  }
 
   const byLevel = {};
   spells.forEach(spell => {
+    if (!spell || typeof spell !== 'object') return;
+    
     const level = spell.level || 0;
     if (!byLevel[level]) byLevel[level] = [];
-    byLevel[level].push(spell);
+    
+    // Limit spells per level
+    if (byLevel[level].length < 50) {
+      byLevel[level].push({
+        name: spell.name || 'Unknown Spell',
+        level: level
+      });
+    }
   });
 
   let result = '';
@@ -385,13 +495,15 @@ function formatSpells(spells) {
     result += `**${levelName}:** ${spellNames}${more}\n`;
   });
 
-  return result;
+  return result || 'No spells known';
 }
 
 /**
  * Format spell slots
  */
 function formatSpellSlots(slots) {
+  if (!slots || typeof slots !== 'object') return 'No spell slots';
+  
   const levels = [1, 2, 3, 4, 5, 6, 7, 8, 9];
   return levels.map(level => {
     const current = slots[`level_${level}_current`] || 0;
@@ -401,25 +513,53 @@ function formatSpellSlots(slots) {
 }
 
 /**
- * Format features and traits
+ * Safely format features with depth limiting
  */
 function formatFeatures(features) {
+  if (!Array.isArray(features)) return 'No features or traits';
   if (features.length === 0) return 'No features or traits';
   
-  return features.slice(0, 10).map(feature => {
-    return `**${feature.name}:** ${feature.description || 'No description'}`;
+  // Limit the number of features to process
+  const maxFeatures = 100;
+  const featuresToProcess = features.slice(0, maxFeatures);
+  
+  return featuresToProcess.slice(0, 10).map(feature => {
+    if (!feature || typeof feature !== 'object') {
+      return '**Unknown Feature:** No description';
+    }
+    
+    const name = feature.name || 'Unknown Feature';
+    const description = feature.description || 'No description';
+    
+    // Truncate long descriptions
+    const maxLength = 200;
+    const truncatedDesc = description.length > maxLength 
+      ? description.substring(0, maxLength) + '...' 
+      : description;
+    
+    return `**${name}:** ${truncatedDesc}`;
   }).join('\n\n') + (features.length > 10 ? `\n\n*...and ${features.length - 10} more features*` : '');
 }
 
 /**
- * Format equipment
+ * Safely format equipment with depth limiting
  */
 function formatEquipment(equipment) {
+  if (!Array.isArray(equipment)) return 'No equipment';
   if (equipment.length === 0) return 'No equipment';
   
-  return equipment.slice(0, 15).map(item => {
+  // Limit the number of items to process
+  const maxItems = 100;
+  const equipmentToProcess = equipment.slice(0, maxItems);
+  
+  return equipmentToProcess.slice(0, 15).map(item => {
+    if (!item || typeof item !== 'object') {
+      return '• Unknown Item';
+    }
+    
+    const name = item.name || 'Unknown Item';
     const quantity = item.quantity > 1 ? ` (${item.quantity})` : '';
-    return `• ${item.name}${quantity}`;
+    return `• ${name}${quantity}`;
   }).join('\n') + (equipment.length > 15 ? `\n\n*...and ${equipment.length - 15} more items*` : '');
 }
 

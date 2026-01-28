@@ -6,7 +6,9 @@
       "Bash(git commit:*)",
       "Bash(7z l:*)",
       "Bash(npm run build:win:*)",
-      "Bash(tasklist:*)"
+      "Bash(tasklist:*)",
+      "Bash(npm audit:*)",
+      "Bash(npm view:*)"
     ]
   }
 }

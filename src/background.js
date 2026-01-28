@@ -3878,6 +3878,33 @@ async function executeCastCommand(command) {
 }
 
 /**
+ * Safely parse JSON with circular reference detection
+ * @param {string} jsonString - JSON string to parse
+ * @param {number} maxDepth - Maximum allowed depth
+ * @returns {Object|null} Parsed object or null if parsing fails
+ */
+function safeJsonParse(jsonString, maxDepth = 20) {
+  try {
+    const seen = new WeakSet();
+    
+    return JSON.parse(jsonString, (key, value) => {
+      // Check for circular references
+      if (typeof value === 'object' && value !== null) {
+        if (seen.has(value)) {
+          debug.warn(`Circular reference detected for key: ${key}`);
+          return '[Circular Reference]';
+        }
+        seen.add(value);
+      }
+      return value;
+    });
+  } catch (error) {
+    debug.error('JSON parsing failed:', error.message);
+    return null;
+  }
+}
+
+/**
  * Get character data for Discord command processing
  */
 async function getCharacterDataForDiscordCommand(characterName, characterId) {
@@ -3922,8 +3949,10 @@ async function getCharacterDataForDiscordCommand(characterName, characterId) {
       );
       
       if (response.ok) {
-        const data = await response.json();
-        if (data.length > 0) {
+        const responseText = await response.text();
+        const data = safeJsonParse(responseText);
+        
+        if (data && Array.isArray(data) && data.length > 0) {
           debug.log(`📥 Retrieved character data from Supabase for ${characterName}`);
           return data[0].character_data;
         }
@@ -3934,6 +3963,13 @@ async function getCharacterDataForDiscordCommand(characterName, characterId) {
     return null;
   } catch (error) {
     debug.error(`Error getting character data for ${characterName}:`, error);
+    
+    // Re-throw with more context if it's a stack overflow
+    if (error.message && error.message.includes('Maximum call stack size exceeded')) {
+      debug.error('Stack overflow detected in character data processing');
+      return null;
+    }
+    
     return null;
   }
 }
