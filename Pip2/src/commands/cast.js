@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
@@ -204,7 +204,10 @@ export default {
         .setFooter({ text: '✅ Sent to Roll20' })
         .setTimestamp();
 
-      await interaction.reply({ embeds: [embed] });
+      // Create spell buttons for attack and damage rolls
+      const components = buildSpellButtons(spell, character.character_name, pairing.id, discordUserId);
+
+      await interaction.reply({ embeds: [embed], components });
 
     } catch (error) {
       console.error('Cast command error:', error);
@@ -325,4 +328,88 @@ function formatSpellDescription(spell, castLevel) {
   }
 
   return description || 'Spell sent to Roll20.';
+}
+
+/**
+ * Build spell buttons for attack and damage rolls
+ */
+function buildSpellButtons(spell, characterName, pairingId, discordUserId) {
+  const rows = [];
+  const buttons = [];
+
+  // Check for spell attack roll
+  const attackRoll = spell.attackRoll || spell.attackBonus || spell.spellAttack;
+
+  // Add spell attack button if spell has attack roll
+  if (attackRoll) {
+    const attackFormula = attackRoll.includes?.('d') ? attackRoll : `1d20+${attackRoll}`;
+    buttons.push(
+      new ButtonBuilder()
+        .setCustomId(`rollcloud:roll:${spell.name} - Spell Attack:${attackFormula}`)
+        .setLabel('Spell Attack')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('🎯')
+    );
+  }
+
+  // Add damage/healing buttons for damageRolls array
+  if (spell.damageRolls && Array.isArray(spell.damageRolls)) {
+    for (const roll of spell.damageRolls) {
+      if (roll.damage && buttons.length < 5) {
+        const damageType = roll.damageType || roll.type || 'damage';
+        const isHealing = damageType.toLowerCase() === 'healing';
+        const label = roll.name || (isHealing ? 'Healing' : damageType.charAt(0).toUpperCase() + damageType.slice(1));
+        buttons.push(
+          new ButtonBuilder()
+            .setCustomId(`rollcloud:roll:${spell.name} - ${damageType}:${roll.damage}`)
+            .setLabel(label)
+            .setStyle(isHealing ? ButtonStyle.Success : ButtonStyle.Danger)
+            .setEmoji(isHealing ? '💚' : '💥')
+        );
+      }
+    }
+  } else if (spell.damage || spell.damageRoll || spell.healingRoll) {
+    // Single damage/healing roll
+    const damageRoll = spell.damage || spell.damageRoll;
+    const healingRoll = spell.healingRoll;
+
+    if (damageRoll) {
+      const damageType = spell.damageType || 'damage';
+      const isHealing = damageType.toLowerCase() === 'healing';
+      buttons.push(
+        new ButtonBuilder()
+          .setCustomId(`rollcloud:roll:${spell.name} - ${damageType}:${damageRoll}`)
+          .setLabel(isHealing ? 'Healing' : `Damage${spell.damageType ? ` (${spell.damageType})` : ''}`)
+          .setStyle(isHealing ? ButtonStyle.Success : ButtonStyle.Danger)
+          .setEmoji(isHealing ? '💚' : '💥')
+      );
+    }
+
+    if (healingRoll && buttons.length < 5) {
+      buttons.push(
+        new ButtonBuilder()
+          .setCustomId(`rollcloud:roll:${spell.name} - healing:${healingRoll}`)
+          .setLabel('Healing')
+          .setStyle(ButtonStyle.Success)
+          .setEmoji('💚')
+      );
+    }
+  }
+
+  // Add buttons to rows (max 5 per row)
+  if (buttons.length > 0) {
+    let currentRow = new ActionRowBuilder();
+    for (let i = 0; i < buttons.length; i++) {
+      if (i > 0 && i % 5 === 0) {
+        rows.push(currentRow);
+        currentRow = new ActionRowBuilder();
+      }
+      currentRow.addComponents(buttons[i]);
+    }
+    if (currentRow.components.length > 0) {
+      rows.push(currentRow);
+    }
+  }
+
+  return rows;
 }

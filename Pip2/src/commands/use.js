@@ -283,6 +283,35 @@ function buildActionButtons(action, characterName, pairingId, discordUserId) {
     );
   }
 
+  // Add damage button if action has a single damage roll
+  if (damageRoll && (!action.damageRolls || !Array.isArray(action.damageRolls) || action.damageRolls.length === 0)) {
+    const damageType = action.damageType || 'damage';
+    buttons.push(
+      new ButtonBuilder()
+        .setCustomId(`rollcloud:roll:${action.name} - ${damageType}:${damageRoll}`)
+        .setLabel(`Damage${action.damageType ? ` (${action.damageType})` : ''}`)
+        .setStyle(ButtonStyle.Danger)
+        .setEmoji('💥')
+    );
+  }
+
+  // Add damage buttons for multiple damage rolls (damageRolls array)
+  if (action.damageRolls && Array.isArray(action.damageRolls)) {
+    for (const roll of action.damageRolls) {
+      if (roll.damage && buttons.length < 5) {
+        const damageType = roll.damageType || roll.type || 'damage';
+        const label = roll.name || damageType.charAt(0).toUpperCase() + damageType.slice(1);
+        buttons.push(
+          new ButtonBuilder()
+            .setCustomId(`rollcloud:roll:${action.name} - ${damageType}:${roll.damage}`)
+            .setLabel(label)
+            .setStyle(ButtonStyle.Danger)
+            .setEmoji('💥')
+        );
+      }
+    }
+  }
+
   // Add buttons to rows (max 5 per row)
   if (buttons.length > 0) {
     let currentRow = new ActionRowBuilder();
