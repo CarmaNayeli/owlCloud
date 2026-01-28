@@ -1684,21 +1684,49 @@ function initializePopup() {
 
       // Check if user's session matches the auth token session
       const sessionMatches = await checkIfSessionMatches();
-      
+
       if (!sessionMatches) {
-        // User's session doesn't match - guide them to login first
-        showDiscordStatus('Your session has changed. Please sync your DiceCloud account first, then set up Discord.', 'info');
-        
-        // Switch to login section to guide them
-        const mainSection = document.getElementById('mainSection');
-        const loginSection = document.getElementById('loginSection');
-        if (mainSection) mainSection.classList.add('hidden');
-        if (loginSection) loginSection.classList.remove('hidden');
-        
-        // Reset button
-        setupBtn.disabled = false;
-        setupBtn.textContent = '🔄 Sync Account';
-        return;
+        // User's session doesn't match - sync current session to cloud
+        debug.log('📋 Session mismatch detected, syncing current session to cloud...');
+        showDiscordStatus('Syncing your account...', 'info');
+
+        try {
+          // Get current token from storage
+          const result = await browserAPI.storage.local.get(['diceCloudToken', 'username', 'tokenExpires', 'diceCloudUserId', 'authId']);
+
+          if (!result.diceCloudToken) {
+            showDiscordStatus('No active session found. Please log in first.', 'error');
+            setupBtn.disabled = false;
+            setupBtn.textContent = '🔄 Sync Account';
+            return;
+          }
+
+          // Sync to cloud (override cloud session with current session)
+          const supabaseManager = new SupabaseTokenManager();
+          const supabaseResult = await supabaseManager.storeToken({
+            token: result.diceCloudToken,
+            userId: result.diceCloudUserId,
+            tokenExpires: result.tokenExpires,
+            username: result.username || 'DiceCloud User',
+            authId: result.authId || result.diceCloudUserId
+          });
+
+          if (!supabaseResult.success) {
+            showDiscordStatus('Failed to sync account: ' + (supabaseResult.error || 'Unknown error'), 'error');
+            setupBtn.disabled = false;
+            setupBtn.textContent = '🔄 Sync Account';
+            return;
+          }
+
+          debug.log('✅ Session synced to cloud successfully');
+          showDiscordStatus('Account synced! Setting up Discord...', 'success');
+        } catch (syncError) {
+          debug.error('❌ Failed to sync session:', syncError);
+          showDiscordStatus('Sync failed: ' + syncError.message, 'error');
+          setupBtn.disabled = false;
+          setupBtn.textContent = '🔄 Sync Account';
+          return;
+        }
       }
 
       // User's session matches - proceed with Discord setup

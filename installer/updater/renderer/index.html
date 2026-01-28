@@ -326,6 +326,17 @@
                 Enable system tray notifications for updates
               </label>
             </div>
+            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px; padding: 12px; background: rgba(96, 165, 250, 0.1); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 8px;">
+              <input type="checkbox" id="autoUpdateToggle" style="width: 18px; height: 18px;">
+              <div>
+                <label for="autoUpdateToggle" style="font-size: 1.1em; cursor: pointer;">
+                  Automatically install updates
+                </label>
+                <div style="font-size: 0.85em; opacity: 0.8; margin-top: 4px;">
+                  When disabled, you'll be asked before installing updates
+                </div>
+              </div>
+            </div>
             <div style="margin: 15px 0; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px;">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <span style="font-size: 0.9em;">Monitoring Status:</span>
@@ -389,6 +400,32 @@
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-primary" onclick="saveNotificationSetup()">Continue</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Browser Restart Modal -->
+        <div class="modal" id="browserRestartModal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>🔄 Restart Required</h2>
+                </div>
+                <div class="modal-body">
+                    <p style="margin-bottom: 15px;">RollCloud extension has been updated successfully!</p>
+                    <p style="font-size: 1.1em; font-weight: bold; color: #fbbf24; margin-bottom: 15px;">
+                        Please restart your browser to apply the update.
+                    </p>
+                    <div id="restartBrowsersList" style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; margin: 15px 0;">
+                        <p style="font-size: 0.9em; margin-bottom: 10px;">Updated browsers:</p>
+                        <ul id="updatedBrowsers" style="list-style: none; padding: 0; margin: 0;">
+                        </ul>
+                    </div>
+                    <p style="font-size: 0.85em; opacity: 0.7;">
+                        The extension won't be updated until you restart. You can continue using your current version for now.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" onclick="closeBrowserRestartModal()">Got it</button>
                 </div>
             </div>
         </div>
@@ -461,23 +498,23 @@
 
         // Listen for notification setup request from main process
         window.addEventListener('DOMContentLoaded', () => {
-            ipcRenderer.on('show-notification-setup', () => {
+            window.electronAPI.onShowNotificationSetup(() => {
                 showNotificationSetup();
             });
-            
-            ipcRenderer.on('notification-settings-changed', (event, settings) => {
+
+            window.electronAPI.onNotificationSettingsChanged((event, settings) => {
                 // Update UI if notification settings change from tray menu
                 const notificationToggle = document.getElementById('notificationToggle');
                 if (notificationToggle) {
                     notificationToggle.checked = settings.enabled;
                 }
             });
-            
-            ipcRenderer.on('check-updates-requested', () => {
+
+            window.electronAPI.onCheckUpdatesRequested(() => {
                 // Trigger update check when requested from tray
                 checkForUpdates();
             });
-            
+
             // Load notification settings
             loadNotificationSettings();
         });
@@ -487,8 +524,13 @@
                 const result = await window.electronAPI.getNotificationSettings();
                 if (result.success) {
                     const notificationToggle = document.getElementById('notificationToggle');
+                    const autoUpdateToggle = document.getElementById('autoUpdateToggle');
+
                     if (notificationToggle) {
                         notificationToggle.checked = result.settings.enabled;
+                    }
+                    if (autoUpdateToggle) {
+                        autoUpdateToggle.checked = result.settings.autoUpdate || false;
                     }
                 }
             } catch (error) {
@@ -499,7 +541,7 @@
         // Handle notification toggle changes
         document.getElementById('notificationToggle')?.addEventListener('change', async (event) => {
             const enabled = event.target.checked;
-            
+
             try {
                 const result = await window.electronAPI.saveNotificationSettings({ enabled: enabled });
                 if (!result.success) {
@@ -513,6 +555,25 @@
             } catch (error) {
                 showError('Error saving notification settings: ' + error.message);
                 event.target.checked = !enabled;
+            }
+        });
+
+        // Handle auto-update toggle changes
+        document.getElementById('autoUpdateToggle')?.addEventListener('change', async (event) => {
+            const autoUpdate = event.target.checked;
+
+            try {
+                const result = await window.electronAPI.saveNotificationSettings({ autoUpdate: autoUpdate });
+                if (!result.success) {
+                    showError('Failed to save auto-update settings: ' + result.error);
+                    // Revert the checkbox
+                    event.target.checked = !autoUpdate;
+                } else {
+                    showSuccess(autoUpdate ? 'Auto-updates enabled' : 'Auto-updates disabled');
+                }
+            } catch (error) {
+                showError('Error saving auto-update settings: ' + error.message);
+                event.target.checked = !autoUpdate;
             }
         });
 
@@ -606,11 +667,11 @@
 
         // Listen for new release notifications from main process
         window.addEventListener('DOMContentLoaded', () => {
-            ipcRenderer.on('new-release-available', (event, release) => {
+            window.electronAPI.onNewReleaseAvailable((event, release) => {
                 // Show update card with new release info
                 showUpdateCard(release);
             });
-            
+
             // Update monitoring status periodically
             setInterval(updateMonitoringStatus, 30000); // Update every 30 seconds
         });
@@ -729,17 +790,59 @@
         // Management actions
         async function updateAllExtensions() {
             showLoading(true);
+            const updatedBrowsers = [];
+
             try {
                 // This would trigger updates for all detected browsers
-                const browsers = ['chrome', 'edge', 'firefox'];
+                const browsers = ['chrome', 'firefox'];
                 for (const browser of browsers) {
-                    await window.electronAPI.updateExtension(browser);
+                    const result = await window.electronAPI.updateExtension(browser);
+                    if (result.success) {
+                        updatedBrowsers.push(browser);
+                    }
                 }
-                showSuccess('Extension updates initiated. Restart your browsers to complete the update.');
+
+                if (updatedBrowsers.length > 0) {
+                    showBrowserRestartModal(updatedBrowsers);
+                } else {
+                    showError('No extensions were updated. Check the console for errors.');
+                }
             } catch (error) {
                 showError('Failed to update extensions: ' + error.message);
             } finally {
                 showLoading(false);
+            }
+        }
+
+        // Show browser restart modal
+        function showBrowserRestartModal(browsers) {
+            const modal = document.getElementById('browserRestartModal');
+            const browsersList = document.getElementById('updatedBrowsers');
+
+            if (!modal || !browsersList) return;
+
+            browsersList.innerHTML = '';
+            browsers.forEach(browser => {
+                const li = document.createElement('li');
+                li.style.cssText = 'padding: 8px 12px; background: rgba(255,255,255,0.05); margin: 5px 0; border-radius: 6px; display: flex; align-items: center; gap: 10px;';
+
+                const browserName = browser === 'chrome' ? 'Google Chrome' :
+                                   browser === 'firefox' ? 'Mozilla Firefox' : browser;
+
+                li.innerHTML = `
+                    <span style="font-size: 1.3em;">🔄</span>
+                    <span style="font-weight: 500;">${browserName}</span>
+                `;
+                browsersList.appendChild(li);
+            });
+
+            modal.style.display = 'flex';
+        }
+
+        function closeBrowserRestartModal() {
+            const modal = document.getElementById('browserRestartModal');
+            if (modal) {
+                modal.style.display = 'none';
             }
         }
 
@@ -796,13 +899,13 @@
             checkExtensions();
             loadNotificationSettings();
             updateMonitoringStatus();
-            
+
             // Listen for notification setup request from main process
-            ipcRenderer.on('show-notification-setup', () => {
+            window.electronAPI.onShowNotificationSetup(() => {
                 showNotificationSetup();
             });
-            
-            ipcRenderer.on('notification-settings-changed', (event, settings) => {
+
+            window.electronAPI.onNotificationSettingsChanged((event, settings) => {
                 // Update UI if notification settings change from tray menu
                 const notificationToggle = document.getElementById('notificationToggle');
                 if (notificationToggle) {
@@ -810,18 +913,29 @@
                 }
                 updateMonitoringStatus();
             });
-            
-            ipcRenderer.on('check-updates-requested', () => {
+
+            window.electronAPI.onCheckUpdatesRequested(() => {
                 // Trigger update check when requested from tray
                 checkForUpdates();
             });
-            
+
             // Listen for new release notifications from main process
-            ipcRenderer.on('new-release-available', (event, release) => {
+            window.electronAPI.onNewReleaseAvailable((event, release) => {
                 // Show update card with new release info
                 showUpdateCard(release);
             });
-            
+
+            // Listen for auto-update events
+            window.electronAPI.onAutoUpdateStarted?.((event, release) => {
+                showLoading(true);
+                showSuccess(`Auto-update started: downloading version ${release.version}...`);
+            });
+
+            window.electronAPI.onAutoUpdateCompleted?.((event, release) => {
+                showLoading(false);
+                showBrowserRestartModal(['chrome', 'firefox']);
+            });
+
             // Update monitoring status periodically
             setInterval(updateMonitoringStatus, 30000); // Update every 30 seconds
         });

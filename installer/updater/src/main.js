@@ -22,6 +22,7 @@ let notificationSettings = {
   enabled: true,  // Default to enabled
   minimizeToTray: true,
   startMinimized: startMinimized,
+  autoUpdate: false,  // Default to manual approval
   lastChecked: null,
   lastVersion: null,
   checkInterval: 3600000 // 1 hour in milliseconds
@@ -163,22 +164,101 @@ class GitHubReleaseMonitor {
 
   async handleNewRelease(release) {
     console.log(`New release detected: ${release.version}`);
-    
+
     // Update last version in settings
     notificationSettings.lastVersion = release.version;
     notificationSettings.lastChecked = new Date().toISOString();
     saveNotificationSettings();
 
-    // Show notification
+    // If auto-update is enabled, start updating
+    if (notificationSettings.autoUpdate) {
+      console.log('Auto-update enabled, starting update process...');
+
+      showNotification(
+        'RollCloud Update Downloading',
+        `Version ${release.version} is being downloaded and installed automatically.`,
+        { urgency: 'normal' }
+      );
+
+      // Trigger auto-update (will be handled by main process)
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('auto-update-started', release);
+      }
+
+      // Perform the update
+      try {
+        await this.performAutoUpdate(release);
+      } catch (error) {
+        console.error('Auto-update failed:', error);
+        showNotification(
+          'RollCloud Auto-Update Failed',
+          `Failed to auto-update: ${error.message}. Please update manually.`,
+          { urgency: 'critical' }
+        );
+      }
+    } else {
+      // Manual update - just notify
+      showNotification(
+        'RollCloud Update Available!',
+        `Version ${release.version} is now available.\n\n${release.name}`,
+        { urgency: 'normal' }
+      );
+
+      // Send to renderer if window is open
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('new-release-available', release);
+      }
+    }
+  }
+
+  async performAutoUpdate(release) {
+    // Download assets
+    const assets = {
+      chrome: release.assets?.find(a => a.name === 'rollcloud-chrome-signed.crx'),
+      firefox: release.assets?.find(a => a.name === 'rollcloud-firefox-signed.xpi')
+    };
+
+    const tempDir = path.join(app.getPath('temp'), 'rollcloud-update');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    // Download and install Chrome extension if asset exists
+    if (assets.chrome) {
+      try {
+        const tempFile = path.join(tempDir, 'rollcloud-chrome.crx');
+        await downloadFile(assets.chrome.browser_download_url, tempFile);
+        await updateChromeExtension(tempFile, 'chrome');
+        fs.unlinkSync(tempFile);
+        console.log('Chrome extension auto-updated successfully');
+      } catch (error) {
+        console.error('Chrome auto-update failed:', error);
+      }
+    }
+
+    // Download and install Firefox extension if asset exists
+    if (assets.firefox) {
+      try {
+        const tempFile = path.join(tempDir, 'rollcloud-firefox.xpi');
+        await downloadFile(assets.firefox.browser_download_url, tempFile);
+        await updateFirefoxExtension(tempFile);
+        fs.unlinkSync(tempFile);
+        console.log('Firefox extension auto-updated successfully');
+      } catch (error) {
+        console.error('Firefox auto-update failed:', error);
+      }
+    }
+
+    // Show completion notification
     showNotification(
-      'RollCloud Update Available!',
-      `Version ${release.version} is now available.\n\n${release.name}`,
+      'RollCloud Updated Successfully!',
+      `Version ${release.version} has been installed. Please restart your browsers.`,
       { urgency: 'normal' }
     );
 
-    // Send to renderer if window is open
+    // Send completion message to renderer
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('new-release-available', release);
+      mainWindow.webContents.send('auto-update-completed', release);
     }
   }
 
@@ -361,6 +441,19 @@ app.whenReady().then(() => {
   // If starting minimized, mark first run as complete since user already configured during install
   if (isFirstRun && notificationSettings.startMinimized) {
     fs.writeFileSync(path.join(app.getPath('userData'), 'first-run-complete'), 'true');
+
+    // Show welcome notification after a short delay
+    setTimeout(() => {
+      showNotification(
+        'RollCloud Updater Running',
+        'The updater is now running in your system tray.\n\n' +
+        'Right-click the tray icon to:\n' +
+        '• Enable/disable notifications\n' +
+        '• Configure auto-updates\n' +
+        '• Check for updates manually',
+        { urgency: 'low' }
+      );
+    }, 2000);
   }
 });
 
@@ -444,6 +537,27 @@ function updateTrayMenu() {
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('notification-settings-changed', notificationSettings);
         }
+      }
+    },
+    {
+      label: 'Automatically Install Updates',
+      type: 'checkbox',
+      checked: notificationSettings.autoUpdate || false,
+      click: (menuItem) => {
+        notificationSettings.autoUpdate = menuItem.checked;
+        saveNotificationSettings();
+
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('notification-settings-changed', notificationSettings);
+        }
+
+        showNotification(
+          'Auto-Update ' + (menuItem.checked ? 'Enabled' : 'Disabled'),
+          menuItem.checked ?
+            'Updates will be downloaded and installed automatically.' :
+            'You will be asked before installing updates.',
+          { urgency: 'low' }
+        );
       }
     },
     { type: 'separator' },
@@ -673,15 +787,185 @@ ipcMain.handle('check-updates', async () => {
   }
 });
 
+// Download file from URL
+async function downloadFile(url, destinationPath) {
+  return new Promise((resolve, reject) => {
+    https.get(url, (response) => {
+      if (response.statusCode === 302 || response.statusCode === 301) {
+        // Follow redirect
+        downloadFile(response.headers.location, destinationPath)
+          .then(resolve)
+          .catch(reject);
+        return;
+      }
+
+      if (response.statusCode !== 200) {
+        reject(new Error(`HTTP ${response.statusCode}`));
+        return;
+      }
+
+      const fileStream = fs.createWriteStream(destinationPath);
+      response.pipe(fileStream);
+
+      fileStream.on('finish', () => {
+        fileStream.close();
+        resolve(destinationPath);
+      });
+
+      fileStream.on('error', (error) => {
+        fs.unlink(destinationPath, () => {}); // Delete partial file
+        reject(error);
+      });
+    }).on('error', reject);
+  });
+}
+
+// Get browser policy paths
+function getBrowserPolicyPaths(browser) {
+  const paths = {
+    chrome: {
+      crxPath: path.join(process.env.PROGRAMFILES, 'RollCloud', 'rollcloud-chrome.crx'),
+      registryPath: 'HKLM\\SOFTWARE\\Policies\\Google\\Chrome\\ExtensionInstallForcelist'
+    },
+    firefox: {
+      xpiPath: path.join(process.env.PROGRAMFILES, 'Mozilla Firefox', 'distribution', 'extensions', 'rollcloud@dicecat.com.xpi'),
+      policyPath: path.join(process.env.PROGRAMFILES, 'Mozilla Firefox', 'distribution', 'policies.json')
+    }
+  };
+
+  return paths[browser];
+}
+
 ipcMain.handle('update-extension', async (event, browser) => {
   try {
-    // This would trigger the extension update process
-    // Implementation would depend on the specific browser's update mechanism
-    return { success: true, message: `Update initiated for ${browser}` };
+    console.log(`Starting update for ${browser}...`);
+
+    // Get latest release info
+    const release = await new Promise((resolve, reject) => {
+      https.get({
+        hostname: 'api.github.com',
+        path: '/repos/CarmaNayeli/rollCloud/releases/latest',
+        headers: {
+          'User-Agent': 'RollCloud-Updater',
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          if (res.statusCode === 200) {
+            resolve(JSON.parse(data));
+          } else {
+            reject(new Error(`HTTP ${res.statusCode}`));
+          }
+        });
+      }).on('error', reject);
+    });
+
+    // Find the appropriate asset
+    const isChromeOrEdge = browser === 'chrome' || browser === 'edge';
+    const assetName = isChromeOrEdge ? 'rollcloud-chrome-signed.crx' : 'rollcloud-firefox-signed.xpi';
+    const asset = release.assets.find(a => a.name === assetName);
+
+    if (!asset) {
+      throw new Error(`Asset ${assetName} not found in release`);
+    }
+
+    console.log(`Downloading ${asset.name} from ${asset.browser_download_url}...`);
+
+    // Download to temp directory
+    const tempDir = path.join(app.getPath('temp'), 'rollcloud-update');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+
+    const tempFile = path.join(tempDir, asset.name);
+    await downloadFile(asset.browser_download_url, tempFile);
+
+    console.log(`Downloaded to ${tempFile}`);
+
+    // Replace extension files based on browser
+    if (isChromeOrEdge) {
+      await updateChromeExtension(tempFile, browser);
+    } else {
+      await updateFirefoxExtension(tempFile);
+    }
+
+    // Clean up temp file
+    fs.unlinkSync(tempFile);
+
+    console.log(`Update completed for ${browser}`);
+    return {
+      success: true,
+      message: `Updated to version ${release.tag_name}`,
+      version: release.tag_name,
+      requiresRestart: true
+    };
   } catch (error) {
+    console.error(`Update failed for ${browser}:`, error);
     return { success: false, error: error.message };
   }
 });
+
+async function updateChromeExtension(tempFile, browser) {
+  // Target path for extension file
+  const extensionDir = path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'RollCloud');
+
+  if (!fs.existsSync(extensionDir)) {
+    fs.mkdirSync(extensionDir, { recursive: true });
+  }
+
+  const targetPath = path.join(extensionDir, 'rollcloud-chrome.crx');
+
+  // Copy new extension file
+  fs.copyFileSync(tempFile, targetPath);
+  console.log(`Copied extension to ${targetPath}`);
+
+  // Update registry policy (Chrome and Edge use same CRX file but different registry paths)
+  const registryPath = browser === 'chrome'
+    ? 'HKLM\\SOFTWARE\\Policies\\Google\\Chrome\\ExtensionInstallForcelist'
+    : 'HKLM\\SOFTWARE\\Policies\\Microsoft\\Edge\\ExtensionInstallForcelist';
+
+  const updateUrl = `file:///${targetPath.replace(/\\/g, '/')}`;
+
+  try {
+    // Update the registry entry (assumes it already exists from initial installation)
+    execSync(`reg add "${registryPath}" /v "1" /t REG_SZ /d "${CONFIG.extensionId};${updateUrl}" /f`, { encoding: 'utf8' });
+    console.log(`Updated ${browser} policy in registry`);
+  } catch (error) {
+    console.error(`Failed to update registry:`, error);
+    throw error;
+  }
+}
+
+async function updateFirefoxExtension(tempFile) {
+  // Firefox extension paths
+  const firefoxProgram = path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'Mozilla Firefox');
+  const distributionDir = path.join(firefoxProgram, 'distribution');
+  const extensionsDir = path.join(distributionDir, 'extensions');
+
+  // Create directories if they don't exist
+  if (!fs.existsSync(distributionDir)) {
+    fs.mkdirSync(distributionDir, { recursive: true });
+  }
+  if (!fs.existsSync(extensionsDir)) {
+    fs.mkdirSync(extensionsDir, { recursive: true });
+  }
+
+  const targetPath = path.join(extensionsDir, 'rollcloud@dicecat.com.xpi');
+
+  // Copy new extension file
+  fs.copyFileSync(tempFile, targetPath);
+  console.log(`Copied Firefox extension to ${targetPath}`);
+
+  // Update policies.json if it exists
+  const policiesPath = path.join(distributionDir, 'policies.json');
+  if (fs.existsSync(policiesPath)) {
+    const policies = JSON.parse(fs.readFileSync(policiesPath, 'utf8'));
+    // Policy should already exist from initial install, just verify it's there
+    console.log(`Firefox policies already configured at ${policiesPath}`);
+  }
+}
 
 ipcMain.handle('uninstall-extension', async (event, browser) => {
   try {

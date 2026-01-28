@@ -37,6 +37,15 @@ const commands = [];
 const commandsPath = join(__dirname, 'src', 'commands');
 const commandFiles = readdirSync(commandsPath).filter(file => file.endsWith('.js'));
 
+// Get disabled commands from environment
+const disabledCommands = process.env.DISABLED_COMMANDS
+  ? process.env.DISABLED_COMMANDS.split(',').map(cmd => cmd.trim())
+  : [];
+
+if (disabledCommands.length > 0) {
+  console.log(`\n🚫 Disabled commands: ${disabledCommands.join(', ')}`);
+}
+
 console.log(`\n📋 Loading ${commandFiles.length} commands...`);
 
 for (const file of commandFiles) {
@@ -45,8 +54,16 @@ for (const file of commandFiles) {
     const command = await import(`file://${filePath}`);
 
     if ('data' in command.default && 'execute' in command.default) {
+      const commandName = command.default.data.name;
+
+      // Skip disabled commands
+      if (disabledCommands.includes(commandName)) {
+        console.log(`⏭️  ${commandName} (disabled)`);
+        continue;
+      }
+
       commands.push(command.default.data.toJSON());
-      console.log(`✅ ${command.default.data.name}`);
+      console.log(`✅ ${commandName}`);
     } else {
       console.log(`❌ ${file}: Missing data or execute`);
     }

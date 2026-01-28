@@ -16,28 +16,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   stopReleaseMonitoring: () => ipcRenderer.invoke('stop-release-monitoring'),
   checkReleasesNow: () => ipcRenderer.invoke('check-releases-now'),
   getMonitoringStatus: () => ipcRenderer.invoke('get-monitoring-status'),
-  setCheckInterval: (interval) => ipcRenderer.invoke('set-check-interval', interval)
-});
+  setCheckInterval: (interval) => ipcRenderer.invoke('set-check-interval', interval),
 
-// Handle window close
-window.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('quitBtn').addEventListener('click', () => {
-    window.electronAPI.quitApp();
-  });
-});
-
-// Listen for notification settings changes from main process
-window.addEventListener('DOMContentLoaded', () => {
-  ipcRenderer.on('notification-settings-changed', (event, settings) => {
-    // Update UI if notification settings change from tray menu
-    const notificationToggle = document.getElementById('notificationToggle');
-    if (notificationToggle) {
-      notificationToggle.checked = settings.enabled;
-    }
-  });
-  
-  ipcRenderer.on('check-updates-requested', () => {
-    // Trigger update check when requested from tray
-    checkForUpdates();
-  });
+  // Event listeners
+  onShowNotificationSetup: (callback) => ipcRenderer.on('show-notification-setup', callback),
+  onNotificationSettingsChanged: (callback) => ipcRenderer.on('notification-settings-changed', callback),
+  onCheckUpdatesRequested: (callback) => ipcRenderer.on('check-updates-requested', callback),
+  onNewReleaseAvailable: (callback) => ipcRenderer.on('new-release-available', callback),
+  onAutoUpdateStarted: (callback) => ipcRenderer.on('auto-update-started', callback),
+  onAutoUpdateCompleted: (callback) => ipcRenderer.on('auto-update-completed', callback)
 });

@@ -107,6 +107,16 @@ FunctionEnd
     CreateDirectory "$SMPROGRAMS\RollCloud"
     CreateShortcut "$SMPROGRAMS\RollCloud\RollCloud Updater.lnk" "$UpdaterInstallDir\RollCloud-Updater.exe"
 
+    ; Register in Windows Add/Remove Programs
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\RollCloudUpdater" "DisplayName" "RollCloud Updater"
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\RollCloudUpdater" "DisplayIcon" "$UpdaterInstallDir\RollCloud-Updater.exe"
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\RollCloudUpdater" "Publisher" "Carmabella"
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\RollCloudUpdater" "DisplayVersion" "1.0.0"
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\RollCloudUpdater" "InstallLocation" "$UpdaterInstallDir"
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\RollCloudUpdater" "UninstallString" "$UpdaterInstallDir\Uninstall.exe"
+    WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\RollCloudUpdater" "NoModify" 1
+    WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\RollCloudUpdater" "NoRepair" 1
+
     DetailPrint "RollCloud Updater installed successfully"
   ${EndIf}
 !macroend
@@ -131,6 +141,9 @@ FunctionEnd
     Delete "$SMSTARTUP\RollCloud Updater.lnk"
     RMDir "$SMPROGRAMS\RollCloud"
     RMDir "$0"
+
+    ; Remove from Windows Add/Remove Programs
+    DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\RollCloudUpdater"
   ${EndIf}
 !macroend
 
