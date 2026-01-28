@@ -10,6 +10,7 @@
 
   /**
    * Posts a message to Roll20 chat
+   * Uses Firefox-compatible event handling to avoid CSP/security issues
    */
   function postChatMessage(message) {
     try {
@@ -22,13 +23,33 @@
 
       debug.log('📝 Setting chat input value:', message.substring(0, 80) + (message.length > 80 ? '...' : ''));
       chatInput.focus();
-      chatInput.value = message;
 
-      // Dispatch input event so Roll20/jQuery recognizes the value change
-      chatInput.dispatchEvent(new Event('input', { bubbles: true }));
-      chatInput.dispatchEvent(new Event('change', { bubbles: true }));
+      // Use native property descriptor to set value (more compatible with frameworks)
+      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+        window.HTMLTextAreaElement.prototype,
+        'value'
+      ).set;
+      nativeInputValueSetter.call(chatInput, message);
 
-      // Trigger the send button
+      // Firefox-compatible event dispatch using cloneInto if available
+      // This properly transfers event options to the page's context
+      try {
+        if (typeof cloneInto === 'function') {
+          // Firefox: Use cloneInto to create events in page context
+          const eventInit = cloneInto({ bubbles: true, cancelable: true }, window);
+          chatInput.dispatchEvent(new window.wrappedJSObject.Event('input', eventInit));
+          chatInput.dispatchEvent(new window.wrappedJSObject.Event('change', eventInit));
+        } else {
+          // Chrome/other browsers: Standard event dispatch
+          chatInput.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+          chatInput.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+        }
+      } catch (eventError) {
+        // If event dispatch fails entirely, log but continue - button click should still work
+        debug.warn('⚠️ Event dispatch encountered an error (non-fatal):', eventError.message);
+      }
+
+      // Find and click the send button
       const sendButton = document.querySelector('#textchat-input .btn');
       if (!sendButton) {
         debug.error('❌ Could not find Roll20 chat send button (#textchat-input .btn)');
@@ -348,14 +369,22 @@
 
   /**
    * Listen for messages from other parts of the extension
+   * Wrapped in try-catch to prevent one error from breaking subsequent message handling
    */
   browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    debug.log('📨 Roll20 content script received message:', request.action, request);
-    
-    if (request.action === 'postRollToChat') {
-      const result = handleDiceCloudRoll(request.roll);
-      sendResponse(result || { success: true });
-    } else if (request.action === 'sendRollToRoll20') {
+    try {
+      debug.log('📨 Roll20 content script received message:', request.action, request);
+
+      if (request.action === 'postRollToChat') {
+        try {
+          const result = handleDiceCloudRoll(request.roll);
+          sendResponse(result || { success: true });
+        } catch (rollError) {
+          debug.error('❌ Error handling postRollToChat:', rollError);
+          sendResponse({ success: false, error: rollError.message });
+        }
+        return true; // Keep message channel open
+      } else if (request.action === 'sendRollToRoll20') {
       // Handle the message that Dice Cloud is actually sending
       debug.log('🎲 Received sendRollToRoll20 message:', request.roll);
       const result = handleDiceCloudRoll(request.roll);
@@ -793,6 +822,16 @@
       postChatMessage('/e ends their turn.');
       sendResponse({ success: true });
     }
+    } catch (outerError) {
+      // Catch any unexpected errors to prevent breaking the message listener
+      debug.error('❌ Unexpected error in message listener:', outerError);
+      try {
+        sendResponse({ success: false, error: 'Unexpected error: ' + outerError.message });
+      } catch (e) {
+        // sendResponse may have already been called or channel closed
+      }
+    }
+    return true; // Keep message channel open for potential async responses
   });
 
   /**
