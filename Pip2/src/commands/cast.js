@@ -144,6 +144,14 @@ export default {
       const rawData = character.raw_dicecloud_data || {};
       const notificationColor = (typeof rawData === 'object' ? rawData.notificationColor : null) || '#3498db';
 
+      // Debug: Log character data structure
+      console.log('Character data structure:', {
+        id: character.id,
+        dicecloud_character_id: character.dicecloud_character_id,
+        character_name: character.character_name,
+        allKeys: Object.keys(character)
+      });
+
       // Create cast command in Supabase
       const commandPayload = {
         pairing_id: pairing.id,
@@ -162,6 +170,9 @@ export default {
         },
         status: 'pending'
       };
+
+      // Debug: Log what character_id we're actually sending
+      console.log('Sending character_id:', commandPayload.command_data.character_id);
 
       // Call Edge Function to insert and broadcast (same as /roll command)
       const commandResponse = await fetch(`${SUPABASE_URL}/functions/v1/broadcast-command`, {
