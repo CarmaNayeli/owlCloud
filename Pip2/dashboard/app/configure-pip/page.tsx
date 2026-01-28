@@ -42,115 +42,7 @@ export default function ConfigurePip() {
   const [error, setError] = useState<string | null>(null);
   const [fetchingServers, setFetchingServers] = useState(false);
   const [showServersWithoutPip, setShowServersWithoutPip] = useState(false);
-
-  // Mock data - replace with actual API calls
-  const mockCommands: SlashCommand[] = [
-    {
-      name: 'rollcloud',
-      description: 'Connect your RollCloud extension to Discord',
-      category: 'RollCloud',
-      defaultPermissions: ['USE_APPLICATION_COMMANDS'],
-      enabled: true
-    },
-    {
-      name: 'character',
-      description: 'Check character status and Discord integration',
-      category: 'RollCloud',
-      defaultPermissions: ['USE_APPLICATION_COMMANDS'],
-      enabled: true
-    },
-    {
-      name: 'characters',
-      description: 'List your synced characters',
-      category: 'RollCloud',
-      defaultPermissions: ['USE_APPLICATION_COMMANDS'],
-      enabled: true
-    },
-    {
-      name: 'roll20',
-      description: 'Check Roll20 connection status',
-      category: 'RollCloud',
-      defaultPermissions: ['USE_APPLICATION_COMMANDS'],
-      enabled: true
-    },
-    {
-      name: 'sheet',
-      description: 'View detailed character sheet information',
-      category: 'RollCloud',
-      defaultPermissions: ['USE_APPLICATION_COMMANDS'],
-      enabled: true
-    },
-    {
-      name: 'roll',
-      description: 'Roll dice or make ability checks from your character sheet',
-      category: 'RollCloud',
-      defaultPermissions: ['USE_APPLICATION_COMMANDS'],
-      enabled: true
-    },
-    {
-      name: 'use',
-      description: 'Use character abilities and spells',
-      category: 'RollCloud',
-      defaultPermissions: ['USE_APPLICATION_COMMANDS'],
-      enabled: true
-    },
-    {
-      name: 'cast',
-      description: 'Cast spells from your character sheet',
-      category: 'RollCloud',
-      defaultPermissions: ['USE_APPLICATION_COMMANDS'],
-      enabled: true
-    },
-    {
-      name: 'stats',
-      description: 'Quick stat lookup and rolls',
-      category: 'RollCloud',
-      defaultPermissions: ['USE_APPLICATION_COMMANDS'],
-      enabled: true
-    },
-    {
-      name: 'ping',
-      description: 'Check bot responsiveness',
-      category: 'Utility',
-      defaultPermissions: ['USE_APPLICATION_COMMANDS'],
-      enabled: true
-    },
-    {
-      name: 'help',
-      description: 'Show help information',
-      category: 'Utility',
-      defaultPermissions: ['USE_APPLICATION_COMMANDS'],
-      enabled: true
-    },
-    {
-      name: 'coin',
-      description: 'Flip a coin for random decisions',
-      category: 'Utility',
-      defaultPermissions: ['USE_APPLICATION_COMMANDS'],
-      enabled: true
-    },
-    {
-      name: 'reactionrole',
-      description: 'Configure reaction roles',
-      category: 'Moderation',
-      defaultPermissions: ['MANAGE_ROLES'],
-      enabled: false
-    },
-    {
-      name: 'changelog',
-      description: 'Manage changelog entries',
-      category: 'Moderation',
-      defaultPermissions: ['MANAGE_MESSAGES'],
-      enabled: false
-    },
-    {
-      name: 'ticket',
-      description: 'Create and manage tickets',
-      category: 'Moderation',
-      defaultPermissions: ['MANAGE_CHANNELS'],
-      enabled: false
-    }
-  ];
+  const [loadingCommands, setLoadingCommands] = useState(false);
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -228,9 +120,9 @@ export default function ConfigurePip() {
       );
       
       console.log('📋 Admin servers with bot status:', serversWithBotStatus.length);
-      
+
       setServers(serversWithBotStatus);
-      setCommands(mockCommands);
+      // Commands will be loaded when a server is selected
     } catch (error: unknown) {
       console.error('Error loading servers:', error);
       
@@ -412,18 +304,40 @@ const checkBotInServerWithRateLimit = async (serverId: string): Promise<boolean>
   const handleServerSelect = (server: DiscordServer) => {
     setSelectedServer(server);
     loadServerSettings(server.id);
+    loadServerCommands(server.id);
+  };
+
+  const loadServerCommands = async (serverId: string) => {
+    setLoadingCommands(true);
+    try {
+      const response = await fetch(`/api/server-config?guild_id=${serverId}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch command configuration');
+      }
+      const data = await response.json();
+      if (data.success && data.commands) {
+        setCommands(data.commands);
+        console.log(`📋 Loaded ${data.commands.length} commands for server ${serverId}`);
+      }
+    } catch (error) {
+      console.error('Error loading server commands:', error);
+      // On error, show empty commands rather than stale data
+      setCommands([]);
+    } finally {
+      setLoadingCommands(false);
+    }
   };
 
   const loadServerSettings = async (serverId: string) => {
     try {
-      // Mock server settings - replace with API call
+      // Server settings (channels, roles) - keeping as placeholder for future implementation
       const mockSettings: ServerSettings = {
         id: serverId,
-        welcomeChannel: 'welcome-channel',
-        logChannel: 'logs',
-        adminRole: 'Admin',
-        modRole: 'Moderator',
-        autoRoles: ['Member']
+        welcomeChannel: '',
+        logChannel: '',
+        adminRole: '',
+        modRole: '',
+        autoRoles: []
       };
       setServerSettings(mockSettings);
     } catch (error) {
@@ -442,13 +356,34 @@ const checkBotInServerWithRateLimit = async (serverId: string): Promise<boolean>
 
     setSaving(true);
     try {
-      // Mock API call - replace with actual save logic
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const enabledCommands = commands.filter(cmd => cmd.enabled);
-      console.log(`Saving configuration for server ${selectedServer.name}:`, enabledCommands);
-      
-      alert(`Configuration saved for ${selectedServer.name}!\n\nEnabled commands: ${enabledCommands.length}/${commands.length}`);
+      // Build list of disabled commands (we store what's disabled, not what's enabled)
+      const disabledCommands = commands.filter(cmd => !cmd.enabled).map(cmd => cmd.name);
+
+      const response = await fetch('/api/server-config', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          guild_id: selectedServer.id,
+          disabled_commands: disabledCommands,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to save configuration');
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        const enabledCommands = commands.filter(cmd => cmd.enabled);
+        console.log(`✅ Saved configuration for server ${selectedServer.name}:`, enabledCommands.length, 'enabled');
+        // Update local state with server response
+        if (data.commands) {
+          setCommands(data.commands);
+        }
+      }
     } catch (error) {
       console.error('Error saving configuration:', error);
       alert('Failed to save configuration. Please try again.');
@@ -766,13 +701,25 @@ const checkBotInServerWithRateLimit = async (serverId: string): Promise<boolean>
               <h2 className="text-xl font-bold">Slash Commands for {selectedServer.name}</h2>
               <button
                 onClick={saveConfiguration}
-                disabled={saving}
+                disabled={saving || loadingCommands}
                 className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition disabled:opacity-50"
               >
                 {saving ? 'Saving...' : 'Save Configuration'}
               </button>
             </div>
 
+            {loadingCommands ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="flex flex-col items-center space-y-3">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+                  <span className="text-gray-600 dark:text-gray-400">Loading command configuration...</span>
+                </div>
+              </div>
+            ) : commands.length === 0 ? (
+              <div className="text-center py-8 text-gray-600 dark:text-gray-400">
+                No commands available. Please try refreshing the page.
+              </div>
+            ) : (
             <div className="space-y-6">
               {Object.entries(groupedCommands).map(([category, categoryCommands]) => (
                 <div key={category}>
@@ -813,6 +760,7 @@ const checkBotInServerWithRateLimit = async (serverId: string): Promise<boolean>
                 </div>
               ))}
             </div>
+            )}
           </div>
 
           {/* Server Settings */}
