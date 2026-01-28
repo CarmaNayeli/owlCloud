@@ -2461,6 +2461,34 @@
       }
     }
 
+    // Post-process HP resources to map them to hitPoints structure
+    if (characterData.resources && characterData.resources.length > 0) {
+      const hpResource = characterData.resources.find(r => 
+        r.name.toLowerCase().includes('hit points') || 
+        r.name.toLowerCase() === 'hp' ||
+        r.variableName?.toLowerCase() === 'hitpoints'
+      );
+      
+      const tempHpResource = characterData.resources.find(r => 
+        r.name.toLowerCase().includes('temporary hit points') || 
+        r.name.toLowerCase().includes('temp hp') ||
+        r.variableName?.toLowerCase() === 'temphitpoints'
+      );
+
+      if (hpResource) {
+        characterData.hitPoints = {
+          current: hpResource.current,
+          max: hpResource.max
+        };
+        debug.log(`💚 Mapped HP resource: ${hpResource.name} (${hpResource.current}/${hpResource.max})`);
+      }
+
+      if (tempHpResource) {
+        characterData.temporaryHP = tempHpResource.current;
+        debug.log(`💙 Mapped Temp HP resource: ${tempHpResource.name} (${tempHpResource.current})`);
+      }
+    }
+
     debug.log('Parsed character data:', characterData);
     return characterData;
   }
