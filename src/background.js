@@ -1645,6 +1645,45 @@ browserAPI.runtime.onInstalled.addListener((details) => {
     } catch (e) {
       debug.warn('Could not set requireDiscordResync flag on update:', e);
     }
+    // Attempt automatic resync to cloud if Discord integration appears active
+    (async () => {
+      try {
+        const stored = await browserAPI.storage.local.get(['discordWebhookEnabled', 'discordUserId', 'discordPairingId']);
+        const discordConnected = stored.discordWebhookEnabled || stored.discordUserId || stored.discordPairingId;
+
+        if (!discordConnected) {
+          debug.log('No Discord integration detected on update; skipping automatic resync');
+          return;
+        }
+
+        if (!isSupabaseConfigured()) {
+          debug.log('Supabase not configured; skipping automatic resync');
+          return;
+        }
+
+        debug.log('🔁 Attempting automatic character resync after update (Discord connected)');
+        // Keep service worker alive while we attempt the sync
+        keepServiceWorkerAlive(60000);
+
+        const activeChar = await getCharacterData();
+        if (!activeChar) {
+          debug.log('No active character found; nothing to resync');
+          return;
+        }
+
+        const res = await storeCharacterToCloud(activeChar);
+        if (res && res.success) {
+          debug.log('✅ Automatic resync successful after update');
+        } else {
+          debug.warn('⚠️ Automatic resync failed after update:', res && res.error);
+        }
+      } catch (err) {
+        debug.warn('⚠️ Automatic resync encountered an error on update:', err);
+      } finally {
+        // Allow the service worker to stop naturally after a short delay
+        setTimeout(() => stopKeepAlive(), 5000);
+      }
+    })();
   }
 });
 
