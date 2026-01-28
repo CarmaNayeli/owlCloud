@@ -8365,6 +8365,30 @@ function resolveVariablesInFormula(formula) {
     // Strip # prefix if present (DiceCloud reference notation)
     const cleanPath = varPath.startsWith('#') ? varPath.substring(1) : varPath;
 
+    // Handle attribute modifiers like "strength.modifier", "wisdom.modifier"
+    if (cleanPath.includes('.modifier')) {
+      const attrName = cleanPath.replace('.modifier', '');
+      if (characterData.attributeMods && characterData.attributeMods[attrName] !== undefined) {
+        const modifier = characterData.attributeMods[attrName];
+        debug.log(`✅ Resolved attribute modifier: ${cleanPath} = ${modifier}`);
+        return modifier;
+      }
+    }
+
+    // Handle attribute scores like "strength", "wisdom"
+    if (characterData.attributes && characterData.attributes[cleanPath] !== undefined) {
+      const score = characterData.attributes[cleanPath];
+      debug.log(`✅ Resolved attribute score: ${cleanPath} = ${score}`);
+      return score;
+    }
+
+    // Handle proficiency bonus
+    if (cleanPath === 'proficiencyBonus' && characterData.proficiencyBonus !== undefined) {
+      const profBonus = characterData.proficiencyBonus;
+      debug.log(`✅ Resolved proficiency bonus: ${cleanPath} = ${profBonus}`);
+      return profBonus;
+    }
+
     // Handle special DiceCloud spell references (e.g., "spellList.abilityMod")
     // These reference the spellcasting ability modifier for the character's class
     if (cleanPath === 'spellList.abilityMod' || cleanPath === 'spellList.ability') {
@@ -8528,10 +8552,10 @@ function resolveVariablesInFormula(formula) {
       }
     }
 
-    // Evaluate the expression with the appropriate math function
+    // Evaluate the expression with the appropriate math function using safeMathEval
     try {
       if (/^[\d\s+\-*/().]+$/.test(evalExpression)) {
-        const evalResult = eval(evalExpression);
+        const evalResult = safeMathEval(evalExpression);
         let result;
 
         switch (funcName) {
@@ -9105,10 +9129,10 @@ function resolveVariablesInFormula(formula) {
       evalExpression = evalExpression.replace(new RegExp(name.replace(/\./g, '\\.'), 'g'), value);
     }
 
-    // Try to evaluate the expression
+    // Try to evaluate the expression using safeMathEval
     try {
       if (/^[\d\s+\-*/().]+$/.test(evalExpression)) {
-        const result = eval(evalExpression);
+        const result = safeMathEval(evalExpression);
         resolvedFormula = resolvedFormula.replace(fullMatch, Math.floor(result));
         variablesResolved.push(`${cleanExpr}=${Math.floor(result)}`);
         debug.log(`✅ Resolved expression: ${cleanExpr} = ${Math.floor(result)}`);
@@ -9142,12 +9166,12 @@ function resolveVariablesInFormula(formula) {
         return value !== null ? value : varName;
       });
 
-      // Try to evaluate as math expression
+      // Try to evaluate as math expression using safeMathEval
       // Only if it contains operators or is a number
       if (/[\d+\-*\/()]/.test(resolvedExpr)) {
         try {
-          // Use Function constructor for safe evaluation (no external scope access)
-          const result = Function('"use strict"; return (' + resolvedExpr + ')')();
+          // Use safeMathEval for CSP-compliant evaluation
+          const result = safeMathEval(resolvedExpr);
           debug.log(`✅ Evaluated inline calculation: {${expression}} = ${result}`);
           return result;
         } catch (e) {
@@ -9181,7 +9205,7 @@ function safeMathEval(expr) {
   expr = expr.replace(/\s+/g, ''); // Remove whitespace
 
   while (i < expr.length) {
-    // Check for Math functions
+    // Check for Math functions and max/min
     if (expr.substr(i, 10) === 'Math.floor') {
       tokens.push({ type: 'function', value: 'floor' });
       i += 10;
@@ -9191,6 +9215,12 @@ function safeMathEval(expr) {
     } else if (expr.substr(i, 10) === 'Math.round') {
       tokens.push({ type: 'function', value: 'round' });
       i += 10;
+    } else if (expr.substr(i, 3) === 'max') {
+      tokens.push({ type: 'function', value: 'max' });
+      i += 3;
+    } else if (expr.substr(i, 3) === 'min') {
+      tokens.push({ type: 'function', value: 'min' });
+      i += 3;
     } else if (expr[i] >= '0' && expr[i] <= '9' || expr[i] === '.') {
       // Parse number
       let num = '';
@@ -9199,7 +9229,7 @@ function safeMathEval(expr) {
         i++;
       }
       tokens.push({ type: 'number', value: parseFloat(num) });
-    } else if ('+-*/()'.includes(expr[i])) {
+    } else if ('+-*/(),'.includes(expr[i])) {
       tokens.push({ type: 'operator', value: expr[i] });
       i++;
     } else {
@@ -9253,15 +9283,31 @@ function safeMathEval(expr) {
         throw new Error('Expected ( after function name');
       }
       pos++; // Skip (
-      const arg = parseExpression();
+      
+      // Handle multiple arguments for max/min functions
+      const args = [];
+      if (funcName === 'max' || funcName === 'min') {
+        // Parse comma-separated arguments
+        args.push(parseExpression());
+        while (pos < tokens.length && tokens[pos].value === ',') {
+          pos++; // Skip comma
+          args.push(parseExpression());
+        }
+      } else {
+        // Single argument for other functions
+        args.push(parseExpression());
+      }
+      
       if (pos >= tokens.length || tokens[pos].value !== ')') {
         throw new Error('Expected ) after function argument');
       }
       pos++; // Skip )
 
-      if (funcName === 'floor') return Math.floor(arg);
-      if (funcName === 'ceil') return Math.ceil(arg);
-      if (funcName === 'round') return Math.round(arg);
+      if (funcName === 'floor') return Math.floor(args[0]);
+      if (funcName === 'ceil') return Math.ceil(args[0]);
+      if (funcName === 'round') return Math.round(args[0]);
+      if (funcName === 'max') return Math.max(...args);
+      if (funcName === 'min') return Math.min(...args);
       throw new Error(`Unknown function: ${funcName}`);
     }
 
