@@ -173,17 +173,16 @@ FunctionEnd
     CreateShortcut "$SMPROGRAMS\RollCloud\RollCloud Updater.lnk" "$UpdaterInstallDir\RollCloud-Updater.exe" "" "$UpdaterInstallDir\RollCloud-Updater.exe" 0
 
     ; Register in Windows Add/Remove Programs
+    ; Note: Updater is uninstalled via main RollCloud Wizard uninstaller
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\RollCloudUpdater" "DisplayName" "RollCloud Updater"
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\RollCloudUpdater" "DisplayIcon" "$UpdaterInstallDir\RollCloud-Updater.exe"
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\RollCloudUpdater" "Publisher" "Carmabella"
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\RollCloudUpdater" "DisplayVersion" "1.0.0"
     WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\RollCloudUpdater" "InstallLocation" "$UpdaterInstallDir"
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\RollCloudUpdater" "UninstallString" '"$UpdaterInstallDir\Uninstall-Updater.exe"'
+    ; Uninstall via main wizard uninstaller (no separate updater uninstaller)
+    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\RollCloudUpdater" "UninstallString" '"$INSTDIR\Uninstall RollCloud Wizard.exe"'
     WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\RollCloudUpdater" "NoModify" 1
     WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\RollCloudUpdater" "NoRepair" 1
-
-    ; Create uninstaller for the updater
-    WriteUninstaller "$UpdaterInstallDir\Uninstall-Updater.exe"
 
     DetailPrint "RollCloud Updater installed successfully"
   ${EndIf}
@@ -216,7 +215,6 @@ FunctionEnd
 
     ; Delete updater files
     Delete "$0\RollCloud-Updater.exe"
-    Delete "$0\Uninstall-Updater.exe"
     Delete "$0\updater-settings.json"
     Delete "$0\notification-settings.json"
     Delete "$0\first-run-complete"
