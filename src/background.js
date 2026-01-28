@@ -13,6 +13,22 @@ if (typeof importScripts === 'function' && typeof chrome !== 'undefined') {
 
 debug.log('RollCloud: Background script starting...');
 
+// Listen for storage changes to help debug unexpected logout/token removal
+if (browserAPI && browserAPI.storage && browserAPI.storage.onChanged) {
+  browserAPI.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local') return;
+    if (changes.diceCloudToken) {
+      const oldVal = changes.diceCloudToken.oldValue;
+      const newVal = changes.diceCloudToken.newValue;
+      debug.log('🔁 Storage change: diceCloudToken updated', { hasOld: !!oldVal, hasNew: !!newVal });
+    }
+    if (changes.explicitlyLoggedOut) {
+      debug.log('🔒 Storage change: explicitlyLoggedOut set/cleared', { old: changes.explicitlyLoggedOut.oldValue, new: changes.explicitlyLoggedOut.newValue });
+    }
+  });
+  debug.log('🛰️ Storage change listener registered for debug');
+}
+
 // Add startup storage check to debug auth persistence
 (async () => {
   try {
