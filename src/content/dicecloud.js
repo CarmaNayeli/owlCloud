@@ -2197,10 +2197,9 @@
             // Debug: Log all potential resources for troubleshooting
             debug.log(`🔍 Potential resource found: ${prop.name} (type: ${prop.attributeType}, variable: ${prop.variableName || 'none'})`);
             
-            // Skip hit points (already extracted) and Font of Magic trackers (not actual resources)
+            // Skip Font of Magic trackers (not actual resources) but keep HP resources
             const lowerName = prop.name.toLowerCase();
-            if (lowerName.includes('hit point') || lowerName === 'hp' ||
-                lowerName.includes('slot level to create')) {
+            if (lowerName.includes('slot level to create')) {
               debug.log(`⏭️ Skipping filtered resource: ${prop.name}`);
               break;
             }
