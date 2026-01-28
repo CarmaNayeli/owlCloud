@@ -391,6 +391,314 @@
   }
 
   /**
+   * Normalizes popup/character sheet spell data into a common format for posting to Roll20
+   * @param {Object} eventData - Raw spell data from popup sheet postMessage event
+   * @returns {Object} Normalized spell data
+   */
+  function normalizePopupSpellData(eventData) {
+    const spell = eventData.spellData || {};
+    const castLevel = eventData.castLevel || parseInt(spell.level) || 0;
+    const spellLevel = parseInt(spell.level) || 0;
+    const characterName = eventData.characterName || 'Character';
+    const notificationColor = eventData.color || eventData.notificationColor || '#3498db';
+
+    return {
+      // Basic spell info
+      name: spell.name || eventData.spellName || 'Unknown Spell',
+      characterName: characterName,
+      level: spellLevel,
+      castLevel: castLevel,
+      school: spell.school,
+
+      // Spell details
+      castingTime: spell.castingTime,
+      range: spell.range,
+      duration: spell.duration,
+      components: spell.components,
+      source: spell.source,
+      summary: spell.summary,
+      description: spell.description,
+
+      // Tags and modifiers
+      concentration: spell.concentration,
+      ritual: spell.ritual,
+      isCantrip: spellLevel === 0,
+      isFreecast: false,
+      isUpcast: castLevel > spellLevel,
+
+      // Metamagic and effects (popup doesn't send these yet, but prepared for future)
+      metamagicUsed: eventData.metamagicUsed || [],
+      effects: eventData.effects || [],
+
+      // Resource usage (popup doesn't send these yet, but prepared for future)
+      slotUsed: eventData.slotUsed,
+      resourceChanges: eventData.resourceChanges || [],
+
+      // Rolls (popup sends these separately via roll() function, but prepared for future)
+      attackRoll: spell.attackRoll,
+      damageRolls: spell.damageRolls || [],
+      fallbackDamage: spell.damage,
+      fallbackDamageType: spell.damageType,
+
+      // Visual
+      notificationColor: notificationColor
+    };
+  }
+
+  /**
+   * Normalizes Discord spell data into a common format for posting to Roll20
+   * @param {Object} spellData - Raw spell data from Discord command
+   * @returns {Object} Normalized spell data
+   */
+  function normalizeDiscordSpellData(spellData) {
+    const spell = spellData.spell_data || {};
+    const castLevel = parseInt(spellData.cast_level) || parseInt(spell.level) || 0;
+    const spellLevel = parseInt(spell.level) || 0;
+
+    return {
+      // Basic spell info
+      name: spell.name || 'Unknown Spell',
+      characterName: spellData.character_name || 'Character',
+      level: spellLevel,
+      castLevel: castLevel,
+      school: spell.school,
+
+      // Spell details
+      castingTime: spell.castingTime,
+      range: spell.range,
+      duration: spell.duration,
+      components: spell.components,
+      source: spell.source,
+      summary: spell.summary,
+      description: spell.description,
+
+      // Tags and modifiers
+      concentration: spell.concentration,
+      ritual: spell.ritual,
+      isCantrip: spellData.isCantrip || spellLevel === 0,
+      isFreecast: spellData.isFreecast || false,
+      isUpcast: spellData.isUpcast || castLevel > spellLevel,
+
+      // Metamagic and effects
+      metamagicUsed: spellData.metamagicUsed || [],
+      effects: spellData.effects || [],
+
+      // Resource usage
+      slotUsed: spellData.slotUsed,
+      resourceChanges: spellData.resourceChanges || [],
+
+      // Rolls
+      attackRoll: spell.attackRoll,
+      damageRolls: spellData.damageRolls || [],
+      fallbackDamage: spell.damage,
+      fallbackDamageType: spell.damageType,
+
+      // Visual
+      notificationColor: spellData.notification_color || '#3498db'
+    };
+  }
+
+  /**
+   * Posts a spell to Roll20 chat with full formatting
+   * Unified function that works regardless of source (Discord, character sheet, etc.)
+   * @param {Object} normalizedSpellData - Normalized spell data from normalizeDiscordSpellData() or similar
+   */
+  function postSpellToRoll20(normalizedSpellData) {
+    const {
+      name,
+      characterName,
+      level,
+      castLevel,
+      school,
+      castingTime,
+      range,
+      duration,
+      components,
+      source,
+      summary,
+      description,
+      concentration,
+      ritual,
+      isCantrip,
+      isFreecast,
+      isUpcast,
+      metamagicUsed,
+      effects,
+      slotUsed,
+      resourceChanges,
+      attackRoll,
+      damageRolls,
+      fallbackDamage,
+      fallbackDamageType,
+      notificationColor
+    } = normalizedSpellData;
+
+    // Get color emoji banner
+    const colorEmoji = getColorEmoji(notificationColor);
+
+    // Build tags string
+    let tags = '';
+    if (concentration) tags += ' 🧠 Concentration';
+    if (ritual) tags += ' 📖 Ritual';
+    if (metamagicUsed && metamagicUsed.length > 0) {
+      const metamagicNames = metamagicUsed.map(m => m.name).join(', ');
+      tags += ` ✨ ${metamagicNames}`;
+    }
+    if (isCantrip) tags += ' 🎯 Cantrip';
+    if (isFreecast) tags += ' 🆓 Free Cast';
+    if (isUpcast) tags += ` ⬆️ Upcast to Level ${castLevel}`;
+
+    // Build announcement message
+    let announcement = `&{template:default} {{name=${colorEmoji} ${characterName} casts ${name}!${tags}}}`;
+
+    // Add spell level and school
+    if (level > 0) {
+      let levelText = isUpcast
+        ? `Level ${castLevel} (upcast from ${level})`
+        : `Level ${level}`;
+      if (school) levelText += ` ${school}`;
+      announcement += ` {{Level=${levelText}}}`;
+    } else if (school) {
+      announcement += ` {{Level=${school} cantrip}}`;
+    }
+
+    // Add spell details
+    if (castingTime) announcement += ` {{Casting Time=${castingTime}}}`;
+    if (range) announcement += ` {{Range=${range}}}`;
+    if (duration) announcement += ` {{Duration=${duration}}}`;
+    if (components) announcement += ` {{Components=${components}}}`;
+    if (source) announcement += ` {{Source=${source}}}`;
+
+    // Add slot usage
+    if (slotUsed && !isCantrip && !isFreecast) {
+      announcement += ` {{Slot Used=${slotUsed.level} (${slotUsed.remaining}/${slotUsed.total} remaining)}}`;
+    }
+
+    // Add resource changes
+    if (resourceChanges && resourceChanges.length > 0) {
+      const resourceText = resourceChanges.map(change =>
+        `${change.resource}: ${change.current}/${change.max}`
+      ).join(', ');
+      announcement += ` {{Resources=${resourceText}}}`;
+    }
+
+    // Add effects
+    if (effects && effects.length > 0) {
+      const effectsText = effects.map(effect => effect.description || effect.type).join(', ');
+      announcement += ` {{Effects=${effectsText}}}`;
+    }
+
+    // Add summary and description
+    if (summary) {
+      announcement += ` {{Summary=${summary}}}`;
+    }
+    if (description) {
+      announcement += ` {{Description=${description}}}`;
+    }
+
+    // Post the announcement
+    postChatMessage(announcement);
+
+    // Helper function to scale damage formula for upcasting
+    const scaleFormulaForUpcast = (formula, baseLevel, actualCastLevel) => {
+      if (!formula || baseLevel <= 0 || actualCastLevel <= baseLevel) return formula;
+
+      // Replace slotLevel placeholder if present
+      let scaledFormula = formula.replace(/slotLevel/gi, actualCastLevel);
+
+      // If formula doesn't have slotLevel, try to scale it automatically
+      if (scaledFormula === formula) {
+        const levelDiff = actualCastLevel - baseLevel;
+        const diceMatch = formula.match(/^(\d+)d(\d+)/);
+        if (diceMatch && levelDiff > 0) {
+          const baseDice = parseInt(diceMatch[1]);
+          const dieSize = parseInt(diceMatch[2]);
+          const scaledDice = baseDice + levelDiff;
+          scaledFormula = formula.replace(/^(\d+)d(\d+)/, `${scaledDice}d${dieSize}`);
+          debug.log(`📈 Scaled formula from ${formula} to ${scaledFormula} (upcast by ${levelDiff} levels)`);
+        }
+      }
+
+      return scaledFormula;
+    };
+
+    // Roll attack if spell has attack roll
+    if (attackRoll && attackRoll !== '(none)') {
+      setTimeout(() => {
+        try {
+          const attackMsg = formatRollForRoll20({
+            name: `${name} - Attack`,
+            formula: attackRoll,
+            characterName: characterName
+          });
+          postChatMessage(attackMsg);
+        } catch (attackError) {
+          debug.error(`❌ Failed to roll attack for ${name}:`, attackError);
+          postChatMessage(`&{template:default} {{name=⚠️ Roll Failed}} {{error=Attack roll for ${name} failed: ${attackError.message}}}`);
+        }
+      }, 100);
+    }
+
+    // Roll damage(s) from damageRolls array - scale for upcasting
+    if (damageRolls && Array.isArray(damageRolls) && damageRolls.length > 0) {
+      damageRolls.forEach((roll, index) => {
+        if (roll.damage) {
+          setTimeout(() => {
+            try {
+              const damageType = roll.damageType || 'damage';
+              const isHealing = damageType.toLowerCase() === 'healing';
+              const isTempHP = damageType.toLowerCase().includes('temp');
+              let rollName;
+              if (isHealing) {
+                rollName = `${name} - Healing`;
+              } else if (isTempHP) {
+                rollName = `${name} - Temp HP`;
+              } else {
+                rollName = roll.name || `${name} - ${damageType}`;
+              }
+
+              // Scale formula for upcasting
+              const scaledFormula = scaleFormulaForUpcast(roll.damage, level, castLevel);
+
+              const damageMsg = formatRollForRoll20({
+                name: rollName,
+                formula: scaledFormula,
+                characterName: characterName
+              });
+              postChatMessage(damageMsg);
+            } catch (damageError) {
+              debug.error(`❌ Failed to roll damage for ${name}:`, damageError);
+              postChatMessage(`&{template:default} {{name=⚠️ Roll Failed}} {{error=Damage roll ${index + 1} for ${name} failed: ${damageError.message}}}`);
+            }
+          }, 200 + (index * 100));
+        }
+      });
+    } else if (fallbackDamage) {
+      // Fallback to single damage field for backward compatibility
+      setTimeout(() => {
+        try {
+          const damageType = fallbackDamageType || 'damage';
+          const isHealing = damageType.toLowerCase() === 'healing';
+          const rollName = isHealing ? `${name} - Healing` : `${name} - ${damageType}`;
+
+          // Scale formula for upcasting
+          const scaledFormula = scaleFormulaForUpcast(fallbackDamage, level, castLevel);
+
+          const damageMsg = formatRollForRoll20({
+            name: rollName,
+            formula: scaledFormula,
+            characterName: characterName
+          });
+          postChatMessage(damageMsg);
+        } catch (damageError) {
+          debug.error(`❌ Failed to roll damage for ${name}:`, damageError);
+          postChatMessage(`&{template:default} {{name=⚠️ Roll Failed}} {{error=Damage roll for ${name} failed: ${damageError.message}}}`);
+        }
+      }, 200);
+    }
+  }
+
+  /**
    * Listen for messages from other parts of the extension
    * Wrapped in try-catch to prevent one error from breaking subsequent message handling
    */
@@ -456,8 +764,14 @@
         sendResponse({ success: success });
       }
     } else if (request.action === 'announceSpell') {
-      // Handle spell/action announcements relayed from background script (Firefox)
-      if (request.message) {
+      // Handle spell announcements relayed from background script (Firefox)
+      if (request.spellData) {
+        // New pathway: structured spell data from popup-sheet
+        debug.log('🔮 Received structured spell data from background script:', request);
+        const normalizedSpellData = normalizePopupSpellData(request);
+        postSpellToRoll20(normalizedSpellData);
+      } else if (request.message) {
+        // Legacy pathway: pre-formatted message (for non-spell announcements)
         postChatMessage(request.message);
       } else {
         handleDiceCloudRoll(request);
@@ -649,194 +963,12 @@
     } else if (request.action === 'castSpellFromDiscord') {
       try {
         debug.log('🔮 Received castSpellFromDiscord:', request);
-        const spellName = request.spellName || 'Unknown Spell';
-        const spellData = request.spellData || {};
-        const charName = spellData.character_name || 'Character';
-      const spell = spellData.spell_data || {};
-      const castLevel = parseInt(spellData.cast_level) || parseInt(spell.level) || 0;
-      const notificationColor = spellData.notification_color || '#3498db';
-      
-      // Extract all processed effects from background script
-      const metamagicUsed = spellData.metamagicUsed || [];
-      const slotUsed = spellData.slotUsed;
-      const effects = spellData.effects || [];
-      const isCantrip = spellData.isCantrip || false;
-      const isFreecast = spellData.isFreecast || false;
-      const resourceChanges = spellData.resourceChanges || [];
-      const isUpcast = spellData.isUpcast || false;
-      const actualCastLevel = spellData.actualCastLevel || castLevel;
 
-      // Get color emoji banner (matches popup-sheet getColoredBanner)
-      const colorEmoji = getColorEmoji(notificationColor);
+        // Normalize the Discord spell data into common format
+        const normalizedSpellData = normalizeDiscordSpellData(request.spellData || {});
 
-      // Build concentration/ritual tags
-      let tags = '';
-      if (spell.concentration) tags += ' 🧠 Concentration';
-      if (spell.ritual) tags += ' 📖 Ritual';
-
-      // Add metamagic tags
-      if (metamagicUsed && metamagicUsed.length > 0) {
-        const metamagicNames = metamagicUsed.map(m => m.name).join(', ');
-        tags += ` ✨ ${metamagicNames}`;
-      }
-
-      // Add casting condition tags
-      if (isCantrip) tags += ' 🎯 Cantrip';
-      if (isFreecast) tags += ' 🆓 Free Cast';
-      if (isUpcast) tags += ` ⬆️ Upcast to Level ${actualCastLevel}`;
-
-      // Build spell announcement message with enhanced details
-      let announcement = `&{template:default} {{name=${colorEmoji} ${charName} casts ${spell.name || spellName}!${tags}}}`;
-
-      // Add spell level and school - show upcast level if different
-      const spellLevel = parseInt(spell.level) || 0;
-      if (spellLevel > 0) {
-        let levelText = isUpcast 
-          ? `Level ${actualCastLevel} (upcast from ${spellLevel})`
-          : `Level ${spellLevel}`;
-        if (spell.school) levelText += ` ${spell.school}`;
-        announcement += ` {{Level=${levelText}}}`;
-      } else if (spell.school) {
-        announcement += ` {{Level=${spell.school} cantrip}}`;
-      }
-
-      // Add casting details
-      if (spell.castingTime) announcement += ` {{Casting Time=${spell.castingTime}}}`;
-      if (spell.range) announcement += ` {{Range=${spell.range}}}`;
-      if (spell.duration) announcement += ` {{Duration=${spell.duration}}}`;
-      if (spell.components) announcement += ` {{Components=${spell.components}}}`;
-      if (spell.source) announcement += ` {{Source=${spell.source}}}`;
-
-      // Add slot usage information
-      if (slotUsed && !isCantrip && !isFreecast) {
-        announcement += ` {{Slot Used=${slotUsed.level} (${slotUsed.remaining}/${slotUsed.total} remaining)}}`;
-      }
-
-      // Add resource changes
-      if (resourceChanges && resourceChanges.length > 0) {
-        const resourceText = resourceChanges.map(change => 
-          `${change.resource}: ${change.current}/${change.max}`
-        ).join(', ');
-        announcement += ` {{Resources=${resourceText}}}`;
-      }
-
-      // Add effects
-      if (effects && effects.length > 0) {
-        const effectsText = effects.map(effect => effect.description || effect.type).join(', ');
-        announcement += ` {{Effects=${effectsText}}}`;
-      }
-
-      // Add description
-      if (spell.description) {
-        announcement += ` {{Description=${spell.description}}}`;
-      }
-
-      // Post the announcement
-      postChatMessage(announcement);
-
-      // Helper function to scale damage formula for upcasting
-      const scaleFormulaForUpcast = (formula, baseLevel, actualCastLevel) => {
-        if (!formula || baseLevel <= 0 || actualCastLevel <= baseLevel) return formula;
-
-        // Replace slotLevel placeholder if present
-        let scaledFormula = formula.replace(/slotLevel/gi, actualCastLevel);
-
-        // If formula doesn't have slotLevel, try to scale it automatically
-        // Common pattern: XdY per spell level above base
-        // Match patterns like "1d8", "2d6", etc.
-        if (scaledFormula === formula) {
-          const levelDiff = actualCastLevel - baseLevel;
-          const diceMatch = formula.match(/^(\d+)d(\d+)/);
-          if (diceMatch && levelDiff > 0) {
-            const baseDice = parseInt(diceMatch[1]);
-            const dieSize = parseInt(diceMatch[2]);
-            // Add 1 die per level for most healing/damage spells
-            const scaledDice = baseDice + levelDiff;
-            scaledFormula = formula.replace(/^(\d+)d(\d+)/, `${scaledDice}d${dieSize}`);
-            debug.log(`📈 Scaled formula from ${formula} to ${scaledFormula} (upcast by ${levelDiff} levels)`);
-          }
-        }
-
-        return scaledFormula;
-      };
-
-      // Roll attack if spell has attack roll
-      if (spell.attackRoll && spell.attackRoll !== '(none)') {
-        setTimeout(() => {
-          try {
-            const attackMsg = formatRollForRoll20({
-              name: `${spell.name || spellName} - Attack`,
-              formula: spell.attackRoll,
-              characterName: charName
-            });
-            postChatMessage(attackMsg);
-          } catch (attackError) {
-            debug.error(`❌ Failed to roll attack for ${spell.name}:`, attackError);
-            postChatMessage(`&{template:default} {{name=⚠️ Roll Failed}} {{error=Attack roll for ${spell.name} failed: ${attackError.message}}}`);
-          }
-        }, 100);
-      }
-
-      // Use processed damage rolls from action-executor
-      const damageRollsToUse = spellData.damageRolls || [];
-
-      // Roll damage(s) from damageRolls array - scale for upcasting
-      if (damageRollsToUse && Array.isArray(damageRollsToUse) && damageRollsToUse.length > 0) {
-        damageRollsToUse.forEach((roll, index) => {
-          if (roll.damage) {
-            setTimeout(() => {
-              try {
-                const damageType = roll.damageType || 'damage';
-                const isHealing = damageType.toLowerCase() === 'healing';
-                const isTempHP = damageType.toLowerCase().includes('temp');
-                let rollName;
-                if (isHealing) {
-                  rollName = `${spell.name || spellName} - Healing`;
-                } else if (isTempHP) {
-                  rollName = `${spell.name || spellName} - Temp HP`;
-                } else {
-                  rollName = roll.name || `${spell.name || spellName} - ${damageType}`;
-                }
-
-                // Scale formula for upcasting (already processed by action-executor, but ensure consistency)
-                const scaledFormula = scaleFormulaForUpcast(roll.damage, spellLevel, actualCastLevel);
-
-                const damageMsg = formatRollForRoll20({
-                  name: rollName,
-                  formula: scaledFormula,
-                  characterName: charName
-                });
-                postChatMessage(damageMsg);
-              } catch (damageError) {
-                debug.error(`❌ Failed to roll damage for ${spell.name}:`, damageError);
-                postChatMessage(`&{template:default} {{name=⚠️ Roll Failed}} {{error=Damage roll ${index + 1} for ${spell.name} failed: ${damageError.message}}}`);
-              }
-            }, 200 + (index * 100));
-          }
-        });
-      } else if (spell.damage) {
-        // Fallback to single damage field for backward compatibility
-        setTimeout(() => {
-          try {
-            const damageType = spell.damageType || 'damage';
-            const isHealing = damageType.toLowerCase() === 'healing';
-            const rollName = isHealing ? `${spell.name || spellName} - Healing` : `${spell.name || spellName} - ${damageType}`;
-
-            // Scale formula for upcasting
-            const scaledFormula = scaleFormulaForUpcast(spell.damage, spellLevel, actualCastLevel);
-
-            const damageMsg = formatRollForRoll20({
-              name: rollName,
-              formula: scaledFormula,
-              characterName: charName
-            });
-            postChatMessage(damageMsg);
-          } catch (damageError) {
-            debug.error(`❌ Failed to roll damage for ${spell.name}:`, damageError);
-            postChatMessage(`&{template:default} {{name=⚠️ Roll Failed}} {{error=Damage roll for ${spell.name} failed: ${damageError.message}}}`);
-          }
-        }, 200);
-      }
+        // Use the unified function to post to Roll20
+        postSpellToRoll20(normalizedSpellData);
 
         sendResponse({ success: true });
       } catch (castError) {
@@ -994,8 +1126,14 @@
         }
       }
     } else if (event.data.action === 'announceSpell') {
-      // Handle spell/action announcements with pre-formatted messages
-      if (event.data.message) {
+      // Handle spell announcements - check if we have structured spell data or just a message
+      if (event.data.spellData) {
+        // New pathway: structured spell data from popup-sheet
+        debug.log('🔮 Received structured spell data from popup:', event.data);
+        const normalizedSpellData = normalizePopupSpellData(event.data);
+        postSpellToRoll20(normalizedSpellData);
+      } else if (event.data.message) {
+        // Legacy pathway: pre-formatted message (for non-spell announcements like initiative, saves, etc.)
         postChatMessage(event.data.message);
       } else {
         handleDiceCloudRoll(event.data);

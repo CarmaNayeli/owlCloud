@@ -858,7 +858,13 @@ function formatActionSummary(action) {
   return desc || 'Action sent to Roll20.';
 }
 
-// Make executeDiscordCast globally available for importScripts usage
+// Make executeDiscordCast and executeDiscordAction globally available for importScripts usage
 if (typeof globalThis !== 'undefined') {
   globalThis.executeDiscordCast = executeDiscordCast;
+  globalThis.executeDiscordAction = executeDiscordAction;
+  // Also expose other commonly used functions
+  globalThis.resolveSpellCast = resolveSpellCast;
+  globalThis.resolveActionUse = resolveActionUse;
+  globalThis.getAvailableMetamagic = getAvailableMetamagic;
+  globalThis.calculateMetamagicCost = calculateMetamagicCost;
 }

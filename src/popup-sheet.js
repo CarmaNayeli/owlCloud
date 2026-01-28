@@ -6945,79 +6945,29 @@ function calculateTotalAC() {
  * Called immediately when Cast button is clicked, before any modal
  */
 function announceSpellDescription(spell, castLevel = null) {
-  // Build a fancy formatted message using Roll20 template syntax with custom color
-  const colorBanner = getColoredBanner();
-
-  // Build concentration/ritual tags
-  let tags = '';
-  if (spell.concentration) tags += ' 🧠 Concentration';
-  if (spell.ritual) tags += ' 📖 Ritual';
-
-  let message = `&{template:default} {{name=${colorBanner}${characterData.name}}} {{🔮 Spell=${spell.name}${tags}}}`;
-
-  // Add spell level and school - show upcast level if different
-  const spellLevel = parseInt(spell.level) || 0;
-  const actualCastLevel = castLevel ? parseInt(castLevel) : spellLevel;
-
-  if (spellLevel > 0) {
-    let levelText = actualCastLevel > spellLevel
-      ? `Level ${actualCastLevel} (upcast from ${spellLevel})`
-      : `Level ${spellLevel}`;
-    if (spell.school) {
-      levelText += ` ${spell.school}`;
-    }
-    message += ` {{Level=${levelText}}}`;
-  } else if (spell.school) {
-    message += ` {{Level=${spell.school} cantrip}}`;
-  }
-
-  // Add casting details
-  if (spell.castingTime) {
-    message += ` {{Casting Time=${spell.castingTime}}}`;
-  }
-  if (spell.range) {
-    message += ` {{Range=${spell.range}}}`;
-  }
-  if (spell.duration) {
-    message += ` {{Duration=${spell.duration}}}`;
-  }
-
-  // Add components if available
-  if (spell.components) {
-    message += ` {{Components=${spell.components}}}`;
-  }
-
-  // Add source if available
-  if (spell.source) {
-    message += ` {{Source=${spell.source}}}`;
-  }
-
-  // Add description
-  if (spell.description) {
-    message += ` {{Description=${spell.description}}}`;
-  }
-
-  // Send to Roll20 chat
+  // Send structured spell data to Roll20 for uniform formatting
   const messageData = {
     action: 'announceSpell',
     spellName: spell.name,
     characterName: characterData.name,
-    message: message,
-    color: characterData.notificationColor
+    color: characterData.notificationColor,
+    // Send structured spell data instead of pre-formatted message
+    spellData: spell,
+    castLevel: castLevel
   };
 
   // Try window.opener first (Chrome)
   if (window.opener && !window.opener.closed) {
     try {
       window.opener.postMessage(messageData, '*');
-      debug.log('✅ Spell description announced via window.opener');
+      debug.log('✅ Spell data sent via window.opener');
     } catch (error) {
       debug.warn('⚠️ Could not send via window.opener:', error.message);
       // Fall through to background script relay
     }
   } else {
     // Fallback: Use background script to relay to Roll20 (Firefox)
-    debug.log('📡 Using background script to relay spell announcement to Roll20...');
+    debug.log('📡 Using background script to relay spell data to Roll20...');
     browserAPI.runtime.sendMessage({
       action: 'relayRollToRoll20',
       roll: messageData
@@ -7025,7 +6975,7 @@ function announceSpellDescription(spell, castLevel = null) {
       if (browserAPI.runtime.lastError) {
         debug.error('❌ Error relaying spell announcement:', browserAPI.runtime.lastError);
       } else if (response && response.success) {
-        debug.log('✅ Spell description announced to Roll20');
+        debug.log('✅ Spell data announced to Roll20');
       }
     });
   }

@@ -104,10 +104,12 @@ if (!isFirefox && chrome.runtime && chrome.runtime.onStartup) {
 
 // Persistent alarm to keep service worker alive for realtime connections
 // Chrome MV3 service workers terminate after ~30s of inactivity, breaking WebSockets
+// Firefox event pages also benefit from periodic activity
 const REALTIME_KEEPALIVE_ALARM = 'realtimeKeepAlive';
 
-if (!isFirefox && chrome.alarms) {
-  chrome.alarms.onAlarm.addListener(async (alarm) => {
+// Setup alarm listener for both Chrome and Firefox
+if (browserAPI.alarms) {
+  browserAPI.alarms.onAlarm.addListener(async (alarm) => {
     if (alarm.name === REALTIME_KEEPALIVE_ALARM) {
       debug.log('⏰ Realtime keep-alive alarm triggered');
 
@@ -115,7 +117,7 @@ if (!isFirefox && chrome.alarms) {
       const settings = await browserAPI.storage.local.get(['discordWebhookEnabled', 'discordPairingId', 'discordWebhookUrl']);
       const hasWebhookIntegration = settings.discordWebhookEnabled && settings.discordWebhookUrl;
       const hasPairingIntegration = settings.discordPairingId;
-      
+
       if (!hasWebhookIntegration && !hasPairingIntegration) {
         debug.log('⏭️ No active Discord connection, skipping realtime check');
         return;
@@ -133,16 +135,18 @@ if (!isFirefox && chrome.alarms) {
       drainPendingCommands();
     }
   });
+  debug.log('🛰️ Realtime keep-alive alarm listener registered');
 }
 
 /**
  * Start the realtime keep-alive alarm (call when Discord is connected)
  */
 function startRealtimeKeepAlive() {
-  if (!isFirefox && chrome.alarms) {
-    // Fire every 25 seconds to keep service worker alive
-    // Chrome terminates after ~30s of inactivity
-    chrome.alarms.create(REALTIME_KEEPALIVE_ALARM, { periodInMinutes: 25 / 60 });
+  if (browserAPI.alarms) {
+    // Fire every 1 minute to keep service worker/event page alive
+    // Chrome terminates after ~30s of inactivity, but sub-minute alarms are unreliable
+    // Firefox event pages benefit from periodic activity too
+    browserAPI.alarms.create(REALTIME_KEEPALIVE_ALARM, { periodInMinutes: 1 });
     debug.log('⏰ Started realtime keep-alive alarm');
   }
 }
@@ -151,8 +155,8 @@ function startRealtimeKeepAlive() {
  * Stop the realtime keep-alive alarm (call when Discord is disconnected)
  */
 function stopRealtimeKeepAlive() {
-  if (!isFirefox && chrome.alarms) {
-    chrome.alarms.clear(REALTIME_KEEPALIVE_ALARM);
+  if (browserAPI.alarms) {
+    browserAPI.alarms.clear(REALTIME_KEEPALIVE_ALARM);
     debug.log('⏰ Stopped realtime keep-alive alarm');
   }
 }
@@ -3440,7 +3444,7 @@ async function subscribeToCommandRealtime(pairingId) {
       // Start keep-alive alarm to prevent service worker termination
       startRealtimeKeepAlive();
 
-      // Heartbeat every 30s to keep connection alive
+      // Heartbeat every 30s to keep connection alive and drain pending commands
       commandRealtimeHeartbeat = setInterval(() => {
         if (commandRealtimeSocket && commandRealtimeSocket.readyState === WebSocket.OPEN) {
           commandRealtimeSocket.send(JSON.stringify({
@@ -3449,6 +3453,8 @@ async function subscribeToCommandRealtime(pairingId) {
             payload: {},
             ref: 'cmd_hb_' + Date.now()
           }));
+          // Also drain pending commands periodically in case realtime missed anything
+          drainPendingCommands();
         }
       }, 30000);
 
