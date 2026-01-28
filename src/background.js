@@ -4023,6 +4023,99 @@ async function storePairingId(pairingId) {
   debug.log('Stored pairing ID:', pairingId);
 }
 
+/**
+ * Cleanup old Discord commands periodically
+ */
+async function cleanupDiscordCommands() {
+  try {
+    if (!isSupabaseConfigured()) {
+      debug.log('Skipping command cleanup - Supabase not configured');
+      return;
+    }
+
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/rpc/cleanup_and_maintain_commands`,
+      {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    if (response.ok) {
+      const result = await response.json();
+      debug.log('🧹 Command cleanup completed:', result);
+    } else {
+      debug.warn('Failed to run command cleanup:', response.status);
+    }
+  } catch (error) {
+    debug.error('Error during command cleanup:', error);
+  }
+}
+
+/**
+ * Get command health metrics for monitoring
+ */
+async function getCommandHealthMetrics() {
+  try {
+    if (!isSupabaseConfigured()) {
+      return null;
+    }
+
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/rpc/get_command_health_metrics`,
+      {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    if (response.ok) {
+      const metrics = await response.json();
+      debug.log('📊 Command health metrics:', metrics);
+      
+      // If cleanup is needed, run it
+      if (metrics.cleanup_needed && metrics.length > 0) {
+        debug.log('🧹 Cleanup needed, running automatic cleanup...');
+        await cleanupDiscordCommands();
+      }
+      
+      return metrics[0] || metrics;
+    } else {
+      debug.warn('Failed to get command health metrics:', response.status);
+      return null;
+    }
+  } catch (error) {
+    debug.error('Error getting command health metrics:', error);
+    return null;
+  }
+}
+
+// Set up periodic cleanup (every 15 minutes)
+setInterval(async () => {
+  try {
+    await cleanupDiscordCommands();
+  } catch (error) {
+    debug.error('Periodic cleanup failed:', error);
+  }
+}, 15 * 60 * 1000); // 15 minutes
+
+// Set up health check (every 5 minutes)
+setInterval(async () => {
+  try {
+    await getCommandHealthMetrics();
+  } catch (error) {
+    debug.error('Health check failed:', error);
+  }
+}, 5 * 60 * 1000); // 5 minutes
+
 // Auto-start command realtime subscription when extension loads and Discord is configured
 (async () => {
   try {
