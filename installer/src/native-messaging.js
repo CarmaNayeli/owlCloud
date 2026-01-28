@@ -16,7 +16,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { app } = require('electron');
+const electron = require('electron');
 
 // Shared file location for IPC between installer and native host
 const PAIRING_FILE_NAME = 'rollcloud-pairing.json';
@@ -26,7 +26,7 @@ const PAIRING_FILE_NAME = 'rollcloud-pairing.json';
  */
 function getPairingFilePath() {
   // Use app data folder for shared file
-  const appDataPath = app.getPath('userData');
+  const appDataPath = electron.app.getPath('userData');
   return path.join(appDataPath, PAIRING_FILE_NAME);
 }
 
@@ -36,10 +36,10 @@ function getPairingFilePath() {
 function getNativeHostPath() {
   if (process.platform === 'win32') {
     // On Windows, use a batch file that runs the JS host
-    return path.join(app.getPath('userData'), 'native-host', 'rollcloud_host.bat');
+    return path.join(electron.app.getPath('userData'), 'native-host', 'rollcloud_host.bat');
   } else {
     // On Mac/Linux, use the JS file directly
-    return path.join(app.getPath('userData'), 'native-host', 'rollcloud_host.js');
+    return path.join(electron.app.getPath('userData'), 'native-host', 'rollcloud_host.js');
   }
 }
 
