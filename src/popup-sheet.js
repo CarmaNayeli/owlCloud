@@ -8031,6 +8031,12 @@ function announceAction(action) {
 
   let message = `&{template:default} {{name=${colorBanner}${characterData.name}}} {{${emoji} Action=${action.name}}} {{Type=${action.actionType || 'action'}}}`;
 
+  // Add summary if available
+  if (action.summary) {
+    const resolvedSummary = resolveVariablesInFormula(action.summary);
+    message += ` {{Summary=${resolvedSummary}}}`;
+  }
+
   // Add description (resolve variables first)
   if (action.description) {
     const resolvedDescription = resolveVariablesInFormula(action.description);
@@ -10130,6 +10136,22 @@ function spendHitDice() {
     showNotification(`🎲 Spent ${diceSpent} Hit Dice and restored ${totalHealed} HP!`);
   } else {
     showNotification('No Hit Dice spent.');
+  }
+
+  // Announce short rest completion to Roll20
+  const announcement = `&{template:default} {{name=${getColoredBanner()}${characterData.name} takes a Short Rest!}} {{Type=Short Rest}} {{HP=${characterData.hitPoints.current}/${characterData.hitPoints.max}}}`;
+  const messageData = {
+    action: 'announceSpell',
+    message: announcement,
+    color: characterData.notificationColor
+  };
+  
+  if (window.opener && !window.opener.closed) {
+    try {
+      window.opener.postMessage(messageData, '*');
+    } catch (error) {
+      debug.log('❌ Failed to send short rest announcement:', error);
+    }
   }
 }
 
