@@ -1257,55 +1257,78 @@ async function uninstallExtension(browser) {
       // For Chrome, remove from registry/policy
       const platform = process.platform;
       const browserConfig = BROWSER_CONFIG[browser];
-      
+
       if (!browserConfig) {
         throw new Error(`Unsupported browser: ${browser}`);
       }
 
       if (platform === 'win32') {
-        const regPath = browserConfig.windows.registryPath;
         const extensionId = EXTENSION_IDS.chrome;
-        
-        try {
-          // Get all values in the registry key
-          const result = execSync(`reg query "${regPath}"`, { encoding: 'utf8' });
-          const lines = result.split('\n');
-          
-          for (const line of lines) {
-            if (line.includes(extensionId)) {
-              // Extract the value name (usually a number)
-              const match = line.match(/^\s*(\d+)\s+REG_SZ/);
-              if (match) {
-                const valueName = match[1];
-                const deleteCmd = `reg delete "${regPath}" /v "${valueName}" /f`;
-                
-                try {
-                  execSync(deleteCmd);
-                  console.log(`   ✅ Removed Chrome extension policy: ${valueName}`);
-                } catch (e) {
-                  // Try with elevated privileges
-                  const sudo = require('sudo-prompt');
-                  const options = { name: 'RollCloud Installation Wizard' };
-                  
-                  return new Promise((resolve, reject) => {
-                    sudo.exec(deleteCmd, options, (error) => {
-                      if (error) {
-                        reject(new Error(`Failed to remove Chrome policy: ${error.message}`));
-                      } else {
-                        resolve({ success: true, message: 'Chrome extension uninstalled successfully.' });
-                      }
-                    });
-                  });
+
+        // Check all possible registry locations
+        const registryPaths = [
+          // Machine-wide policies
+          browserConfig.windows.registryPath,
+          browserConfig.windows.registryPath32on64,
+          // User-specific policies
+          browserConfig.windows.registryPath.replace('HKLM', 'HKCU'),
+          browserConfig.windows.registryPath32on64.replace('HKLM', 'HKCU')
+        ];
+
+        let deleteCommands = [];
+        let foundAny = false;
+
+        for (const regPath of registryPaths) {
+          try {
+            // Get all values in the registry key
+            const result = execSync(`reg query "${regPath}" 2>nul`, { encoding: 'utf8' });
+            const lines = result.split('\n');
+
+            for (const line of lines) {
+              if (line.includes(extensionId)) {
+                foundAny = true;
+                // Extract the value name (usually a number)
+                const match = line.match(/^\s*(\d+)\s+REG_SZ/);
+                if (match) {
+                  const valueName = match[1];
+                  const deleteCmd = `reg delete "${regPath}" /v "${valueName}" /f`;
+                  deleteCommands.push(deleteCmd);
+                  console.log(`   Found policy in: ${regPath} (value: ${valueName})`);
                 }
               }
             }
+          } catch (e) {
+            // Registry key doesn't exist or can't be read - that's fine
           }
-          
-          return { success: true, message: 'Chrome extension uninstalled successfully.' };
-          
-        } catch (e) {
-          console.log('   Registry key not found or no extension policies to remove');
+        }
+
+        if (!foundAny) {
+          console.log('   No Chrome extension policies found to remove');
           return { success: true, message: 'No Chrome extension policies found to remove.' };
+        }
+
+        // Execute all delete commands
+        const allDeleteCmds = deleteCommands.join(' && ');
+
+        try {
+          execSync(allDeleteCmds);
+          console.log(`   ✅ Removed ${deleteCommands.length} Chrome extension policy entries`);
+          return { success: true, message: 'Chrome extension uninstalled successfully.' };
+        } catch (e) {
+          // Try with elevated privileges
+          const sudo = require('sudo-prompt');
+          const options = { name: 'RollCloud Installation Wizard' };
+
+          return new Promise((resolve, reject) => {
+            sudo.exec(allDeleteCmds, options, (error) => {
+              if (error) {
+                reject(new Error(`Failed to remove Chrome policy: ${error.message}`));
+              } else {
+                console.log(`   ✅ Removed ${deleteCommands.length} Chrome extension policy entries (elevated)`);
+                resolve({ success: true, message: 'Chrome extension uninstalled successfully.' });
+              }
+            });
+          });
         }
       } else {
         // macOS/Linux - remove from policy files
