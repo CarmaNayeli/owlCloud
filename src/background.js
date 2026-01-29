@@ -18,6 +18,57 @@ debug.log('RollCloud: Background script starting...');
 // For Chrome, use native 'chrome' API directly (no polyfill needed in service worker)
 const browserAPI = (typeof browser !== 'undefined' && browser.runtime) ? browser : chrome;
 
+/**
+ * Chrome MV3-compatible storage wrapper
+ * Handles both Promise-based and callback-based Chrome storage API
+ */
+const storage = {
+  async get(keys) {
+    return new Promise((resolve, reject) => {
+      try {
+        const result = browserAPI.storage.local.get(keys);
+        if (result && typeof result.then === 'function') {
+          result.then(resolve).catch(reject);
+        } else {
+          browserAPI.runtime.lastError ? reject(new Error(browserAPI.runtime.lastError.message)) : resolve(result);
+        }
+      } catch (error) {
+        reject(error);
+      }
+    });
+  },
+
+  async set(items) {
+    return new Promise((resolve, reject) => {
+      try {
+        const result = browserAPI.storage.local.set(items);
+        if (result && typeof result.then === 'function') {
+          result.then(resolve).catch(reject);
+        } else {
+          browserAPI.runtime.lastError ? reject(new Error(browserAPI.runtime.lastError.message)) : resolve();
+        }
+      } catch (error) {
+        reject(error);
+      }
+    });
+  },
+
+  async remove(keys) {
+    return new Promise((resolve, reject) => {
+      try {
+        const result = browserAPI.storage.local.remove(keys);
+        if (result && typeof result.then === 'function') {
+          result.then(resolve).catch(reject);
+        } else {
+          browserAPI.runtime.lastError ? reject(new Error(browserAPI.runtime.lastError.message)) : resolve();
+        }
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+};
+
 // Listen for storage changes to help debug unexpected logout/token removal
 if (browserAPI && browserAPI.storage && browserAPI.storage.onChanged) {
   browserAPI.storage.onChanged.addListener((changes, area) => {
@@ -37,7 +88,7 @@ if (browserAPI && browserAPI.storage && browserAPI.storage.onChanged) {
 // Add startup storage check to debug auth persistence
 (async () => {
   try {
-    const startupStorage = await browserAPI.storage.local.get(['diceCloudToken', 'diceCloudUserId', 'tokenExpires', 'username', 'explicitlyLoggedOut']);
+    const startupStorage = await storage.get(['diceCloudToken', 'diceCloudUserId', 'tokenExpires', 'username', 'explicitlyLoggedOut']);
     debug.log('🚀 Background script startup storage state:', {
       hasToken: !!startupStorage.diceCloudToken,
       tokenLength: startupStorage.diceCloudToken ? startupStorage.diceCloudToken.length : 0,
@@ -52,17 +103,17 @@ if (browserAPI && browserAPI.storage && browserAPI.storage.onChanged) {
     // If we have a token but no explicitlyLoggedOut flag, ensure we're in a good state
     if (startupStorage.diceCloudToken && !startupStorage.explicitlyLoggedOut) {
       debug.log('✅ Service worker restarted with valid auth state');
-      
+
       // Validate the token expiry on startup
       if (startupStorage.tokenExpires) {
         const expiryDate = new Date(startupStorage.tokenExpires);
         const now = new Date();
-        
+
         if (!isNaN(expiryDate.getTime()) && now < expiryDate) {
           debug.log('✅ Token is still valid on startup');
         } else if (isNaN(expiryDate.getTime())) {
           debug.warn('⚠️ Invalid expiry date on startup, clearing it');
-          await browserAPI.storage.local.remove('tokenExpires');
+          await storage.remove('tokenExpires');
         } else {
           debug.warn('⏰ Token expired on startup, logging out');
           await logout();
