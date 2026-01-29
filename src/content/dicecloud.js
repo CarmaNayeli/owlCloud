@@ -63,6 +63,7 @@
   /**
    * Strips conditional expressions from text (e.g., DiceCloud template strings)
    * Removes patterns like: {condition ? "value" : "other"} or {variable == 1 && level >= 3 ? "..." : ""}
+   * Also removes array indexing patterns like: {[0, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2][4]}
    * @param {string} text - Text potentially containing conditional expressions
    * @returns {string} - Cleaned text with conditionals removed
    */
@@ -82,6 +83,10 @@
       // Match conditional expressions: {...?...}
       // This regex matches braces that contain a ? character (ternary operator)
       result = result.replace(/\{[^{}]*\?[^{}]*\}/g, '');
+
+      // Match array indexing expressions: {[...][...]}
+      // This regex matches braces that contain array bracket patterns with indexing
+      result = result.replace(/\{[\s]*\[[^\]]*\][\s]*\[[^\]]*\][\s]*\}/g, '');
 
       changed = (before !== result);
     }
