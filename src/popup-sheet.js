@@ -121,6 +121,17 @@ window.addEventListener('message', async (event) => {
     const initSheet = async () => {
       characterData = event.data.data;  // Store globally
 
+      // Validate that character data has required arrays (spells and actions)
+      const hasSpells = Array.isArray(characterData.spells);
+      const hasActions = Array.isArray(characterData.actions);
+
+      if (!hasSpells || !hasActions) {
+        debug.warn('⚠️ Character data from initCharacterSheet is incomplete');
+        debug.warn(`Missing data: spells=${!hasSpells}, actions=${!hasActions}`);
+        showNotification('⚠️ Character data incomplete. Please resync from DiceCloud.', 'error');
+        return;
+      }
+
       // Get and store current slot ID for persistence
       currentSlotId = await getActiveCharacterId();
       debug.log('📋 Current slot ID set to:', currentSlotId);
@@ -180,7 +191,18 @@ window.addEventListener('message', async (event) => {
     
     // Load the character data using the same initialization process
     characterData = event.data.characterData;
-    
+
+    // Validate that character data has required arrays (spells and actions)
+    const hasSpells = Array.isArray(characterData.spells);
+    const hasActions = Array.isArray(characterData.actions);
+
+    if (!hasSpells || !hasActions) {
+      debug.warn('⚠️ Shared character data is incomplete');
+      debug.warn(`Missing data: spells=${!hasSpells}, actions=${!hasActions}`);
+      showNotification('⚠️ Shared character data incomplete. Player needs to resync from DiceCloud.', 'error');
+      return;
+    }
+
     // Function to initialize the sheet with GM panel data
     const initSheetFromGM = async () => {
       // DO NOT load tabs for shared characters - show only this character
@@ -359,8 +381,54 @@ async function loadCharacterWithTabs() {
     // Load active character
     if (activeCharacter) {
       characterData = activeCharacter;
+
+      // Validate that character data has required arrays (spells and actions)
+      const hasSpells = Array.isArray(characterData.spells);
+      const hasActions = Array.isArray(characterData.actions);
+
+      if (!hasSpells || !hasActions) {
+        debug.warn('⚠️ Character data is incomplete or outdated');
+        debug.warn(`Missing data: spells=${!hasSpells}, actions=${!hasActions}`);
+
+        // Show error message to user
+        const characterName = characterData.name || characterData.character_name || 'this character';
+        const missingData = [];
+        if (!hasSpells) missingData.push('spells');
+        if (!hasActions) missingData.push('actions');
+
+        const errorContainer = document.getElementById('main-content');
+        if (errorContainer) {
+          errorContainer.innerHTML = `
+            <div style="padding: 40px; text-align: center; color: var(--text-primary);">
+              <h2 style="color: #e74c3c; margin-bottom: 20px;">⚠️ Incomplete Character Data</h2>
+              <p style="margin-bottom: 15px; font-size: 1.1em;">
+                The character data for <strong>${characterName}</strong> is missing ${missingData.join(' and ')}.
+              </p>
+              <p style="margin-bottom: 15px; color: var(--text-secondary);">
+                This usually happens when loading old cloud data that was saved before spells and actions were synced.
+              </p>
+              <div style="background: #2c3e50; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <p style="margin-bottom: 10px; font-weight: bold;">To fix this:</p>
+                <ol style="text-align: left; max-width: 500px; margin: 0 auto; line-height: 1.8;">
+                  <li>Go to your character on <a href="https://dicecloud.com" target="_blank" style="color: #3498db;">DiceCloud.com</a></li>
+                  <li>Click the <strong>"Sync to Extension"</strong> button on the character page</li>
+                  <li>Wait for the sync to complete</li>
+                  <li>Reopen this character sheet</li>
+                </ol>
+              </div>
+              <p style="color: var(--text-secondary); font-size: 0.9em;">
+                Character ID: ${characterData.id || characterData.dicecloud_character_id || 'unknown'}
+              </p>
+            </div>
+          `;
+        }
+
+        // Don't continue loading the incomplete character
+        return;
+      }
+
       buildSheet(characterData);
-      
+
       // Initialize racial traits based on character data
       initRacialTraits();
 
