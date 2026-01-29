@@ -62,6 +62,9 @@ export default {
   },
 
   async execute(interaction) {
+    // CRITICAL: Defer IMMEDIATELY - Discord only gives 3 seconds!
+    await interaction.deferReply();
+
     const nameInput = interaction.options.getString('name');
     const discordUserId = interaction.user.id;
 
@@ -69,7 +72,7 @@ export default {
       const character = await getActiveCharacter(discordUserId);
 
       if (!character) {
-        return await interaction.reply({
+        return await interaction.editReply({
           content: '❌ You don\'t have an active character set. Use `/character` to set one.',
           flags: 64
         });
@@ -105,7 +108,7 @@ export default {
         );
 
         if (!spell) {
-          return await interaction.reply({
+          return await interaction.editReply({
             content: `❌ Spell "**${searchName}**" not found. Use \`/spells\` to see your available spells.`,
             flags: 64
           });
@@ -113,7 +116,7 @@ export default {
 
         // Build the spell embed
         const embed = buildSpellEmbed(spell, character.character_name);
-        await interaction.reply({ embeds: [embed] });
+        await interaction.editReply({ embeds: [embed] });
       } else {
         // Find the action
         const action = actions.find(a =>
@@ -121,7 +124,7 @@ export default {
         );
 
         if (!action) {
-          return await interaction.reply({
+          return await interaction.editReply({
             content: `❌ Action "**${searchName}**" not found. Use \`/actions\` to see your available actions.`,
             flags: 64
           });
@@ -129,12 +132,12 @@ export default {
 
         // Build the action embed
         const embed = buildActionEmbed(action, character.character_name);
-        await interaction.reply({ embeds: [embed] });
+        await interaction.editReply({ embeds: [embed] });
       }
 
     } catch (error) {
       console.error('Check command error:', error);
-      await interaction.reply({
+      await interaction.editReply({
         content: '❌ An error occurred while checking the spell/action. Please try again.',
         flags: 64
       });
