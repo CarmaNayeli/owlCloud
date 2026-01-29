@@ -1688,18 +1688,19 @@
 
           // Check description for additional patterns
           if (description) {
-            // Look for spell attack patterns like "ranged spell attack", "melee spell attack", "attack roll", etc.
+            // Look for spell attack patterns like "make a ranged spell attack roll", "make a melee spell attack", etc.
             // Check this even if damage is already found, since many spells have both
             const lowerDesc = description.toLowerCase();
             debug.log(`  🔍 Checking description for spell attack (attackRoll currently: "${attackRoll}")`);
-            // Use specific patterns to avoid false positives (like Shield's "triggering attack")
-            // Match: "spell attack" or "attack roll" with word boundaries
+            // Use specific patterns to avoid false positives (like Shield's "triggering attack" or "when hit by an attack roll")
+            // Match: "make" within 5 words before "spell attack" or "attack roll"
+            // This catches "make a ranged spell attack roll" but not "when hit by an attack roll"
             // Exception: Shield specifically should never have attack button
             const isShield = prop.name && prop.name.toLowerCase() === 'shield';
-            const hasAttackMention = /\b(spell attack|attack roll)\b/i.test(description);
+            const hasAttackMention = /\bmake\s+(?:\w+\s+){0,4}(spell attack|attack roll)\b/i.test(description);
             if (!attackRoll && hasAttackMention && !isShield) {
               attackRoll = 'use_spell_attack_bonus'; // Flag to use calculated spell attack bonus
-              debug.log(`  💡 Found attack pattern in description, marking for spell attack bonus`);
+              debug.log(`  💡 Found 'make' + attack pattern in description, marking for spell attack bonus`);
             } else if (!attackRoll) {
               debug.log(`  ⚠️ No attack pattern found in description for "${prop.name}"`);
             } else if (isShield && attackRoll) {
