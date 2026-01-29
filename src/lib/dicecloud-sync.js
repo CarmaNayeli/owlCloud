@@ -2080,6 +2080,15 @@ window.initializeDiceCloudSync = async function() {
         console.log('[DiceCloud Sync] Retrying in 2 seconds...');
         setTimeout(tryInitialize, 2000);
       } catch (error) {
+        // Check if the extension context was invalidated (Chrome MV3 service worker terminated)
+        if (error.message && error.message.includes('Extension context invalidated')) {
+          console.warn('[DiceCloud Sync] Extension context invalidated - service worker terminated.');
+          console.warn('[DiceCloud Sync] This happens when Chrome terminates the background service worker.');
+          console.warn('[DiceCloud Sync] The extension will reinitialize when the page is refreshed or the extension is reloaded.');
+          // Don't retry - the user needs to reload the extension or refresh the page
+          return;
+        }
+
         console.error('[DiceCloud Sync] Error during initialization:', error);
         console.log('[DiceCloud Sync] Retrying in 5 seconds...');
         setTimeout(tryInitialize, 5000);
