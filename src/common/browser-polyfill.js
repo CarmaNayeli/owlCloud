@@ -179,6 +179,17 @@ if (typeof browser !== 'undefined' && browser.runtime) {
             }
           });
         });
+      },
+      update: (tabId, updateProperties) => {
+        return new Promise((resolve, reject) => {
+          chrome.tabs.update(tabId, updateProperties, (tab) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+            } else {
+              resolve(tab);
+            }
+          });
+        });
       }
     }
   };
