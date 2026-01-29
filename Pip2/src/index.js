@@ -7,8 +7,25 @@ import { config } from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { readdirSync } from 'fs';
+import { spawn } from 'child_process';
 
 config();
+
+// Deploy commands in the background (non-blocking)
+console.log('🚀 Starting command deployment in background...');
+const deployProcess = spawn('node', ['src/deploy-commands.js'], {
+  cwd: dirname(fileURLToPath(import.meta.url)) + '/..',
+  stdio: 'inherit',
+  detached: false
+});
+
+deployProcess.on('exit', (code) => {
+  if (code === 0) {
+    console.log('✅ Command deployment completed successfully\n');
+  } else {
+    console.log(`⚠️  Command deployment exited with code ${code}\n`);
+  }
+});
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
