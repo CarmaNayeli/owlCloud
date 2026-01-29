@@ -183,12 +183,12 @@ window.addEventListener('message', async (event) => {
     
     // Function to initialize the sheet with GM panel data
     const initSheetFromGM = async () => {
-      // Build tabs first (need to load profiles from storage)
-      await loadAndBuildTabs();
+      // DO NOT load tabs for shared characters - show only this character
+      // Skip loadAndBuildTabs() to prevent mixing with GM's own characters
 
-      // Then build the sheet with character data
+      // Build the sheet directly with character data
       buildSheet(characterData);
-      
+
       // Initialize racial traits based on character data
       initRacialTraits();
 
@@ -202,6 +202,28 @@ window.addEventListener('message', async (event) => {
       if (characterData && characterData.id) {
         characterCache.set(characterData.id, JSON.parse(JSON.stringify(characterData)));
         debug.log(`📂 Initialized cache for character: ${characterData.name}`);
+      }
+
+      // Register this popup with GM Initiative Tracker for turn notifications
+      if (window.opener) {
+        window.opener.postMessage({
+          action: 'registerPopup',
+          characterName: characterData.name
+        }, '*');
+        debug.log(`✅ Sent registration message for: ${characterData.name}`);
+
+        // Check if it's currently this character's turn
+        setTimeout(() => {
+          if (window.opener && !window.opener.closed) {
+            window.opener.postMessage({
+              action: 'checkCurrentTurn',
+              characterName: characterData.name
+            }, '*');
+            debug.log(`🎯 Checking current turn for: ${characterData.name}`);
+          }
+        }, 500);
+      } else {
+        debug.warn(`⚠️ No window.opener available for: ${characterData.name}`);
       }
     };
 
