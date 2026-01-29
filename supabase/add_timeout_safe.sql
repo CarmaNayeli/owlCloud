@@ -84,8 +84,8 @@ BEGIN
     GET DIAGNOSTICS old_pending_commands = ROW_COUNT;
     
     -- Delete old completed/failed commands (cleanup)
-    DELETE FROM public.rollcloud_commands 
-    WHERE created_at < NOW() - INTERVAL '%s days' % format('%s', cleanup_days)
+    DELETE FROM public.rollcloud_commands
+    WHERE created_at < NOW() - (INTERVAL '1 day' * cleanup_days)
     AND status IN ('completed', 'failed');
     
     GET DIAGNOSTICS old_failed_commands = ROW_COUNT;

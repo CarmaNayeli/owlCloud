@@ -124,7 +124,10 @@ export default {
       // 5. Optionally send a public notification
       if (webhookUrl) {
         try {
-          const webhook = await interaction.client.fetchWebhook(webhookUrl.split('/').slice(-2)[0]);
+          // Extract webhook ID from URL: https://discord.com/api/webhooks/{id}/{token}
+          const urlParts = webhookUrl.split('/');
+          const webhookId = urlParts[urlParts.length - 2];
+          const webhook = await interaction.client.fetchWebhook(webhookId);
           await webhook.send({
             embeds: [{
               description: `🎭 **${interaction.user.tag}** connected their RollCloud account!`,
@@ -133,6 +136,7 @@ export default {
           });
         } catch (e) {
           // Ignore webhook errors
+          console.log('Webhook notification failed:', e.message);
         }
       }
 

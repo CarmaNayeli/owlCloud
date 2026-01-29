@@ -33,10 +33,20 @@ export default {
         .slice(0, 25); // Discord limit
 
       await interaction.respond(
-        filtered.map(char => ({
-          name: `${char.character_name} (${char.class || 'Unknown'} Lv${char.level || 1})`,
-          value: char.character_name
-        }))
+        filtered.map(char => {
+          // Build display name with 100 char limit for Discord autocomplete
+          let displayName = `${char.character_name} (${char.class || 'Unknown'} Lv${char.level || 1})`;
+          if (displayName.length > 100) {
+            // Truncate character name if needed, keep the class/level info
+            const suffix = ` (${char.class || 'Unknown'} Lv${char.level || 1})`;
+            const maxNameLength = 100 - suffix.length - 3; // -3 for "..."
+            displayName = `${char.character_name.substring(0, maxNameLength)}...${suffix}`;
+          }
+          return {
+            name: displayName,
+            value: char.character_name
+          };
+        })
       );
     } catch (error) {
       console.error('Autocomplete error:', error);
@@ -73,7 +83,8 @@ export default {
               .setTitle('❌ Character Not Found')
               .setDescription(
                 `No character matching "${characterName}" found.\n\n` +
-                'Use `/characters` to see your synced characters.'
+                'Use `/characters` to see your synced characters.' +
+                (result.error ? `\n\n**Error:** ${result.error}` : '')
               )
             ]
           });

@@ -5,7 +5,7 @@
 
 // Simple in-memory cache with TTL
 const characterCache = new Map();
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes (reduced for fresher data after syncs)
 
 // Supabase config
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -72,17 +72,17 @@ async function getActiveCharacter(discordUserId) {
  * Set active character with caching
  * @param {string} discordUserId - Discord user ID
  * @param {string} characterName - Character name to set as active
- * @returns {Promise<{success: boolean, character?: Object}>}
+ * @returns {Promise<{success: boolean, character?: Object, error?: string}>}
  */
 async function setActiveCharacter(discordUserId, characterName) {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-    throw new Error('Supabase not configured');
+    return { success: false, error: 'Supabase not configured' };
   }
 
   try {
     // First, get all characters for this user
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}&select=character_name,class,level,race,alignment,hit_points,armor_class,speed,attributes,attribute_mods`,
+      `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}&select=id,character_name,class,level,race,alignment,hit_points,armor_class,speed,attributes,attribute_mods`,
       {
         headers: {
           'apikey': SUPABASE_SERVICE_KEY,
@@ -92,24 +92,24 @@ async function setActiveCharacter(discordUserId, characterName) {
     );
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch characters: ${response.status}`);
+      return { success: false, error: `Failed to fetch characters: ${response.status}` };
     }
 
     const characters = await response.json();
-    
+
     // Find the character by name (case-insensitive)
-    const character = characters.find(char => 
+    const character = characters.find(char =>
       char.character_name.toLowerCase() === characterName.toLowerCase()
     );
 
     if (!character) {
-      return { success: false };
+      return { success: false, error: 'Character not found' };
     }
 
     // Update all characters to set only this one as active
     const updatePromises = characters.map(char => {
       const isActive = char.character_name.toLowerCase() === characterName.toLowerCase();
-      
+
       return fetch(
         `${SUPABASE_URL}/rest/v1/rollcloud_characters?id=eq.${char.id}`,
         {
@@ -139,7 +139,7 @@ async function setActiveCharacter(discordUserId, characterName) {
     return { success: true, character };
   } catch (error) {
     console.error('Error setting active character:', error);
-    throw error;
+    return { success: false, error: error.message };
   }
 }
 
@@ -175,7 +175,7 @@ function getCacheStats() {
     valid: 0
   };
 
-  for (const [key, value] of characterCache.entries()) {
+  for (const value of characterCache.values()) {
     if (now - value.timestamp > CACHE_TTL_MS) {
       stats.expired++;
     } else {
