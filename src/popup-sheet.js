@@ -5167,9 +5167,13 @@ function getSpellOptions(spell) {
 
   const options = [];
 
-  // Check for attack (exclude Shield spell which should never have attack button)
-  const isShield = spell.name && spell.name.toLowerCase() === 'shield';
-  if (spell.attackRoll && spell.attackRoll !== '(none)' && !isShield) {
+  // Check for attack (exclude defensive spells which should never have attack button)
+  const spellNameLower = (spell.name || '').toLowerCase();
+  const isDefensiveSpell = spellNameLower === 'shield' ||
+                            spellNameLower.startsWith('shield ') ||
+                            spellNameLower === 'absorb elements' ||
+                            spellNameLower === 'counterspell';
+  if (spell.attackRoll && spell.attackRoll !== '(none)' && !isDefensiveSpell) {
     // Handle special flag from dicecloud.js that indicates we should use spell attack bonus
     let attackFormula = spell.attackRoll;
     if (attackFormula === 'use_spell_attack_bonus') {

@@ -1619,10 +1619,14 @@
           spellChildren.forEach(child => {
             debug.log(`  📋 Processing child: ${child.name} (${child.type})`);
 
-            // Shield spell should NEVER have attack rolls - skip attack children
-            const isShieldSpell = prop.name && prop.name.toLowerCase().trim() === 'shield';
-            if (isShieldSpell && (child.type === 'attack' || (child.type === 'roll' && child.name && child.name.toLowerCase().includes('attack')))) {
-              debug.log(`    🛡️ Shield spell - skipping attack child: ${child.name}`);
+            // Defensive spells (Shield, Absorb Elements, Counterspell) should NEVER have attack rolls - skip attack children
+            const spellNameLower = (prop.name || '').toLowerCase().trim();
+            const isDefensiveSpell = spellNameLower === 'shield' ||
+                                      spellNameLower.startsWith('shield ') ||
+                                      spellNameLower === 'absorb elements' ||
+                                      spellNameLower === 'counterspell';
+            if (isDefensiveSpell && (child.type === 'attack' || (child.type === 'roll' && child.name && child.name.toLowerCase().includes('attack')))) {
+              debug.log(`    🛡️ Defensive spell - skipping attack child: ${child.name}`);
               return; // Skip this child
             }
 
@@ -1787,17 +1791,27 @@
             // Use specific patterns to avoid false positives (like Shield's "triggering attack" or "when hit by an attack roll")
             // Match: "make" within 5 words before "spell attack" or "attack roll"
             // This catches "make a ranged spell attack roll" but not "when hit by an attack roll"
-            // Exception: Shield specifically should never have attack button
-            const isShield = prop.name && prop.name.toLowerCase() === 'shield';
-            const hasAttackMention = /\bmake\s+(?:\w+\s+){0,4}(spell attack|attack roll)\b/i.test(description);
-            if (!attackRoll && hasAttackMention && !isShield) {
+            // Exception: Shield and defensive spells should never have attack button
+            const spellNameLower = (prop.name || '').toLowerCase();
+            const isDefensiveSpell = spellNameLower === 'shield' ||
+                                      spellNameLower.startsWith('shield ') ||
+                                      spellNameLower === 'absorb elements' ||
+                                      spellNameLower === 'counterspell';
+
+            // Check for offensive attack patterns: "make a/an ... spell attack" or "make a/an ... attack roll"
+            // But NOT defensive patterns like "hit by an attack roll", "when an attack", "against the attack"
+            const hasOffensiveAttack = /\bmake\s+(?:a|an)\s+(?:\w+\s+){0,3}(spell attack|attack roll)\b/i.test(description);
+            const hasDefensivePattern = /\b(hit by|when an?|against the|triggering)\s+(?:\w+\s+){0,2}attack/i.test(description);
+            const hasAttackMention = hasOffensiveAttack && !hasDefensivePattern;
+
+            if (!attackRoll && hasAttackMention && !isDefensiveSpell) {
               attackRoll = 'use_spell_attack_bonus'; // Flag to use calculated spell attack bonus
-              debug.log(`  💡 Found 'make' + attack pattern in description, marking for spell attack bonus`);
+              debug.log(`  💡 Found offensive attack pattern in description, marking for spell attack bonus`);
             } else if (!attackRoll) {
               debug.log(`  ⚠️ No attack pattern found in description for "${prop.name}"`);
-            } else if (isShield && attackRoll) {
-              // Shield should never have attack roll
-              debug.log(`  🛡️ Shield spell detected - removing attack roll`);
+            } else if (isDefensiveSpell && attackRoll) {
+              // Defensive spells should never have attack roll
+              debug.log(`  🛡️ Defensive spell detected - removing attack roll`);
               attackRoll = '';
             } else {
               debug.log(`  ℹ️ Attack roll already set from child properties, skipping description check`);
@@ -1952,10 +1966,14 @@
             }
           }
 
-          // Final checks for specific spells
-          const isShieldSpell = prop.name && prop.name.toLowerCase() === 'shield';
-          if (isShieldSpell && attackRoll) {
-            debug.log(`  🛡️ Shield spell detected - removing attack roll (was: "${attackRoll}")`);
+          // Final checks for defensive spells - they should NEVER have attack rolls
+          const finalSpellNameLower = (prop.name || '').toLowerCase();
+          const isFinalDefensiveSpell = finalSpellNameLower === 'shield' ||
+                                         finalSpellNameLower.startsWith('shield ') ||
+                                         finalSpellNameLower === 'absorb elements' ||
+                                         finalSpellNameLower === 'counterspell';
+          if (isFinalDefensiveSpell && attackRoll) {
+            debug.log(`  🛡️ Defensive spell detected - removing attack roll (was: "${attackRoll}")`);
             attackRoll = '';
           }
 
