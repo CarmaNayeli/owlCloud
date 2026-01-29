@@ -84,4 +84,7 @@ const rest = new REST().setToken(process.env.DISCORD_TOKEN);
     console.error('Stack:', error.stack);
     console.log('\n⚠️  Continuing anyway - commands may not be updated');
   }
+
+  console.log('✅ Command deployment script complete\n');
+  process.exit(0);
 })();
