@@ -5745,8 +5745,14 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
     optionButtons.push({ button: btn, option: option });
 
     btn.addEventListener('click', () => {
-      // Get selected slot level
-      const selectedSlotLevel = slotSelect ? parseInt(slotSelect.value) : (spell.level || null);
+      // Get selected slot level - handle pact magic slot format "pact:X"
+      let selectedSlotLevel = spell.level || null;
+      if (slotSelect) {
+        const slotValue = slotSelect.value;
+        selectedSlotLevel = slotValue.startsWith('pact:')
+          ? parseInt(slotValue.split(':')[1])
+          : parseInt(slotValue);
+      }
 
       // Get selected metamagic options
       const selectedMetamagic = metamagicCheckboxes
@@ -5947,7 +5953,11 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
   // Set up slot selection change handler to update button labels
   if (slotSelect) {
     const updateButtonLabels = () => {
-      const selectedSlotLevel = parseInt(slotSelect.value);
+      // Handle pact magic slot format "pact:X" - extract the level number
+      const slotValue = slotSelect.value;
+      const selectedSlotLevel = slotValue.startsWith('pact:')
+        ? parseInt(slotValue.split(':')[1])
+        : parseInt(slotValue);
       optionButtons.forEach(({ button, option }) => {
         const resolvedLabel = getResolvedLabel(option, selectedSlotLevel);
         const edgeCaseNote = option.edgeCaseNote ? `<div style="font-size: 0.8em; color: #666; margin-top: 2px;">${option.edgeCaseNote}</div>` : '';
