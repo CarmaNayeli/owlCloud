@@ -2607,8 +2607,8 @@ ${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗
     // Post chat announcement only when state actually changes
     if (previousState !== gmModeEnabled) {
       const message = gmModeEnabled
-        ? '👑 GM Panel is now active - rolls will be hidden from players'
-        : '👑 GM Panel deactivated - rolls will post normally';
+        ? '👑 GM Panel is now active'
+        : '👑 GM Panel deactivated';
 
       // Use setTimeout to ensure the chat is ready
       setTimeout(() => {
@@ -3394,10 +3394,16 @@ ${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗
   // Listen for messages to toggle GM mode and post chat messages
   window.addEventListener('message', (event) => {
     debug.log('📨 Received message:', event.data);
-    
+
     if (event.data && event.data.action === 'toggleGMMode') {
       debug.log('👑 Processing toggleGMMode message:', event.data.enabled);
       toggleGMMode(event.data.enabled);
+    } else if (event.data && event.data.action === 'registerPopup') {
+      // Register popup window for turn notifications
+      if (event.data.characterName && event.source) {
+        window.rollcloudRegisterPopup(event.data.characterName, event.source);
+        debug.log(`✅ Registered popup via message for: ${event.data.characterName}`);
+      }
     } else if (event.data && event.data.action === 'postChatMessageFromPopup') {
       // Post message from character sheet popup to Roll20 chat
       postChatMessage(event.data.message);

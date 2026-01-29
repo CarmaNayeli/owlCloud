@@ -4940,6 +4940,16 @@ function createSpellCard(spell, index) {
     debug.log(`📝 Spell "${spell.name}" has attack/damage:`, { attackRoll: spell.attackRoll, damage: spell.damage, damageType: spell.damageType });
   }
 
+  // Build full description from summary and description fields
+  let fullDescription = '';
+  if (spell.summary && spell.description) {
+    fullDescription = `${spell.summary}<br><br>${spell.description}`;
+  } else if (spell.summary) {
+    fullDescription = spell.summary;
+  } else if (spell.description) {
+    fullDescription = spell.description;
+  }
+
   desc.innerHTML = `
     ${spell.castingTime ? `<div><strong>Casting Time:</strong> ${spell.castingTime}</div>` : ''}
     ${spell.range ? `<div><strong>Range:</strong> ${spell.range}</div>` : ''}
@@ -4947,7 +4957,7 @@ function createSpellCard(spell, index) {
     ${spell.duration ? `<div><strong>Duration:</strong> ${spell.duration}</div>` : ''}
     ${spell.school ? `<div><strong>School:</strong> ${spell.school}</div>` : ''}
     ${spell.source ? `<div><strong>Source:</strong> ${spell.source}</div>` : ''}
-    ${spell.description ? `<div style="margin-top: 10px;">${spell.description}</div>` : ''}
+    ${fullDescription ? `<div style="margin-top: 10px;"><strong>Summary:</strong> ${fullDescription}</div>` : ''}
     ${spell.formula ? `<button class="roll-btn">🎲 Roll ${spell.formula}</button>` : ''}
   `;
 
@@ -5406,6 +5416,7 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
 
     // Add options for available spell slots (spell level and higher)
     let hasAnySlots = false;
+    let hasRegularSlots = false;
     let firstValidOption = null;
 
     // First, add Pact Magic slots if available and spell level is compatible
@@ -5438,6 +5449,7 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
 
       if (max > 0) {
         hasAnySlots = true;
+        hasRegularSlots = true;
         const option = document.createElement('option');
         option.value = level; // Regular level number for normal slots
         option.textContent = `Level ${level} (${available}/${max} slots)`;
@@ -5464,13 +5476,23 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
       slotSelect.appendChild(noSlotsOption);
     }
 
-    slotSection.appendChild(slotLabel);
-    slotSection.appendChild(slotSelect);
-    modal.appendChild(slotSection);
+    // If ONLY Pact Magic slots exist (no regular spell slots), don't show the dropdown
+    // Instead, automatically use the Pact Magic slot level
+    if (hasPactMagic && !hasRegularSlots && spell.level <= effectivePactLevel) {
+      // Store the auto-selected Pact Magic level on the modal for button handlers to use
+      modal.dataset.autoSlotLevel = `pact:${effectivePactLevel}`;
+      debug.log(`🔮 Auto-selecting Pact Magic level ${effectivePactLevel} (no regular slots available)`);
+      // Don't append the slot selection UI - it's not needed
+    } else {
+      // Show the dropdown since there are multiple slot options
+      slotSection.appendChild(slotLabel);
+      slotSection.appendChild(slotSelect);
+      modal.appendChild(slotSection);
 
-    // Store reference to update button labels later
-    // (will be set after buttons are created)
-    slotSelect.updateButtonLabels = null;
+      // Store reference to update button labels later
+      // (will be set after buttons are created)
+      slotSelect.updateButtonLabels = null;
+    }
   }
 
   // Concentration spell recast option OR special spells that allow reuse without slots
@@ -5765,13 +5787,14 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
     optionButtons.push({ button: btn, option: option });
 
     btn.addEventListener('click', () => {
-      // Get selected slot level - handle pact magic slot format "pact:X"
+      // Get selected slot level - keep in "pact:X" format for castSpell to detect Pact Magic
       let selectedSlotLevel = spell.level || null;
-      if (slotSelect) {
-        const slotValue = slotSelect.value;
-        selectedSlotLevel = slotValue.startsWith('pact:')
-          ? parseInt(slotValue.split(':')[1])
-          : parseInt(slotValue);
+
+      // Check if slot level was auto-selected (Pact Magic only, no dropdown shown)
+      if (modal.dataset.autoSlotLevel) {
+        selectedSlotLevel = modal.dataset.autoSlotLevel; // Keep as "pact:X" string
+      } else if (slotSelect) {
+        selectedSlotLevel = slotSelect.value; // Keep as "pact:X" string or regular level number
       }
 
       // Get selected metamagic options
