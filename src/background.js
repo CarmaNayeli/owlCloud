@@ -3663,7 +3663,7 @@ async function subscribeToCommandRealtime(pairingId) {
           // Also drain pending commands periodically in case realtime missed anything
           drainPendingCommands();
         }
-      }, 30000);
+      }, 5000);
 
       // Also drain any pending commands that arrived while we were disconnected
       drainPendingCommands();

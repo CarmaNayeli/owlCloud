@@ -451,7 +451,7 @@
    * @returns {Object} Normalized spell data
    */
   function normalizeDiscordSpellData(spellData) {
-    const spell = spellData.spell_data || {};
+    const spell = spellData.spell_data || spellData.spell || {};
     const castLevel = parseInt(spellData.cast_level) || parseInt(spell.level) || 0;
     const spellLevel = parseInt(spell.level) || 0;
 
