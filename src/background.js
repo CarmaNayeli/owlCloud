@@ -2441,30 +2441,31 @@ async function linkDiscordUserToAuthTokens(discordUserId, discordUsername, disco
 
     debug.log('🔗 Linking Discord user to auth_tokens:', discordUserId, discordUsername, discordGlobalName, 'for browser:', visitorId);
 
-    // Build update payload with all available Discord fields
-    const updatePayload = {
+    // Build upsert payload with all available Discord fields
+    const upsertPayload = {
+      user_id: visitorId,
       discord_user_id: discordUserId,
       updated_at: new Date().toISOString()
     };
     if (discordUsername) {
-      updatePayload.discord_username = discordUsername;
+      upsertPayload.discord_username = discordUsername;
     }
     if (discordGlobalName) {
-      updatePayload.discord_global_name = discordGlobalName;
+      upsertPayload.discord_global_name = discordGlobalName;
     }
 
-    // Update auth_tokens with Discord info
+    // Upsert auth_tokens with Discord info (insert if not exists, update if exists)
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/auth_tokens?user_id=eq.${visitorId}`,
+      `${SUPABASE_URL}/rest/v1/auth_tokens`,
       {
-        method: 'PATCH',
+        method: 'POST',
         headers: {
           'apikey': SUPABASE_ANON_KEY,
           'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
           'Content-Type': 'application/json',
-          'Prefer': 'return=minimal'
+          'Prefer': 'resolution=merge-duplicates,return=minimal'
         },
-        body: JSON.stringify(updatePayload)
+        body: JSON.stringify(upsertPayload)
       }
     );
 
@@ -3828,6 +3829,14 @@ async function executeCommand(command) {
         result = await executeCastCommand(command);
         break;
 
+      case 'heal':
+        result = await executeHealCommand(command);
+        break;
+
+      case 'takedamage':
+        result = await executeTakeDamageCommand(command);
+        break;
+
       default:
         result = { success: false, error: `Unknown command type: ${command.command_type}` };
     }
@@ -4005,7 +4014,10 @@ async function executeCastCommand(command) {
     }
 
     // Process metamagic using action-executor
-    const castResult = executeDiscordCast(command_data, characterData);
+    // Access from globalThis since action-executor.js is loaded via importScripts
+    const castResult = (typeof globalThis.executeDiscordCast === 'function')
+      ? globalThis.executeDiscordCast(command_data, characterData)
+      : executeDiscordCast(command_data, characterData);
 
     debug.log('🔮 Discord spell execution result:', castResult);
 
@@ -4053,6 +4065,72 @@ async function executeCastCommand(command) {
     return { success: true, message: `Cast spell: ${action_name}`, result: castResult };
   } catch (error) {
     debug.error('Error executing Discord cast command:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Execute a heal command from Discord
+ */
+async function executeHealCommand(command) {
+  const { command_data } = command;
+
+  try {
+    const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
+
+    for (const tab of tabs) {
+      try {
+        await browserAPI.tabs.sendMessage(tab.id, {
+          action: 'healFromDiscord',
+          amount: command_data.amount,
+          isTemp: command_data.is_temp || false,
+          characterName: command_data.character_name
+        });
+      } catch (err) {
+        debug.warn(`Failed to send heal to tab ${tab.id}:`, err);
+      }
+    }
+
+    return {
+      success: true,
+      message: command_data.is_temp
+        ? `Added ${command_data.amount} temp HP`
+        : `Healed ${command_data.amount} HP`
+    };
+  } catch (error) {
+    debug.error('Error executing Discord heal command:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Execute a take damage command from Discord
+ */
+async function executeTakeDamageCommand(command) {
+  const { command_data } = command;
+
+  try {
+    const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
+
+    for (const tab of tabs) {
+      try {
+        await browserAPI.tabs.sendMessage(tab.id, {
+          action: 'takeDamageFromDiscord',
+          amount: command_data.amount,
+          damageType: command_data.damage_type || 'untyped',
+          characterName: command_data.character_name
+        });
+      } catch (err) {
+        debug.warn(`Failed to send damage to tab ${tab.id}:`, err);
+      }
+    }
+
+    return {
+      success: true,
+      message: `Took ${command_data.amount} ${command_data.damage_type || ''} damage`.trim()
+    };
+  } catch (error) {
+    debug.error('Error executing Discord take damage command:', error);
     return { success: false, error: error.message };
   }
 }

@@ -201,7 +201,7 @@ class SupabaseTokenManager {
           'apikey': this.supabaseKey,
           'Authorization': `Bearer ${this.supabaseKey}`,
           'Content-Type': 'application/json',
-          'Prefer': 'return=minimal'
+          'Prefer': 'resolution=merge-duplicates,return=minimal'
         },
         body: JSON.stringify(payload)
       });

@@ -1052,6 +1052,41 @@
         debug.error('❌ Error in useAbilityFromDiscord:', abilityError);
         sendResponse({ success: false, error: abilityError.message });
       }
+    } else if (request.action === 'healFromDiscord') {
+      try {
+        debug.log('💚 Received healFromDiscord:', request);
+        const amount = request.amount || 0;
+        const isTemp = request.isTemp || false;
+        const charName = request.characterName || 'Character';
+
+        // Post announcement to Roll20 chat
+        const healType = isTemp ? 'Temporary HP' : 'HP';
+        const emoji = isTemp ? '🛡️' : '💚';
+        const announcement = `&{template:default} {{name=${emoji} ${charName} ${isTemp ? 'gains' : 'is healed'}}} {{${healType}=+${amount}}}`;
+
+        postChatMessage(announcement);
+        sendResponse({ success: true });
+      } catch (healError) {
+        debug.error('❌ Error in healFromDiscord:', healError);
+        sendResponse({ success: false, error: healError.message });
+      }
+    } else if (request.action === 'takeDamageFromDiscord') {
+      try {
+        debug.log('💔 Received takeDamageFromDiscord:', request);
+        const amount = request.amount || 0;
+        const damageType = request.damageType || 'untyped';
+        const charName = request.characterName || 'Character';
+
+        // Post announcement to Roll20 chat
+        const damageTypeDisplay = damageType !== 'untyped' ? ` (${damageType})` : '';
+        const announcement = `&{template:default} {{name=💔 ${charName} takes damage}} {{Damage=${amount}${damageTypeDisplay}}}`;
+
+        postChatMessage(announcement);
+        sendResponse({ success: true });
+      } catch (damageError) {
+        debug.error('❌ Error in takeDamageFromDiscord:', damageError);
+        sendResponse({ success: false, error: damageError.message });
+      }
     } else if (request.action === 'endTurnFromDiscord') {
       try {
         debug.log('⏭️ Received endTurnFromDiscord');
