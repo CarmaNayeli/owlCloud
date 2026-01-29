@@ -61,12 +61,44 @@
   }
 
   /**
+   * Strips conditional expressions from text (e.g., DiceCloud template strings)
+   * Removes patterns like: {condition ? "value" : "other"} or {variable == 1 && level >= 3 ? "..." : ""}
+   * @param {string} text - Text potentially containing conditional expressions
+   * @returns {string} - Cleaned text with conditionals removed
+   */
+  function stripConditionalExpressions(text) {
+    if (!text || typeof text !== 'string') return text;
+
+    // Remove conditional expressions enclosed in braces
+    // Pattern matches: {anything ? anything : anything}
+    // Uses a simple approach: find {, count braces to match closing }, remove if contains ?
+    let result = text;
+    let changed = true;
+
+    // Iterate until no more changes (handles nested conditionals)
+    while (changed) {
+      const before = result;
+
+      // Match conditional expressions: {...?...}
+      // This regex matches braces that contain a ? character (ternary operator)
+      result = result.replace(/\{[^{}]*\?[^{}]*\}/g, '');
+
+      changed = (before !== result);
+    }
+
+    // Clean up any extra whitespace that may have been left
+    result = result.replace(/\s{2,}/g, ' ').trim();
+
+    return result;
+  }
+
+  /**
    * Extracts character ID from the current URL
    */
   function getCharacterIdFromUrl() {
     const url = window.location.pathname;
     debug.log('🔍 Parsing URL:', url);
-    
+
     // Try different patterns
     const patterns = [
       /\/character\/([^/]+)/,           // /character/ABC123
@@ -1129,6 +1161,8 @@
               featureSummary = prop.summary;
             }
           }
+          // Strip conditional expressions from summary
+          featureSummary = stripConditionalExpressions(featureSummary);
 
           let featureDescription = '';
           if (prop.description) {
@@ -1140,6 +1174,8 @@
               featureDescription = prop.description;
             }
           }
+          // Strip conditional expressions from description
+          featureDescription = stripConditionalExpressions(featureDescription);
 
           const feature = {
             name: prop.name || 'Unnamed Feature',
@@ -1290,9 +1326,13 @@
                   }
                 }
 
+                // Strip conditional expressions from child summary and description
+                childSummary = stripConditionalExpressions(childSummary);
+                childDescription = stripConditionalExpressions(childDescription);
+
                 // For backward compatibility, combine them for childDescription
-                const combinedChildDescription = childSummary && childDescription 
-                  ? childSummary + '\n\n' + childDescription 
+                const combinedChildDescription = childSummary && childDescription
+                  ? childSummary + '\n\n' + childDescription
                   : childSummary || childDescription || '';
 
                 // Extract damage/roll value based on property type
@@ -1410,6 +1450,10 @@
               description = prop.description;
             }
           }
+
+          // Strip conditional expressions from summary and description
+          summary = stripConditionalExpressions(summary);
+          description = stripConditionalExpressions(description);
 
           // Combine summary and description when both exist
           let fullDescription = '';
@@ -2028,6 +2072,8 @@
               itemDescription = prop.description.text || prop.description.value || '';
             }
           }
+          // Strip conditional expressions from item description
+          itemDescription = stripConditionalExpressions(itemDescription);
 
           characterData.inventory.push({
             _id: prop._id || null,
@@ -3089,14 +3135,17 @@
           
           // Clean up description - remove any [object Object] text
           description = description.replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '').replace(/\[object Object\]/g, '').trim();
-          
+
+          // Strip conditional expressions from description
+          description = stripConditionalExpressions(description);
+
           // Only add if we have meaningful content
           if (description && description.length > 10) {
             // Check if we already have this spell
-            const existingSpell = characterData.spells.find(s => 
+            const existingSpell = characterData.spells.find(s =>
               s.name.toLowerCase() === spellName.toLowerCase()
             );
-            
+
             if (existingSpell) {
               // Update existing spell with description
               existingSpell.description = description;
