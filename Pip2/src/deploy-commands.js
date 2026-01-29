@@ -62,18 +62,26 @@ const rest = new REST().setToken(process.env.DISCORD_TOKEN);
       : Routes.applicationCommands(process.env.DISCORD_CLIENT_ID);
 
     console.log(`📋 Deployment type: ${deploymentType} commands`);
+    console.log('⏳ Sending command deployment request to Discord...');
 
-    // The put method is used to fully refresh all commands
-    const data = await rest.put(route, { body: commands });
+    // The put method is used to fully refresh all commands with timeout
+    const deployPromise = rest.put(route, { body: commands });
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Deployment timed out after 30 seconds')), 30000)
+    );
+
+    const data = await Promise.race([deployPromise, timeoutPromise]);
 
     console.log(`✅ Successfully reloaded ${data.length} application (/) commands.\n`);
-    
+
     if (deploymentType === 'global') {
       console.log('🌍 Commands deployed globally - may take up to 1 hour to appear in all servers');
     } else {
       console.log('🎯 Commands deployed to specific guild');
     }
   } catch (error) {
-    console.error('Error deploying commands:', error);
+    console.error('❌ Error deploying commands:', error.message);
+    console.error('Stack:', error.stack);
+    console.log('\n⚠️  Continuing anyway - commands may not be updated');
   }
 })();
