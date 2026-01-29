@@ -212,6 +212,10 @@ window.addEventListener('message', async (event) => {
       debug.log('⏳ DOM not ready yet, queuing GM panel initialization...');
       pendingOperations.push(initSheetFromGM);
     }
+  } else if (event.data && event.data.action === 'requestStatusData') {
+    // Status bar is requesting current character status
+    debug.log('📊 Status bar requesting data');
+    sendStatusUpdate();
   }
 });
 
@@ -14506,6 +14510,66 @@ function initSettingsButton() {
   }
 }
 
+/**
+ * Initialize status bar button
+ */
+let statusBarWindow = null;
+
+function initStatusBarButton() {
+  const statusBarBtn = document.getElementById('status-bar-btn');
+  if (statusBarBtn) {
+    statusBarBtn.addEventListener('click', () => {
+      // Open status bar window
+      const width = 350;
+      const height = 500;
+      const left = window.screenX + window.outerWidth - width - 50;
+      const top = window.screenY + 50;
+
+      statusBarWindow = window.open(
+        browserAPI.runtime.getURL('src/status-bar.html'),
+        'status-bar',
+        `width=${width},height=${height},left=${left},top=${top},scrollbars=no,resizable=yes`
+      );
+
+      if (!statusBarWindow) {
+        showNotification('❌ Failed to open status bar - please allow popups', 'error');
+        return;
+      }
+
+      debug.log('📊 Status bar opened');
+
+      // Send initial data after a short delay
+      setTimeout(() => {
+        sendStatusUpdate();
+      }, 500);
+    });
+    debug.log('✅ Status bar button initialized');
+  }
+}
+
+/**
+ * Send status update to status bar window
+ */
+function sendStatusUpdate() {
+  if (!statusBarWindow || statusBarWindow.closed) return;
+
+  const statusData = {
+    action: 'updateStatusData',
+    data: {
+      name: characterData.name || characterData.character_name,
+      hitPoints: characterData.hitPoints || characterData.hit_points,
+      concentrating: characterData.concentrating || false,
+      concentrationSpell: characterData.concentrationSpell || '',
+      activeBuffs: characterData.activeBuffs || [],
+      activeDebuffs: characterData.activeDebuffs || [],
+      spellSlots: characterData.spellSlots || {}
+    }
+  };
+
+  statusBarWindow.postMessage(statusData, '*');
+  debug.log('📊 Sent status update to status bar');
+}
+
 // Check if opened from GM panel and request character data
 if (window.opener && !characterData) {
   // Request character data from parent window
@@ -14517,7 +14581,9 @@ if (window.opener && !characterData) {
 if (domReady) {
   initCustomMacros();
   initSettingsButton();
+  initStatusBarButton();
 } else {
   pendingOperations.push(initCustomMacros);
   pendingOperations.push(initSettingsButton);
+  pendingOperations.push(initStatusBarButton);
 }
