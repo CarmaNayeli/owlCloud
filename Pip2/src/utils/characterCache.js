@@ -189,7 +189,7 @@ function getCacheStats() {
 // Auto-cleanup every 2 minutes
 setInterval(cleanupCache, 2 * 60 * 1000);
 
-module.exports = {
+export {
   getActiveCharacter,
   setActiveCharacter,
   clearUserCache,

@@ -18,11 +18,11 @@ export default {
     ),
 
   async execute(interaction) {
-    const code = interaction.options.getString('code').toUpperCase();
-
-    await interaction.deferReply({ flags: 64 }); // 64 = ephemeral (fixed deprecation warning)
+    // CRITICAL: Defer IMMEDIATELY - Discord only gives 3 seconds!
+    await interaction.deferReply({ flags: 64 }); // 64 = ephemeral
 
     try {
+      const code = interaction.options.getString('code').toUpperCase();
       console.log(`User ${interaction.user.tag} pairing with code: ${code}`);
 
       // 1. Look up pairing code in Supabase
