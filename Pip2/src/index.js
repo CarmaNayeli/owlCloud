@@ -44,19 +44,26 @@ for (const file of commandFiles) {
 }
 
 // Load events
+console.log('\n📡 Loading events...');
 const eventsPath = join(__dirname, 'events');
 const eventFiles = readdirSync(eventsPath).filter(file => file.endsWith('.js'));
 
 for (const file of eventFiles) {
-  const filePath = join(eventsPath, file);
-  const event = await import(`file://${filePath}`);
+  try {
+    const filePath = join(eventsPath, file);
+    console.log(`   Loading ${file}...`);
+    const event = await import(`file://${filePath}`);
 
-  if (event.default.once) {
-    client.once(event.default.name, (...args) => event.default.execute(...args));
-  } else {
-    client.on(event.default.name, (...args) => event.default.execute(...args));
+    if (event.default.once) {
+      client.once(event.default.name, (...args) => event.default.execute(...args));
+    } else {
+      client.on(event.default.name, (...args) => event.default.execute(...args));
+    }
+    console.log(`✅ Loaded event: ${event.default.name}`);
+  } catch (error) {
+    console.error(`❌ Failed to load event ${file}:`, error.message);
+    console.error(error.stack);
   }
-  console.log(`✅ Loaded event: ${event.default.name}`);
 }
 
 // Login to Discord
