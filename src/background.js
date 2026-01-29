@@ -466,6 +466,14 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
           break;
         }
 
+        case 'postChatMessageFromPopup': {
+          // Post character broadcast or other messages to Roll20 chat
+          debug.log('📨 Posting chat message from popup:', request.message?.substring(0, 100));
+          await sendChatMessageToAllRoll20Tabs(request.message);
+          response = { success: true };
+          break;
+        }
+
         // Handle extractAuthToken with tabId and forward to content script
         case 'extractAuthToken': {
           if (request.tabId) {
