@@ -3,10 +3,14 @@
  * Handles data storage, API authentication, and communication between Dice Cloud and Roll20
  */
 
-// ES6 module imports for Chrome MV3 and Firefox service worker
-import './common/debug.js';
-import './lib/supabase-client.js';
-import './modules/action-executor.js';
+// For service workers (Chrome) and event pages (Firefox), import utility modules
+if (typeof importScripts === 'function' && (typeof chrome !== 'undefined' || typeof browser !== 'undefined')) {
+  // Service worker is at src/background.js, so paths are relative to src/ directory
+  importScripts('./common/debug.js');
+  importScripts('./lib/supabase-client.js');
+  // Note: action-executor.js uses ES6 modules and can't be loaded with importScripts
+  // Discord cast commands access it via globalThis from action-executor loaded in content scripts
+}
 
 debug.log('RollCloud: Background script starting...');
 
@@ -4027,10 +4031,11 @@ async function executeCastCommand(command) {
     }
 
     // Process metamagic using action-executor
-    // Access from globalThis since action-executor.js is loaded via importScripts
+    // Note: executeDiscordCast should be available from content script context where action-executor is loaded
+    // For now, return basic data and let content script handle execution
     const castResult = (typeof globalThis.executeDiscordCast === 'function')
       ? globalThis.executeDiscordCast(command_data, characterData)
-      : executeDiscordCast(command_data, characterData);
+      : { rolls: [], effects: [], text: '' }; // Fallback if not available
 
     debug.log('🔮 Discord spell execution result:', castResult);
 
