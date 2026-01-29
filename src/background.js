@@ -1064,6 +1064,18 @@ async function logout() {
       }
     });
 
+    // Also delete token from Supabase database to prevent auto-restore
+    try {
+      if (typeof SupabaseTokenManager !== 'undefined') {
+        debug.log('🗑️ logout: Removing auth token from Supabase database');
+        const tokenManager = new SupabaseTokenManager();
+        await tokenManager.deleteToken();
+        debug.log('✅ logout: Token removed from Supabase');
+      }
+    } catch (dbError) {
+      debug.warn('⚠️ logout: Failed to delete token from Supabase (non-fatal):', dbError.message);
+    }
+
     debug.warn('🚪 logout() completed - storage cleared');
   } catch (error) {
     debug.error('Failed to logout:', error);

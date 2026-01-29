@@ -1307,29 +1307,48 @@ async function uninstallExtension(browser) {
           return { success: true, message: 'No Chrome extension policies found to remove.' };
         }
 
-        // Execute all delete commands
-        const allDeleteCmds = deleteCommands.join(' && ');
+        // Execute delete commands individually to handle missing keys gracefully
+        let successCount = 0;
+        let needsElevation = false;
 
-        try {
-          execSync(allDeleteCmds);
-          console.log(`   ✅ Removed ${deleteCommands.length} Chrome extension policy entries`);
-          return { success: true, message: 'Chrome extension uninstalled successfully.' };
-        } catch (e) {
-          // Try with elevated privileges
+        for (const cmd of deleteCommands) {
+          try {
+            execSync(cmd, { stdio: 'pipe' });
+            successCount++;
+          } catch (e) {
+            // If access denied, we need elevation
+            if (e.message.includes('Access is denied') || e.message.includes('ERROR: Access')) {
+              needsElevation = true;
+              break;
+            }
+            // Otherwise, key might not exist anymore - that's fine, continue
+            console.log(`   ⚠️ Could not remove policy (may already be removed): ${e.message.split('\n')[0]}`);
+          }
+        }
+
+        if (needsElevation) {
+          // Try with elevated privileges - join with ; to continue even if one fails
           const sudo = require('sudo-prompt');
           const options = { name: 'RollCloud Installation Wizard' };
+          // Use ; instead of && to continue even if individual commands fail
+          const allDeleteCmds = deleteCommands.map(cmd => `${cmd} 2>nul`).join(' & ');
 
           return new Promise((resolve, reject) => {
-            sudo.exec(allDeleteCmds, options, (error) => {
-              if (error) {
-                reject(new Error(`Failed to remove Chrome policy: ${error.message}`));
-              } else {
-                console.log(`   ✅ Removed ${deleteCommands.length} Chrome extension policy entries (elevated)`);
-                resolve({ success: true, message: 'Chrome extension uninstalled successfully.' });
+            sudo.exec(allDeleteCmds, options, (error, stdout, stderr) => {
+              // Don't fail if some keys don't exist - as long as we tried to delete them
+              if (error && !stderr.includes('unable to find')) {
+                console.log(`   ⚠️ Some policies may not have been removed: ${error.message}`);
               }
+              console.log(`   ✅ Chrome extension policy removal attempted (elevated)`);
+              resolve({ success: true, message: 'Chrome extension uninstalled successfully.' });
             });
           });
         }
+
+        if (successCount > 0) {
+          console.log(`   ✅ Removed ${successCount} Chrome extension policy entries`);
+        }
+        return { success: true, message: 'Chrome extension uninstalled successfully.' };
       } else {
         // macOS/Linux - remove from policy files
         console.log(`   ${browser} uninstall not implemented for ${platform}`);
