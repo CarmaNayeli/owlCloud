@@ -31,6 +31,52 @@ document.addEventListener('DOMContentLoaded', () => {
   console.log('✅ browserAPI is available');
   debug.log('✅ browserAPI is available');
 
+  // Chrome MV3 storage wrapper for popup context
+  const storage = {
+    async get(keys) {
+      return new Promise((resolve, reject) => {
+        try {
+          const result = browserAPI.storage.local.get(keys);
+          if (result && typeof result.then === 'function') {
+            result.then(resolve).catch(reject);
+          } else {
+            browserAPI.runtime.lastError ? reject(new Error(browserAPI.runtime.lastError.message)) : resolve(result);
+          }
+        } catch (error) {
+          reject(error);
+        }
+      });
+    },
+    async set(items) {
+      return new Promise((resolve, reject) => {
+        try {
+          const result = browserAPI.storage.local.set(items);
+          if (result && typeof result.then === 'function') {
+            result.then(resolve).catch(reject);
+          } else {
+            browserAPI.runtime.lastError ? reject(new Error(browserAPI.runtime.lastError.message)) : resolve();
+          }
+        } catch (error) {
+          reject(error);
+        }
+      });
+    },
+    async remove(keys) {
+      return new Promise((resolve, reject) => {
+        try {
+          const result = browserAPI.storage.local.remove(keys);
+          if (result && typeof result.then === 'function') {
+            result.then(resolve).catch(reject);
+          } else {
+            browserAPI.runtime.lastError ? reject(new Error(browserAPI.runtime.lastError.message)) : resolve();
+          }
+        } catch (error) {
+          reject(error);
+        }
+      });
+    }
+  };
+
   try {
     console.log('🚀 About to call initializePopup()');
     initializePopup();
@@ -131,9 +177,14 @@ function initializePopup() {
    */
   async function renderFromCache() {
     try {
-      const result = await browserAPI.storage.local.get(['diceCloudToken', 'username', 'characterProfiles', 'activeCharacterId', 'tokenExpires']);
-      // If no token cached, nothing to render
+      console.log('🔍 renderFromCache: Checking storage for auth data...');
+      const result = await storage.get(['diceCloudToken', 'username', 'characterProfiles', 'activeCharacterId', 'tokenExpires']);
+      console.log('🔍 renderFromCache: Storage result:', result);
+      
+      // If no token cached, show login section and return
       if (!result.diceCloudToken) {
+        console.log('🔍 renderFromCache: No token found, showing login section');
+        showLoginSection();
         return;
       }
 
@@ -385,7 +436,7 @@ function initializePopup() {
         debug.log('🔄 Background script says not logged in, checking storage directly...');
         // Try alternative method - check storage directly
         try {
-          const result = await browserAPI.storage.local.get(['diceCloudToken', 'username', 'tokenExpires']);
+          const result = await storage.get(['diceCloudToken', 'username', 'tokenExpires']);
           debug.log('📦 Direct storage check result:', result);
           if (result.diceCloudToken) {
             debug.log('✅ Found token in storage, showing main section');
@@ -393,7 +444,7 @@ function initializePopup() {
           } else {
             debug.log('❌ No token found in storage, checking Supabase...');
             // Check if user explicitly logged out - don't restore from Supabase in that case
-            const { explicitlyLoggedOut } = await browserAPI.storage.local.get('explicitlyLoggedOut');
+            const { explicitlyLoggedOut } = await storage.get('explicitlyLoggedOut');
             if (explicitlyLoggedOut) {
               debug.log('⏭️ Skipping Supabase restoration: user explicitly logged out');
               showLoginSection();
@@ -413,7 +464,7 @@ function initializePopup() {
                 if (supabaseResult.success) {
                   debug.log('✅ Found token in Supabase, restoring to local storage...');
                   // Store token locally for faster access
-                  await browserAPI.storage.local.set({
+                  await storage.set({
                     diceCloudToken: supabaseResult.token,
                     username: supabaseResult.username,
                     tokenExpires: supabaseResult.tokenExpires,
@@ -421,11 +472,11 @@ function initializePopup() {
                     authId: supabaseResult.authId || supabaseResult.userId
                   });
                   // Clear explicitly logged out flag since user is restoring session
-                  await browserAPI.storage.local.remove('explicitlyLoggedOut');
+                  await storage.remove('explicitlyLoggedOut');
                   // Restore character data from local storage
-                  const localProfiles = await browserAPI.storage.local.get(['profiles']);
+                  const localProfiles = await storage.get(['profiles']);
                   if (localProfiles.profiles) {
-                    await browserAPI.storage.local.set({
+                    await storage.set({
                       profiles: localProfiles.profiles
                     });
                   }
