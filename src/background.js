@@ -959,9 +959,21 @@ async function checkLoginStatus() {
 async function logout() {
   try {
     debug.warn('🚪 logout() called - getting current storage state...');
-    
-    // Get current state before clearing
-    const currentState = await browserAPI.storage.local.get(['diceCloudToken', 'diceCloudUserId', 'tokenExpires', 'username', 'explicitlyLoggedOut']);
+
+    // Get current state before clearing - use Promise wrapper
+    const currentState = await new Promise((resolve, reject) => {
+      try {
+        const result = browserAPI.storage.local.get(['diceCloudToken', 'diceCloudUserId', 'tokenExpires', 'username', 'explicitlyLoggedOut']);
+        if (result && typeof result.then === 'function') {
+          result.then(resolve).catch(reject);
+        } else {
+          browserAPI.runtime.lastError ? reject(new Error(browserAPI.runtime.lastError.message)) : resolve(result);
+        }
+      } catch (error) {
+        reject(error);
+      }
+    });
+
     debug.log('🔍 Current storage before logout:', {
       hasToken: !!currentState.diceCloudToken,
       tokenLength: currentState.diceCloudToken ? currentState.diceCloudToken.length : 0,
@@ -972,9 +984,35 @@ async function logout() {
     });
 
     // Set flag first to prevent autoRefreshToken from re-saving the token
-    await browserAPI.storage.local.set({ explicitlyLoggedOut: true });
-    await browserAPI.storage.local.remove(['diceCloudToken', 'diceCloudUserId', 'tokenExpires', 'username']);
-    
+    await new Promise((resolve, reject) => {
+      debug.log('📝 logout: Setting explicitlyLoggedOut flag');
+      try {
+        const result = browserAPI.storage.local.set({ explicitlyLoggedOut: true });
+        if (result && typeof result.then === 'function') {
+          result.then(resolve).catch(reject);
+        } else {
+          browserAPI.runtime.lastError ? reject(new Error(browserAPI.runtime.lastError.message)) : resolve();
+        }
+      } catch (error) {
+        reject(error);
+      }
+    });
+
+    // Remove all auth data
+    await new Promise((resolve, reject) => {
+      debug.log('🗑️ logout: Removing auth tokens');
+      try {
+        const result = browserAPI.storage.local.remove(['diceCloudToken', 'diceCloudUserId', 'tokenExpires', 'username']);
+        if (result && typeof result.then === 'function') {
+          result.then(resolve).catch(reject);
+        } else {
+          browserAPI.runtime.lastError ? reject(new Error(browserAPI.runtime.lastError.message)) : resolve();
+        }
+      } catch (error) {
+        reject(error);
+      }
+    });
+
     debug.warn('🚪 logout() completed - storage cleared');
   } catch (error) {
     debug.error('Failed to logout:', error);
