@@ -6278,14 +6278,16 @@ function castSpell(spell, index, afterCast = null, selectedSlotLevel = null, sel
       slotVar = 'pactMagicSlots';
       // Check both spellSlots and otherVariables for Pact Magic
       currentSlots = slotsObject.pactMagicSlots ?? characterData.otherVariables?.pactMagicSlots ?? 0;
-      slotLabel = `Pact Magic (level ${actualLevel})`;
+      const isUpcast = actualLevel > spellLevel;
+      slotLabel = isUpcast ? `Pact Magic (level ${actualLevel}, upcast from ${spellLevel})` : `Pact Magic (level ${actualLevel})`;
       debug.log(`🔮 Using Pact Magic slot at level ${actualLevel}, current=${currentSlots}`);
     } else {
       // Regular spell slot
       actualLevel = parseInt(selectedSlotLevel);
       slotVar = `level${actualLevel}SpellSlots`;
       currentSlots = slotsObject[slotVar] || 0;
-      slotLabel = `level ${actualLevel} slot`;
+      const isUpcast = actualLevel > spellLevel;
+      slotLabel = isUpcast ? `level ${actualLevel} slot (upcast from ${spellLevel})` : `level ${actualLevel} slot`;
     }
 
     if (currentSlots <= 0) {
