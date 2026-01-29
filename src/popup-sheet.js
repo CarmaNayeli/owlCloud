@@ -456,11 +456,11 @@ function buildCharacterTabs(profiles, activeCharacterId) {
         }
       });
 
-      // Close button
+      // Close button - show options modal
       const closeBtn = tab.querySelector('.close-tab');
       closeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        clearCharacterSlot(slotId, slotNum);
+        showClearCharacterOptions(slotId, slotNum, charInSlot.name);
       });
     } else {
       // Empty slot
@@ -646,25 +646,161 @@ async function switchToCharacter(characterId) {
   }
 }
 
-// Clear a character slot
-async function clearCharacterSlot(slotId, slotNum) {
-  if (!confirm(`Clear slot ${slotNum}? This will remove this character from the slot.`)) {
-    return;
-  }
+// Show options modal for clearing/deleting character
+function showClearCharacterOptions(slotId, slotNum, characterName) {
+  const colors = getPopupThemeColors();
 
+  // Create modal overlay
+  const overlay = document.createElement('div');
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+  `;
+
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    background: ${colors.background};
+    border: 2px solid ${colors.border};
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 400px;
+    width: 90%;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  `;
+
+  modal.innerHTML = `
+    <h3 style="margin: 0 0 16px 0; color: ${colors.text};">Clear Character Data</h3>
+    <p style="margin: 0 0 20px 0; color: ${colors.textSecondary};">
+      What would you like to do with <strong>${characterName}</strong>?
+    </p>
+
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <button id="clear-local-btn" style="
+        padding: 12px 20px;
+        background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: bold;
+        font-size: 14px;
+      ">
+        🗑️ Clear Local Data Only
+      </button>
+      <p style="margin: -8px 0 0 0; padding-left: 8px; font-size: 12px; color: ${colors.textSecondary};">
+        Remove from this browser, keep in cloud
+      </p>
+
+      <button id="delete-cloud-btn" style="
+        padding: 12px 20px;
+        background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: bold;
+        font-size: 14px;
+      ">
+        ☁️ Delete from Cloud
+      </button>
+      <p style="margin: -8px 0 0 0; padding-left: 8px; font-size: 12px; color: ${colors.textSecondary};">
+        Delete from cloud AND local storage
+      </p>
+
+      <button id="cancel-clear-btn" style="
+        padding: 12px 20px;
+        background: ${colors.buttonSecondary};
+        color: ${colors.text};
+        border: 2px solid ${colors.border};
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: bold;
+        font-size: 14px;
+        margin-top: 8px;
+      ">
+        Cancel
+      </button>
+    </div>
+  `;
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  // Clear local only
+  modal.querySelector('#clear-local-btn').addEventListener('click', async () => {
+    document.body.removeChild(overlay);
+    await clearCharacterSlot(slotId, slotNum, false);
+  });
+
+  // Delete from cloud
+  modal.querySelector('#delete-cloud-btn').addEventListener('click', async () => {
+    if (confirm(`⚠️ Delete ${characterName} from cloud?\n\nThis will permanently delete the character from cloud storage and remove it from this browser.`)) {
+      document.body.removeChild(overlay);
+      await deleteCharacterFromCloud(slotId, slotNum);
+    }
+  });
+
+  // Cancel
+  modal.querySelector('#cancel-clear-btn').addEventListener('click', () => {
+    document.body.removeChild(overlay);
+  });
+
+  // Close on overlay click
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      document.body.removeChild(overlay);
+    }
+  });
+}
+
+// Clear a character slot (local only)
+async function clearCharacterSlot(slotId, slotNum) {
   try {
     await browserAPI.runtime.sendMessage({
       action: 'clearCharacterData',
       characterId: slotId
     });
 
-    showNotification(`✅ Slot ${slotNum} cleared`);
+    showNotification(`✅ Slot ${slotNum} cleared from local storage`);
 
     // Reload tabs
     loadCharacterWithTabs();
   } catch (error) {
     debug.error('❌ Failed to clear slot:', error);
     showNotification('❌ Failed to clear slot', 'error');
+  }
+}
+
+// Delete character from cloud AND local
+async function deleteCharacterFromCloud(slotId, slotNum) {
+  try {
+    // First delete from cloud
+    await browserAPI.runtime.sendMessage({
+      action: 'deleteCharacterFromCloud',
+      characterId: slotId
+    });
+
+    // Then clear from local
+    await browserAPI.runtime.sendMessage({
+      action: 'clearCharacterData',
+      characterId: slotId
+    });
+
+    showNotification(`✅ Character deleted from cloud and local storage`);
+
+    // Reload tabs
+    loadCharacterWithTabs();
+  } catch (error) {
+    debug.error('❌ Failed to delete character:', error);
+    showNotification('❌ Failed to delete character: ' + error.message, 'error');
   }
 }
 

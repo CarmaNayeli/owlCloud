@@ -389,6 +389,11 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
           response = { success: true };
           break;
 
+        case 'deleteCharacterFromCloud':
+          await deleteCharacterFromCloud(request.characterId);
+          response = { success: true };
+          break;
+
         case 'loginToDiceCloud': {
           const authData = await loginToDiceCloud(request.username, request.password);
           response = { success: true, authData };
@@ -1942,6 +1947,46 @@ async function clearCharacterData(characterId = null) {
     }
   } catch (error) {
     debug.error('Failed to clear character data:', error);
+    throw error;
+  }
+}
+
+/**
+ * Delete character from cloud (Supabase)
+ */
+async function deleteCharacterFromCloud(characterId) {
+  try {
+    if (!characterId) {
+      throw new Error('Character ID is required');
+    }
+
+    if (!isSupabaseConfigured()) {
+      throw new Error('Supabase not configured');
+    }
+
+    debug.log(`🗑️ Deleting character from cloud: ${characterId}`);
+
+    // Delete from Supabase
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/rollcloud_characters?dicecloud_character_id=eq.${characterId}`,
+      {
+        method: 'DELETE',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Prefer': 'return=minimal'
+        }
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to delete from cloud: ${response.status}`);
+    }
+
+    debug.log(`✅ Character deleted from cloud: ${characterId}`);
+    return { success: true };
+  } catch (error) {
+    debug.error('Failed to delete character from cloud:', error);
     throw error;
   }
 }
