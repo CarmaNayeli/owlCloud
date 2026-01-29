@@ -5167,9 +5167,13 @@ function getSpellOptions(spell) {
 
   const options = [];
 
-  // Check for attack (exclude Shield spell which should never have attack button)
-  const isShield = spell.name && spell.name.toLowerCase() === 'shield';
-  if (spell.attackRoll && spell.attackRoll !== '(none)' && !isShield) {
+  // Check for attack (exclude defensive spells which should never have attack button)
+  const spellNameLower = (spell.name || '').toLowerCase();
+  const isDefensiveSpell = spellNameLower === 'shield' ||
+                            spellNameLower.startsWith('shield ') ||
+                            spellNameLower === 'absorb elements' ||
+                            spellNameLower === 'counterspell';
+  if (spell.attackRoll && spell.attackRoll !== '(none)' && !isDefensiveSpell) {
     // Handle special flag from dicecloud.js that indicates we should use spell attack bonus
     let attackFormula = spell.attackRoll;
     if (attackFormula === 'use_spell_attack_bonus') {
@@ -5305,6 +5309,20 @@ function getSpellOptions(spell) {
 
   // Log options before edge case modifications
   console.log(`📋 getSpellOptions "${spell.name}" - options before edge cases:`, options.map(o => `${o.type}: ${o.label}`));
+
+  // If spell has BOTH attack AND damage options, add a "Cast Spell" button first
+  // This allows users to cast the spell (consume slot) without immediately rolling attack or damage
+  const hasAttack = options.some(opt => opt.type === 'attack');
+  const hasDamage = options.some(opt => opt.type === 'damage' || opt.type === 'healing');
+  if (hasAttack && hasDamage) {
+    options.unshift({
+      type: 'cast',
+      label: 'Cast Spell',
+      icon: '✨',
+      color: '#9b59b6',
+      edgeCaseNote: 'Cast without rolling - then click Attack or Damage'
+    });
+  }
 
   // Apply edge case modifications
   const result = applyEdgeCaseModifications(spell, options);
