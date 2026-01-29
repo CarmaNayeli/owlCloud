@@ -71,7 +71,24 @@ for (const file of eventFiles) {
 }
 
 // Login to Discord
-client.login(process.env.DISCORD_TOKEN).catch(error => {
-  console.error('Failed to login:', error);
-  process.exit(1);
-});
+console.log('\n🔑 Attempting Discord login...');
+console.log(`   Token present: ${!!process.env.DISCORD_TOKEN}`);
+console.log(`   Token length: ${process.env.DISCORD_TOKEN?.length || 0}`);
+
+client.login(process.env.DISCORD_TOKEN)
+  .then(() => {
+    console.log('✅ Login promise resolved');
+  })
+  .catch(error => {
+    console.error('❌ Login failed:', error);
+    console.error('Error details:', error.message);
+    process.exit(1);
+  });
+
+// Add timeout detection
+setTimeout(() => {
+  if (!client.isReady()) {
+    console.error('⚠️  WARNING: Bot has not connected after 30 seconds');
+    console.error('   This usually indicates a network issue or invalid token');
+  }
+}, 30000);
