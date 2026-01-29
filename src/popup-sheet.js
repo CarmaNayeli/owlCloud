@@ -1368,7 +1368,7 @@ function buildSpellsBySource(container, spells) {
 
     const levelHeader = document.createElement('h4');
     levelHeader.textContent = `📚 ${levelKey}`;
-    levelHeader.style.cssText = 'color: #2c3e50; margin-bottom: 10px; padding: 5px; background: #ecf0f1; border-radius: 4px;';
+    levelHeader.style.cssText = 'color: var(--text-primary); margin-bottom: 10px; padding: 5px; background: #ecf0f1; border-radius: 4px;';
     levelSection.appendChild(levelHeader);
 
     // Sort spells alphabetically within level
@@ -3703,7 +3703,7 @@ function showSpellSlotRestorationModal(channelDivinityResource, maxSlotLevel) {
 
   // Create modal content
   const modalContent = document.createElement('div');
-  modalContent.style.cssText = 'background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); min-width: 400px; max-width: 500px;';
+  modalContent.style.cssText = 'background: var(--bg-secondary); color: var(--text-primary); padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); min-width: 400px; max-width: 500px;';
 
   // Build spell slot buttons
   let slotButtonsHTML = '';
@@ -3736,7 +3736,7 @@ function showSpellSlotRestorationModal(channelDivinityResource, maxSlotLevel) {
   }
 
   modalContent.innerHTML = `
-    <h3 style="margin: 0 0 15px 0; color: #2c3e50; text-align: center;">🔮 Harness Divine Power</h3>
+    <h3 style="margin: 0 0 15px 0; color: var(--text-primary); text-align: center;">🔮 Harness Divine Power</h3>
     <p style="text-align: center; margin-bottom: 20px; color: #555; font-size: 0.95em;">
       Choose which spell slot to restore (max level ${maxSlotLevel})
     </p>
@@ -4231,33 +4231,33 @@ function showHPModal() {
 
   // Create modal content
   const modalContent = document.createElement('div');
-  modalContent.style.cssText = 'background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); min-width: 300px;';
+  modalContent.style.cssText = 'background: var(--bg-secondary); color: var(--text-primary); padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); min-width: 300px;';
 
   const currentHP = characterData.hitPoints.current;
   const maxHP = characterData.hitPoints.max;
   const tempHP = characterData.temporaryHP || 0;
 
   modalContent.innerHTML = `
-    <h3 style="margin: 0 0 20px 0; color: #2c3e50; text-align: center;">Adjust Hit Points</h3>
-    <div style="text-align: center; font-size: 1.2em; margin-bottom: 20px; color: #7f8c8d;">
+    <h3 style="margin: 0 0 20px 0; color: var(--text-primary); text-align: center;">Adjust Hit Points</h3>
+    <div style="text-align: center; font-size: 1.2em; margin-bottom: 20px; color: var(--text-secondary);">
       Current: <strong>${currentHP}${tempHP > 0 ? `+${tempHP}` : ''} / ${maxHP}</strong>
     </div>
 
     <div style="margin-bottom: 20px;">
-      <label style="display: block; margin-bottom: 10px; font-weight: bold; color: #2c3e50;">Amount:</label>
-      <input type="number" id="hp-amount" min="1" value="1" style="width: 100%; padding: 10px; font-size: 1.1em; border: 2px solid #bdc3c7; border-radius: 6px; box-sizing: border-box;">
+      <label style="display: block; margin-bottom: 10px; font-weight: bold; color: var(--text-primary);">Amount:</label>
+      <input type="number" id="hp-amount" min="1" value="1" style="width: 100%; padding: 10px; font-size: 1.1em; border: 2px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background: var(--bg-tertiary); color: var(--text-primary);">
     </div>
 
     <div style="margin-bottom: 25px;">
-      <label style="display: block; margin-bottom: 10px; font-weight: bold; color: #2c3e50;">Action:</label>
+      <label style="display: block; margin-bottom: 10px; font-weight: bold; color: var(--text-primary);">Action:</label>
       <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
         <button id="hp-toggle-heal" style="padding: 12px; font-size: 0.9em; font-weight: bold; border: 2px solid #27ae60; background: #27ae60; color: white; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
           💚 Heal
         </button>
-        <button id="hp-toggle-damage" style="padding: 12px; font-size: 0.9em; font-weight: bold; border: 2px solid #bdc3c7; background: white; color: #7f8c8d; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+        <button id="hp-toggle-damage" style="padding: 12px; font-size: 0.9em; font-weight: bold; border: 2px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-secondary); border-radius: 6px; cursor: pointer; transition: all 0.2s;">
           💔 Damage
         </button>
-        <button id="hp-toggle-temp" style="padding: 12px; font-size: 0.9em; font-weight: bold; border: 2px solid #bdc3c7; background: white; color: #7f8c8d; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+        <button id="hp-toggle-temp" style="padding: 12px; font-size: 0.9em; font-weight: bold; border: 2px solid var(--border-color); background: var(--bg-tertiary); color: var(--text-secondary); border-radius: 6px; cursor: pointer; transition: all 0.2s;">
           🛡️ Temp HP
         </button>
       </div>
@@ -4286,13 +4286,13 @@ function showHPModal() {
 
   // Helper function to reset all buttons
   const resetButtons = () => {
-    healBtn.style.background = 'white';
+    healBtn.style.background = 'var(--bg-tertiary)';
     healBtn.style.color = '#7f8c8d';
     healBtn.style.borderColor = '#bdc3c7';
-    damageBtn.style.background = 'white';
+    damageBtn.style.background = 'var(--bg-tertiary)';
     damageBtn.style.color = '#7f8c8d';
     damageBtn.style.borderColor = '#bdc3c7';
-    tempBtn.style.background = 'white';
+    tempBtn.style.background = 'var(--bg-tertiary)';
     tempBtn.style.color = '#7f8c8d';
     tempBtn.style.borderColor = '#bdc3c7';
   };
@@ -4477,10 +4477,10 @@ function showGainInspirationModal() {
 
   // Create modal content
   const modalContent = document.createElement('div');
-  modalContent.style.cssText = 'background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); min-width: 350px; max-width: 450px;';
+  modalContent.style.cssText = 'background: var(--bg-secondary); color: var(--text-primary); padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); min-width: 350px; max-width: 450px;';
 
   modalContent.innerHTML = `
-    <h3 style="margin: 0 0 20px 0; color: #2c3e50; text-align: center;">⭐ Gain Inspiration</h3>
+    <h3 style="margin: 0 0 20px 0; color: var(--text-primary); text-align: center;">⭐ Gain Inspiration</h3>
     <p style="text-align: center; margin-bottom: 25px; color: #555;">
       You're about to gain Inspiration! This can be used for:
     </p>
@@ -4564,7 +4564,7 @@ function showUseInspirationModal() {
 
   // Create modal content
   const modalContent = document.createElement('div');
-  modalContent.style.cssText = 'background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); min-width: 400px; max-width: 500px;';
+  modalContent.style.cssText = 'background: var(--bg-secondary); color: var(--text-primary); padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); min-width: 400px; max-width: 500px;';
 
   const lastRollInfo = characterData.lastRoll
     ? `<div style="margin-bottom: 20px; padding: 12px; background: #e8f5e9; border-left: 4px solid #27ae60; border-radius: 4px;">
@@ -4575,7 +4575,7 @@ function showUseInspirationModal() {
        </div>`;
 
   modalContent.innerHTML = `
-    <h3 style="margin: 0 0 20px 0; color: #2c3e50; text-align: center;">✨ Use Inspiration</h3>
+    <h3 style="margin: 0 0 20px 0; color: var(--text-primary); text-align: center;">✨ Use Inspiration</h3>
     <p style="text-align: center; margin-bottom: 20px; color: #555;">
       How do you want to use your Inspiration?
     </p>
@@ -4702,7 +4702,7 @@ function showDeathSavesModal() {
 
   // Create modal content
   const modalContent = document.createElement('div');
-  modalContent.style.cssText = 'background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); min-width: 300px;';
+  modalContent.style.cssText = 'background: var(--bg-secondary); color: var(--text-primary); padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); min-width: 300px;';
 
   // Defensive initialization for death saves
   const deathSaves = characterData.deathSaves || { successes: 0, failures: 0 };
@@ -4710,7 +4710,7 @@ function showDeathSavesModal() {
   const failures = deathSaves.failures || 0;
 
   modalContent.innerHTML = `
-    <h3 style="margin: 0 0 20px 0; color: #2c3e50; text-align: center;">Death Saves</h3>
+    <h3 style="margin: 0 0 20px 0; color: var(--text-primary); text-align: center;">Death Saves</h3>
     <div style="text-align: center; font-size: 1.2em; margin-bottom: 20px;">
       <div style="margin-bottom: 10px;">
         <span style="color: #27ae60; font-weight: bold;">Successes: ${successes}/3</span>
@@ -4727,7 +4727,7 @@ function showDeathSavesModal() {
     </div>
 
     <div style="margin-bottom: 20px; border-top: 1px solid #ecf0f1; padding-top: 20px;">
-      <label style="display: block; margin-bottom: 10px; font-weight: bold; color: #2c3e50;">Manual Adjustment:</label>
+      <label style="display: block; margin-bottom: 10px; font-weight: bold; color: var(--text-primary);">Manual Adjustment:</label>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
         <button id="add-success" style="padding: 10px; background: #27ae60; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
           + Success
@@ -6049,7 +6049,7 @@ function showCustomMacroModal(spell, spellIndex) {
   overlay.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
 
   const modal = document.createElement('div');
-  modal.style.cssText = 'background: white; padding: 24px; border-radius: 8px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);';
+  modal.style.cssText = 'background: var(--bg-secondary); color: var(--text-primary); padding: 24px; border-radius: 8px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3);';
 
   const existingMacros = getCustomMacros(spell.name);
   const skipNormalButtons = existingMacros?.skipNormalButtons || false;
@@ -6365,11 +6365,11 @@ function showResourceChoice(spell, spellLevel, spellSlots, maxSlots, classResour
 
   // Create modal content
   const modalContent = document.createElement('div');
-  modalContent.style.cssText = 'background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); max-width: 400px; width: 90%;';
+  modalContent.style.cssText = 'background: var(--bg-secondary); color: var(--text-primary); padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); max-width: 400px; width: 90%;';
 
   let buttonsHTML = `
-    <h3 style="margin: 0 0 20px 0; color: #2c3e50; text-align: center;">Cast ${spell.name}</h3>
-    <p style="text-align: center; color: #7f8c8d; margin-bottom: 25px;">Choose a resource:</p>
+    <h3 style="margin: 0 0 20px 0; color: var(--text-primary); text-align: center;">Cast ${spell.name}</h3>
+    <p style="text-align: center; color: var(--text-secondary); margin-bottom: 25px;">Choose a resource:</p>
     <div style="display: flex; flex-direction: column; gap: 12px;">
   `;
 
@@ -6544,10 +6544,10 @@ function showUpcastChoice(spell, originalLevel, afterCast = null) {
     noSlotsModal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
 
     const noSlotsContent = document.createElement('div');
-    noSlotsContent.style.cssText = 'background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); max-width: 400px; width: 90%; text-align: center;';
+    noSlotsContent.style.cssText = 'background: var(--bg-secondary); color: var(--text-primary); padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); max-width: 400px; width: 90%; text-align: center;';
     noSlotsContent.innerHTML = `
       <h3 style="margin: 0 0 20px 0; color: #e67e22;">No Spell Slots Available</h3>
-      <p style="color: #7f8c8d; margin-bottom: 20px;">You don't have any spell slots of level ${originalLevel} or higher to cast ${spell.name}.</p>
+      <p style="color: var(--text-secondary); margin-bottom: 20px;">You don't have any spell slots of level ${originalLevel} or higher to cast ${spell.name}.</p>
       <p style="color: #95a5a6; font-size: 0.9em; margin-bottom: 20px;">You can still cast if your GM allows it - no slot will be decremented.</p>
       <div style="display: flex; gap: 10px; justify-content: center;">
         <button id="no-slots-cancel" style="padding: 12px 25px; background: #95a5a6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 1em;">Cancel</button>
@@ -6579,15 +6579,15 @@ function showUpcastChoice(spell, originalLevel, afterCast = null) {
   modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
 
   const modalContent = document.createElement('div');
-  modalContent.style.cssText = 'background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); max-width: 400px; width: 90%;';
+  modalContent.style.cssText = 'background: var(--bg-secondary); color: var(--text-primary); padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); max-width: 400px; width: 90%;';
 
   let dropdownHTML = `
-    <h3 style="margin: 0 0 20px 0; color: #2c3e50; text-align: center;">Cast ${spell.name}</h3>
-    <p style="text-align: center; color: #7f8c8d; margin-bottom: 20px;">Level ${originalLevel} spell</p>
+    <h3 style="margin: 0 0 20px 0; color: var(--text-primary); text-align: center;">Cast ${spell.name}</h3>
+    <p style="text-align: center; color: var(--text-secondary); margin-bottom: 20px;">Level ${originalLevel} spell</p>
 
     <div style="margin-bottom: 25px;">
-      <label style="display: block; margin-bottom: 10px; font-weight: bold; color: #2c3e50;">Spell Slot Level:</label>
-      <select id="upcast-slot-select" style="width: 100%; padding: 12px; font-size: 1.1em; border: 2px solid #bdc3c7; border-radius: 6px; box-sizing: border-box; background: white;">
+      <label style="display: block; margin-bottom: 10px; font-weight: bold; color: var(--text-primary);">Spell Slot Level:</label>
+      <select id="upcast-slot-select" style="width: 100%; padding: 12px; font-size: 1.1em; border: 2px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background: var(--bg-tertiary); color: var(--text-primary);">
   `;
 
   availableSlots.forEach((slot, index) => {
@@ -6630,7 +6630,7 @@ function showUpcastChoice(spell, originalLevel, afterCast = null) {
       dropdownHTML += `
           <label style="display: flex; align-items: center; padding: 8px; background: white; border-radius: 4px; cursor: pointer; ${disabledStyle}" title="${meta.description || ''}">
             <input type="checkbox" class="metamagic-option" data-name="${meta.name}" data-cost="${cost}" ${!canAfford ? 'disabled' : ''} style="margin-right: 8px; width: 16px; height: 16px; cursor: pointer; flex-shrink: 0;">
-            <span style="flex: 1; color: #2c3e50; font-size: 0.95em;">${meta.name}</span>
+            <span style="flex: 1; color: var(--text-primary); font-size: 0.95em;">${meta.name}</span>
             <span style="color: #9b59b6; font-weight: bold; font-size: 0.9em;">${cost} SP</span>
           </label>
       `;
@@ -6638,7 +6638,7 @@ function showUpcastChoice(spell, originalLevel, afterCast = null) {
 
     dropdownHTML += `
         </div>
-        <div id="metamagic-cost" style="margin-top: 8px; text-align: right; font-weight: bold; color: #2c3e50; font-size: 0.9em;">Total Cost: 0 SP</div>
+        <div id="metamagic-cost" style="margin-top: 8px; text-align: right; font-weight: bold; color: var(--text-primary); font-size: 0.9em;">Total Cost: 0 SP</div>
       </div>
     `;
   }
@@ -6746,10 +6746,10 @@ function showUpcastChoice(spell, originalLevel, afterCast = null) {
       warnModal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10001;';
 
       const warnContent = document.createElement('div');
-      warnContent.style.cssText = 'background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); max-width: 400px; width: 90%; text-align: center;';
+      warnContent.style.cssText = 'background: var(--bg-secondary); color: var(--text-primary); padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); max-width: 400px; width: 90%; text-align: center;';
       warnContent.innerHTML = `
         <h3 style="margin: 0 0 20px 0; color: #e67e22;">No Slots Remaining</h3>
-        <p style="color: #7f8c8d; margin-bottom: 20px;">You have no ${selectedSlot.isPactMagic ? 'Pact Magic' : `Level ${selectedSlot.level}`} spell slots remaining.</p>
+        <p style="color: var(--text-secondary); margin-bottom: 20px;">You have no ${selectedSlot.isPactMagic ? 'Pact Magic' : `Level ${selectedSlot.level}`} spell slots remaining.</p>
         <p style="color: #95a5a6; font-size: 0.9em; margin-bottom: 20px;">You can still cast if your GM allows it - no slot will be decremented.</p>
         <div style="display: flex; gap: 10px; justify-content: center;">
           <button id="warn-cancel" style="padding: 12px 25px; background: #95a5a6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 1em;">Cancel</button>
@@ -7854,15 +7854,15 @@ function showConvertSlotToPointsModal() {
   modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
 
   const modalContent = document.createElement('div');
-  modalContent.style.cssText = 'background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); max-width: 400px; width: 90%;';
+  modalContent.style.cssText = 'background: var(--bg-secondary); color: var(--text-primary); padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); max-width: 400px; width: 90%;';
 
   let optionsHTML = `
-    <h3 style="margin: 0 0 15px 0; color: #2c3e50; text-align: center;">Convert Spell Slot to Sorcery Points</h3>
+    <h3 style="margin: 0 0 15px 0; color: var(--text-primary); text-align: center;">Convert Spell Slot to Sorcery Points</h3>
     <p style="text-align: center; color: #e74c3c; margin-bottom: 20px; font-weight: bold;">Current: ${sorceryPoints.current}/${sorceryPoints.max} SP</p>
 
     <div style="margin-bottom: 25px;">
-      <label style="display: block; margin-bottom: 10px; font-weight: bold; color: #2c3e50;">Expend Spell Slot:</label>
-      <select id="slot-to-points-level" style="width: 100%; padding: 12px; font-size: 1.1em; border: 2px solid #bdc3c7; border-radius: 6px; box-sizing: border-box; background: white;">
+      <label style="display: block; margin-bottom: 10px; font-weight: bold; color: var(--text-primary);">Expend Spell Slot:</label>
+      <select id="slot-to-points-level" style="width: 100%; padding: 12px; font-size: 1.1em; border: 2px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background: var(--bg-tertiary); color: var(--text-primary);">
   `;
 
   availableSlots.forEach(slot => {
@@ -7959,15 +7959,15 @@ function showFontOfMagicModal() {
   modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
 
   const modalContent = document.createElement('div');
-  modalContent.style.cssText = 'background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); max-width: 400px; width: 90%;';
+  modalContent.style.cssText = 'background: var(--bg-secondary); color: var(--text-primary); padding: 30px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); max-width: 400px; width: 90%;';
 
   let optionsHTML = `
-    <h3 style="margin: 0 0 15px 0; color: #2c3e50; text-align: center;">Convert Sorcery Points to Spell Slot</h3>
+    <h3 style="margin: 0 0 15px 0; color: var(--text-primary); text-align: center;">Convert Sorcery Points to Spell Slot</h3>
     <p style="text-align: center; color: #e74c3c; margin-bottom: 20px; font-weight: bold;">Current: ${sorceryPoints.current}/${sorceryPoints.max} SP</p>
 
     <div style="margin-bottom: 25px;">
-      <label style="display: block; margin-bottom: 10px; font-weight: bold; color: #2c3e50;">Create Spell Slot Level:</label>
-      <select id="font-of-magic-slot" style="width: 100%; padding: 12px; font-size: 1.1em; border: 2px solid #bdc3c7; border-radius: 6px; box-sizing: border-box; background: white;">
+      <label style="display: block; margin-bottom: 10px; font-weight: bold; color: var(--text-primary);">Create Spell Slot Level:</label>
+      <select id="font-of-magic-slot" style="width: 100%; padding: 12px; font-size: 1.1em; border: 2px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background: var(--bg-tertiary); color: var(--text-primary);">
   `;
 
   // Add options for each spell slot level
@@ -11065,14 +11065,14 @@ function showEffectsModal() {
 
   // Create modal content
   const modalContent = document.createElement('div');
-  modalContent.style.cssText = 'background: white; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); width: 90%; max-width: 600px; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden;';
+  modalContent.style.cssText = 'background: var(--bg-secondary); color: var(--text-primary); border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); width: 90%; max-width: 600px; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden;';
 
   // Modal header
   const header = document.createElement('div');
   header.style.cssText = 'padding: 20px; border-bottom: 2px solid #ecf0f1; background: #f8f9fa;';
   header.innerHTML = `
     <div style="display: flex; justify-content: space-between; align-items: center;">
-      <h3 style="margin: 0; color: #2c3e50;">🎭 Effects & Conditions</h3>
+      <h3 style="margin: 0; color: var(--text-primary);">🎭 Effects & Conditions</h3>
       <button id="effects-modal-close" style="background: #e74c3c; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: bold;">✕</button>
     </div>
   `;
@@ -11081,8 +11081,8 @@ function showEffectsModal() {
   const tabNav = document.createElement('div');
   tabNav.style.cssText = 'display: flex; background: #ecf0f1; border-bottom: 2px solid #bdc3c7;';
   tabNav.innerHTML = `
-    <button class="effects-tab-btn" data-tab="buffs" style="flex: 1; padding: 15px; background: white; border: none; border-bottom: 3px solid #27ae60; cursor: pointer; font-weight: bold; font-size: 1em; color: #27ae60; transition: all 0.2s;">✨ Buffs</button>
-    <button class="effects-tab-btn" data-tab="debuffs" style="flex: 1; padding: 15px; background: transparent; border: none; border-bottom: 3px solid transparent; cursor: pointer; font-weight: bold; font-size: 1em; color: #7f8c8d; transition: all 0.2s;">💀 Debuffs</button>
+    <button class="effects-tab-btn" data-tab="buffs" style="flex: 1; padding: 15px; background: var(--bg-tertiary); border: none; border-bottom: 3px solid #27ae60; cursor: pointer; font-weight: bold; font-size: 1em; color: #27ae60; transition: all 0.2s;">✨ Buffs</button>
+    <button class="effects-tab-btn" data-tab="debuffs" style="flex: 1; padding: 15px; background: transparent; border: none; border-bottom: 3px solid transparent; cursor: pointer; font-weight: bold; font-size: 1em; color: var(--text-secondary); transition: all 0.2s;">💀 Debuffs</button>
   `;
 
   // Tab content container
@@ -11095,12 +11095,12 @@ function showEffectsModal() {
   buffsTab.dataset.tab = 'buffs';
   buffsTab.style.display = 'block';
   buffsTab.innerHTML = POSITIVE_EFFECTS.map(effect => `
-    <div class="effect-option" data-effect="${effect.name}" data-type="positive" style="padding: 12px; margin-bottom: 10px; border: 2px solid ${effect.color}40; border-radius: 8px; cursor: pointer; transition: all 0.2s; background: white;">
+    <div class="effect-option" data-effect="${effect.name}" data-type="positive" style="padding: 12px; margin-bottom: 10px; border: 2px solid ${effect.color}40; border-radius: 8px; cursor: pointer; transition: all 0.2s; background: var(--bg-secondary);">
       <div style="display: flex; align-items: center; gap: 12px;">
         <span class="effect-icon" style="font-size: 1.5em;">${effect.icon}</span>
         <div style="flex: 1;">
-          <div class="effect-name" style="font-weight: bold; color: #2c3e50; margin-bottom: 4px;">${effect.name}</div>
-          <div class="effect-description" style="font-size: 0.85em; color: #7f8c8d;">${effect.description}</div>
+          <div class="effect-name" style="font-weight: bold; color: var(--text-primary); margin-bottom: 4px;">${effect.name}</div>
+          <div class="effect-description" style="font-size: 0.85em; color: var(--text-secondary);">${effect.description}</div>
         </div>
       </div>
     </div>
@@ -11112,12 +11112,12 @@ function showEffectsModal() {
   debuffsTab.dataset.tab = 'debuffs';
   debuffsTab.style.display = 'none';
   debuffsTab.innerHTML = NEGATIVE_EFFECTS.map(effect => `
-    <div class="effect-option" data-effect="${effect.name}" data-type="negative" style="padding: 12px; margin-bottom: 10px; border: 2px solid ${effect.color}40; border-radius: 8px; cursor: pointer; transition: all 0.2s; background: white;">
+    <div class="effect-option" data-effect="${effect.name}" data-type="negative" style="padding: 12px; margin-bottom: 10px; border: 2px solid ${effect.color}40; border-radius: 8px; cursor: pointer; transition: all 0.2s; background: var(--bg-secondary);">
       <div style="display: flex; align-items: center; gap: 12px;">
         <span class="effect-icon" style="font-size: 1.5em;">${effect.icon}</span>
         <div style="flex: 1;">
-          <div class="effect-name" style="font-weight: bold; color: #2c3e50; margin-bottom: 4px;">${effect.name}</div>
-          <div class="effect-description" style="font-size: 0.85em; color: #7f8c8d;">${effect.description}</div>
+          <div class="effect-name" style="font-weight: bold; color: var(--text-primary); margin-bottom: 4px;">${effect.name}</div>
+          <div class="effect-description" style="font-size: 0.85em; color: var(--text-secondary);">${effect.description}</div>
         </div>
       </div>
     </div>
@@ -11144,7 +11144,7 @@ function showEffectsModal() {
       // Update button styles
       tabButtons.forEach(b => {
         if (b.dataset.tab === targetTab) {
-          b.style.background = 'white';
+          b.style.background = 'var(--bg-tertiary)';
           b.style.color = targetTab === 'buffs' ? '#27ae60' : '#e74c3c';
           b.style.borderBottom = `3px solid ${targetTab === 'buffs' ? '#27ae60' : '#e74c3c'}`;
         } else {
@@ -12886,7 +12886,7 @@ function showLuckyModal() {
 
   // Create modal content
   const modalContent = document.createElement('div');
-  modalContent.style.cssText = 'background: white; border-radius: 8px; padding: 20px; max-width: 400px; width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.3);';
+  modalContent.style.cssText = 'background: var(--bg-secondary); color: var(--text-primary); border-radius: 8px; padding: 20px; max-width: 400px; width: 90%; box-shadow: 0 4px 20px rgba(0,0,0,0.3);';
 
   modalContent.innerHTML = `
     <h3 style="margin: 0 0 15px 0; color: #f39c12;">🎖️ Use Lucky Point</h3>
