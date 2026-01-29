@@ -3644,6 +3644,12 @@ function buildResourcesDisplay() {
       debug.log(`⏭️ Skipping Lucky resource from display: ${resource.name}`);
       return;
     }
+
+    // Skip HP resources since HP has its own dedicated UI section
+    if (lowerName.includes('hit point') || lowerName === 'hp' || lowerName === 'health' || lowerName.includes('hitpoint')) {
+      debug.log(`⏭️ Skipping HP resource from display: ${resource.name}`);
+      return;
+    }
     
     debug.log(`📊 Displaying resource: ${resource.name} (${resource.current}/${resource.max})`);
     
