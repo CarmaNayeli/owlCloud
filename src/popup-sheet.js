@@ -208,6 +208,13 @@ window.addEventListener('message', async (event) => {
       // DO NOT load tabs for shared characters - show only this character
       // Skip loadAndBuildTabs() to prevent mixing with GM's own characters
 
+      // Hide the character tabs container since this is a standalone sheet
+      const tabsContainer = document.getElementById('character-tabs');
+      if (tabsContainer) {
+        tabsContainer.style.display = 'none';
+        debug.log('🔒 Hidden character tabs for standalone GM view');
+      }
+
       // Build the sheet directly with character data
       buildSheet(characterData);
 
