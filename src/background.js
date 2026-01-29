@@ -8,8 +8,13 @@ if (typeof importScripts === 'function' && (typeof chrome !== 'undefined' || typ
   // Service worker is at src/background.js, so paths are relative to src/ directory
   importScripts('./common/debug.js');
   importScripts('./lib/supabase-client.js');
-  // Note: action-executor.js uses ES6 modules and can't be loaded with importScripts
-  // Discord cast commands access it via globalThis from action-executor loaded in content scripts
+  // Load edge case modules first (they export to globalThis)
+  importScripts('./modules/spell-edge-cases.js');
+  importScripts('./modules/class-feature-edge-cases.js');
+  importScripts('./modules/racial-feature-edge-cases.js');
+  importScripts('./modules/combat-maneuver-edge-cases.js');
+  // Then load action-executor which depends on them
+  importScripts('./modules/action-executor.js');
 }
 
 debug.log('RollCloud: Background script starting...');

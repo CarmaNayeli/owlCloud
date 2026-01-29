@@ -9,7 +9,7 @@
  * - Custom properties for that category
  */
 
-export const CLASS_FEATURE_EDGE_CASES = {
+const CLASS_FEATURE_EDGE_CASES = {
   // ===== BARBARIAN FEATURES =====
   'rage': {
     type: 'resource_tracking',
@@ -977,7 +977,7 @@ export const CLASS_FEATURE_EDGE_CASES = {
 /**
  * Check if a class feature is an edge case
  */
-export function isClassFeatureEdgeCase(featureName) {
+function isClassFeatureEdgeCase(featureName) {
   if (!featureName) return false;
   const normalizedLowerName = featureName.toLowerCase()
     .replace(/[^a-z0-9\s:]/g, '') // Remove special chars except colon and space
@@ -1000,7 +1000,7 @@ export function isClassFeatureEdgeCase(featureName) {
 /**
  * Get class feature edge case configuration
  */
-export function getClassFeatureEdgeCase(featureName) {
+function getClassFeatureEdgeCase(featureName) {
   if (!featureName) return null;
   const normalizedLowerName = featureName.toLowerCase()
     .replace(/[^a-z0-9\s:]/g, '') // Remove special chars except colon and space
@@ -1023,7 +1023,7 @@ export function getClassFeatureEdgeCase(featureName) {
 /**
  * Get all class features of a specific edge case type
  */
-export function getClassFeaturesByType(type) {
+function getClassFeaturesByType(type) {
   return Object.entries(CLASS_FEATURE_EDGE_CASES)
     .filter(([name, config]) => config.type === type)
     .map(([name, config]) => ({ name, ...config }));
@@ -1032,7 +1032,7 @@ export function getClassFeaturesByType(type) {
 /**
  * Get all class feature edge case types
  */
-export function getAllClassFeatureEdgeCaseTypes() {
+function getAllClassFeatureEdgeCaseTypes() {
   const types = new Set();
   Object.values(CLASS_FEATURE_EDGE_CASES).forEach(config => {
     types.add(config.type);
@@ -1043,7 +1043,7 @@ export function getAllClassFeatureEdgeCaseTypes() {
 /**
  * Apply class feature edge case modifications to action options
  */
-export function applyClassFeatureEdgeCaseModifications(feature, options) {
+function applyClassFeatureEdgeCaseModifications(feature, options) {
   const edgeCase = getClassFeatureEdgeCase(feature.name);
   if (!edgeCase) {
     return { options, skipNormalButtons: false };
@@ -1128,4 +1128,14 @@ export function applyClassFeatureEdgeCaseModifications(feature, options) {
   }
 
   return { options: modifiedOptions, skipNormalButtons };
+}
+
+// Expose to globalThis for importScripts usage
+if (typeof globalThis !== 'undefined') {
+  globalThis.CLASS_FEATURE_EDGE_CASES = CLASS_FEATURE_EDGE_CASES;
+  globalThis.isClassFeatureEdgeCase = isClassFeatureEdgeCase;
+  globalThis.getClassFeatureEdgeCase = getClassFeatureEdgeCase;
+  globalThis.applyClassFeatureEdgeCaseModifications = applyClassFeatureEdgeCaseModifications;
+  globalThis.getClassFeaturesByType = getClassFeaturesByType;
+  globalThis.getAllClassFeatureEdgeCaseTypes = getAllClassFeatureEdgeCaseTypes;
 }

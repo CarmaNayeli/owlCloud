@@ -5,7 +5,7 @@
  * beyond standard attack/damage/healing buttons.
  */
 
-export const RACIAL_FEATURE_EDGE_CASES = {
+const RACIAL_FEATURE_EDGE_CASES = {
   // ===== HALFLING FEATURES =====
   'lucky': {
     type: 'reroll',
@@ -628,7 +628,7 @@ export const RACIAL_FEATURE_EDGE_CASES = {
 /**
  * Check if a racial feature is an edge case
  */
-export function isRacialFeatureEdgeCase(featureName) {
+function isRacialFeatureEdgeCase(featureName) {
   if (!featureName) return false;
   const lowerName = featureName.toLowerCase().trim();
   return RACIAL_FEATURE_EDGE_CASES.hasOwnProperty(lowerName);
@@ -637,7 +637,7 @@ export function isRacialFeatureEdgeCase(featureName) {
 /**
  * Get racial feature edge case configuration
  */
-export function getRacialFeatureEdgeCase(featureName) {
+function getRacialFeatureEdgeCase(featureName) {
   if (!featureName) return null;
   const lowerName = featureName.toLowerCase().trim();
   return RACIAL_FEATURE_EDGE_CASES[lowerName] || null;
@@ -646,7 +646,7 @@ export function getRacialFeatureEdgeCase(featureName) {
 /**
  * Apply racial feature edge case modifications to action options
  */
-export function applyRacialFeatureEdgeCaseModifications(feature, options) {
+function applyRacialFeatureEdgeCaseModifications(feature, options) {
   const edgeCase = getRacialFeatureEdgeCase(feature.name);
   if (!edgeCase) {
     return { options, skipNormalButtons: false };
@@ -734,4 +734,12 @@ export function applyRacialFeatureEdgeCaseModifications(feature, options) {
   }
 
   return { options: modifiedOptions, skipNormalButtons };
+}
+
+// Expose to globalThis for importScripts usage
+if (typeof globalThis !== 'undefined') {
+  globalThis.RACIAL_FEATURE_EDGE_CASES = RACIAL_FEATURE_EDGE_CASES;
+  globalThis.isRacialFeatureEdgeCase = isRacialFeatureEdgeCase;
+  globalThis.getRacialFeatureEdgeCase = getRacialFeatureEdgeCase;
+  globalThis.applyRacialFeatureEdgeCaseModifications = applyRacialFeatureEdgeCaseModifications;
 }

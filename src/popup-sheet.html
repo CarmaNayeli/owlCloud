@@ -1315,6 +1315,13 @@
 
   <script src="common/browser-polyfill.js"></script>
   <script src="common/debug.js"></script>
+  <!-- Load edge case modules (no type="module" so they export to globalThis) -->
+  <script src="modules/spell-edge-cases.js"></script>
+  <script src="modules/class-feature-edge-cases.js"></script>
+  <script src="modules/racial-feature-edge-cases.js"></script>
+  <script src="modules/combat-maneuver-edge-cases.js"></script>
+  <script src="modules/action-executor.js"></script>
+  <!-- Load modules that need ES6 features -->
   <script type="module" src="common/theme-manager.js"></script>
   <script type="module" src="modules/color-utils.js"></script>
   <script type="module" src="modules/card-creator.js"></script>

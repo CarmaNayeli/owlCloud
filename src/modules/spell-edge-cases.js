@@ -2,7 +2,7 @@
 // Note: debug utility is available globally via window.debug from debug.js
 // Handles special spell mechanics that need custom behavior
 
-export const SPELL_EDGE_CASES = {
+const SPELL_EDGE_CASES = {
   // Healing spells that should announce when used
   'cure wounds': {
     type: 'healing_announcement',
@@ -353,13 +353,13 @@ export const SPELL_EDGE_CASES = {
 };
 
 // Check if a spell has an edge case
-export function isEdgeCase(spellName) {
+function isEdgeCase(spellName) {
   if (!spellName) return false;
   return SPELL_EDGE_CASES.hasOwnProperty(spellName.toLowerCase());
 }
 
 // Get edge case configuration for a spell
-export function getEdgeCase(spellName, ruleset = null) {
+function getEdgeCase(spellName, ruleset = null) {
   if (!spellName) return null;
   const lowerName = spellName.toLowerCase();
   
@@ -374,7 +374,7 @@ export function getEdgeCase(spellName, ruleset = null) {
 }
 
 // Apply edge case modifications to spell options
-export function applyEdgeCaseModifications(spell, options, characterData = null) {
+function applyEdgeCaseModifications(spell, options, characterData = null) {
   // Detect ruleset from character data if not provided
   const ruleset = characterData ? detectRulesetFromCharacterData(characterData) : '2014';
   const edgeCase = getEdgeCase(spell.name, ruleset);
@@ -434,21 +434,21 @@ export function applyEdgeCaseModifications(spell, options, characterData = null)
 }
 
 // Check if a spell is reusable
-export function isReuseableSpell(spellName, characterData = null) {
+function isReuseableSpell(spellName, characterData = null) {
   const ruleset = characterData ? detectRulesetFromCharacterData(characterData) : '2014';
   const edgeCase = getEdgeCase(spellName, ruleset);
   return edgeCase && edgeCase.type === 'reusable';
 }
 
 // Check if a spell is too complicated
-export function isTooComplicatedSpell(spellName, characterData = null) {
+function isTooComplicatedSpell(spellName, characterData = null) {
   const ruleset = characterData ? detectRulesetFromCharacterData(characterData) : '2014';
   const edgeCase = getEdgeCase(spellName, ruleset);
   return edgeCase && edgeCase.type === 'too_complicated';
 }
 
 // Detect ruleset from character data (shared function)
-export function detectRulesetFromCharacterData(characterData) {
+function detectRulesetFromCharacterData(characterData) {
   if (!characterData) return '2014'; // Default to 2014
   
   // Check for 2024-specific features or changes
@@ -495,4 +495,15 @@ export function detectRulesetFromCharacterData(characterData) {
   // Default to 2014
   debug.log('🔍 Defaulting to 2014 ruleset');
   return '2014';
+}
+
+// Expose to globalThis for importScripts usage
+if (typeof globalThis !== 'undefined') {
+  globalThis.SPELL_EDGE_CASES = SPELL_EDGE_CASES;
+  globalThis.isEdgeCase = isEdgeCase;
+  globalThis.getEdgeCase = getEdgeCase;
+  globalThis.applyEdgeCaseModifications = applyEdgeCaseModifications;
+  globalThis.isReuseableSpell = isReuseableSpell;
+  globalThis.isTooComplicatedSpell = isTooComplicatedSpell;
+  globalThis.detectRulesetFromCharacterData = detectRulesetFromCharacterData;
 }

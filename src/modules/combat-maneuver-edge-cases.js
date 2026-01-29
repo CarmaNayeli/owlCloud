@@ -5,7 +5,7 @@
  * that need special handling beyond standard attack/damage/healing buttons.
  */
 
-export const COMBAT_MANEUVER_EDGE_CASES = {
+const COMBAT_MANEUVER_EDGE_CASES = {
   // ===== STANDARD COMBAT ACTIONS =====
   'grapple': {
     type: 'contest_check',
@@ -541,7 +541,7 @@ export const COMBAT_MANEUVER_EDGE_CASES = {
 /**
  * Check if a combat maneuver is an edge case
  */
-export function isCombatManeuverEdgeCase(maneuverName) {
+function isCombatManeuverEdgeCase(maneuverName) {
   if (!maneuverName) return false;
   const lowerName = maneuverName.toLowerCase().trim();
   return COMBAT_MANEUVER_EDGE_CASES.hasOwnProperty(lowerName);
@@ -550,7 +550,7 @@ export function isCombatManeuverEdgeCase(maneuverName) {
 /**
  * Get combat maneuver edge case configuration
  */
-export function getCombatManeuverEdgeCase(maneuverName) {
+function getCombatManeuverEdgeCase(maneuverName) {
   if (!maneuverName) return null;
   const lowerName = maneuverName.toLowerCase().trim();
   return COMBAT_MANEUVER_EDGE_CASES[lowerName] || null;
@@ -559,7 +559,7 @@ export function getCombatManeuverEdgeCase(maneuverName) {
 /**
  * Apply combat maneuver edge case modifications to action options
  */
-export function applyCombatManeuverEdgeCaseModifications(maneuver, options) {
+function applyCombatManeuverEdgeCaseModifications(maneuver, options) {
   const edgeCase = getCombatManeuverEdgeCase(maneuver.name);
   if (!edgeCase) {
     return { options, skipNormalButtons: false };
@@ -649,4 +649,12 @@ export function applyCombatManeuverEdgeCaseModifications(maneuver, options) {
   }
 
   return { options: modifiedOptions, skipNormalButtons };
+}
+
+// Expose to globalThis for importScripts usage
+if (typeof globalThis !== 'undefined') {
+  globalThis.COMBAT_MANEUVER_EDGE_CASES = COMBAT_MANEUVER_EDGE_CASES;
+  globalThis.isCombatManeuverEdgeCase = isCombatManeuverEdgeCase;
+  globalThis.getCombatManeuverEdgeCase = getCombatManeuverEdgeCase;
+  globalThis.applyCombatManeuverEdgeCaseModifications = applyCombatManeuverEdgeCaseModifications;
 }

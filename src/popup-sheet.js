@@ -1,7 +1,8 @@
 debug.log('✅ Popup HTML loaded');
 
-// Import all D&D logic from centralized action executor
-import {
+// Access D&D logic from window (loaded via script tags in popup-sheet.html)
+// Edge case modules and action-executor.js are loaded as regular scripts before this module
+const {
   // Spell edge cases
   SPELL_EDGE_CASES, isEdgeCase, getEdgeCase, applyEdgeCaseModifications, isReuseableSpell, isTooComplicatedSpell,
   // Class feature edge cases
@@ -12,14 +13,14 @@ import {
   COMBAT_MANEUVER_EDGE_CASES, isCombatManeuverEdgeCase, getCombatManeuverEdgeCase, applyCombatManeuverEdgeCaseModifications,
   // Metamagic & resource logic
   METAMAGIC_COSTS,
-  calculateMetamagicCost as executorCalculateMetamagicCost,
-  getAvailableMetamagic as executorGetAvailableMetamagic,
-  getSorceryPointsResource as executorGetSorceryPointsResource,
+  calculateMetamagicCost: executorCalculateMetamagicCost,
+  getAvailableMetamagic: executorGetAvailableMetamagic,
+  getSorceryPointsResource: executorGetSorceryPointsResource,
   isMagicItemSpell, isFreeSpell,
-  detectClassResources as executorDetectClassResources,
+  detectClassResources: executorDetectClassResources,
   // Execution functions
   resolveSpellCast, resolveActionUse
-} from './modules/action-executor.js';
+} = window;
 
 // Initialize theme manager
 if (typeof ThemeManager !== 'undefined') {

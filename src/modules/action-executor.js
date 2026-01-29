@@ -10,69 +10,17 @@
  *   - Execution functions that return { text, rolls, effects }
  *
  * Consumers:
- *   - popup-sheet.js (UI rendering + Roll20 posting)
- *   - roll20.js / background.js (Discord command execution)
+ *   - popup-sheet.html (loads edge cases as scripts, then this file)
+ *   - background.js (service worker loads edge cases via importScripts, then this file)
  *
  * All functions accept characterData as a parameter (no closures/globals).
+ *
+ * Note: Edge case modules must be loaded BEFORE this file:
+ *   - popup-sheet.html: loads via <script> tags
+ *   - background.js: loads via importScripts()
  */
 
-// ===== RE-EXPORT ALL EDGE CASE MODULES =====
-export {
-  SPELL_EDGE_CASES,
-  isEdgeCase,
-  getEdgeCase,
-  applyEdgeCaseModifications,
-  isReuseableSpell,
-  isTooComplicatedSpell,
-  detectRulesetFromCharacterData
-} from './spell-edge-cases.js';
-
-export {
-  CLASS_FEATURE_EDGE_CASES,
-  isClassFeatureEdgeCase,
-  getClassFeatureEdgeCase,
-  applyClassFeatureEdgeCaseModifications,
-  getClassFeaturesByType,
-  getAllClassFeatureEdgeCaseTypes
-} from './class-feature-edge-cases.js';
-
-export {
-  RACIAL_FEATURE_EDGE_CASES,
-  isRacialFeatureEdgeCase,
-  getRacialFeatureEdgeCase,
-  applyRacialFeatureEdgeCaseModifications
-} from './racial-feature-edge-cases.js';
-
-export {
-  COMBAT_MANEUVER_EDGE_CASES,
-  isCombatManeuverEdgeCase,
-  getCombatManeuverEdgeCase,
-  applyCombatManeuverEdgeCaseModifications
-} from './combat-maneuver-edge-cases.js';
-
-// Import edge case functions for internal use
-import {
-  isClassFeatureEdgeCase,
-  applyClassFeatureEdgeCaseModifications
-} from './class-feature-edge-cases.js';
-
-import {
-  isRacialFeatureEdgeCase,
-  applyRacialFeatureEdgeCaseModifications
-} from './racial-feature-edge-cases.js';
-
-import {
-  isCombatManeuverEdgeCase,
-  applyCombatManeuverEdgeCaseModifications
-} from './combat-maneuver-edge-cases.js';
-
-import {
-  isEdgeCase,
-  getEdgeCase,
-  applyEdgeCaseModifications,
-  isReuseableSpell,
-  isTooComplicatedSpell
-} from './spell-edge-cases.js';
+// Edge case functions are available on globalThis/window from previously loaded modules
 
 
 // ===== METAMAGIC SYSTEM =====
@@ -80,7 +28,7 @@ import {
 /**
  * Official Sorcerer metamagic costs (in sorcery points)
  */
-export const METAMAGIC_COSTS = {
+const METAMAGIC_COSTS = {
   'Careful Spell': 1,
   'Distant Spell': 1,
   'Empowered Spell': 1,
@@ -97,7 +45,7 @@ export const METAMAGIC_COSTS = {
  * @param {number} spellLevel - Level of the spell being cast
  * @returns {number} Cost in sorcery points
  */
-export function calculateMetamagicCost(metamagicName, spellLevel) {
+function calculateMetamagicCost(metamagicName, spellLevel) {
   const cost = METAMAGIC_COSTS[metamagicName];
   if (cost === 'variable') {
     // Twinned Spell costs spell level (minimum 1 for cantrips)
@@ -111,7 +59,7 @@ export function calculateMetamagicCost(metamagicName, spellLevel) {
  * @param {Object} characterData - Full character data object
  * @returns {Array<{name: string, cost: number|string, description: string}>}
  */
-export function getAvailableMetamagic(characterData) {
+function getAvailableMetamagic(characterData) {
   if (!characterData || !characterData.features) {
     return [];
   }
@@ -150,7 +98,7 @@ export function getAvailableMetamagic(characterData) {
  * @param {Object} characterData - Full character data object
  * @returns {Object|null} Resource object with { name, current, max } or null
  */
-export function getSorceryPointsResource(characterData) {
+function getSorceryPointsResource(characterData) {
   if (!characterData || !characterData.resources) {
     return null;
   }
@@ -176,7 +124,7 @@ export function getSorceryPointsResource(characterData) {
  * @param {Object} spell - Spell data object
  * @returns {boolean}
  */
-export function isMagicItemSpell(spell) {
+function isMagicItemSpell(spell) {
   if (!spell.source) return false;
   const src = spell.source.toLowerCase();
   return (
@@ -204,7 +152,7 @@ export function isMagicItemSpell(spell) {
  * @param {Object} spell - Spell data object
  * @returns {boolean}
  */
-export function isFreeSpell(spell) {
+function isFreeSpell(spell) {
   return !!(
     spell.resources &&
     spell.resources.itemsConsumed &&
@@ -217,7 +165,7 @@ export function isFreeSpell(spell) {
  * @param {Object} characterData - Full character data object
  * @returns {Array<{name: string, current: number, max: number, varName: string, variableName: string}>}
  */
-export function detectClassResources(characterData) {
+function detectClassResources(characterData) {
   const resources = [];
   const otherVars = (characterData && characterData.otherVariables) || {};
 
@@ -297,7 +245,7 @@ export function detectClassResources(characterData) {
  * @param {Object} [characterData] - Character data (used for ruleset detection in edge cases)
  * @returns {{ options: Array, skipNormalButtons: boolean }}
  */
-export function getActionOptions(action, characterData = null) {
+function getActionOptions(action, characterData = null) {
   const options = [];
 
   // Check for attack
@@ -380,7 +328,7 @@ export function getActionOptions(action, characterData = null) {
  * @param {boolean} [options.skipSlotConsumption] - Skip slot usage (concentration recast)
  * @returns {{ text: string, rolls: Array, effects: Array, slotUsed: Object|null, metamagicUsed: Array, isCantrip: boolean, isFreecast: boolean, resourceChanges: Array }}
  */
-export function resolveSpellCast(spell, characterData, options = {}) {
+function resolveSpellCast(spell, characterData, options = {}) {
   const {
     selectedSlotLevel = null,
     selectedMetamagic = [],
@@ -548,7 +496,7 @@ export function resolveSpellCast(spell, characterData, options = {}) {
  * @param {Object} characterData - Full character data
  * @returns {{ text: string, rolls: Array, effects: Array, edgeCase: Object|null }}
  */
-export function resolveActionUse(action, characterData = null) {
+function resolveActionUse(action, characterData = null) {
   const result = {
     text: `${action.name}`,
     rolls: [],
@@ -591,7 +539,7 @@ export function resolveActionUse(action, characterData = null) {
  * @param {Object|string} rawCharacterData - Character data (object or JSON string)
  * @returns {{ spells: Array<{name, baseLevel, upcastable, maxUpcastLevel, edgeOverride, edgeCaseType, concentration, school, castingTime, range, components, duration, hasAttack, hasDamage, hasHealing}>, metamagic: Array<{name, cost}>, maxSpellSlotLevel: number }}
  */
-export function prepareSpellsForDiscord(rawCharacterData) {
+function prepareSpellsForDiscord(rawCharacterData) {
   const data = typeof rawCharacterData === 'string'
     ? JSON.parse(rawCharacterData)
     : rawCharacterData;
@@ -662,7 +610,7 @@ export function prepareSpellsForDiscord(rawCharacterData) {
  * @param {Object|string} rawCharacterData - Character data (object or JSON string)
  * @returns {{ actions: Array<{name, actionType, hasAttack, hasDamage, hasHealing, edgeOverride, edgeCaseType, range, description}> }}
  */
-export function prepareActionsForDiscord(rawCharacterData) {
+function prepareActionsForDiscord(rawCharacterData) {
   const data = typeof rawCharacterData === 'string'
     ? JSON.parse(rawCharacterData)
     : rawCharacterData;
@@ -703,7 +651,7 @@ export function prepareActionsForDiscord(rawCharacterData) {
  * @param {Object} characterData - Full character data from raw_dicecloud_data
  * @returns {{ text: string, rolls: Array, effects: Array, slotUsed: Object|null, metamagicUsed: Array, embed: Object }}
  */
-export function executeDiscordCast(commandData, characterData) {
+function executeDiscordCast(commandData, characterData) {
   const spell = commandData.spell_data || {};
   const castLevel = commandData.cast_level || commandData.spell_level || spell.level;
   const charName = commandData.character_name || 'Character';
@@ -763,7 +711,7 @@ export function executeDiscordCast(commandData, characterData) {
  * @param {Object} characterData - Full character data from raw_dicecloud_data
  * @returns {{ text: string, rolls: Array, effects: Array, edgeCase: Object|null, embed: Object }}
  */
-export function executeDiscordAction(commandData, characterData) {
+function executeDiscordAction(commandData, characterData) {
   const action = commandData.action_data || {};
   const charName = commandData.character_name || 'Character';
 
@@ -858,13 +806,55 @@ function formatActionSummary(action) {
   return desc || 'Action sent to Roll20.';
 }
 
-// Make executeDiscordCast and executeDiscordAction globally available for importScripts usage
+// Expose all functions and constants to globalThis for importScripts usage
 if (typeof globalThis !== 'undefined') {
-  globalThis.executeDiscordCast = executeDiscordCast;
-  globalThis.executeDiscordAction = executeDiscordAction;
-  // Also expose other commonly used functions
+  // Edge case modules (re-exported from the individual edge case files)
+  globalThis.SPELL_EDGE_CASES = globalThis.SPELL_EDGE_CASES;
+  globalThis.isEdgeCase = globalThis.isEdgeCase;
+  globalThis.getEdgeCase = globalThis.getEdgeCase;
+  globalThis.applyEdgeCaseModifications = globalThis.applyEdgeCaseModifications;
+  globalThis.isReuseableSpell = globalThis.isReuseableSpell;
+  globalThis.isTooComplicatedSpell = globalThis.isTooComplicatedSpell;
+  globalThis.detectRulesetFromCharacterData = globalThis.detectRulesetFromCharacterData;
+
+  globalThis.CLASS_FEATURE_EDGE_CASES = globalThis.CLASS_FEATURE_EDGE_CASES;
+  globalThis.isClassFeatureEdgeCase = globalThis.isClassFeatureEdgeCase;
+  globalThis.getClassFeatureEdgeCase = globalThis.getClassFeatureEdgeCase;
+  globalThis.applyClassFeatureEdgeCaseModifications = globalThis.applyClassFeatureEdgeCaseModifications;
+  globalThis.getClassFeaturesByType = globalThis.getClassFeaturesByType;
+  globalThis.getAllClassFeatureEdgeCaseTypes = globalThis.getAllClassFeatureEdgeCaseTypes;
+
+  globalThis.RACIAL_FEATURE_EDGE_CASES = globalThis.RACIAL_FEATURE_EDGE_CASES;
+  globalThis.isRacialFeatureEdgeCase = globalThis.isRacialFeatureEdgeCase;
+  globalThis.getRacialFeatureEdgeCase = globalThis.getRacialFeatureEdgeCase;
+  globalThis.applyRacialFeatureEdgeCaseModifications = globalThis.applyRacialFeatureEdgeCaseModifications;
+
+  globalThis.COMBAT_MANEUVER_EDGE_CASES = globalThis.COMBAT_MANEUVER_EDGE_CASES;
+  globalThis.isCombatManeuverEdgeCase = globalThis.isCombatManeuverEdgeCase;
+  globalThis.getCombatManeuverEdgeCase = globalThis.getCombatManeuverEdgeCase;
+  globalThis.applyCombatManeuverEdgeCaseModifications = globalThis.applyCombatManeuverEdgeCaseModifications;
+
+  // Metamagic system
+  globalThis.METAMAGIC_COSTS = METAMAGIC_COSTS;
+  globalThis.calculateMetamagicCost = calculateMetamagicCost;
+  globalThis.getAvailableMetamagic = getAvailableMetamagic;
+  globalThis.getSorceryPointsResource = getSorceryPointsResource;
+
+  // Resource detection
+  globalThis.isMagicItemSpell = isMagicItemSpell;
+  globalThis.isFreeSpell = isFreeSpell;
+  globalThis.detectClassResources = detectClassResources;
+
+  // Action options
+  globalThis.getActionOptions = getActionOptions;
+
+  // Spell execution
   globalThis.resolveSpellCast = resolveSpellCast;
   globalThis.resolveActionUse = resolveActionUse;
-  globalThis.getAvailableMetamagic = getAvailableMetamagic;
-  globalThis.calculateMetamagicCost = calculateMetamagicCost;
+
+  // Discord integration
+  globalThis.prepareSpellsForDiscord = prepareSpellsForDiscord;
+  globalThis.prepareActionsForDiscord = prepareActionsForDiscord;
+  globalThis.executeDiscordCast = executeDiscordCast;
+  globalThis.executeDiscordAction = executeDiscordAction;
 }
