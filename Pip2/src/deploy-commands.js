@@ -67,7 +67,7 @@ const rest = new REST().setToken(process.env.DISCORD_TOKEN);
     // The put method is used to fully refresh all commands with timeout
     const deployPromise = rest.put(route, { body: commands });
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Deployment timed out after 30 seconds')), 30000)
+      setTimeout(() => reject(new Error('Deployment timed out after 2 minutes')), 120000)
     );
 
     const data = await Promise.race([deployPromise, timeoutPromise]);
