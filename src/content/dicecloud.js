@@ -1118,9 +1118,33 @@
           }
 
           // Extract features, especially those with rolls (like Sneak Attack)
+          // Extract summary and description separately
+          let featureSummary = '';
+          if (prop.summary) {
+            if (typeof prop.summary === 'object' && prop.summary.value) {
+              featureSummary = prop.summary.value;
+            } else if (typeof prop.summary === 'object' && prop.summary.text) {
+              featureSummary = prop.summary.text;
+            } else if (typeof prop.summary === 'string') {
+              featureSummary = prop.summary;
+            }
+          }
+
+          let featureDescription = '';
+          if (prop.description) {
+            if (typeof prop.description === 'object' && prop.description.value) {
+              featureDescription = prop.description.value;
+            } else if (typeof prop.description === 'object' && prop.description.text) {
+              featureDescription = prop.description.text;
+            } else if (typeof prop.description === 'string') {
+              featureDescription = prop.description;
+            }
+          }
+
           const feature = {
             name: prop.name || 'Unnamed Feature',
-            description: prop.description || '',
+            summary: featureSummary, // Preserve summary separately
+            description: featureDescription, // Preserve description separately
             uses: prop.uses,
             roll: prop.roll || '',
             damage: prop.damage || ''
@@ -1147,7 +1171,8 @@
               attackRoll: '',
               damage: feature.damage || feature.roll,
               damageType: '',
-              description: feature.description
+              summary: feature.summary, // Preserve summary separately
+              description: feature.description // Preserve description separately
             });
             debug.log(`⚔️ Added feature with roll to actions: ${feature.name}`);
           }
@@ -1218,36 +1243,57 @@
               }
               if (child.type === 'feature' || child.type === 'damage' || child.type === 'effect') {
                 // Extract description from summary or description field
+                let childSummary = '';
                 let childDescription = '';
+                
+                // Extract summary
                 if (child.summary) {
                   if (typeof child.summary === 'object' && child.summary.text) {
-                    childDescription = child.summary.text;
+                    childSummary = child.summary.text;
+                  } else if (typeof child.summary === 'object' && child.summary.value) {
+                    childSummary = child.summary.value;
                   } else if (typeof child.summary === 'string') {
-                    childDescription = child.summary;
+                    childSummary = child.summary;
                   }
-                } else if (child.description) {
+                }
+                
+                // Extract description
+                if (child.description) {
                   if (typeof child.description === 'object' && child.description.text) {
                     childDescription = child.description.text;
+                  } else if (typeof child.description === 'object' && child.description.value) {
+                    childDescription = child.description.value;
                   } else if (typeof child.description === 'string') {
                     childDescription = child.description;
                   }
                 }
 
-                // Fallback to parent description if child has none
-                if (!childDescription && prop.summary) {
+                // Fallback to parent summary if child has none
+                if (!childSummary && prop.summary) {
                   if (typeof prop.summary === 'object' && prop.summary.text) {
-                    childDescription = prop.summary.text;
+                    childSummary = prop.summary.text;
+                  } else if (typeof prop.summary === 'object' && prop.summary.value) {
+                    childSummary = prop.summary.value;
                   } else if (typeof prop.summary === 'string') {
-                    childDescription = prop.summary;
+                    childSummary = prop.summary;
                   }
                 }
+                
+                // Fallback to parent description if child has none
                 if (!childDescription && prop.description) {
                   if (typeof prop.description === 'object' && prop.description.text) {
                     childDescription = prop.description.text;
+                  } else if (typeof prop.description === 'object' && prop.description.value) {
+                    childDescription = prop.description.value;
                   } else if (typeof prop.description === 'string') {
                     childDescription = prop.description;
                   }
                 }
+
+                // For backward compatibility, combine them for childDescription
+                const combinedChildDescription = childSummary && childDescription 
+                  ? childSummary + '\n\n' + childDescription 
+                  : childSummary || childDescription || '';
 
                 // Extract damage/roll value based on property type
                 let damageValue = '';
@@ -1279,7 +1325,8 @@
 
                 const toggleFeature = {
                   name: child.name || prop.name || 'Unnamed Feature',
-                  description: childDescription,
+                  summary: childSummary, // Preserve summary separately
+                  description: childDescription, // Preserve description separately
                   uses: child.uses || prop.uses,
                   roll: rollValue,
                   damage: damageValue
@@ -1317,7 +1364,8 @@
                     attackRoll: '',
                     damage: toggleFeature.damage || toggleFeature.roll,
                     damageType: child.damageType || '',
-                    description: toggleFeature.description
+                    summary: toggleFeature.summary, // Preserve summary separately
+                    description: toggleFeature.description // Preserve description separately
                   });
 
                   if (toggleFeature.damage || toggleFeature.roll) {
@@ -1688,18 +1736,19 @@
 
           // Check description for additional patterns
           if (description) {
-            // Look for spell attack patterns like "ranged spell attack", "melee spell attack", "attack roll", etc.
+            // Look for spell attack patterns like "make a ranged spell attack roll", "make a melee spell attack", etc.
             // Check this even if damage is already found, since many spells have both
             const lowerDesc = description.toLowerCase();
             debug.log(`  🔍 Checking description for spell attack (attackRoll currently: "${attackRoll}")`);
-            // Use specific patterns to avoid false positives (like Shield's "triggering attack")
-            // Match: "spell attack" or "attack roll" with word boundaries
+            // Use specific patterns to avoid false positives (like Shield's "triggering attack" or "when hit by an attack roll")
+            // Match: "make" within 5 words before "spell attack" or "attack roll"
+            // This catches "make a ranged spell attack roll" but not "when hit by an attack roll"
             // Exception: Shield specifically should never have attack button
             const isShield = prop.name && prop.name.toLowerCase() === 'shield';
-            const hasAttackMention = /\b(spell attack|attack roll)\b/i.test(description);
+            const hasAttackMention = /\bmake\s+(?:\w+\s+){0,4}(spell attack|attack roll)\b/i.test(description);
             if (!attackRoll && hasAttackMention && !isShield) {
               attackRoll = 'use_spell_attack_bonus'; // Flag to use calculated spell attack bonus
-              debug.log(`  💡 Found attack pattern in description, marking for spell attack bonus`);
+              debug.log(`  💡 Found 'make' + attack pattern in description, marking for spell attack bonus`);
             } else if (!attackRoll) {
               debug.log(`  ⚠️ No attack pattern found in description for "${prop.name}"`);
             } else if (isShield && attackRoll) {
@@ -1951,7 +2000,9 @@
             range: cleanRange,
             components: prop.components || '',
             duration: prop.duration || '',
-            description: fullDescription,
+            summary: summary, // Preserve summary separately
+            description: description, // Preserve description separately
+            fullDescription: fullDescription, // Keep combined version for backward compatibility
             prepared: prop.prepared || false,
             source: source,
             concentration: prop.concentration || false,
@@ -2167,7 +2218,8 @@
                 attackRoll: attackRoll,
                 damage: damage,
                 damageType: damageType,
-                description: description,
+                summary: summary, // Preserve summary separately
+                description: description, // Preserve description separately
                 uses: prop.uses || null,
                 usesUsed: prop.usesUsed || 0,
                 usesLeft: prop.usesLeft, // DiceCloud's computed uses remaining field

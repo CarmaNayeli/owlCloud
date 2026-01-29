@@ -749,6 +749,33 @@ function setAdvantageState(state) {
 
   debug.log(`🎲 Advantage state set to: ${state}`);
   showNotification(`🎲 ${state === 'advantage' ? 'Advantage' : state === 'disadvantage' ? 'Disadvantage' : 'Normal'} rolls selected`);
+
+  // Announce advantage state change to Roll20
+  const stateEmoji = state === 'advantage' ? '🎯' : state === 'disadvantage' ? '🎲' : '⚖️';
+  const announcement = `&{template:default} {{name=${getColoredBanner()}${characterData.name} sets roll mode}} {{${stateEmoji}=${state === 'advantage' ? 'Advantage' : state === 'disadvantage' ? 'Disadvantage' : 'Normal'} rolls selected}}`;
+  const messageData = {
+    action: 'announceSpell',
+    message: announcement,
+    color: characterData.notificationColor
+  };
+
+  // Send to Roll20
+  if (window.opener && !window.opener.closed) {
+    try {
+      window.opener.postMessage(messageData, '*');
+    } catch (error) {
+      debug.warn('⚠️ Could not send advantage state via window.opener:', error.message);
+      browserAPI.runtime.sendMessage({
+        action: 'relayRollToRoll20',
+        roll: messageData
+      });
+    }
+  } else {
+    browserAPI.runtime.sendMessage({
+      action: 'relayRollToRoll20',
+      roll: messageData
+    });
+  }
 }
 
 function buildSheet(data) {
@@ -2046,6 +2073,7 @@ function buildActionsDisplay(container, actions) {
       buttonsDiv.appendChild(actionBtn);
     } else {
       // Create buttons for each action option
+      let actionAnnounced = false; // Track if action has been announced
       actionOptions.forEach((option, optionIndex) => {
         const actionBtn = document.createElement('button');
         actionBtn.className = `${option.type}-btn`;
@@ -2107,6 +2135,12 @@ function buildActionsDisplay(container, actions) {
             return;
           }
           
+          // Announce the action on the FIRST button click only
+          if (!actionAnnounced) {
+            announceAction(action);
+            actionAnnounced = true;
+          }
+          
           // Handle different option types
           if (option.type === 'attack') {
             // Mark action as used for attacks
@@ -2124,9 +2158,6 @@ function buildActionsDisplay(container, actions) {
               attackFormula += `+${elementalWeaponDamage}`;
               debug.log(`⚔️ Adding Elemental Weapon to ${action.name}: ${attackFormula}`);
             }
-            
-            // Announce the action with full details (description, level, action type, etc.)
-            announceAction(action);
             
             roll(`${action.name} Attack`, attackFormula);
           } else if (option.type === 'healing' || option.type === 'temphp' || option.type === 'damage') {
@@ -2176,11 +2207,6 @@ function buildActionsDisplay(container, actions) {
             // Check and decrement other resources (Wild Shape, Breath Weapon, etc.)
             if (!decrementActionResources(action)) {
               return; // Not enough resources
-            }
-
-            // Always announce the action if it has a description
-            if (action.description) {
-              announceAction(action);
             }
 
             // Roll the damage/healing
@@ -4223,9 +4249,12 @@ function showHPModal() {
 
     <div style="margin-bottom: 25px;">
       <label style="display: block; margin-bottom: 10px; font-weight: bold; color: #2c3e50;">Action:</label>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
         <button id="hp-toggle-heal" style="padding: 12px; font-size: 0.9em; font-weight: bold; border: 2px solid #27ae60; background: #27ae60; color: white; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
           💚 Heal
+        </button>
+        <button id="hp-toggle-damage" style="padding: 12px; font-size: 0.9em; font-weight: bold; border: 2px solid #bdc3c7; background: white; color: #7f8c8d; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
+          💔 Damage
         </button>
         <button id="hp-toggle-temp" style="padding: 12px; font-size: 0.9em; font-weight: bold; border: 2px solid #bdc3c7; background: white; color: #7f8c8d; border-radius: 6px; cursor: pointer; transition: all 0.2s;">
           🛡️ Temp HP
@@ -4246,10 +4275,11 @@ function showHPModal() {
   modal.appendChild(modalContent);
   document.body.appendChild(modal);
 
-  // Toggle state: 'heal' or 'temp'
+  // Toggle state: 'heal', 'damage', or 'temp'
   let actionType = 'heal';
 
   const healBtn = document.getElementById('hp-toggle-heal');
+  const damageBtn = document.getElementById('hp-toggle-damage');
   const tempBtn = document.getElementById('hp-toggle-temp');
   const amountInput = document.getElementById('hp-amount');
 
@@ -4258,6 +4288,9 @@ function showHPModal() {
     healBtn.style.background = 'white';
     healBtn.style.color = '#7f8c8d';
     healBtn.style.borderColor = '#bdc3c7';
+    damageBtn.style.background = 'white';
+    damageBtn.style.color = '#7f8c8d';
+    damageBtn.style.borderColor = '#bdc3c7';
     tempBtn.style.background = 'white';
     tempBtn.style.color = '#7f8c8d';
     tempBtn.style.borderColor = '#bdc3c7';
@@ -4270,6 +4303,14 @@ function showHPModal() {
     healBtn.style.background = '#27ae60';
     healBtn.style.color = 'white';
     healBtn.style.borderColor = '#27ae60';
+  });
+
+  damageBtn.addEventListener('click', () => {
+    actionType = 'damage';
+    resetButtons();
+    damageBtn.style.background = '#e74c3c';
+    damageBtn.style.color = 'white';
+    damageBtn.style.borderColor = '#e74c3c';
   });
 
   tempBtn.addEventListener('click', () => {
