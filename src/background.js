@@ -32,11 +32,16 @@ const storage = {
   async get(keys) {
     return new Promise((resolve, reject) => {
       try {
-        const result = browserAPI.storage.local.get(keys);
+        const result = browserAPI.storage.local.get(keys, (items) => {
+          if (browserAPI.runtime.lastError) {
+            reject(new Error(browserAPI.runtime.lastError.message));
+          } else {
+            resolve(items);
+          }
+        });
+        // If it returns a Promise, use that instead (Chrome MV3)
         if (result && typeof result.then === 'function') {
           result.then(resolve).catch(reject);
-        } else {
-          browserAPI.runtime.lastError ? reject(new Error(browserAPI.runtime.lastError.message)) : resolve(result);
         }
       } catch (error) {
         reject(error);
@@ -47,11 +52,16 @@ const storage = {
   async set(items) {
     return new Promise((resolve, reject) => {
       try {
-        const result = browserAPI.storage.local.set(items);
+        const result = browserAPI.storage.local.set(items, () => {
+          if (browserAPI.runtime.lastError) {
+            reject(new Error(browserAPI.runtime.lastError.message));
+          } else {
+            resolve();
+          }
+        });
+        // If it returns a Promise, use that instead (Chrome MV3)
         if (result && typeof result.then === 'function') {
           result.then(resolve).catch(reject);
-        } else {
-          browserAPI.runtime.lastError ? reject(new Error(browserAPI.runtime.lastError.message)) : resolve();
         }
       } catch (error) {
         reject(error);
@@ -62,11 +72,16 @@ const storage = {
   async remove(keys) {
     return new Promise((resolve, reject) => {
       try {
-        const result = browserAPI.storage.local.remove(keys);
+        const result = browserAPI.storage.local.remove(keys, () => {
+          if (browserAPI.runtime.lastError) {
+            reject(new Error(browserAPI.runtime.lastError.message));
+          } else {
+            resolve();
+          }
+        });
+        // If it returns a Promise, use that instead (Chrome MV3)
         if (result && typeof result.then === 'function') {
           result.then(resolve).catch(reject);
-        } else {
-          browserAPI.runtime.lastError ? reject(new Error(browserAPI.runtime.lastError.message)) : resolve();
         }
       } catch (error) {
         reject(error);
