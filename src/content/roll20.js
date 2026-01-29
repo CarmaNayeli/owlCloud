@@ -995,7 +995,7 @@
       const abilityName = request.abilityName || 'Unknown Ability';
       const abilityData = request.abilityData || {};
       const charName = abilityData.character_name || 'Character';
-      const action = abilityData.action_data || {};
+      const action = abilityData.action_data || abilityData.action || {};
       const notificationColor = abilityData.notification_color || '#3498db';
 
       // Get color emoji banner (matches popup-sheet getColoredBanner)

@@ -712,7 +712,7 @@ function executeDiscordCast(commandData, characterData) {
  * @returns {{ text: string, rolls: Array, effects: Array, edgeCase: Object|null, embed: Object }}
  */
 function executeDiscordAction(commandData, characterData) {
-  const action = commandData.action_data || {};
+  const action = commandData.action_data || commandData.action || {};
   const charName = commandData.character_name || 'Character';
 
   const result = resolveActionUse(action, characterData);

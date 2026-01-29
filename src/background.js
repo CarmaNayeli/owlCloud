@@ -3851,6 +3851,11 @@ async function executeCommand(command) {
         result = await executeUseAbilityCommand(command);
         break;
 
+      case 'use':
+        // Handle /use command from Discord bot (actions, abilities, etc.)
+        result = await executeUseAbilityCommand(command);
+        break;
+
       case 'cast':
         result = await executeCastCommand(command);
         break;
