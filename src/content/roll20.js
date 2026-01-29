@@ -1087,6 +1087,23 @@
         debug.error('❌ Error in takeDamageFromDiscord:', damageError);
         sendResponse({ success: false, error: damageError.message });
       }
+    } else if (request.action === 'restFromDiscord') {
+      try {
+        debug.log('🛏️ Received restFromDiscord:', request);
+        const restType = request.restType || 'short';
+        const charName = request.characterName || 'Character';
+
+        // Post announcement to Roll20 chat
+        const emoji = restType === 'short' ? '☕' : '🛏️';
+        const restName = restType === 'short' ? 'Short Rest' : 'Long Rest';
+        const announcement = `&{template:default} {{name=${emoji} ${charName} takes a ${restName}}} {{Rest Type=${restName}}}`;
+
+        postChatMessage(announcement);
+        sendResponse({ success: true });
+      } catch (restError) {
+        debug.error('❌ Error in restFromDiscord:', restError);
+        sendResponse({ success: false, error: restError.message });
+      }
     } else if (request.action === 'endTurnFromDiscord') {
       try {
         debug.log('⏭️ Received endTurnFromDiscord');

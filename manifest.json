@@ -17,7 +17,8 @@
     "https://gkfpxwvmumaylahtxqrk.supabase.co/*"
   ],
   "background": {
-    "service_worker": "src/background.js"
+    "service_worker": "src/background.js",
+    "type": "module"
   },
   "content_scripts": [
     {

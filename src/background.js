@@ -3,13 +3,10 @@
  * Handles data storage, API authentication, and communication between Dice Cloud and Roll20
  */
 
-// For service workers (Chrome) and event pages (Firefox), import utility modules
-if (typeof importScripts === 'function' && (typeof chrome !== 'undefined' || typeof browser !== 'undefined')) {
-  // Service worker is at src/background.js, so paths are relative to src/ directory
-  importScripts('./common/debug.js');
-  importScripts('./lib/supabase-client.js');
-  importScripts('./modules/action-executor.js');
-}
+// ES6 module imports for Chrome MV3 and Firefox service worker
+import './common/debug.js';
+import './lib/supabase-client.js';
+import './modules/action-executor.js';
 
 debug.log('RollCloud: Background script starting...');
 
@@ -3849,6 +3846,10 @@ async function executeCommand(command) {
         result = await executeTakeDamageCommand(command);
         break;
 
+      case 'rest':
+        result = await executeRestCommand(command);
+        break;
+
       default:
         result = { success: false, error: `Unknown command type: ${command.command_type}` };
     }
@@ -4143,6 +4144,37 @@ async function executeTakeDamageCommand(command) {
     };
   } catch (error) {
     debug.error('Error executing Discord take damage command:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Execute a rest command from Discord
+ */
+async function executeRestCommand(command) {
+  const { command_data } = command;
+
+  try {
+    const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
+
+    for (const tab of tabs) {
+      try {
+        await browserAPI.tabs.sendMessage(tab.id, {
+          action: 'restFromDiscord',
+          restType: command_data.rest_type,
+          characterName: command_data.character_name
+        });
+      } catch (err) {
+        debug.warn(`Failed to send rest to tab ${tab.id}:`, err);
+      }
+    }
+
+    return {
+      success: true,
+      message: `Took a ${command_data.rest_type} rest`
+    };
+  } catch (error) {
+    debug.error('Error executing Discord rest command:', error);
     return { success: false, error: error.message };
   }
 }
