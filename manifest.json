@@ -6,8 +6,7 @@
   "permissions": [
     "storage",
     "activeTab",
-    "tabs",
-    "nativeMessaging"
+    "tabs"
   ],
   "host_permissions": [
     "https://dicecloud.com/*",

@@ -2035,9 +2035,9 @@ window.initializeDiceCloudSync = async function() {
         console.log('[DiceCloud Sync] Trying to initialize...');
         
         // Check if browser API is available
-        if (typeof browserAPI !== 'undefined') {
+        if (typeof browserAPI !== 'undefined' && browserAPI && browserAPI.storage && browserAPI.storage.local) {
           console.log('[DiceCloud Sync] Browser API available, checking storage...');
-          
+
           const result = await browserAPI.storage.local.get(['activeCharacterId', 'characterProfiles']);
           const { activeCharacterId, characterProfiles } = result;
           console.log('[DiceCloud Sync] Storage result:', { activeCharacterId, characterProfilesKeys: characterProfiles ? Object.keys(characterProfiles) : null });
@@ -2113,7 +2113,7 @@ if (window.location.hostname === 'app.roll20.net') {
   }, 1000);
 
   // Listen for storage changes (e.g., when user logs in via popup)
-  if (typeof browserAPI !== 'undefined' && browserAPI.storage && browserAPI.storage.onChanged) {
+  if (typeof browserAPI !== 'undefined' && browserAPI && browserAPI.storage && browserAPI.storage.onChanged) {
     browserAPI.storage.onChanged.addListener((changes, areaName) => {
       if (areaName === 'local' && changes.diceCloudToken) {
         const newToken = changes.diceCloudToken.newValue;

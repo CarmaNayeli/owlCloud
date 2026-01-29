@@ -638,6 +638,12 @@ function initializePopup() {
       autoConnectBtn.textContent = '⏳ Checking...';
       hideLoginError();
 
+      // Check if browserAPI.tabs is available
+      if (!browserAPI || !browserAPI.tabs || typeof browserAPI.tabs.query !== 'function') {
+        showLoginError('Extension error: tabs API not available. Please reload the extension.');
+        return;
+      }
+
       // First, check if the current active tab is DiceCloud
       const [activeTab] = await browserAPI.tabs.query({ active: true, currentWindow: true });
       let dicecloudTab = null;
@@ -736,7 +742,13 @@ function initializePopup() {
             // Not logged in - show error and keep DiceCloud tab open
             showLoginError('Please log in to DiceCloud, then click the button again.');
             // Focus the DiceCloud tab
-            await browserAPI.tabs.update(dicecloudTab.id, { active: true });
+            try {
+              if (browserAPI && browserAPI.tabs && typeof browserAPI.tabs.update === 'function') {
+                await browserAPI.tabs.update(dicecloudTab.id, { active: true });
+              }
+            } catch (tabError) {
+              debug.log('⚠️ Could not focus DiceCloud tab:', tabError.message);
+            }
           }
         } catch (error) {
           debug.error('Error capturing token:', error);
@@ -746,12 +758,20 @@ function initializePopup() {
         // No DiceCloud tab - open one
         autoConnectBtn.textContent = '⏳ Opening DiceCloud...';
 
-        await browserAPI.tabs.create({
-          url: 'https://dicecloud.com',
-          active: true
-        });
-
-        showLoginError('DiceCloud opened in new tab. Log in, then click this button again.');
+        try {
+          if (browserAPI && browserAPI.tabs && typeof browserAPI.tabs.create === 'function') {
+            await browserAPI.tabs.create({
+              url: 'https://dicecloud.com',
+              active: true
+            });
+            showLoginError('DiceCloud opened in new tab. Log in, then click this button again.');
+          } else {
+            showLoginError('Cannot open DiceCloud tab. Please open https://dicecloud.com manually, log in, and try again.');
+          }
+        } catch (tabError) {
+          debug.error('Could not create DiceCloud tab:', tabError);
+          showLoginError('Cannot open DiceCloud tab. Please open https://dicecloud.com manually, log in, and try again.');
+        }
       }
     } catch (error) {
       debug.error('Auto-connect error:', error);

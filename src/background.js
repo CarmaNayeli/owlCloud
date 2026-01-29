@@ -2443,10 +2443,14 @@ async function linkDiscordUserToAuthTokens(discordUserId, discordUsername, disco
 
   try {
     // Generate browser fingerprint (same as SupabaseTokenManager)
+    // Note: screen is not available in service workers, use fallback
+    const screenDimensions = (typeof screen !== 'undefined' && screen)
+      ? `${screen.width}x${screen.height}`
+      : '0x0';
     const browserFingerprint = [
       navigator.userAgent,
       navigator.language,
-      screen.width + 'x' + screen.height,
+      screenDimensions,
       new Date().getTimezoneOffset()
     ].join('|');
     let hash = 0;
@@ -2567,10 +2571,14 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
     debug.log('🎭 Storing character in Supabase:', characterData.name || characterData.id);
 
     // Generate a browser ID for looking up auth tokens
+    // Note: screen is not available in service workers, use fallback
+    const screenDimensions = (typeof screen !== 'undefined' && screen)
+      ? `${screen.width}x${screen.height}`
+      : '0x0';
     const browserFingerprint = [
       navigator.userAgent,
       navigator.language,
-      screen.width + 'x' + screen.height,
+      screenDimensions,
       new Date().getTimezoneOffset()
     ].join('|');
     let hash = 0;
