@@ -200,6 +200,11 @@ Connect RollCloud to Discord for real-time combat updates and turn tracking:
 - **Turn Notifications**: Automatic announcements when combat turns change
 - **Action Economy**: Real-time status of actions, bonus actions, and reactions
 - **Combat Flow**: Seamless tracking of initiative and turn order
+- **Slash Commands**: Cast spells and use abilities directly from Discord
+  - `/cast` - Cast spells with autocomplete and upcast options
+  - `/use` - Use character actions and abilities
+  - `/roll` - Roll dice with modifiers
+  - Interactive buttons for attack rolls, damage rolls, and more
 - **Multiple Servers**: Support for different Discord servers with unique connections
 
 #### Web Dashboard
