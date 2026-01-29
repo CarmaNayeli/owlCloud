@@ -10111,11 +10111,19 @@ function takeShortRest() {
   // Reset limited uses for short rest abilities
   if (characterData.actions) {
     characterData.actions.forEach(action => {
-      // Reset usesUsed for actions that recharge on short rest
-      // Most limited use abilities in D&D 5e recharge on short rest
-      if (action.uses && action.usesUsed > 0) {
-        action.usesUsed = 0;
-        debug.log(`✅ Reset uses for ${action.name}`);
+      if (action.uses) {
+        // Handle usesUsed pattern (older/local data)
+        if (action.usesUsed !== undefined && action.usesUsed > 0) {
+          action.usesUsed = 0;
+          debug.log(`✅ Reset uses for ${action.name}`);
+        }
+
+        // Handle usesLeft pattern (2024 D&D features, database data)
+        if (action.usesLeft !== undefined) {
+          const usesTotal = action.uses.total || action.uses.value || action.uses;
+          action.usesLeft = usesTotal;
+          debug.log(`✅ Restored ${action.name} (${action.usesLeft}/${usesTotal} uses)`);
+        }
       }
     });
   }
@@ -10386,9 +10394,19 @@ function takeLongRest() {
   // Reset limited uses for all abilities
   if (characterData.actions) {
     characterData.actions.forEach(action => {
-      if (action.uses && action.usesUsed > 0) {
-        action.usesUsed = 0;
-        debug.log(`✅ Reset uses for ${action.name}`);
+      if (action.uses) {
+        // Handle usesUsed pattern (older/local data)
+        if (action.usesUsed !== undefined && action.usesUsed > 0) {
+          action.usesUsed = 0;
+          debug.log(`✅ Reset uses for ${action.name}`);
+        }
+
+        // Handle usesLeft pattern (2024 D&D features, database data)
+        if (action.usesLeft !== undefined) {
+          const usesTotal = action.uses.total || action.uses.value || action.uses;
+          action.usesLeft = usesTotal;
+          debug.log(`✅ Restored ${action.name} (${action.usesLeft}/${usesTotal} uses)`);
+        }
       }
     });
   }
