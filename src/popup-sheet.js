@@ -5864,7 +5864,11 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
           const afterCast = (spell, slot) => {
             usedSlot = slot;
             let formula = option.formula;
-            const actualSlotLevel = selectedSlotLevel != null ? selectedSlotLevel : (slot && slot.level);
+            let actualSlotLevel = selectedSlotLevel != null ? selectedSlotLevel : (slot && slot.level);
+            // Extract numeric level from "pact:X" format if needed
+            if (typeof actualSlotLevel === 'string' && actualSlotLevel.startsWith('pact:')) {
+              actualSlotLevel = parseInt(actualSlotLevel.split(':')[1]);
+            }
             if (actualSlotLevel != null) {
               formula = formula.replace(/slotlevel/gi, actualSlotLevel);
             }
@@ -5887,7 +5891,11 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
         } else {
           // Spell already cast (via attack), just roll damage
           let formula = option.formula;
-          const actualSlotLevel = selectedSlotLevel != null ? selectedSlotLevel : (usedSlot && usedSlot.level);
+          let actualSlotLevel = selectedSlotLevel != null ? selectedSlotLevel : (usedSlot && usedSlot.level);
+          // Extract numeric level from "pact:X" format if needed
+          if (typeof actualSlotLevel === 'string' && actualSlotLevel.startsWith('pact:')) {
+            actualSlotLevel = parseInt(actualSlotLevel.split(':')[1]);
+          }
           if (actualSlotLevel != null) {
             formula = formula.replace(/slotlevel/gi, actualSlotLevel);
           }
