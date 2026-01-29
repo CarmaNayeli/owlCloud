@@ -294,7 +294,308 @@ async function getUserCharacters(discordUserId) {
       return await response.json();
     }
   } catch (error) {
-      console.error('Error fetching user characters:', error);
-      return [];
+    console.error('Error fetching user characters:', error);
+    return [];
+  }
+}
+
+async function getActiveCharacter(discordUserId) {
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
+    throw new Error('Supabase not configured');
+  }
+
+  // First try to get active character by discord_user_id
+  let response = await fetchWithTimeout(
+    `${process.env.SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}&is_active=eq.true&select=*&limit=1`,
+    {
+      headers: {
+        'apikey': process.env.SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`
+      }
     }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Database error: ${response.status}`);
+  }
+
+  let data = await response.json();
+
+  // If no active character, get most recently updated
+  if (data.length === 0) {
+    response = await fetchWithTimeout(
+      `${process.env.SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}&select=*&order=updated_at.desc&limit=1`,
+      {
+        headers: {
+          'apikey': process.env.SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`
+        }
+      }
+    );
+
+    if (response.ok) {
+      data = await response.json();
+    }
+  }
+
+  // If still no character, try via pairing link
+  if (data.length === 0) {
+    console.log(`📋 No character found by discord_user_id=${discordUserId}, checking via pairing...`);
+
+    const pairingResponse = await fetchWithTimeout(
+      `${process.env.SUPABASE_URL}/rest/v1/rollcloud_pairings?discord_user_id=eq.${discordUserId}&status=eq.connected&select=dicecloud_user_id`,
+      {
+        headers: {
+          'apikey': process.env.SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY}`
+        }
+      }
+    );
+
+    if (pairingResponse.ok) {
+      const pairings = await pairingResponse.json();
+      if (pairings.length > 0 && pairings[0].dicecloud_user_id) {
+        const dicecloudUserId = pairings[0].dicecloud_user_id;
+        console.log(`🔗 Found pairing with dicecloud_user_id: ${dicecloudUserId}`);
+
+        // Get active or most recent by dicecloud_user_id
+        let fallbackResponse = await fetchWithTimeout(
+          `${process.env.SUPABASE_URL}/rest/v1/rollcloud_characters?user_id_dicecloud=eq.${dicecloudUserId}&is_active=eq.true&select=*&limit=1`,
+          {
+            headers: {
+              'apikey': SUPABASE_SERVICE_KEY,
+              'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+            }
+          }
+        );
+
+        if (fallbackResponse.ok) {
+          data = await fallbackResponse.json();
+        }
+
+        // If still no active, get most recent
+        if (data.length === 0) {
+          fallbackResponse = await fetchWithTimeout(
+            `${SUPABASE_URL}/rest/v1/rollcloud_characters?user_id_dicecloud=eq.${dicecloudUserId}&select=*&order=updated_at.desc&limit=1`,
+            {
+              headers: {
+                'apikey': SUPABASE_SERVICE_KEY,
+                'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+              }
+            }
+          );
+
+          if (fallbackResponse.ok) {
+            data = await fallbackResponse.json();
+          }
+        }
+
+        // Link the character to discord_user_id for future lookups
+        if (data.length > 0 && data[0].discord_user_id !== discordUserId) {
+          console.log(`🔗 Linking character "${data[0].character_name}" to discord_user_id=${discordUserId}`);
+          await fetchWithTimeout(
+            `${SUPABASE_URL}/rest/v1/rollcloud_characters?id=eq.${data[0].id}`,
+            {
+              method: 'PATCH',
+              headers: {
+                'apikey': SUPABASE_SERVICE_KEY,
+                'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ discord_user_id: discordUserId })
+            }
+          );
+          data[0].discord_user_id = discordUserId;
+        }
+      }
+    }
+  }
+
+  return data.length > 0 ? data[0] : null;
+}
+
+async function setActiveCharacter(discordUserId, characterName) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+    throw new Error('Supabase not configured');
+  }
+
+  // URL encode the character name for the ilike query
+  const encodedName = encodeURIComponent(characterName);
+
+  // Find character by name (case-insensitive partial match)
+  const response = await fetchWithTimeout(
+    `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}&character_name=ilike.*${encodedName}*&select=*`,
+    {
+      headers: {
+        'apikey': SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+      }
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Database error: ${response.status}`);
+  }
+
+  const matches = await response.json();
+
+  console.log(`🔍 Character search for "${characterName}" (discord_user_id=${discordUserId}):`, {
+    matchCount: matches.length,
+    matches: matches.map(m => ({ id: m.id, name: m.character_name, discord_user_id: m.discord_user_id }))
+  });
+
+  // If no matches by discord_user_id, try finding via pairing link
+  if (matches.length === 0) {
+    console.log('📋 No direct match, checking via pairing...');
+
+    // Get dicecloud_user_id from pairings for this Discord user
+    const pairingResponse = await fetchWithTimeout(
+      `${SUPABASE_URL}/rest/v1/rollcloud_pairings?discord_user_id=eq.${discordUserId}&status=eq.connected&select=dicecloud_user_id`,
+      {
+        headers: {
+          'apikey': SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+        }
+      }
+    );
+
+    if (pairingResponse.ok) {
+      const pairings = await pairingResponse.json();
+      if (pairings.length > 0 && pairings[0].dicecloud_user_id) {
+        const dicecloudUserId = pairings[0].dicecloud_user_id;
+        console.log(`🔗 Found pairing with dicecloud_user_id: ${dicecloudUserId}`);
+
+        // Search by dicecloud_user_id instead
+        const fallbackResponse = await fetchWithTimeout(
+          `${SUPABASE_URL}/rest/v1/rollcloud_characters?user_id_dicecloud=eq.${dicecloudUserId}&character_name=ilike.*${encodedName}*&select=*`,
+          {
+            headers: {
+              'apikey': SUPABASE_SERVICE_KEY,
+              'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+            }
+          }
+        );
+
+        if (fallbackResponse.ok) {
+          const fallbackMatches = await fallbackResponse.json();
+          console.log(`🔍 Fallback search found ${fallbackMatches.length} matches`);
+
+          if (fallbackMatches.length > 0) {
+            // Link the character to this Discord user
+            const character = fallbackMatches[0];
+            console.log(`🔗 Linking character "${character.character_name}" to discord_user_id=${discordUserId}`);
+
+            await fetchWithTimeout(
+              `${SUPABASE_URL}/rest/v1/rollcloud_characters?id=eq.${character.id}`,
+              {
+                method: 'PATCH',
+                headers: {
+                  'apikey': SUPABASE_SERVICE_KEY,
+                  'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ discord_user_id: discordUserId })
+              }
+            );
+
+            // Now continue with this character
+            matches.push({ ...character, discord_user_id: discordUserId });
+          }
+        }
+      }
+    }
+  }
+
+  if (matches.length === 0) {
+    return { success: false };
+  }
+
+  const character = matches[0];
+
+  // Deactivate all other characters for this user
+  await fetchWithTimeout(
+    `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}`,
+    {
+      method: 'PATCH',
+      headers: {
+        'apikey': SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ is_active: false })
+    }
+  );
+
+  // Activate the selected character
+  await fetchWithTimeout(
+    `${SUPABASE_URL}/rest/v1/rollcloud_characters?id=eq.${character.id}`,
+    {
+      method: 'PATCH',
+      headers: {
+        'apikey': SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ is_active: true })
+    }
+  );
+
+  return { success: true, character };
+}
+
+async function getUserCharacters(discordUserId) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+    return [];
+  }
+
+  let characters = [];
+
+  // First try direct lookup by discord_user_id
+  const response = await fetchWithTimeout(
+    `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}&select=character_name,class,level&order=character_name`,
+    {
+      headers: {
+        'apikey': SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+      }
+    }
+  );
+
+  if (response.ok) {
+    characters = await response.json();
+  }
+
+  // If no characters found, try via pairing
+  if (characters.length === 0) {
+    const pairingResponse = await fetchWithTimeout(
+      `${SUPABASE_URL}/rest/v1/rollcloud_pairings?discord_user_id=eq.${discordUserId}&status=eq.connected&select=dicecloud_user_id`,
+      {
+        headers: {
+          'apikey': SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+        }
+      }
+    );
+
+    if (pairingResponse.ok) {
+      const pairings = await pairingResponse.json();
+      if (pairings.length > 0 && pairings[0].dicecloud_user_id) {
+        const fallbackResponse = await fetchWithTimeout(
+          `${SUPABASE_URL}/rest/v1/rollcloud_characters?user_id_dicecloud=eq.${pairings[0].dicecloud_user_id}&select=character_name,class,level&order=character_name`,
+          {
+            headers: {
+              'apikey': SUPABASE_SERVICE_KEY,
+              'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+            }
+          }
+        );
+
+        if (fallbackResponse.ok) {
+          characters = await fallbackResponse.json();
+        }
+      }
+    }
+  }
+
+  return characters;
 }
