@@ -727,6 +727,20 @@
       }
       return true; // Keep message channel open
     } else if (request.action === 'rollFromPopout') {
+      // Check if this is actually an announcement wrapped in rollFromPopout (Firefox relay path)
+      if (request.roll && request.roll.action === 'announceSpell') {
+        debug.log('✨ Detected announceSpell wrapped in rollFromPopout, routing to announcement handler');
+        if (request.roll.message) {
+          postChatMessage(request.roll.message);
+          sendResponse({ success: true });
+        } else if (request.roll.spellData) {
+          const normalizedSpellData = normalizePopupSpellData(request.roll);
+          postSpellToRoll20(normalizedSpellData);
+          sendResponse({ success: true });
+        }
+        return true;
+      }
+
       // Post roll directly to Roll20 - no DiceCloud needed!
       debug.log('🎲 Received roll request from popup:', request);
 
