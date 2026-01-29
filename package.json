@@ -1,6 +1,6 @@
 {
   "name": "rollcloud",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "description": "RollCloud: DiceCloud + Roll20 + Discord Integration",
   "scripts": {
     "build": "node scripts/build-all.js",
