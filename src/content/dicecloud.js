@@ -2058,20 +2058,28 @@
         case 'action':
           // Extract all actions (attacks, bonus actions, reactions, etc.)
           if (prop.name && !prop.inactive && !prop.disabled) {
-            // Handle description - it might be in 'summary' or 'description' field
-            let description = '';
+            // Handle summary and description - they might be separate or combined
+            let summary = '';
             if (prop.summary) {
               if (typeof prop.summary === 'string') {
-                description = prop.summary;
+                summary = prop.summary;
               } else if (typeof prop.summary === 'object') {
-                description = prop.summary.text || prop.summary.value || '';
+                summary = prop.summary.text || prop.summary.value || '';
               }
-            } else if (prop.description) {
+            }
+
+            let description = '';
+            if (prop.description) {
               if (typeof prop.description === 'string') {
                 description = prop.description;
               } else if (typeof prop.description === 'object') {
                 description = prop.description.text || prop.description.value || '';
               }
+            }
+
+            // If we only have summary but no description, use summary as description for compatibility
+            if (!description && summary) {
+              description = summary;
             }
 
             // Special handling: Font of Magic conversion should use parent feature description
