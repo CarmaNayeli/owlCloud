@@ -70,14 +70,29 @@ for (const file of eventFiles) {
   }
 }
 
+// Helper function to add timeout to a promise
+function withTimeout(promise, timeoutMs, timeoutError = 'Operation timed out') {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(timeoutError)), timeoutMs)
+    )
+  ]);
+}
+
 // Login to Discord with retry logic
-async function loginWithRetry(maxRetries = 3, retryDelay = 5000) {
+async function loginWithRetry(maxRetries = 3, retryDelay = 5000, loginTimeout = 30000) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       console.log(`\n🔑 Attempting Discord login (attempt ${attempt}/${maxRetries})...`);
       console.log(`   Token present: ${!!process.env.DISCORD_TOKEN}`);
+      console.log(`   Timeout: ${loginTimeout / 1000}s`);
 
-      await client.login(process.env.DISCORD_TOKEN);
+      await withTimeout(
+        client.login(process.env.DISCORD_TOKEN),
+        loginTimeout,
+        `Login timed out after ${loginTimeout / 1000} seconds`
+      );
       console.log('✅ Login successful');
       return;
 
