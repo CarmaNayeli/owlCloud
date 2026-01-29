@@ -10818,7 +10818,7 @@ function initCombatMechanics() {
 /**
  * Action Economy Tracker
  */
-let isMyTurn = false; // Track if it's currently this character's turn
+let isMyTurn = true; // Track if it's currently this character's turn (default: true, greyed out when combat starts and not your turn)
 
 function initActionEconomy() {
   const actionIndicator = document.getElementById('action-indicator');

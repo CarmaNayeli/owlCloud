@@ -2602,6 +2602,22 @@ ${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗
       startChatMonitoring();
     } else {
       stopChatMonitoring();
+
+      // Close all shared character sheet popups when GM panel closes
+      // (but NOT the GM's own main character sheet)
+      Object.keys(characterPopups).forEach(characterName => {
+        const popup = characterPopups[characterName];
+        try {
+          if (popup && !popup.closed) {
+            popup.close();
+            debug.log(`🔒 Closed shared character sheet for: ${characterName}`);
+          }
+        } catch (error) {
+          debug.warn(`⚠️ Error closing popup for ${characterName}:`, error);
+        }
+        delete characterPopups[characterName];
+      });
+      debug.log('🔒 All shared character sheets closed');
     }
 
     // Post chat announcement only when state actually changes
