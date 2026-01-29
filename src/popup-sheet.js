@@ -376,6 +376,11 @@ function buildCharacterTabs(profiles, activeCharacterId) {
   tabsContainer.innerHTML = '';
   const maxSlots = 10; // Support up to 10 character slots (matches main's implementation)
 
+  // TODO: Investigate why database characters sometimes don't appear in tabs
+  // Issue: Database characters may load successfully but not show tabs on initial popup open
+  // Appears to be cosmetic - character data loads fine, just tab display issue
+  // Next occurrence: Check console for "📦 Found X characters" and "🌐 DB Character:" messages
+
   // First, add database characters. Some profiles may be missing a `source`
   // property (older records), so treat any key starting with `db-` as a
   // database character.
