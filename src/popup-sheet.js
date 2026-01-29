@@ -761,12 +761,16 @@ function buildSheet(data) {
     has_hit_points: !!data.hit_points,
     has_hitPoints: !!data.hitPoints,
     hit_points_value: data.hit_points,
-    hitPoints_value: data.hitPoints
+    hitPoints_value: data.hitPoints,
+    hitPoints_type: typeof data.hitPoints,
+    full_data_keys: Object.keys(data)
   });
 
   if (data.hit_points && !data.hitPoints) {
     data.hitPoints = data.hit_points;
     debug.log('✅ Normalized hit_points to hitPoints:', data.hitPoints);
+  } else if (!data.hit_points && !data.hitPoints) {
+    debug.warn('⚠️ No HP data found in character data! Keys available:', Object.keys(data));
   }
   if (data.character_name && !data.name) {
     data.name = data.character_name;
@@ -956,12 +960,20 @@ function buildSheet(data) {
   const hpValue = document.getElementById('hp-value');
 
   // Defensive initialization for hitPoints - ensure proper structure
+  debug.log('🔍 HP before defensive init:', { hitPoints: data.hitPoints, type: typeof data.hitPoints });
   if (!data.hitPoints || typeof data.hitPoints !== 'object') {
+    debug.warn('⚠️ DEFENSIVE INIT TRIGGERED! Setting HP to 0/0. Original value:', data.hitPoints);
     data.hitPoints = { current: 0, max: 0 };
   }
   // Ensure current and max exist (hitPoints might be an object but missing these)
-  if (data.hitPoints.current === undefined) data.hitPoints.current = 0;
-  if (data.hitPoints.max === undefined) data.hitPoints.max = 0;
+  if (data.hitPoints.current === undefined) {
+    debug.warn('⚠️ HP current is undefined, setting to 0');
+    data.hitPoints.current = 0;
+  }
+  if (data.hitPoints.max === undefined) {
+    debug.warn('⚠️ HP max is undefined, setting to 0');
+    data.hitPoints.max = 0;
+  }
 
   debug.log('💚 HP display values:', { current: data.hitPoints.current, max: data.hitPoints.max, tempHP: data.temporaryHP });
 
