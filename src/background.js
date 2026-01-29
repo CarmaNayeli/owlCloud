@@ -4085,11 +4085,12 @@ async function executeCastCommand(command) {
 
     // Build enhanced spell data with all processed effects
     const rolls = castResult.rolls || [];
+    // Handle both spell and spell_data field names (Discord bot uses 'spell', others may use 'spell_data')
+    const spellData = command_data.spell || command_data.spell_data || {};
     const enhancedSpellData = {
       ...command_data,
-      spell_data: {
-        ...command_data.spell_data
-      },
+      spell_data: spellData,
+      spell: spellData, // Include both for compatibility
       // Apply metamagic modifications to damage rolls if any (at top level for content script)
       damageRolls: rolls.map(roll => ({
         damage: roll.formula,
