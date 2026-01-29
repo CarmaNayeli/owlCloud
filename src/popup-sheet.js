@@ -2176,20 +2176,8 @@ function buildActionsDisplay(container, actions) {
             // Mark action as used for attacks
             markActionAsUsed('action');
 
-            // Add Sneak Attack if toggle is enabled and this is a weapon attack
-            let attackFormula = option.formula;
-            if (sneakAttackEnabled && sneakAttackDamage && action.attackRoll) {
-              attackFormula += `+${sneakAttackDamage}`;
-              debug.log(`🎯 Adding Sneak Attack to ${action.name}: ${attackFormula}`);
-            }
-
-            // Add Elemental Weapon if toggle is enabled and this is a weapon attack
-            if (elementalWeaponEnabled && elementalWeaponDamage && action.attackRoll) {
-              attackFormula += `+${elementalWeaponDamage}`;
-              debug.log(`⚔️ Adding Elemental Weapon to ${action.name}: ${attackFormula}`);
-            }
-            
-            roll(`${action.name} Attack`, attackFormula);
+            // Attack roll is just the d20 + modifiers, no damage dice
+            roll(`${action.name} Attack`, option.formula);
           } else if (option.type === 'healing' || option.type === 'temphp' || option.type === 'damage') {
             // Check and decrement uses before rolling
             if (action.uses && !decrementActionUses(action)) {
@@ -2241,7 +2229,21 @@ function buildActionsDisplay(container, actions) {
 
             // Roll the damage/healing
             const rollType = option.type === 'healing' ? 'Healing' : (option.type === 'temphp' ? 'Temp HP' : 'Damage');
-            roll(`${action.name} ${rollType}`, option.formula);
+            let damageFormula = option.formula;
+
+            // Add Sneak Attack if toggle is enabled and this is a damage roll (not healing/temphp)
+            if (option.type === 'damage' && sneakAttackEnabled && sneakAttackDamage && action.attackRoll) {
+              damageFormula += `+${sneakAttackDamage}`;
+              debug.log(`🎯 Adding Sneak Attack to ${action.name} damage: ${damageFormula}`);
+            }
+
+            // Add Elemental Weapon if toggle is enabled and this is a damage roll
+            if (option.type === 'damage' && elementalWeaponEnabled && elementalWeaponDamage && action.attackRoll) {
+              damageFormula += `+${elementalWeaponDamage}`;
+              debug.log(`⚔️ Adding Elemental Weapon to ${action.name} damage: ${damageFormula}`);
+            }
+
+            roll(`${action.name} ${rollType}`, damageFormula);
           }
         });
 
