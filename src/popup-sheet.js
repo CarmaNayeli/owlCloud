@@ -468,10 +468,19 @@ function buildCharacterTabs(profiles, activeCharacterId) {
 
   // First, add database characters. Some profiles may be missing a `source`
   // property (older records), so treat any key starting with `db-` as a
-  // database character.
-  const databaseCharacters = Object.entries(profiles).filter(([slotId, profile]) =>
-    slotId.startsWith('db-')
-  );
+  // database character. Filter out incomplete characters (missing spells/actions).
+  const databaseCharacters = Object.entries(profiles).filter(([slotId, profile]) => {
+    const isDbCharacter = slotId.startsWith('db-');
+    const hasSpells = Array.isArray(profile.spells);
+    const hasActions = Array.isArray(profile.actions);
+
+    if (isDbCharacter && (!hasSpells || !hasActions)) {
+      debug.warn(`⏭️ Skipping incomplete database character: ${profile.name || profile.character_name || slotId}`);
+      return false;
+    }
+
+    return isDbCharacter;
+  });
   
   // Add database character tabs
   databaseCharacters.forEach(([slotId, charInSlot], index) => {
@@ -518,6 +527,15 @@ function buildCharacterTabs(profiles, activeCharacterId) {
     const charInSlot = profiles[slotId];
 
     if (charInSlot) {
+      // Skip incomplete characters (missing spells/actions)
+      const hasSpells = Array.isArray(charInSlot.spells);
+      const hasActions = Array.isArray(charInSlot.actions);
+
+      if (!hasSpells || !hasActions) {
+        debug.warn(`⏭️ Skipping incomplete local character in slot ${slotNum}: ${charInSlot.name || 'Unknown'}`);
+        continue; // Skip this slot entirely
+      }
+
       debug.log(`  📌 Slot ${slotNum}: ${charInSlot.name} (active: ${slotId === activeCharacterId})`);
     }
 
