@@ -642,9 +642,50 @@ async function getCharacterData(characterId = null) {
       return characterProfiles[activeCharacterId];
     }
 
-    // Fallback: return first available character
+    // Fallback: If activeCharacterId is a raw DiceCloud ID, search for a matching profile
+    // by checking the character's ID fields (prioritize local profiles over database)
+    if (activeCharacterId) {
+      debug.log(`🔍 Active character not found by key, searching by ID: ${activeCharacterId}`);
+
+      // Check local profiles first (they have full actions/spells data)
+      for (const [key, profile] of Object.entries(characterProfiles)) {
+        if (profile.source !== 'database') {
+          const charId = profile.id || profile._id || profile.dicecloud_character_id || profile.characterId;
+          if (charId === activeCharacterId) {
+            debug.log(`✅ Found matching local profile by ID: ${key}`);
+            return profile;
+          }
+        }
+      }
+
+      // Then check database profiles if no local match found
+      for (const [key, profile] of Object.entries(characterProfiles)) {
+        if (profile.source === 'database') {
+          const charId = profile.id || profile._id || profile.dicecloud_character_id || profile.characterId;
+          if (charId === activeCharacterId) {
+            debug.log(`✅ Found matching database profile by ID: ${key}`);
+            return profile;
+          }
+        }
+      }
+
+      debug.warn(`⚠️ No profile found matching activeCharacterId: ${activeCharacterId}`);
+    }
+
+    // Fallback: return first available character (prefer local over database)
     const characterIds = Object.keys(characterProfiles);
     if (characterIds.length > 0) {
+      // Prefer local profiles over database profiles
+      const localProfile = characterIds.find(key => {
+        const profile = characterProfiles[key];
+        return !profile.source || profile.source !== 'database';
+      });
+
+      if (localProfile) {
+        debug.log('No active character found, returning first local profile:', characterProfiles[localProfile]);
+        return characterProfiles[localProfile];
+      }
+
       debug.log('No active character, returning first available:', characterProfiles[characterIds[0]]);
       return characterProfiles[characterIds[0]];
     }
