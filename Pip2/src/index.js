@@ -70,25 +70,35 @@ for (const file of eventFiles) {
   }
 }
 
-// Login to Discord
-console.log('\n🔑 Attempting Discord login...');
-console.log(`   Token present: ${!!process.env.DISCORD_TOKEN}`);
-console.log(`   Token length: ${process.env.DISCORD_TOKEN?.length || 0}`);
+// Login to Discord with retry logic
+async function loginWithRetry(maxRetries = 3, retryDelay = 5000) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`\n🔑 Attempting Discord login (attempt ${attempt}/${maxRetries})...`);
+      console.log(`   Token present: ${!!process.env.DISCORD_TOKEN}`);
 
-client.login(process.env.DISCORD_TOKEN)
-  .then(() => {
-    console.log('✅ Login promise resolved');
-  })
-  .catch(error => {
-    console.error('❌ Login failed:', error);
-    console.error('Error details:', error.message);
-    process.exit(1);
-  });
+      await client.login(process.env.DISCORD_TOKEN);
+      console.log('✅ Login successful');
+      return;
 
-// Add timeout detection
-setTimeout(() => {
-  if (!client.isReady()) {
-    console.error('⚠️  WARNING: Bot has not connected after 30 seconds');
-    console.error('   This usually indicates a network issue or invalid token');
+    } catch (error) {
+      console.error(`❌ Login failed (attempt ${attempt}/${maxRetries}):`, error.message);
+
+      if (attempt < maxRetries) {
+        const waitTime = retryDelay * attempt; // Exponential backoff: 5s, 10s, 15s
+        console.log(`⏳ Retrying in ${waitTime / 1000} seconds...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      } else {
+        console.error('❌ All login attempts failed');
+        console.error('Stack:', error.stack);
+        process.exit(1);
+      }
+    }
   }
-}, 30000);
+}
+
+// Start login process
+loginWithRetry().catch(error => {
+  console.error('Fatal error during login:', error);
+  process.exit(1);
+});
