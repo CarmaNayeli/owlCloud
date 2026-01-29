@@ -2176,20 +2176,8 @@ function buildActionsDisplay(container, actions) {
             // Mark action as used for attacks
             markActionAsUsed('action');
 
-            // Add Sneak Attack if toggle is enabled and this is a weapon attack
-            let attackFormula = option.formula;
-            if (sneakAttackEnabled && sneakAttackDamage && action.attackRoll) {
-              attackFormula += `+${sneakAttackDamage}`;
-              debug.log(`🎯 Adding Sneak Attack to ${action.name}: ${attackFormula}`);
-            }
-
-            // Add Elemental Weapon if toggle is enabled and this is a weapon attack
-            if (elementalWeaponEnabled && elementalWeaponDamage && action.attackRoll) {
-              attackFormula += `+${elementalWeaponDamage}`;
-              debug.log(`⚔️ Adding Elemental Weapon to ${action.name}: ${attackFormula}`);
-            }
-            
-            roll(`${action.name} Attack`, attackFormula);
+            // Attack roll is just the d20 + modifiers, no damage dice
+            roll(`${action.name} Attack`, option.formula);
           } else if (option.type === 'healing' || option.type === 'temphp' || option.type === 'damage') {
             // Check and decrement uses before rolling
             if (action.uses && !decrementActionUses(action)) {
@@ -2241,7 +2229,21 @@ function buildActionsDisplay(container, actions) {
 
             // Roll the damage/healing
             const rollType = option.type === 'healing' ? 'Healing' : (option.type === 'temphp' ? 'Temp HP' : 'Damage');
-            roll(`${action.name} ${rollType}`, option.formula);
+            let damageFormula = option.formula;
+
+            // Add Sneak Attack if toggle is enabled and this is a damage roll (not healing/temphp)
+            if (option.type === 'damage' && sneakAttackEnabled && sneakAttackDamage && action.attackRoll) {
+              damageFormula += `+${sneakAttackDamage}`;
+              debug.log(`🎯 Adding Sneak Attack to ${action.name} damage: ${damageFormula}`);
+            }
+
+            // Add Elemental Weapon if toggle is enabled and this is a damage roll
+            if (option.type === 'damage' && elementalWeaponEnabled && elementalWeaponDamage && action.attackRoll) {
+              damageFormula += `+${elementalWeaponDamage}`;
+              debug.log(`⚔️ Adding Elemental Weapon to ${action.name} damage: ${damageFormula}`);
+            }
+
+            roll(`${action.name} ${rollType}`, damageFormula);
           }
         });
 
@@ -5745,8 +5747,14 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
     optionButtons.push({ button: btn, option: option });
 
     btn.addEventListener('click', () => {
-      // Get selected slot level
-      const selectedSlotLevel = slotSelect ? parseInt(slotSelect.value) : (spell.level || null);
+      // Get selected slot level - handle pact magic slot format "pact:X"
+      let selectedSlotLevel = spell.level || null;
+      if (slotSelect) {
+        const slotValue = slotSelect.value;
+        selectedSlotLevel = slotValue.startsWith('pact:')
+          ? parseInt(slotValue.split(':')[1])
+          : parseInt(slotValue);
+      }
 
       // Get selected metamagic options
       const selectedMetamagic = metamagicCheckboxes
@@ -5947,7 +5955,11 @@ function showSpellModal(spell, spellIndex, options, descriptionAnnounced = false
   // Set up slot selection change handler to update button labels
   if (slotSelect) {
     const updateButtonLabels = () => {
-      const selectedSlotLevel = parseInt(slotSelect.value);
+      // Handle pact magic slot format "pact:X" - extract the level number
+      const slotValue = slotSelect.value;
+      const selectedSlotLevel = slotValue.startsWith('pact:')
+        ? parseInt(slotValue.split(':')[1])
+        : parseInt(slotValue);
       optionButtons.forEach(({ button, option }) => {
         const resolvedLabel = getResolvedLabel(option, selectedSlotLevel);
         const edgeCaseNote = option.edgeCaseNote ? `<div style="font-size: 0.8em; color: #666; margin-top: 2px;">${option.edgeCaseNote}</div>` : '';
