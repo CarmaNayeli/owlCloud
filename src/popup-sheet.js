@@ -552,6 +552,7 @@ async function switchToCharacter(characterId) {
         if (dbResponse.success) {
           newCharacterData = dbResponse.data;
           debug.log('✅ Loaded database character:', newCharacterData.name);
+          showNotification(`☁️ Loaded ${newCharacterData.name} from cloud`, 'info');
         } else {
           throw new Error(dbResponse.error || 'Failed to load database character');
         }
@@ -562,14 +563,15 @@ async function switchToCharacter(characterId) {
       }
     } else {
       // Load from local storage
-      const response = await browserAPI.runtime.sendMessage({ 
-        action: 'getCharacterData', 
-        characterId: characterId 
+      const response = await browserAPI.runtime.sendMessage({
+        action: 'getCharacterData',
+        characterId: characterId
       });
-      
+
       if (response.success) {
         newCharacterData = response.data;
         debug.log('✅ Loaded local character:', newCharacterData.name);
+        showNotification(`💾 Loaded ${newCharacterData.name} from local storage`, 'success');
       } else {
         throw new Error(response.error || 'Failed to load local character');
       }
@@ -1012,8 +1014,37 @@ function buildSheet(data) {
     updateConcentrationDisplay();
   }
 
-  // Character name
-  charNameEl.textContent = data.name || 'Character';
+  // Character name with source badge
+  const characterName = data.name || 'Character';
+  const isCloudCharacter = data.source === 'database' ||
+                           (currentSlotId && currentSlotId.startsWith('db-')) ||
+                           data.id?.startsWith('db-');
+
+  if (isCloudCharacter) {
+    charNameEl.innerHTML = `${characterName} <span style="
+      background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.7em;
+      font-weight: bold;
+      margin-left: 8px;
+      vertical-align: middle;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    ">☁️ Cloud</span>`;
+  } else {
+    charNameEl.innerHTML = `${characterName} <span style="
+      background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.7em;
+      font-weight: bold;
+      margin-left: 8px;
+      vertical-align: middle;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    ">💾 Local</span>`;
+  }
 
   // Update color picker emoji in systems bar
   const currentColorEmoji = getColorEmoji(data.notificationColor || '#3498db');
