@@ -397,7 +397,13 @@
    */
   function normalizePopupSpellData(eventData) {
     const spell = eventData.spellData || {};
-    const castLevel = eventData.castLevel || parseInt(spell.level) || 0;
+    // Extract numeric level from "pact:X" format if needed
+    let castLevel = eventData.castLevel || parseInt(spell.level) || 0;
+    if (typeof castLevel === 'string' && castLevel.startsWith('pact:')) {
+      castLevel = parseInt(castLevel.split(':')[1]) || 0;
+    } else {
+      castLevel = parseInt(castLevel) || 0;
+    }
     const spellLevel = parseInt(spell.level) || 0;
     const characterName = eventData.characterName || 'Character';
     const notificationColor = eventData.color || eventData.notificationColor || '#3498db';
