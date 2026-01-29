@@ -634,15 +634,49 @@ async function loginToDiceCloud(username, password) {
     const data = await response.json();
 
     // Store authentication data including token expiry
-    await browserAPI.storage.local.set({
-      diceCloudToken: data.token,
-      diceCloudUserId: data.id,
-      tokenExpires: data.tokenExpires,
-      username: username
+    // Use explicit Promise wrapper for Chrome MV3 compatibility
+    await new Promise((resolve, reject) => {
+      const storageData = {
+        diceCloudToken: data.token,
+        diceCloudUserId: data.id,
+        tokenExpires: data.tokenExpires,
+        username: username
+      };
+
+      debug.log('📝 Storing auth data:', {
+        hasToken: !!data.token,
+        userId: data.id,
+        username: username
+      });
+
+      try {
+        const result = browserAPI.storage.local.set(storageData);
+
+        // Handle both Promise and callback-based APIs
+        if (result && typeof result.then === 'function') {
+          result.then(resolve).catch(reject);
+        } else {
+          // Callback-based (older Chrome)
+          browserAPI.runtime.lastError ? reject(new Error(browserAPI.runtime.lastError.message)) : resolve();
+        }
+      } catch (error) {
+        reject(error);
+      }
     });
 
     // Clear the explicitly logged out flag since user is now logging in
-    await browserAPI.storage.local.remove(['explicitlyLoggedOut']);
+    await new Promise((resolve, reject) => {
+      try {
+        const result = browserAPI.storage.local.remove(['explicitlyLoggedOut']);
+        if (result && typeof result.then === 'function') {
+          result.then(resolve).catch(reject);
+        } else {
+          browserAPI.runtime.lastError ? reject(new Error(browserAPI.runtime.lastError.message)) : resolve();
+        }
+      } catch (error) {
+        reject(error);
+      }
+    });
 
     debug.log('Successfully logged in to DiceCloud');
     debug.log('Token expires:', data.tokenExpires);
@@ -693,23 +727,80 @@ async function setApiToken(token, userId = null, tokenExpires = null, username =
       storageData.tokenExpires = tokenExpires;
     }
 
-    await browserAPI.storage.local.set(storageData);
+    // Use explicit Promise wrapper for Chrome MV3 compatibility
+    await new Promise((resolve, reject) => {
+      debug.log('📝 setApiToken: Storing token data');
+      try {
+        const result = browserAPI.storage.local.set(storageData);
+        if (result && typeof result.then === 'function') {
+          result.then(resolve).catch(reject);
+        } else {
+          browserAPI.runtime.lastError ? reject(new Error(browserAPI.runtime.lastError.message)) : resolve();
+        }
+      } catch (error) {
+        reject(error);
+      }
+    });
 
     // Clear the explicitly logged out flag since user is now logging in
-    await browserAPI.storage.local.remove(['explicitlyLoggedOut']);
-    
+    await new Promise((resolve, reject) => {
+      try {
+        const result = browserAPI.storage.local.remove(['explicitlyLoggedOut']);
+        if (result && typeof result.then === 'function') {
+          result.then(resolve).catch(reject);
+        } else {
+          browserAPI.runtime.lastError ? reject(new Error(browserAPI.runtime.lastError.message)) : resolve();
+        }
+      } catch (error) {
+        reject(error);
+      }
+    });
+
     // Also clear any invalid expiry dates that might cause issues
-    const existing = await browserAPI.storage.local.get(['tokenExpires']);
-    if (existing.tokenExpires) {
+    const existing = await new Promise((resolve, reject) => {
+      try {
+        const result = browserAPI.storage.local.get(['tokenExpires']);
+        if (result && typeof result.then === 'function') {
+          result.then(resolve).catch(reject);
+        } else {
+          browserAPI.runtime.lastError ? reject(new Error(browserAPI.runtime.lastError.message)) : resolve(browserAPI.storage.local.get(['tokenExpires']));
+        }
+      } catch (error) {
+        reject(error);
+      }
+    });
+    if (existing && existing.tokenExpires) {
       const testDate = new Date(existing.tokenExpires);
       if (isNaN(testDate.getTime())) {
         debug.warn('🧹 Clearing invalid tokenExpires format:', existing.tokenExpires);
-        await browserAPI.storage.local.remove('tokenExpires');
+        await new Promise((resolve, reject) => {
+          try {
+            const result = browserAPI.storage.local.remove('tokenExpires');
+            if (result && typeof result.then === 'function') {
+              result.then(resolve).catch(reject);
+            } else {
+              browserAPI.runtime.lastError ? reject(new Error(browserAPI.runtime.lastError.message)) : resolve();
+            }
+          } catch (error) {
+            reject(error);
+          }
+        });
       }
     }
 
     // Verify the token was stored correctly
-    const verification = await browserAPI.storage.local.get(['diceCloudToken', 'diceCloudUserId', 'tokenExpires', 'username']);
+    const verification = await new Promise((resolve, reject) => {
+      try {
+        const result = browserAPI.storage.local.get(['diceCloudToken', 'diceCloudUserId', 'tokenExpires', 'username']);
+        if (result && typeof result.then === 'function') {
+          result.then(resolve).catch(reject);
+        } else {
+          browserAPI.runtime.lastError ? reject(new Error(browserAPI.runtime.lastError.message)) : resolve(result);
+        }
+      } catch (error) {
+        reject(error);
+      }
+    });
     debug.log('✅ setApiToken verification:', {
       storedToken: verification.diceCloudToken ? verification.diceCloudToken.substring(0, 20) + '...' : 'none',
       storedUserId: verification.diceCloudUserId,
