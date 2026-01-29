@@ -828,6 +828,20 @@ function buildSheet(data) {
     data.notificationColor = data.notification_color;
   }
 
+  // DEBUG: Log actions and spells arrays
+  debug.log('🔍 Actions array check:', {
+    has_actions: !!data.actions,
+    is_array: Array.isArray(data.actions),
+    length: data.actions?.length,
+    first_action: data.actions?.[0]?.name
+  });
+  debug.log('🔍 Spells array check:', {
+    has_spells: !!data.spells,
+    is_array: Array.isArray(data.spells),
+    length: data.spells?.length,
+    first_spell: data.spells?.[0]?.name
+  });
+
   // Safety check: Ensure critical DOM elements exist before building
   const charNameEl = document.getElementById('char-name');
   if (!charNameEl) {
@@ -1179,10 +1193,17 @@ function buildSheet(data) {
 
   // Actions & Attacks
   const actionsContainer = document.getElementById('actions-container');
+  debug.log('🎬 Actions display check:', {
+    has_actions: !!data.actions,
+    is_array: Array.isArray(data.actions),
+    length: data.actions?.length,
+    sample_names: data.actions?.slice(0, 5).map(a => a.name)
+  });
   if (data.actions && Array.isArray(data.actions) && data.actions.length > 0) {
     buildActionsDisplay(actionsContainer, data.actions);
   } else {
     actionsContainer.innerHTML = '<p style="text-align: center; color: #666;">No actions available</p>';
+    debug.warn('⚠️ No actions to display - showing placeholder');
   }
 
   // Companions (Animal Companions, Familiars, Summons, etc.)
@@ -1206,11 +1227,18 @@ function buildSheet(data) {
 
   // Spells - organized by source then level
   const spellsContainer = document.getElementById('spells-container');
+  debug.log('✨ Spells display check:', {
+    has_spells: !!data.spells,
+    is_array: Array.isArray(data.spells),
+    length: data.spells?.length,
+    sample_names: data.spells?.slice(0, 5).map(s => s.name)
+  });
   if (data.spells && Array.isArray(data.spells) && data.spells.length > 0) {
     buildSpellsBySource(spellsContainer, data.spells);
     expandSectionByContainerId('spells-container');
   } else {
     spellsContainer.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No spells prepared</p>';
+    debug.warn('⚠️ No spells to display - showing placeholder');
     // Collapse the section when empty
     collapseSectionByContainerId('spells-container');
   }
@@ -1380,7 +1408,7 @@ function buildSpellsBySource(container, spells) {
     const deduplicatedSpells = [];
     const spellsByName = {};
 
-    debug.log(`📚 Deduplicating ${sortedSpells.length} spells in ${levelKey}`);
+    debug.log(`📚 Deduplicating ${sortedSpells.length} spells in ${levelKey}`, sortedSpells.map(s => s.name));
     sortedSpells.forEach(spell => {
       const spellName = spell.name || 'Unnamed Spell';
 
@@ -1399,7 +1427,7 @@ function buildSpellsBySource(container, spells) {
         }
       }
     });
-    debug.log(`📚 After deduplication: ${deduplicatedSpells.length} unique spells in ${levelKey}`);
+    debug.log(`📚 After deduplication: ${deduplicatedSpells.length} unique spells in ${levelKey}`, deduplicatedSpells.map(s => s.name));
 
     // Add deduplicated spells
     deduplicatedSpells.forEach(spell => {
@@ -1693,6 +1721,7 @@ function buildActionsDisplay(container, actions) {
 
   // DEBUG: Log all actions to see what we have
   debug.log('🔍 buildActionsDisplay called with actions:', actions.map(a => ({ name: a.name, damage: a.damage, actionType: a.actionType })));
+  debug.log('🔍 Total actions received:', actions.length);
 
   // Deduplicate actions by name and combine sources (similar to spells)
   const deduplicatedActions = [];

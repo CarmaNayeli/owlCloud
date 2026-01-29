@@ -1221,16 +1221,42 @@ async function getCharacterData(characterId = null) {
     // Get character profiles
     const characterProfiles = result.characterProfiles || {};
 
+    // Helper function to extract full character data from database profiles
+    const extractFullData = (characterData) => {
+      if (!characterData) return null;
+
+      // For database profiles, extract full character data from _fullData.raw_dicecloud_data
+      if (characterData.source === 'database' && characterData._fullData) {
+        const fullData = characterData._fullData.raw_dicecloud_data;
+        if (fullData && typeof fullData === 'object') {
+          debug.log('📦 Extracting full character data from database raw_dicecloud_data');
+          // Merge the full data with metadata
+          return {
+            ...fullData,
+            source: 'database',
+            lastUpdated: characterData.lastUpdated || characterData._fullData.updated_at,
+            notificationColor: characterData._fullData.notification_color || fullData.notificationColor
+          };
+        } else {
+          debug.warn('⚠️ Database profile missing raw_dicecloud_data, using summary only');
+        }
+      }
+
+      // For local profiles or database profiles without nested data, return as-is
+      return characterData;
+    };
+
     // If specific character ID requested, return it
     if (characterId) {
-      return characterProfiles[characterId] || null;
+      const characterData = characterProfiles[characterId] || null;
+      return extractFullData(characterData);
     }
 
     // Otherwise return active character
     const activeCharacterId = result.activeCharacterId;
     debug.log(`🎯 Getting active character: activeCharacterId="${activeCharacterId}"`);
     debug.log(`🎯 Available characters:`, Object.keys(characterProfiles));
-    
+
     if (activeCharacterId && characterProfiles[activeCharacterId]) {
       const activeChar = characterProfiles[activeCharacterId];
       debug.log('✅ Retrieved active character data:', {
@@ -1239,14 +1265,14 @@ async function getCharacterData(characterId = null) {
         class: activeChar.class,
         level: activeChar.level
       });
-      return activeChar;
+      return extractFullData(activeChar);
     }
 
     // Fallback: return first available character
     const characterIds = Object.keys(characterProfiles);
     if (characterIds.length > 0) {
       debug.log('No active character, returning first available:', characterProfiles[characterIds[0]]);
-      return characterProfiles[characterIds[0]];
+      return extractFullData(characterProfiles[characterIds[0]]);
     }
 
     return null;
