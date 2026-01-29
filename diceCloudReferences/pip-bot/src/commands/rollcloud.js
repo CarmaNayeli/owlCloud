@@ -21,8 +21,12 @@ export default {
     ),
 
   async execute(interaction) {
+    console.log(`[DEBUG] /rollcloud command executed by ${interaction.user.tag}`);
+    console.log(`[DEBUG] Options:`, interaction.options.data);
+    
     // Check permissions
     if (!interaction.member.permissions.has(PermissionFlagsBits.ManageWebhooks)) {
+      console.log('[DEBUG] User lacks Manage Webhooks permission');
       await interaction.reply({
         content: '❌ You need the **Manage Webhooks** permission to set up RollCloud.',
         ephemeral: true
@@ -31,14 +35,18 @@ export default {
     }
 
     const code = interaction.options.getString('code').toUpperCase();
+    console.log(`[DEBUG] Processing pairing code: ${code}`);
 
     await interaction.deferReply();
 
     try {
       // 1. Look up pairing code in Supabase
+      console.log('[DEBUG] Step 1: Looking up pairing code...');
       const pairing = await lookupPairingCode(code);
+      console.log(`[DEBUG] Pairing result:`, pairing ? 'FOUND' : 'NOT FOUND');
 
       if (!pairing) {
+        console.log('[DEBUG] Pairing not found, sending error message');
         await interaction.editReply({
           embeds: [new EmbedBuilder()
             .setColor(0xE74C3C)
@@ -57,6 +65,7 @@ export default {
       }
 
       if (pairing.status === 'connected') {
+        console.log('[DEBUG] Pairing already connected');
         await interaction.editReply({
           embeds: [new EmbedBuilder()
             .setColor(0xF39C12)
@@ -71,12 +80,15 @@ export default {
       }
 
       // 2. Create webhook in this channel
+      console.log('[DEBUG] Step 2: Creating webhook...');
       const webhook = await interaction.channel.createWebhook({
         name: '🎲 RollCloud',
         reason: `RollCloud pairing by ${interaction.user.tag}`
       });
+      console.log(`[DEBUG] Webhook created: ${webhook.url}`);
 
       // 3. Update Supabase with webhook URL and Discord info
+      console.log('[DEBUG] Step 3: Updating Supabase with webhook info...');
       await completePairing(code, {
         webhookUrl: webhook.url,
         guildId: interaction.guild.id,
@@ -85,6 +97,7 @@ export default {
         channelName: interaction.channel.name,
         userId: interaction.user.id
       });
+      console.log('[DEBUG] Supabase updated successfully');
 
       // 3.5. Store character options for autocomplete
       // Get character data to store options
@@ -163,25 +176,35 @@ export default {
  * Look up a pairing code in Supabase
  */
 async function lookupPairingCode(code) {
+  console.log(`[DEBUG] Looking up pairing code: ${code}`);
+  console.log(`[DEBUG] SUPABASE_URL: ${SUPABASE_URL ? 'SET' : 'NOT SET'}`);
+  console.log(`[DEBUG] SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY ? 'SET' : 'NOT SET'}`);
+  
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+    console.error('[ERROR] Supabase not configured');
     throw new Error('Supabase not configured');
   }
 
-  const response = await fetch(
-    `${SUPABASE_URL}/rest/v1/rollcloud_pairings?pairing_code=eq.${code}&select=*`,
-    {
-      headers: {
-        'apikey': SUPABASE_SERVICE_KEY,
-        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
-      }
+  const url = `${SUPABASE_URL}/rest/v1/rollcloud_pairings?pairing_code=eq.${code}&select=*`;
+  console.log(`[DEBUG] Fetching from: ${url}`);
+
+  const response = await fetch(url, {
+    headers: {
+      'apikey': SUPABASE_SERVICE_KEY,
+      'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
     }
-  );
+  });
+
+  console.log(`[DEBUG] Response status: ${response.status}`);
 
   if (!response.ok) {
-    throw new Error('Failed to lookup pairing code');
+    const errorText = await response.text();
+    console.error(`[ERROR] Failed to lookup pairing code: ${response.status} - ${errorText}`);
+    throw new Error(`Failed to lookup pairing code: ${response.status}`);
   }
 
   const data = await response.json();
+  console.log(`[DEBUG] Found ${data.length} pairings`);
   return data.length > 0 ? data[0] : null;
 }
 
