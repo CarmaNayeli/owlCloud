@@ -1,4 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
+import { fetchWithTimeout } from '../utils/fetch-timeout.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
@@ -115,14 +116,15 @@ export default {
       }
 
       // Get user's pairing for command queue
-      const pairingResponse = await fetch(
+      const pairingResponse = await fetchWithTimeout(
         `${SUPABASE_URL}/rest/v1/rollcloud_pairings?discord_user_id=eq.${discordUserId}&status=eq.connected&select=*`,
         {
           headers: {
             'apikey': SUPABASE_SERVICE_KEY,
             'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
           }
-        }
+        },
+        10000
       );
 
       if (!pairingResponse.ok) {
@@ -143,6 +145,46 @@ export default {
 
       const pairing = pairings[0];
 
+      // Create spell buttons for attack and damage rolls FIRST to determine if we need them
+      const components = buildSpellButtons(spell, character.character_name, pairing.id, discordUserId);
+
+      // If no buttons (just info), send command to broadcast immediately
+      if (components.length === 0) {
+        const commandPayload = {
+          pairing_id: pairing.id,
+          discord_user_id: discordUserId,
+          discord_username: interaction.user.username,
+          command_type: 'cast',
+          action_name: spell.name,
+          command_data: {
+            spell: spell,
+            cast_level: castLevel,
+            spell_level: spellLevel,
+            character_name: character.character_name,
+            character_id: character.id
+          },
+          status: 'pending'
+        };
+
+        const commandResponse = await fetchWithTimeout(`${SUPABASE_URL}/functions/v1/broadcast-command`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+          },
+          body: JSON.stringify({ command: commandPayload })
+        }, 15000);
+
+        if (!commandResponse.ok) {
+          const errorBody = await commandResponse.text().catch(() => 'no body');
+          console.error('Failed to create cast command:', commandResponse.status, errorBody);
+          return await interaction.editReply({
+            content: `❌ Failed to send spell to extension. (${commandResponse.status})`,
+            flags: 64
+          });
+        }
+      }
+
       // Build title with tags
       let titleTags = '';
       if (spell.concentration) titleTags += ' 🧠 Concentration';
@@ -161,11 +203,8 @@ export default {
         .setTitle(`🔮 ${character.character_name} casts ${spell.name}`)
         .setColor(0x9b59b6)
         .setDescription(`${levelText}${titleTags}\n\n${formatSpellDescription(spell, castLevel)}`)
-        .setFooter({ text: 'Click buttons below to roll attack/damage' })
+        .setFooter({ text: components.length > 0 ? 'Click buttons below to roll attack/damage' : 'Spell cast in Roll20' })
         .setTimestamp();
-
-      // Create spell buttons for attack and damage rolls
-      const components = buildSpellButtons(spell, character.character_name, pairing.id, discordUserId);
 
       await interaction.editReply({ embeds: [embed], components });
 
@@ -181,14 +220,15 @@ export default {
 
 async function getActiveCharacter(discordUserId) {
   try {
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}&is_active=eq.true&select=*&limit=1`,
       {
         headers: {
           'apikey': SUPABASE_SERVICE_KEY,
           'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
         }
-      }
+      },
+      10000
     );
 
     const data = await response.json();
@@ -197,14 +237,15 @@ async function getActiveCharacter(discordUserId) {
       return data[0];
     }
 
-    const fallbackResponse = await fetch(
+    const fallbackResponse = await fetchWithTimeout(
       `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}&select=*&order=updated_at.desc&limit=1`,
       {
         headers: {
           'apikey': SUPABASE_SERVICE_KEY,
           'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
         }
-      }
+      },
+      10000
     );
 
     const fallbackData = await fallbackResponse.json();

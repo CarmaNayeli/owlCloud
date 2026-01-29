@@ -1,4 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { fetchWithTimeout } from '../utils/fetch-timeout.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
@@ -180,14 +181,15 @@ async function sendRollToExtension(interaction, rollData) {
 
   try {
     // Get user's pairing
-    const pairingResponse = await fetch(
+    const pairingResponse = await fetchWithTimeout(
       `${SUPABASE_URL}/rest/v1/rollcloud_pairings?discord_user_id=eq.${interaction.user.id}&status=eq.connected&select=*`,
       {
         headers: {
           'apikey': SUPABASE_SERVICE_KEY,
           'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
         }
-      }
+      },
+      10000
     );
 
     if (!pairingResponse.ok) {
@@ -231,14 +233,14 @@ async function sendRollToExtension(interaction, rollData) {
     };
 
     // Call Edge Function to insert and broadcast
-    const commandResponse = await fetch(`${SUPABASE_URL}/functions/v1/broadcast-command`, {
+    const commandResponse = await fetchWithTimeout(`${SUPABASE_URL}/functions/v1/broadcast-command`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
       },
       body: JSON.stringify({ command: commandPayload })
-    });
+    }, 15000);
 
     if (!commandResponse.ok) {
       const errorBody = await commandResponse.text().catch(() => 'no body');
@@ -294,14 +296,15 @@ function rollDice(count, sides) {
 async function getActiveCharacter(discordUserId) {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) return null;
 
-  let response = await fetch(
+  let response = await fetchWithTimeout(
     `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}&is_active=eq.true&select=*&limit=1`,
     {
       headers: {
         'apikey': SUPABASE_SERVICE_KEY,
         'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
       }
-    }
+    },
+    10000
   );
 
   if (!response.ok) return null;
@@ -309,14 +312,15 @@ async function getActiveCharacter(discordUserId) {
   let data = await response.json();
 
   if (data.length === 0) {
-    response = await fetch(
+    response = await fetchWithTimeout(
       `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}&select=*&order=updated_at.desc&limit=1`,
       {
         headers: {
           'apikey': SUPABASE_SERVICE_KEY,
           'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
         }
-      }
+      },
+      10000
     );
 
     if (response.ok) {

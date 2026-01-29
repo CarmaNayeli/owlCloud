@@ -1,4 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { fetchWithTimeout } from '../utils/fetch-timeout.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
@@ -303,14 +304,15 @@ function buildActionEmbed(action, characterName) {
 // Helper functions
 async function getActiveCharacter(discordUserId) {
   try {
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}&is_active=eq.true&select=*&limit=1`,
       {
         headers: {
           'apikey': SUPABASE_SERVICE_KEY,
           'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
         }
-      }
+      },
+      10000
     );
 
     const data = await response.json();
@@ -319,14 +321,15 @@ async function getActiveCharacter(discordUserId) {
       return data[0];
     }
 
-    const fallbackResponse = await fetch(
+    const fallbackResponse = await fetchWithTimeout(
       `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}&select=*&order=updated_at.desc&limit=1`,
       {
         headers: {
           'apikey': SUPABASE_SERVICE_KEY,
           'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
         }
-      }
+      },
+      10000
     );
 
     const fallbackData = await fallbackResponse.json();

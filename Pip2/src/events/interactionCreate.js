@@ -425,7 +425,7 @@ async function findPairingForChannel(channelId) {
 }
 
 /**
- * Create a command in Supabase for the extension to pick up
+ * Create a command via broadcast-command edge function with retry logic
  */
 async function createRollCloudCommand(options) {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
@@ -433,32 +433,33 @@ async function createRollCloudCommand(options) {
   }
 
   try {
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/rollcloud_commands`, {
+    const commandPayload = {
+      pairing_id: options.pairingId,
+      discord_user_id: options.discordUserId,
+      discord_username: options.discordUsername,
+      discord_message_id: options.discordMessageId,
+      command_type: options.commandType,
+      action_name: options.actionName,
+      command_data: options.commandData || {},
+      status: 'pending'
+    };
+
+    // Use broadcast-command edge function with retry logic
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/broadcast-command`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'apikey': SUPABASE_SERVICE_KEY,
-        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
-        'Prefer': 'return=representation'
+        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
       },
-      body: JSON.stringify({
-        pairing_id: options.pairingId,
-        discord_user_id: options.discordUserId,
-        discord_username: options.discordUsername,
-        discord_message_id: options.discordMessageId,
-        command_type: options.commandType,
-        action_name: options.actionName,
-        command_data: options.commandData || {},
-        status: 'pending'
-      })
+      body: JSON.stringify({ command: commandPayload })
     });
 
     if (response.ok) {
       const data = await response.json();
-      return { success: true, command: data[0] };
+      return { success: true, command: data.command };
     } else {
       const error = await response.text();
-      console.error('Failed to create command:', error);
+      console.error('Failed to create command via broadcast-command:', error);
       return { success: false, error: 'Failed to create command' };
     }
   } catch (error) {
