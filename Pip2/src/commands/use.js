@@ -51,6 +51,9 @@ export default {
   },
 
   async execute(interaction) {
+    // CRITICAL: Defer IMMEDIATELY - Discord only gives 3 seconds!
+    await interaction.deferReply();
+
     const actionName = interaction.options.getString('action');
     const discordUserId = interaction.user.id;
 
@@ -58,7 +61,7 @@ export default {
       const character = await getActiveCharacter(discordUserId);
 
       if (!character) {
-        return await interaction.reply({
+        return await interaction.editReply({
           content: '❌ You don\'t have an active character set. Use `/character` to set one.',
           flags: 64
         });
@@ -67,7 +70,7 @@ export default {
       const actions = parseActions(character.raw_dicecloud_data || '{}');
 
       if (!actions || actions.length === 0) {
-        return await interaction.reply({
+        return await interaction.editReply({
           content: `❌ **${character.character_name}** doesn't have any actions.`,
           flags: 64
         });
@@ -78,7 +81,7 @@ export default {
       );
 
       if (!action) {
-        return await interaction.reply({
+        return await interaction.editReply({
           content: `❌ Action "**${actionName}**" not found. Use \`/actions\` to see your available actions.`,
           flags: 64
         });
@@ -96,7 +99,7 @@ export default {
       );
 
       if (!pairingResponse.ok) {
-        return await interaction.reply({
+        return await interaction.editReply({
           content: '❌ Failed to check extension connection.',
           flags: 64
         });
@@ -105,7 +108,7 @@ export default {
       const pairings = await pairingResponse.json();
 
       if (pairings.length === 0) {
-        return await interaction.reply({
+        return await interaction.editReply({
           content: '❌ No extension connection found. Use `/rollcloud <code>` to connect your extension.',
           flags: 64
         });
@@ -126,11 +129,11 @@ export default {
       // Create action buttons for attack and damage rolls
       const components = buildActionButtons(action, character.character_name, pairing.id, discordUserId);
 
-      await interaction.reply({ embeds: [embed], components });
+      await interaction.editReply({ embeds: [embed], components });
 
     } catch (error) {
       console.error('Use command error:', error);
-      await interaction.reply({
+      await interaction.editReply({
         content: '❌ An error occurred while using the action. Please try again.',
         flags: 64
       });

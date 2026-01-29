@@ -59,6 +59,9 @@ export default {
   },
 
   async execute(interaction) {
+    // CRITICAL: Defer IMMEDIATELY - Discord only gives 3 seconds!
+    await interaction.deferReply();
+
     const spellName = interaction.options.getString('spell');
     const castLevel = interaction.options.getInteger('level');
     const discordUserId = interaction.user.id;
@@ -67,7 +70,7 @@ export default {
       const character = await getActiveCharacter(discordUserId);
 
       if (!character) {
-        return await interaction.reply({
+        return await interaction.editReply({
           content: '❌ You don\'t have an active character set. Use `/character` to set one.',
           flags: 64
         });
@@ -76,7 +79,7 @@ export default {
       const spells = parseSpells(character.raw_dicecloud_data || '{}');
 
       if (!spells || spells.length === 0) {
-        return await interaction.reply({
+        return await interaction.editReply({
           content: `❌ **${character.character_name}** doesn't have any spells.`,
           flags: 64
         });
@@ -87,7 +90,7 @@ export default {
       );
 
       if (!spell) {
-        return await interaction.reply({
+        return await interaction.editReply({
           content: `❌ Spell "**${spellName}**" not found. Use \`/spells\` to see your available spells.`,
           flags: 64
         });
@@ -97,7 +100,7 @@ export default {
 
       // Validate upcast level - cantrips (level 0) cannot be upcast
       if (castLevel && spellLevel === 0) {
-        return await interaction.reply({
+        return await interaction.editReply({
           content: `❌ **${spell.name}** is a cantrip and cannot be upcast.`,
           flags: 64
         });
@@ -105,7 +108,7 @@ export default {
 
       // Validate cast level is at least spell level
       if (castLevel && castLevel < spellLevel) {
-        return await interaction.reply({
+        return await interaction.editReply({
           content: `❌ Cannot cast **${spell.name}** (Level ${spellLevel}) at a lower level (${castLevel}).`,
           flags: 64
         });
@@ -123,7 +126,7 @@ export default {
       );
 
       if (!pairingResponse.ok) {
-        return await interaction.reply({
+        return await interaction.editReply({
           content: '❌ Failed to check extension connection.',
           flags: 64
         });
@@ -132,7 +135,7 @@ export default {
       const pairings = await pairingResponse.json();
 
       if (pairings.length === 0) {
-        return await interaction.reply({
+        return await interaction.editReply({
           content: '❌ No extension connection found. Use `/rollcloud <code>` to connect your extension.',
           flags: 64
         });
@@ -164,11 +167,11 @@ export default {
       // Create spell buttons for attack and damage rolls
       const components = buildSpellButtons(spell, character.character_name, pairing.id, discordUserId);
 
-      await interaction.reply({ embeds: [embed], components });
+      await interaction.editReply({ embeds: [embed], components });
 
     } catch (error) {
       console.error('Cast command error:', error);
-      await interaction.reply({
+      await interaction.editReply({
         content: '❌ An error occurred while casting the spell. Please try again.',
         flags: 64
       });

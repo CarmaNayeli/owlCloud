@@ -67,6 +67,10 @@ export default {
     ),
 
   async execute(interaction) {
+    // CRITICAL: Defer IMMEDIATELY - Discord only gives 3 seconds!
+    // Character lookups can take longer, especially with caching/database calls
+    await interaction.deferReply();
+
     const diceInput = interaction.options.getString('dice');
     const checkType = interaction.options.getString('check');
     const advantage = interaction.options.getBoolean('advantage') || false;
@@ -79,7 +83,7 @@ export default {
 
     // If no dice input provided, show help
     if (!diceInput) {
-      return await interaction.reply({
+      return await interaction.editReply({
         content: '❌ Please provide either:\n• **Dice notation**: `/roll 2d6+3`\n• **Character check**: `/roll check:strength`\n\nUse `/roll help` for more examples.',
         flags: 64 // ephemeral
       });
@@ -89,7 +93,7 @@ export default {
     const parsed = parseDiceNotation(diceInput);
 
     if (!parsed) {
-      return await interaction.reply({
+      return await interaction.editReply({
         content: '❌ Invalid dice notation! Use format like: `2d6`, `1d20+5`, `3d10-2`\n\nOr use the `check` option for character-based rolls.',
         flags: 64 // ephemeral
       });
@@ -98,7 +102,7 @@ export default {
     const { count, sides, modifier } = parsed;
 
     if (count > 100 || sides > 1000) {
-      return await interaction.reply({
+      return await interaction.editReply({
         content: '❌ Dice limits: max 100 dice, max 1000 sides.',
         flags: 64 // ephemeral
       });
@@ -122,7 +126,7 @@ async function rollCharacterCheck(interaction, checkType, advantage, disadvantag
   const character = await getActiveCharacter(interaction.user.id);
 
   if (!character) {
-    return await interaction.reply({
+    return await interaction.editReply({
       content: '❌ No active character. Use `/character <name>` to set one, or use plain dice notation.',
       flags: 64 // ephemeral
     });
@@ -168,7 +172,7 @@ async function rollCharacterCheck(interaction, checkType, advantage, disadvantag
 
 async function sendRollToExtension(interaction, rollData) {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-    return await interaction.reply({
+    return await interaction.editReply({
       content: '❌ Extension integration not available. Supabase configuration is missing.',
       flags: 64 // ephemeral
     });
@@ -187,7 +191,7 @@ async function sendRollToExtension(interaction, rollData) {
     );
 
     if (!pairingResponse.ok) {
-      return await interaction.reply({
+      return await interaction.editReply({
         content: '❌ Failed to check extension connection.',
         flags: 64 // ephemeral
       });
@@ -196,7 +200,7 @@ async function sendRollToExtension(interaction, rollData) {
     const pairings = await pairingResponse.json();
     
     if (pairings.length === 0) {
-      return await interaction.reply({
+      return await interaction.editReply({
         content: '❌ No extension connection found. Use `/rollcloud <code>` to connect your extension.',
         flags: 64 // ephemeral
       });
@@ -240,7 +244,7 @@ async function sendRollToExtension(interaction, rollData) {
       const errorBody = await commandResponse.text().catch(() => 'no body');
       console.error('Failed to create roll command:', commandResponse.status, errorBody);
       console.error('Payload was:', JSON.stringify(commandPayload));
-      return await interaction.reply({
+      return await interaction.editReply({
         content: `❌ Failed to send roll to extension. (${commandResponse.status})`,
         flags: 64 // ephemeral
       });
@@ -258,11 +262,11 @@ async function sendRollToExtension(interaction, rollData) {
       .setFooter({ text: 'RollCloud Extension Integration' })
       .setTimestamp();
 
-    await interaction.reply({ embeds: [embed] });
+    await interaction.editReply({ embeds: [embed] });
 
   } catch (error) {
     console.error('Error sending roll to extension:', error);
-    await interaction.reply({
+    await interaction.editReply({
       content: '❌ Failed to send roll to extension. Please try again.',
       flags: 64 // ephemeral
     });
