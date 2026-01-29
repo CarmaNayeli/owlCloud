@@ -553,10 +553,11 @@
 
     // Add spell level and school
     if (level > 0) {
-      let levelText = isUpcast
-        ? `Level ${castLevel} (upcast from ${level})`
-        : `Level ${level}`;
+      let levelText = `Level ${level}`;
       if (school) levelText += ` ${school}`;
+      if (isUpcast) {
+        levelText += ` (Upcast to Level ${castLevel})`;
+      }
       announcement += ` {{Level=${levelText}}}`;
     } else if (school) {
       announcement += ` {{Level=${school} cantrip}}`;
