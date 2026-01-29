@@ -85,9 +85,19 @@ export default {
         isOwnCharacter
       });
 
+      // Set a timeout for the entire operation
+      const TIMEOUT_MS = 10000; // 10 seconds
+      
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Command timed out')), TIMEOUT_MS);
+      });
+
       // If name provided and it's the user's own character, set it as active
       if (characterName && isOwnCharacter) {
-        const result = await setActiveCharacter(interaction.user.id, characterName);
+        const result = await Promise.race([
+          setActiveCharacter(interaction.user.id, characterName),
+          timeoutPromise
+        ]);
 
         if (!result.success) {
           await interaction.editReply({
@@ -119,7 +129,10 @@ export default {
       }
 
       // Otherwise, show the active character
-      const character = await getActiveCharacter(targetUser.id);
+      const character = await Promise.race([
+        getActiveCharacter(targetUser.id),
+        timeoutPromise
+      ]);
 
       if (!character) {
         await interaction.editReply({
@@ -145,6 +158,23 @@ export default {
 
     } catch (error) {
       console.error('Character command error:', error);
+
+      // Check if it's a timeout or stack overflow
+      if (error.message.includes('timed out') || error.message.includes('Maximum call stack size exceeded')) {
+        console.error('Command timed out or stack overflow - character data too complex');
+        try {
+          await interaction.editReply({
+            embeds: [new EmbedBuilder()
+              .setColor(0xE74C3C)
+              .setTitle('❌ Error')
+              .setDescription('Character data is too complex or the request timed out. Please try again or contact support.')
+            ]
+          });
+        } catch (replyError) {
+          console.error('Failed to send timeout error message:', replyError);
+        }
+        return;
+      }
 
       // Check if we can still reply
       try {

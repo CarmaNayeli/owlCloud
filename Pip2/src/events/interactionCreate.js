@@ -158,8 +158,11 @@ async function handleCommand(interaction) {
     } catch (replyError) {
       // If interaction has expired or already acknowledged, we can't reply - just log it
       if (replyError.message.includes('already been acknowledged') || 
-          replyError.message.includes('Unknown interaction')) {
+          replyError.message.includes('Unknown interaction') ||
+          replyError.message.includes('Interaction has already been acknowledged')) {
         console.error('Interaction already acknowledged or expired - cannot reply:', replyError.message);
+      } else if (replyError.message.includes('Maximum call stack size exceeded')) {
+        console.error('Stack overflow detected in command execution - likely character data too complex');
       } else {
         console.error('Failed to reply to interaction:', replyError.message);
       }
