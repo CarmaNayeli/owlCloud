@@ -2873,6 +2873,27 @@
     const concEl = document.getElementById('status-concentration');
     const spellEl = document.getElementById('status-conc-spell');
 
+    // Hide concentration row if character has no spell slots (e.g., rogues)
+    const spellSlots = characterData.spellSlots || {};
+    let hasSpellSlots = false;
+    for (let level = 1; level <= 9; level++) {
+      if ((spellSlots[`level${level}SpellSlotsMax`] || 0) > 0) {
+        hasSpellSlots = true;
+        break;
+      }
+    }
+    // Also check for pact magic
+    if ((spellSlots.pactMagicSlotsMax || 0) > 0) {
+      hasSpellSlots = true;
+    }
+
+    if (!hasSpellSlots) {
+      concEl.style.display = 'none';
+      return;
+    }
+
+    concEl.style.display = 'flex';
+
     // Support both formats: concentrationSpell (from postMessage) and concentration (from storage)
     const spell = characterData.concentrationSpell || characterData.concentration || '';
 
