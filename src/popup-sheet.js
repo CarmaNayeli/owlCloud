@@ -14704,10 +14704,10 @@ function initStatusBarButton() {
   const statusBarBtn = document.getElementById('status-bar-btn');
   if (statusBarBtn) {
     statusBarBtn.addEventListener('click', () => {
-      // Open status bar window
-      const width = 350;
-      const height = 500;
-      const left = window.screenX + window.outerWidth - width - 50;
+      // Open compact status bar window
+      const width = 155;
+      const height = 320;
+      const left = window.screenX + window.outerWidth + 10;
       const top = window.screenY + 50;
 
       statusBarWindow = window.open(
