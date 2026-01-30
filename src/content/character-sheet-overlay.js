@@ -2795,7 +2795,8 @@
     const concEl = document.getElementById('status-concentration');
     const spellEl = document.getElementById('status-conc-spell');
 
-    const spell = characterData.concentrationSpell || '';
+    // Support both formats: concentrationSpell (from postMessage) and concentration (from storage)
+    const spell = characterData.concentrationSpell || characterData.concentration || '';
 
     if (spell) {
       concEl.classList.remove('inactive');
@@ -2883,8 +2884,12 @@
   }
 
   function updateStatusBarEffects() {
-    const buffs = characterData.activeBuffs || [];
-    const debuffs = characterData.activeDebuffs || [];
+    // Support both data formats:
+    // - Direct: activeBuffs/activeDebuffs (from postMessage)
+    // - Nested: activeEffects.buffs/debuffs (from storage)
+    const activeEffects = characterData.activeEffects || {};
+    const buffs = characterData.activeBuffs || activeEffects.buffs || [];
+    const debuffs = characterData.activeDebuffs || activeEffects.debuffs || [];
     const effectsRow = document.getElementById('status-effects-row');
 
     const allEffects = [
@@ -2958,12 +2963,26 @@
     }
   });
 
-  // Periodic refresh of status bar data
+  // Periodic refresh of status bar data (fallback)
   setInterval(() => {
     if (statusBarVisible && statusBarElement) {
       loadStatusBarData();
     }
   }, 5000);
+
+  // Listen for storage changes to update status bar immediately
+  browserAPI.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === 'local' && statusBarVisible && statusBarElement) {
+      // Check if character data changed
+      const relevantKeys = ['characterProfiles', 'activeCharacterId', 'characterData'];
+      const hasRelevantChange = Object.keys(changes).some(key => relevantKeys.includes(key));
+
+      if (hasRelevantChange) {
+        debug.log('📊 Storage changed, refreshing status bar');
+        loadStatusBarData();
+      }
+    }
+  });
 
   // Initialize - wait for page to be fully loaded
   function initializeButton() {
