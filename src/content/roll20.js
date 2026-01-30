@@ -397,7 +397,13 @@
    */
   function normalizePopupSpellData(eventData) {
     const spell = eventData.spellData || {};
-    const castLevel = eventData.castLevel || parseInt(spell.level) || 0;
+    // Extract numeric level from "pact:X" format if needed
+    let castLevel = eventData.castLevel || parseInt(spell.level) || 0;
+    if (typeof castLevel === 'string' && castLevel.startsWith('pact:')) {
+      castLevel = parseInt(castLevel.split(':')[1]) || 0;
+    } else {
+      castLevel = parseInt(castLevel) || 0;
+    }
     const spellLevel = parseInt(spell.level) || 0;
     const characterName = eventData.characterName || 'Character';
     const notificationColor = eventData.color || eventData.notificationColor || '#3498db';
@@ -553,10 +559,11 @@
 
     // Add spell level and school
     if (level > 0) {
-      let levelText = isUpcast
-        ? `Level ${castLevel} (upcast from ${level})`
-        : `Level ${level}`;
+      let levelText = `Level ${level}`;
       if (school) levelText += ` ${school}`;
+      if (isUpcast) {
+        levelText += ` (Upcast to Level ${castLevel})`;
+      }
       announcement += ` {{Level=${levelText}}}`;
     } else if (school) {
       announcement += ` {{Level=${school} cantrip}}`;
@@ -2602,13 +2609,29 @@ ${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗
       startChatMonitoring();
     } else {
       stopChatMonitoring();
+
+      // Close all shared character sheet popups when GM panel closes
+      // (but NOT the GM's own main character sheet)
+      Object.keys(characterPopups).forEach(characterName => {
+        const popup = characterPopups[characterName];
+        try {
+          if (popup && !popup.closed) {
+            popup.close();
+            debug.log(`🔒 Closed shared character sheet for: ${characterName}`);
+          }
+        } catch (error) {
+          debug.warn(`⚠️ Error closing popup for ${characterName}:`, error);
+        }
+        delete characterPopups[characterName];
+      });
+      debug.log('🔒 All shared character sheets closed');
     }
 
     // Post chat announcement only when state actually changes
     if (previousState !== gmModeEnabled) {
       const message = gmModeEnabled
-        ? '👑 GM Panel is now active - rolls will be hidden from players'
-        : '👑 GM Panel deactivated - rolls will post normally';
+        ? '👑 GM Panel is now active'
+        : '👑 GM Panel deactivated';
 
       // Use setTimeout to ensure the chat is ready
       setTimeout(() => {
@@ -3394,10 +3417,16 @@ ${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗
   // Listen for messages to toggle GM mode and post chat messages
   window.addEventListener('message', (event) => {
     debug.log('📨 Received message:', event.data);
-    
+
     if (event.data && event.data.action === 'toggleGMMode') {
       debug.log('👑 Processing toggleGMMode message:', event.data.enabled);
       toggleGMMode(event.data.enabled);
+    } else if (event.data && event.data.action === 'registerPopup') {
+      // Register popup window for turn notifications
+      if (event.data.characterName && event.source) {
+        window.rollcloudRegisterPopup(event.data.characterName, event.source);
+        debug.log(`✅ Registered popup via message for: ${event.data.characterName}`);
+      }
     } else if (event.data && event.data.action === 'postChatMessageFromPopup') {
       // Post message from character sheet popup to Roll20 chat
       postChatMessage(event.data.message);
