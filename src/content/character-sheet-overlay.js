@@ -1710,14 +1710,18 @@
         window.addEventListener('message', messageHandler);
 
         // Close any existing popup window before opening a new one
-        if (activePopupWindow && !activePopupWindow.closed) {
-          debug.log('📋 Closing existing popup window...');
-          try {
+        // Firefox can throw errors when accessing properties of closed windows
+        try {
+          if (activePopupWindow && !activePopupWindow.closed) {
+            debug.log('📋 Closing existing popup window...');
             activePopupWindow.close();
-          } catch (error) {
-            debug.warn(' Could not close existing popup:', error.message);
           }
+        } catch (error) {
+          // Firefox throws "can't access dead object" error for closed windows
+          debug.log('📋 Existing popup already closed (Firefox)');
         }
+        // Always reset the reference before opening new window
+        activePopupWindow = null;
 
         // Now open the popup window
         try {
@@ -2118,6 +2122,10 @@
       // Hide the status bar
       hideStatusBar();
       sendResponse({ success: true });
+    } else if (request.action === 'toggleStatusBar') {
+      // Toggle the status bar visibility
+      toggleStatusBar();
+      sendResponse({ success: true, visible: statusBarVisible });
     } else if (request.action === 'refreshStatusBar') {
       // Refresh status bar with latest character data
       loadStatusBarData();
@@ -3026,6 +3034,18 @@
       statusBarVisible = false;
       localStorage.setItem('rollcloud-status-bar_hidden', 'true');
       showNotification('Status bar hidden. Use extension popup to show again.', 'info');
+    }
+  }
+
+  /**
+   * Toggles the status bar visibility
+   */
+  function toggleStatusBar() {
+    if (statusBarVisible) {
+      hideStatusBar();
+    } else {
+      showStatusBar();
+      showNotification('Status bar shown', 'success');
     }
   }
 

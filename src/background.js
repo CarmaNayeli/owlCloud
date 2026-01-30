@@ -1191,6 +1191,24 @@ async function storeCharacterData(characterData, slotId) {
     const result = await browserAPI.storage.local.get(['characterProfiles', 'activeCharacterId']);
     const characterProfiles = result.characterProfiles || {};
 
+    // Deduplication: Check if this character already exists in a different slot
+    // If it does, delete it from the old slot before saving to the new slot
+    const characterId = characterData.id || characterData._id;
+    if (characterId) {
+      for (const [existingSlotId, existingProfile] of Object.entries(characterProfiles)) {
+        // Skip if it's the same slot we're saving to
+        if (existingSlotId === storageId) continue;
+
+        // Check if the existing profile has the same character ID
+        const existingId = existingProfile.id || existingProfile._id;
+        if (existingId === characterId) {
+          debug.log(`🔄 Deduplicating character: "${characterData.name}" found in ${existingSlotId}, removing before saving to ${storageId}`);
+          delete characterProfiles[existingSlotId];
+          break; // Only one duplicate should exist
+        }
+      }
+    }
+
     // Store this character's data EXACTLY as received (now includes ownerUserId)
     characterProfiles[storageId] = characterData;
 
@@ -1741,6 +1759,18 @@ async function getCharacterDataFromDatabase(characterId) {
       if (dbCharacter.notification_color) {
         fullCharacter.notificationColor = dbCharacter.notification_color;
       }
+
+      // DEBUG: Check if spells and actions are present
+      debug.log('🔍 Database character data check:', {
+        name: fullCharacter.name,
+        hasSpells: !!fullCharacter.spells,
+        spellsIsArray: Array.isArray(fullCharacter.spells),
+        spellsLength: fullCharacter.spells?.length,
+        hasActions: !!fullCharacter.actions,
+        actionsIsArray: Array.isArray(fullCharacter.actions),
+        actionsLength: fullCharacter.actions?.length,
+        topLevelKeys: Object.keys(fullCharacter).slice(0, 30)
+      });
       // Add a compact preview of the parsed raw data for debugging
       try {
         const keys = Object.keys(fullCharacter || {}).slice(0, 50);

@@ -1,26 +1,8 @@
 debug.log('✅ Popup HTML loaded');
 
-// Access D&D logic from window (loaded via script tags in popup-sheet.html)
-// Edge case modules and action-executor.js are loaded as regular scripts before this module
-const {
-  // Spell edge cases
-  SPELL_EDGE_CASES, isEdgeCase, getEdgeCase, applyEdgeCaseModifications, isReuseableSpell, isTooComplicatedSpell,
-  // Class feature edge cases
-  CLASS_FEATURE_EDGE_CASES, isClassFeatureEdgeCase, getClassFeatureEdgeCase, applyClassFeatureEdgeCaseModifications,
-  // Racial feature edge cases
-  RACIAL_FEATURE_EDGE_CASES, isRacialFeatureEdgeCase, getRacialFeatureEdgeCase, applyRacialFeatureEdgeCaseModifications,
-  // Combat maneuver edge cases
-  COMBAT_MANEUVER_EDGE_CASES, isCombatManeuverEdgeCase, getCombatManeuverEdgeCase, applyCombatManeuverEdgeCaseModifications,
-  // Metamagic & resource logic
-  METAMAGIC_COSTS,
-  calculateMetamagicCost: executorCalculateMetamagicCost,
-  getAvailableMetamagic: executorGetAvailableMetamagic,
-  getSorceryPointsResource: executorGetSorceryPointsResource,
-  isMagicItemSpell, isFreeSpell,
-  detectClassResources: executorDetectClassResources,
-  // Execution functions
-  resolveSpellCast, resolveActionUse
-} = window;
+// Note: Edge case modules and action-executor.js are loaded as regular scripts before this script.
+// They export their functions to globalThis, making them globally available without needing to import.
+// Functions like isEdgeCase, getEdgeCase, resolveSpellCast, etc. are already available globally.
 
 // Initialize theme manager
 if (typeof ThemeManager !== 'undefined') {
@@ -54,11 +36,21 @@ if (typeof ThemeManager !== 'undefined') {
 }
 
 // Store character data globally so we can update it
-let characterData = null;
+// Using 'var' instead of 'let' to ensure global scope accessibility for modules
+var characterData = null;
 
 // Track current character slot ID (e.g., "slot-1") for persistence
+var currentSlotId = null;
+
+// Track concentration state
+var concentratingSpell = null;
+
+// Track active buffs and conditions/debuffs
+var activeBuffs = [];
+var activeConditions = [];
+
 // Track Feline Agility usage
-let felineAgilityUsed = false;
+var felineAgilityUsed = false;
 
 // Setting: Show custom macro gear buttons on spells (disabled by default)
 let showCustomMacroButtons = false;
@@ -448,9 +440,42 @@ async function loadCharacterWithTabs() {
       initClassFeatures();
     } else {
       debug.error('❌ No character data found');
+      // Hide loading overlay even if no character data
+      const loadingOverlay = document.getElementById('loading-overlay');
+      if (loadingOverlay) {
+        loadingOverlay.innerHTML = `
+          <div style="text-align: center; color: var(--text-primary); max-width: 400px;">
+            <div style="font-size: 3em; margin-bottom: 20px;">📋</div>
+            <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 10px;">
+              No Character Found
+            </div>
+            <div style="font-size: 0.9em; color: var(--text-secondary); line-height: 1.4;">
+              Use the <strong>Refresh Characters</strong> button in the extension popup to sync your characters from DiceCloud
+            </div>
+          </div>
+        `;
+      }
     }
   } catch (error) {
     debug.error('❌ Failed to load characters:', error);
+    // Hide loading overlay and show error
+    const loadingOverlay = document.getElementById('loading-overlay');
+    if (loadingOverlay) {
+      loadingOverlay.innerHTML = `
+        <div style="text-align: center; color: var(--text-primary); max-width: 400px;">
+          <div style="font-size: 3em; margin-bottom: 20px;">⚠️</div>
+          <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 10px;">
+            Failed to Load Character
+          </div>
+          <div style="font-size: 0.9em; color: var(--text-secondary); line-height: 1.4; margin-bottom: 15px;">
+            ${error.message || 'Unknown error'}
+          </div>
+          <div style="font-size: 0.9em; color: var(--text-secondary); line-height: 1.4;">
+            Try using the <strong>Refresh Characters</strong> button in the extension popup
+          </div>
+        </div>
+      `;
+    }
   }
 }
 
@@ -915,6 +940,85 @@ function setAdvantageState(state) {
       roll: messageData
     });
   }
+}
+
+function updateConcentrationDisplay() {
+  const concentrationIndicator = document.getElementById('concentration-indicator');
+  const concentrationSpell = document.getElementById('concentration-spell');
+
+  if (!concentrationIndicator) return;
+
+  // Hide concentration row if character has no spell slots (e.g., rogues)
+  if (characterData && characterData.spellSlots) {
+    const spellSlots = characterData.spellSlots;
+    let hasSpellSlots = false;
+
+    // Check for regular spell slots (levels 1-9)
+    for (let level = 1; level <= 9; level++) {
+      if ((spellSlots[`level${level}SpellSlotsMax`] || 0) > 0) {
+        hasSpellSlots = true;
+        break;
+      }
+    }
+
+    // Also check for pact magic (warlocks)
+    if ((spellSlots.pactMagicSlotsMax || 0) > 0) {
+      hasSpellSlots = true;
+    }
+
+    // If no spell slots, hide the concentration tracker entirely
+    if (!hasSpellSlots) {
+      concentrationIndicator.style.display = 'none';
+      return;
+    }
+  }
+
+  // Show/hide based on concentration state
+  if (concentratingSpell) {
+    concentrationIndicator.style.display = 'flex';
+    if (concentrationSpell) {
+      concentrationSpell.textContent = concentratingSpell;
+    }
+  } else {
+    concentrationIndicator.style.display = 'none';
+  }
+}
+
+function initConcentrationTracker() {
+  const dropConcentrationBtn = document.getElementById('drop-concentration-btn');
+
+  if (dropConcentrationBtn) {
+    dropConcentrationBtn.addEventListener('click', () => {
+      dropConcentration();
+    });
+  }
+
+  debug.log('✅ Concentration tracker initialized');
+}
+
+function setConcentration(spellName) {
+  concentratingSpell = spellName;
+  if (characterData) {
+    characterData.concentration = spellName;
+    saveCharacterData();
+  }
+  updateConcentrationDisplay();
+  showNotification(`🧠 Concentrating on: ${spellName}`);
+  debug.log(`🧠 Concentration set: ${spellName}`);
+}
+
+function dropConcentration() {
+  if (!concentratingSpell) return;
+
+  const spellName = concentratingSpell;
+  concentratingSpell = null;
+  if (characterData) {
+    characterData.concentration = null;
+    saveCharacterData();
+  }
+  updateConcentrationDisplay();
+  showNotification(`✅ Dropped concentration on ${spellName}`);
+  debug.log(`🗑️ Concentration dropped: ${spellName}`);
 }
 
 function buildSheet(data) {
@@ -1447,6 +1551,16 @@ function buildSheet(data) {
 
   // Initialize filter event listeners
   initializeFilters();
+
+  // Hide loading overlay and show the sheet with fade-in effect
+  const loadingOverlay = document.getElementById('loading-overlay');
+  const container = document.querySelector('.container');
+  if (loadingOverlay) {
+    loadingOverlay.style.display = 'none';
+  }
+  if (container) {
+    container.classList.add('loaded');
+  }
 
   debug.log('✅ Sheet built successfully');
 }
@@ -8997,19 +9111,31 @@ window.addEventListener('beforeunload', () => {
 function initCombatMechanics() {
   debug.log('🎮 Initializing combat mechanics...');
 
+  // TODO: Restore combat mechanics functions that were lost in modularization merge
+  // These functions need to be restored or moved to a combat-tracker.js module:
+  // - initActionEconomy()
+  // - initConditionsManager()
+  // - updateActionEconomyAvailability()
+  // - postActionToChat()
+  // - postActionEconomyToDiscord()
+
   // Initialize action economy trackers
-  initActionEconomy();
+  // initActionEconomy();
 
   // Initialize conditions manager
-  initConditionsManager();
+  // initConditionsManager();
 
   // Initialize concentration tracker
-  initConcentrationTracker();
+  if (typeof initConcentrationTracker === 'function') {
+    initConcentrationTracker();
+  }
 
   // Initialize GM mode toggle
-  initGMMode();
+  if (typeof initGMMode === 'function') {
+    initGMMode();
+  }
 
-  debug.log('✅ Combat mechanics initialized');
+  debug.log('⚠️ Combat mechanics partially initialized (some functions missing)');
 }
 
 /**
@@ -12159,30 +12285,36 @@ let statusBarWindow = null;
 function initStatusBarButton() {
   const statusBarBtn = document.getElementById('status-bar-btn');
   if (statusBarBtn) {
-    statusBarBtn.addEventListener('click', () => {
-      // Open compact status bar window
-      const width = 155;
-      const height = 320;
-      const left = window.screenX + window.outerWidth + 10;
-      const top = window.screenY + 50;
+    statusBarBtn.addEventListener('click', async () => {
+      // Send message to Roll20 tabs to toggle the status bar overlay
+      try {
+        const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
 
-      statusBarWindow = window.open(
-        browserAPI.runtime.getURL('src/status-bar.html'),
-        'status-bar',
-        `width=${width},height=${height},left=${left},top=${top},scrollbars=no,resizable=yes`
-      );
+        if (tabs.length === 0) {
+          showNotification('⚠️ No Roll20 tabs found. Open Roll20 to use the status bar.', 'warning');
+          return;
+        }
 
-      if (!statusBarWindow) {
-        showNotification('❌ Failed to open status bar - please allow popups', 'error');
-        return;
+        // Send toggle message to all Roll20 tabs
+        for (const tab of tabs) {
+          try {
+            const response = await browserAPI.tabs.sendMessage(tab.id, {
+              action: 'toggleStatusBar'
+            });
+
+            if (response && response.success) {
+              const statusText = response.visible ? 'shown' : 'hidden';
+              showNotification(`📊 Status bar ${statusText}`, 'success');
+              debug.log(`📊 Status bar toggled: ${statusText}`);
+            }
+          } catch (error) {
+            debug.warn('⚠️ Could not toggle status bar on tab:', error.message);
+          }
+        }
+      } catch (error) {
+        debug.error('❌ Failed to toggle status bar:', error);
+        showNotification('❌ Failed to toggle status bar', 'error');
       }
-
-      debug.log('📊 Status bar opened');
-
-      // Send initial data after a short delay
-      setTimeout(() => {
-        sendStatusUpdate();
-      }, 500);
     });
     debug.log('✅ Status bar button initialized');
   }
