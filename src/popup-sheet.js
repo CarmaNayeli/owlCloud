@@ -775,6 +775,12 @@ function showClearCharacterOptions(slotId, slotNum, characterName) {
 // Clear a character slot (local only)
 async function clearCharacterSlot(slotId, slotNum) {
   try {
+    // Clear in-memory state if this is the current character
+    if (currentSlotId === slotId) {
+      characterData = null;
+      currentSlotId = null;
+    }
+
     await browserAPI.runtime.sendMessage({
       action: 'clearCharacterData',
       characterId: slotId
@@ -782,7 +788,7 @@ async function clearCharacterSlot(slotId, slotNum) {
 
     showNotification(`✅ Slot ${slotNum} cleared from local storage`);
 
-    // Reload tabs
+    // Reload tabs (will load a different character if available)
     loadCharacterWithTabs();
   } catch (error) {
     debug.error('❌ Failed to clear slot:', error);
@@ -793,6 +799,12 @@ async function clearCharacterSlot(slotId, slotNum) {
 // Delete character from cloud AND local
 async function deleteCharacterFromCloud(slotId, slotNum) {
   try {
+    // Clear in-memory state if this is the current character
+    if (currentSlotId === slotId) {
+      characterData = null;
+      currentSlotId = null;
+    }
+
     // First delete from cloud
     await browserAPI.runtime.sendMessage({
       action: 'deleteCharacterFromCloud',
@@ -807,7 +819,7 @@ async function deleteCharacterFromCloud(slotId, slotNum) {
 
     showNotification(`✅ Character deleted from cloud and local storage`);
 
-    // Reload tabs
+    // Reload tabs (will load a different character if available)
     loadCharacterWithTabs();
   } catch (error) {
     debug.error('❌ Failed to delete character:', error);

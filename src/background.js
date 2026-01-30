@@ -1948,9 +1948,19 @@ async function clearCharacterData(characterId = null) {
 
       debug.log(`Character profile cleared for ID: ${characterId}`);
     } else {
-      // Clear all characters
-      await browserAPI.storage.local.remove(['characterProfiles', 'activeCharacterId', 'timestamp']);
-      debug.log('All character data cleared successfully');
+      // Clear all characters - include ALL legacy storage keys
+      const legacyKeys = [
+        'characterProfiles',
+        'activeCharacterId',
+        'timestamp',
+        'characterData',           // Legacy single-character key
+        'activeSlot',              // Legacy slot system
+        'slot1', 'slot2', 'slot3', 'slot4', 'slot5',  // Legacy slots
+        'currentCharacter',        // Another legacy key
+        'cachedCharacter'          // Cache key
+      ];
+      await browserAPI.storage.local.remove(legacyKeys);
+      debug.log('All character data cleared successfully (including legacy keys)');
     }
   } catch (error) {
     debug.error('Failed to clear character data:', error);
@@ -1973,24 +1983,44 @@ async function deleteCharacterFromCloud(characterId) {
 
     debug.log(`🗑️ Deleting character from cloud: ${characterId}`);
 
-    // Delete from Supabase
-    const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/rollcloud_characters?dicecloud_character_id=eq.${characterId}`,
-      {
-        method: 'DELETE',
-        headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-          'Prefer': 'return=minimal'
-        }
-      }
-    );
+    // Strip db- prefix if present for database query
+    const cleanId = characterId.startsWith('db-') ? characterId.replace('db-', '') : characterId;
 
-    if (!response.ok) {
-      throw new Error(`Failed to delete from cloud: ${response.status}`);
+    // Try to delete with both the clean ID and the original ID
+    // Some records may have been stored with the prefix, some without
+    const idsToTry = [cleanId];
+    if (cleanId !== characterId) {
+      idsToTry.push(characterId); // Also try with prefix
     }
 
-    debug.log(`✅ Character deleted from cloud: ${characterId}`);
+    let deleted = false;
+    for (const idToDelete of idsToTry) {
+      const response = await fetch(
+        `${SUPABASE_URL}/rest/v1/rollcloud_characters?dicecloud_character_id=eq.${encodeURIComponent(idToDelete)}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Prefer': 'return=representation'  // Return deleted rows to verify
+          }
+        }
+      );
+
+      if (response.ok) {
+        const deletedRows = await response.json();
+        if (deletedRows && deletedRows.length > 0) {
+          debug.log(`✅ Deleted ${deletedRows.length} record(s) from cloud with ID: ${idToDelete}`);
+          deleted = true;
+        }
+      }
+    }
+
+    if (!deleted) {
+      debug.warn(`⚠️ No records found in cloud for character: ${characterId}`);
+    }
+
+    debug.log(`✅ Character delete from cloud completed: ${characterId}`);
     return { success: true };
   } catch (error) {
     debug.error('Failed to delete character from cloud:', error);
