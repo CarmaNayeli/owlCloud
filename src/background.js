@@ -4240,7 +4240,8 @@ async function executeRollCommand(command) {
     disadvantage: command_data.disadvantage,
     count: command_data.count,
     sides: command_data.sides,
-    modifier: command_data.modifier
+    modifier: command_data.modifier,
+    color: command_data.notification_color || '#3498db'  // Include character's notification color for colored announcements
   };
 
   // Send to Roll20

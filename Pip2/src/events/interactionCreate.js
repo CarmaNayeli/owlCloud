@@ -350,6 +350,19 @@ async function handleRollCloudButton(interaction, params) {
       return;
     }
 
+    // Get character data for roll commands to include name and color
+    let commandData = parseExtraData(commandType, extraData);
+
+    if (commandType === 'roll') {
+      // For roll commands from buttons, fetch character data to include name and color
+      const character = await getActiveCharacter(interaction.user.id);
+      if (character) {
+        commandData.character_name = character.character_name;
+        commandData.character_id = character.id;
+        commandData.notification_color = character.notification_color || '#3498db';
+      }
+    }
+
     // Create command in Supabase
     const command = await createRollCloudCommand({
       pairingId: pairing.id,
@@ -358,7 +371,7 @@ async function handleRollCloudButton(interaction, params) {
       discordMessageId: interaction.message.id,
       commandType: commandType,
       actionName: actionName,
-      commandData: parseExtraData(commandType, extraData)
+      commandData: commandData
     });
 
     if (!command.success) {
@@ -500,4 +513,45 @@ function parseExtraData(commandType, extraData) {
   }
 
   return data;
+}
+
+/**
+ * Get active character for a Discord user
+ */
+async function getActiveCharacter(discordUserId) {
+  try {
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}&is_active=eq.true&select=*&limit=1`,
+      {
+        headers: {
+          'apikey': SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+        }
+      }
+    );
+
+    const data = await response.json();
+
+    if (data.length > 0) {
+      return data[0];
+    }
+
+    // Fallback: get most recently updated character
+    const fallbackResponse = await fetch(
+      `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}&select=*&order=updated_at.desc&limit=1`,
+      {
+        headers: {
+          'apikey': SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+        }
+      }
+    );
+
+    const fallbackData = await fallbackResponse.json();
+    return fallbackData.length > 0 ? fallbackData[0] : null;
+
+  } catch (error) {
+    console.error('Error getting active character:', error);
+    return null;
+  }
 }
