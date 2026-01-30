@@ -685,6 +685,46 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
 });
 
 /**
+ * Clears all existing auth and character data before logging in
+ * This ensures a clean state when switching between accounts
+ */
+async function clearExistingAuthData() {
+  debug.log('🧹 Clearing existing auth and character data for new login...');
+
+  try {
+    // Clear all auth-related data
+    await new Promise((resolve, reject) => {
+      const keysToRemove = [
+        'diceCloudToken',
+        'diceCloudUserId',
+        'tokenExpires',
+        'username',
+        'characterProfiles',
+        'activeCharacterId',
+        'characterData',
+        'explicitlyLoggedOut'
+      ];
+
+      try {
+        const result = browserAPI.storage.local.remove(keysToRemove);
+        if (result && typeof result.then === 'function') {
+          result.then(resolve).catch(reject);
+        } else {
+          browserAPI.runtime.lastError ? reject(new Error(browserAPI.runtime.lastError.message)) : resolve();
+        }
+      } catch (error) {
+        reject(error);
+      }
+    });
+
+    debug.log('✅ Existing auth data cleared successfully');
+  } catch (error) {
+    debug.error('❌ Failed to clear existing auth data:', error);
+    // Don't throw - continue with login even if clear fails
+  }
+}
+
+/**
  * Logs in to DiceCloud API with username/password
  * Per DiceCloud API docs: POST https://dicecloud.com/api/login
  * Accepts either username or email with password
@@ -693,7 +733,10 @@ async function loginToDiceCloud(username, password) {
   try {
     // Keep service worker alive during login process
     keepServiceWorkerAlive(60000); // Keep alive for 1 minute during login
-    
+
+    // Clear any existing auth data first to prevent conflicts when switching accounts
+    await clearExistingAuthData();
+
     // Try to determine if input is email or username
     const isEmail = username.includes('@');
 
@@ -749,20 +792,6 @@ async function loginToDiceCloud(username, password) {
       }
     });
 
-    // Clear the explicitly logged out flag since user is now logging in
-    await new Promise((resolve, reject) => {
-      try {
-        const result = browserAPI.storage.local.remove(['explicitlyLoggedOut']);
-        if (result && typeof result.then === 'function') {
-          result.then(resolve).catch(reject);
-        } else {
-          browserAPI.runtime.lastError ? reject(new Error(browserAPI.runtime.lastError.message)) : resolve();
-        }
-      } catch (error) {
-        reject(error);
-      }
-    });
-
     debug.log('Successfully logged in to DiceCloud');
     debug.log('Token expires:', data.tokenExpires);
     
@@ -784,7 +813,7 @@ async function setApiToken(token, userId = null, tokenExpires = null, username =
   try {
     // Keep service worker alive during token storage
     keepServiceWorkerAlive(30000); // Keep alive for 30 seconds
-    
+
     debug.log('🔐 setApiToken called:', {
       tokenLength: token ? token.length : 0,
       tokenStart: token ? token.substring(0, 20) + '...' : 'none',
@@ -797,6 +826,9 @@ async function setApiToken(token, userId = null, tokenExpires = null, username =
     if (!token || token.length < 10) {
       throw new Error('Invalid API token format');
     }
+
+    // Clear any existing auth data first to prevent conflicts when switching accounts
+    await clearExistingAuthData();
 
     // Store the API token with optional metadata
     const storageData = {
@@ -826,52 +858,6 @@ async function setApiToken(token, userId = null, tokenExpires = null, username =
         reject(error);
       }
     });
-
-    // Clear the explicitly logged out flag since user is now logging in
-    await new Promise((resolve, reject) => {
-      try {
-        const result = browserAPI.storage.local.remove(['explicitlyLoggedOut']);
-        if (result && typeof result.then === 'function') {
-          result.then(resolve).catch(reject);
-        } else {
-          browserAPI.runtime.lastError ? reject(new Error(browserAPI.runtime.lastError.message)) : resolve();
-        }
-      } catch (error) {
-        reject(error);
-      }
-    });
-
-    // Also clear any invalid expiry dates that might cause issues
-    const existing = await new Promise((resolve, reject) => {
-      try {
-        const result = browserAPI.storage.local.get(['tokenExpires']);
-        if (result && typeof result.then === 'function') {
-          result.then(resolve).catch(reject);
-        } else {
-          browserAPI.runtime.lastError ? reject(new Error(browserAPI.runtime.lastError.message)) : resolve(browserAPI.storage.local.get(['tokenExpires']));
-        }
-      } catch (error) {
-        reject(error);
-      }
-    });
-    if (existing && existing.tokenExpires) {
-      const testDate = new Date(existing.tokenExpires);
-      if (isNaN(testDate.getTime())) {
-        debug.warn('🧹 Clearing invalid tokenExpires format:', existing.tokenExpires);
-        await new Promise((resolve, reject) => {
-          try {
-            const result = browserAPI.storage.local.remove('tokenExpires');
-            if (result && typeof result.then === 'function') {
-              result.then(resolve).catch(reject);
-            } else {
-              browserAPI.runtime.lastError ? reject(new Error(browserAPI.runtime.lastError.message)) : resolve();
-            }
-          } catch (error) {
-            reject(error);
-          }
-        });
-      }
-    }
 
     // Verify the token was stored correctly
     const verification = await new Promise((resolve, reject) => {
