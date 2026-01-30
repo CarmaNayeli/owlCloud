@@ -167,7 +167,8 @@ async function rollCharacterCheck(interaction, checkType, advantage, disadvantag
     rollName: `${character.character_name} - ${rollName}`,
     checkType,
     characterName: character.character_name,
-    characterId: character.dicecloud_character_id || character.id
+    characterId: character.dicecloud_character_id || character.id,
+    notificationColor: character.notification_color || '#3498db'  // Include character's color for Roll20 announcements
   });
 }
 
@@ -227,7 +228,8 @@ async function sendRollToExtension(interaction, rollData) {
         disadvantage: rollData.disadvantage,
         count: rollData.count,
         sides: rollData.sides,
-        modifier: rollData.modifier
+        modifier: rollData.modifier,
+        notification_color: rollData.notificationColor || '#3498db'  // Include character's color for colored Roll20 announcements
       },
       status: 'pending'
     };

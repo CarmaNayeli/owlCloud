@@ -121,39 +121,40 @@ export default {
       // Create action buttons for attack and damage rolls
       const components = buildActionButtons(action, character.character_name, pairing.id, discordUserId);
 
-      // If no buttons (just info), send command to broadcast immediately
-      if (components.length === 0) {
-        const commandPayload = {
-          pairing_id: pairing.id,
-          discord_user_id: discordUserId,
-          discord_username: interaction.user.username,
-          command_type: 'use',
-          action_name: action.name,
-          command_data: {
-            action: action,
-            character_name: character.character_name,
-            character_id: character.id
-          },
-          status: 'pending'
-        };
+      // ALWAYS send announcement command to Roll20, regardless of buttons
+      // Buttons are for player convenience in Discord, but announcement should always happen
+      const commandPayload = {
+        pairing_id: pairing.id,
+        discord_user_id: discordUserId,
+        discord_username: interaction.user.username,
+        command_type: 'use',
+        action_name: action.name,
+        command_data: {
+          action: action,
+          character_name: character.character_name,
+          character_id: character.id,
+          notification_color: character.notification_color || '#3498db',  // Include character's color
+          has_buttons: components.length > 0  // Tell extension whether buttons are shown in Discord
+        },
+        status: 'pending'
+      };
 
-        const commandResponse = await fetchWithTimeout(`${SUPABASE_URL}/functions/v1/broadcast-command`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
-          },
-          body: JSON.stringify({ command: commandPayload })
-        }, 15000);
+      const commandResponse = await fetchWithTimeout(`${SUPABASE_URL}/functions/v1/broadcast-command`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+        },
+        body: JSON.stringify({ command: commandPayload })
+      }, 15000);
 
-        if (!commandResponse.ok) {
-          const errorBody = await commandResponse.text().catch(() => 'no body');
-          console.error('Failed to create use command:', commandResponse.status, errorBody);
-          return await interaction.editReply({
-            content: `❌ Failed to send action to extension. (${commandResponse.status})`,
-            flags: 64
-          });
-        }
+      if (!commandResponse.ok) {
+        const errorBody = await commandResponse.text().catch(() => 'no body');
+        console.error('Failed to create use command:', commandResponse.status, errorBody);
+        return await interaction.editReply({
+          content: `❌ Failed to send action to extension. (${commandResponse.status})`,
+          flags: 64
+        });
       }
 
       const embed = new EmbedBuilder()
