@@ -13,6 +13,7 @@
  * - removeCondition(conditionName) - legacy wrapper
  * - updateEffectsDisplay()
  * - updateConditionsDisplay() - legacy wrapper
+ * - calculateTotalAC()
  *
  * Constants exported to globalThis:
  * - POSITIVE_EFFECTS
@@ -670,6 +671,33 @@
     updateEffectsDisplay();
   }
 
+  /**
+   * Calculate total AC including active effects
+   * @returns {number} Total AC with effect modifiers applied
+   */
+  function calculateTotalAC() {
+    const baseAC = characterData.armorClass || 10;
+    let totalAC = baseAC;
+
+    // Combine all active effects
+    const allEffects = [
+      ...activeBuffs.map(name => ({ ...POSITIVE_EFFECTS.find(e => e.name === name), type: 'buff' })),
+      ...activeConditions.map(name => ({ ...NEGATIVE_EFFECTS.find(e => e.name === name), type: 'debuff' }))
+    ].filter(e => e && e.autoApply && e.modifier && e.modifier.ac);
+
+    // Apply AC modifiers from active effects
+    for (const effect of allEffects) {
+      const acMod = effect.modifier.ac;
+      if (typeof acMod === 'number') {
+        totalAC += acMod;
+        debug.log(`🛡️ Applied AC modifier: ${acMod} from ${effect.name} (${effect.type})`);
+      }
+    }
+
+    debug.log(`🛡️ Total AC calculation: ${baseAC} (base) + modifiers = ${totalAC}`);
+    return totalAC;
+  }
+
   // ===== EXPORTS =====
 
   globalThis.initConditionsManager = initConditionsManager;
@@ -680,6 +708,7 @@
   globalThis.removeCondition = removeCondition;
   globalThis.updateEffectsDisplay = updateEffectsDisplay;
   globalThis.updateConditionsDisplay = updateConditionsDisplay;
+  globalThis.calculateTotalAC = calculateTotalAC;
 
   // Export constants
   globalThis.POSITIVE_EFFECTS = POSITIVE_EFFECTS;
