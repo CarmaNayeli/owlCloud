@@ -2941,10 +2941,10 @@
     const resourcesRow = document.getElementById('status-resources-row');
     const resourcesList = document.getElementById('status-resources-list');
 
-    // Filter out HP, Lucky, and zero-max resources
+    // Filter out HP, Lucky, Spell Level, and zero-max resources
     const filteredResources = resources.filter(r => {
       const name = (r.name || '').toLowerCase();
-      return r.max > 0 && !name.includes('hit points') && !name.includes('lucky');
+      return r.max > 0 && !name.includes('hit points') && !name.includes('lucky') && !name.includes('spell level');
     });
 
     if (filteredResources.length === 0) {
