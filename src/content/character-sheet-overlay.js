@@ -2134,44 +2134,6 @@
   let statusBarVisible = true; // Start visible by default
   let statusBarAdvantageState = 'normal';
 
-  // Effect icons mapping for status bar
-  const STATUS_EFFECT_ICONS = {
-    // Buffs
-    'Bless': '🙏',
-    'Guidance': '🧭',
-    'Bardic Inspiration': '🎵',
-    'Shield of Faith': '🛡️',
-    'Haste': '⚡',
-    'Heroism': '🦸',
-    'Aid': '💪',
-    'Protection from Evil': '✝️',
-    'Sanctuary': '🏛️',
-    'Blur': '👻',
-    'Mirror Image': '🪞',
-    'Invisibility': '👁️',
-    'Greater Invisibility': '👁️',
-    'Freedom of Movement': '🏃',
-    'Death Ward': '💀',
-    // Debuffs
-    'Bane': '😰',
-    'Poisoned': '🤢',
-    'Frightened': '😱',
-    'Charmed': '💕',
-    'Stunned': '💫',
-    'Paralyzed': '🧊',
-    'Blinded': '🙈',
-    'Deafened': '🙉',
-    'Restrained': '⛓️',
-    'Grappled': '🤝',
-    'Prone': '🛏️',
-    'Incapacitated': '😵',
-    'Exhaustion': '😫',
-    'Unconscious': '💤',
-    'Petrified': '🗿',
-    'Concentration': '🧠',
-    'Hexed': '🔮'
-  };
-
   /**
    * Creates the compact status bar overlay
    */
@@ -2483,29 +2445,22 @@
       }
 
       .status-effect-badge {
-        font-size: 15px;
-        cursor: help;
-        position: relative;
-      }
-
-      .status-effect-badge .tooltip {
-        position: absolute;
-        bottom: 100%;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(0,0,0,0.95);
-        color: white;
-        padding: 4px 8px;
+        font-size: 10px;
+        padding: 2px 6px;
         border-radius: 4px;
-        font-size: 12px;
         white-space: nowrap;
-        opacity: 0;
-        pointer-events: none;
-        transition: opacity 0.2s;
-        z-index: 100;
+        font-weight: 500;
       }
 
-      .status-effect-badge:hover .tooltip { opacity: 1; }
+      .status-effect-badge.buff {
+        background: #27ae60;
+        color: white;
+      }
+
+      .status-effect-badge.debuff {
+        background: #c0392b;
+        color: white;
+      }
 
       .status-no-effects {
         color: #555;
@@ -3026,8 +2981,7 @@
     }
 
     effectsRow.innerHTML = allEffects.map(e => {
-      const icon = STATUS_EFFECT_ICONS[e.name] || (e.type === 'buff' ? '✨' : '💀');
-      return `<span class="status-effect-badge" title="${e.name}">${icon}<span class="tooltip">${e.name}</span></span>`;
+      return `<span class="status-effect-badge ${e.type}">${e.name}</span>`;
     }).join('');
   }
 
