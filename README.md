@@ -8,11 +8,23 @@ A browser extension that integrates Dice Cloud with Roll20. I built this to make
 
 ---
 
+## 🖥️ Platform Support
+
+**Currently Supported:**
+- ✅ **Chromium-based browsers** (Chrome, Edge, Brave, Opera)
+- ✅ **Firefox**
+- ⏳ **Safari** - Planned for future release
+
+**Installer:**
+- 🪟 **Windows only** - Automated installer for Chrome and Firefox
+
+---
+
 **🎲 Latest Release**
 
-**Manual Install:** [Firefox](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-firefox-signed.xpi) | [Chrome](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-chrome.zip) | [Safari](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-safari.zip)
+**Manual Install:** [Firefox](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-firefox-signed.xpi) | [Chrome](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-chrome.zip)
 
-**Windows Installer (Chrome + Firefox Dev):** [Download Installer](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/RollCloud-Setup-v2-Setup.exe)
+**Windows Installer (Chrome + Firefox):** [Download Installer](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/RollCloud-Setup-v2-Setup.exe)
 
 ## Installation
 
@@ -40,23 +52,9 @@ Download the pre-built extension for your browser:
 5. **Click** "Load unpacked" and select the extracted folder
 6. **Done!** The RollCloud icon appears in your toolbar
 
-#### 🧭 Safari
-[**Download RollCloud for Safari**](https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-safari.zip)
+#### 🧭 Safari (Coming Soon)
 
-**Requirements:**
-- macOS with Safari 14.0 or later
-- Xcode (free from Mac App Store)
-
-**Installation:**
-1. **Download** and extract the Safari ZIP file
-2. **Open** Terminal and navigate to the extracted folder
-3. **Convert** to Safari App Extension:
-   ```bash
-   xcrun safari-web-extension-converter . --app-name RollCloud
-   ```
-4. **Follow** the Xcode setup prompts
-5. **Build** and run the project (⌘R)
-6. **Enable** the extension in Safari preferences
+Safari support is currently on hold and planned for a future release. RollCloud is fully functional on **Chromium-based browsers** (Chrome, Edge, Brave, Opera) and **Firefox**.
 
 ## Features
 
