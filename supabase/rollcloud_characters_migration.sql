@@ -98,41 +98,31 @@ UPDATE public.rollcloud_characters
 SET pairing_id = NULL
 WHERE pairing_id IS NULL;
 
--- Enable Row Level Security if not already enabled
+-- Enable Row Level Security
 ALTER TABLE public.rollcloud_characters ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies if they exist
-DROP POLICY IF EXISTS "Users can view own characters" ON public.rollcloud_characters;
-DROP POLICY IF EXISTS "Users can insert own characters" ON public.rollcloud_characters;
-DROP POLICY IF EXISTS "Users can update own characters" ON public.rollcloud_characters;
-DROP POLICY IF EXISTS "Users can delete own characters" ON public.rollcloud_characters;
+DROP POLICY IF EXISTS "Enable read access for anon key" ON public.rollcloud_characters;
+DROP POLICY IF EXISTS "Enable insert for anon key" ON public.rollcloud_characters;
+DROP POLICY IF EXISTS "Enable update for anon key" ON public.rollcloud_characters;
+DROP POLICY IF EXISTS "Enable delete for anon key" ON public.rollcloud_characters;
 DROP POLICY IF EXISTS "Service role full access" ON public.rollcloud_characters;
 
--- Create RLS policy: Users can only access their own characters
-CREATE POLICY "Users can view own characters" ON public.rollcloud_characters
-    FOR SELECT USING (
-        auth.uid() = (SELECT user_id_dicecloud FROM public.auth_tokens WHERE user_id = auth.uid())
-    );
+-- Create simple RLS policies for anon key access
+-- The extension uses anon key, not authenticated users, so we allow all operations with anon key
+CREATE POLICY "Enable read access for anon key" ON public.rollcloud_characters
+    FOR SELECT USING (true);
 
--- Create RLS policy: Users can insert their own characters
-CREATE POLICY "Users can insert own characters" ON public.rollcloud_characters
-    FOR INSERT WITH CHECK (
-        auth.uid() = (SELECT user_id_dicecloud FROM public.auth_tokens WHERE user_id = auth.uid())
-    );
+CREATE POLICY "Enable insert for anon key" ON public.rollcloud_characters
+    FOR INSERT WITH CHECK (true);
 
--- Create RLS policy: Users can update their own characters
-CREATE POLICY "Users can update own characters" ON public.rollcloud_characters
-    FOR UPDATE USING (
-        auth.uid() = (SELECT user_id_dicecloud FROM public.auth_tokens WHERE user_id = auth.uid())
-    );
+CREATE POLICY "Enable update for anon key" ON public.rollcloud_characters
+    FOR UPDATE USING (true);
 
--- Create RLS policy: Users can delete their own characters
-CREATE POLICY "Users can delete own characters" ON public.rollcloud_characters
-    FOR DELETE USING (
-        auth.uid() = (SELECT user_id_dicecloud FROM public.auth_tokens WHERE user_id = auth.uid())
-    );
+CREATE POLICY "Enable delete for anon key" ON public.rollcloud_characters
+    FOR DELETE USING (true);
 
--- Create RLS policy: Service role can access all characters (for bot operations)
+-- Service role gets full access for bot operations
 CREATE POLICY "Service role full access" ON public.rollcloud_characters
     FOR ALL USING (
         auth.jwt() ->> 'role' = 'service_role'
