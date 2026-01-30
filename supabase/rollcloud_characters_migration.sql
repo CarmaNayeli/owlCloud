@@ -4,28 +4,75 @@
 -- Add user_id_dicecloud if it doesn't exist
 DO $$
 BEGIN
-    ALTER TABLE public.rollcloud_characters ADD COLUMN user_id_dicecloud VARCHAR(255);
-    CREATE INDEX IF NOT EXISTS idx_rollcloud_characters_user_id_dicecloud ON public.rollcloud_characters(user_id_dicecloud);
-    COMMENT ON COLUMN public.rollcloud_characters.user_id_dicecloud IS 'DiceCloud user ID (Meteor ID) for character ownership';
-END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public'
+        AND table_name = 'rollcloud_characters'
+        AND column_name = 'user_id_dicecloud'
+    ) THEN
+        ALTER TABLE public.rollcloud_characters ADD COLUMN user_id_dicecloud VARCHAR(255);
+        CREATE INDEX idx_rollcloud_characters_user_id_dicecloud ON public.rollcloud_characters(user_id_dicecloud);
+        COMMENT ON COLUMN public.rollcloud_characters.user_id_dicecloud IS 'DiceCloud user ID (Meteor ID) for character ownership';
+    END IF;
+END $$;
 
 -- Add discord_user_id if it doesn't exist
-ALTER TABLE public.rollcloud_characters ADD COLUMN discord_user_id VARCHAR(255);
-CREATE INDEX IF NOT EXISTS idx_rollcloud_characters_discord_user_id ON public.rollcloud_characters(discord_user_id);
-COMMENT ON COLUMN public.rollcloud_characters.discord_user_id IS 'Discord user ID for linked accounts';
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public'
+        AND table_name = 'rollcloud_characters'
+        AND column_name = 'discord_user_id'
+    ) THEN
+        ALTER TABLE public.rollcloud_characters ADD COLUMN discord_user_id VARCHAR(255);
+        CREATE INDEX idx_rollcloud_characters_discord_user_id ON public.rollcloud_characters(discord_user_id);
+        COMMENT ON COLUMN public.rollcloud_characters.discord_user_id IS 'Discord user ID for linked accounts';
+    END IF;
+END $$;
 
 -- Add pairing_id if it doesn't exist
-ALTER TABLE public.rollcloud_characters ADD COLUMN pairing_id UUID REFERENCES public.rollcloud_pairings(id) ON DELETE SET NULL;
-CREATE INDEX IF NOT EXISTS idx_rollcloud_characters_pairing_id ON public.rollcloud_characters(pairing_id);
-COMMENT ON COLUMN public.rollcloud_characters.pairing_id IS 'Discord pairing reference for bot commands';
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public'
+        AND table_name = 'rollcloud_characters'
+        AND column_name = 'pairing_id'
+    ) THEN
+        ALTER TABLE public.rollcloud_characters ADD COLUMN pairing_id UUID REFERENCES public.rollcloud_pairings(id) ON DELETE SET NULL;
+        CREATE INDEX idx_rollcloud_characters_pairing_id ON public.rollcloud_characters(pairing_id);
+        COMMENT ON COLUMN public.rollcloud_characters.pairing_id IS 'Discord pairing reference for bot commands';
+    END IF;
+END $$;
 
 -- Add created_at if it doesn't exist
-ALTER TABLE public.rollcloud_characters ADD COLUMN created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
-COMMENT ON COLUMN public.rollcloud_characters.created_at IS 'When the character was first stored';
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public'
+        AND table_name = 'rollcloud_characters'
+        AND column_name = 'created_at'
+    ) THEN
+        ALTER TABLE public.rollcloud_characters ADD COLUMN created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+        COMMENT ON COLUMN public.rollcloud_characters.created_at IS 'When the character was first stored';
+    END IF;
+END $$;
 
 -- Add updated_at if it doesn't exist
-ALTER TABLE public.rollcloud_characters ADD COLUMN updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
-COMMENT ON COLUMN public.rollcloud_characters.updated_at IS 'When the character was last updated';
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public'
+        AND table_name = 'rollcloud_characters'
+        AND column_name = 'updated_at'
+    ) THEN
+        ALTER TABLE public.rollcloud_characters ADD COLUMN updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+        COMMENT ON COLUMN public.rollcloud_characters.updated_at IS 'When the character was last updated';
+    END IF;
+END $$;
 
 -- Update existing rows to add user_id_dicecloud from auth_tokens
 UPDATE public.rollcloud_characters
