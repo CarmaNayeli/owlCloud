@@ -2243,11 +2243,11 @@
         position: fixed;
         bottom: 20px;
         right: 20px;
-        width: 150px;
-        min-width: 120px;
+        width: 180px;
+        min-width: 150px;
         max-width: 400px;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        font-size: 11px;
+        font-size: 14px;
         z-index: 999997;
         user-select: none;
       }
@@ -2255,13 +2255,13 @@
       .status-bar-container {
         background: #1a1a1a;
         color: #e0e0e0;
-        padding: 6px;
+        padding: 8px;
         border-radius: 8px;
         box-shadow: 0 4px 15px rgba(0,0,0,0.4);
         border: 1px solid #4ECDC4;
         display: flex;
         flex-direction: column;
-        gap: 4px;
+        gap: 5px;
         position: relative;
       }
 
@@ -2269,12 +2269,12 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding-bottom: 4px;
+        padding-bottom: 5px;
         border-bottom: 1px solid #333;
       }
 
       .status-char-name {
-        font-size: 11px;
+        font-size: 14px;
         font-weight: bold;
         color: #4ECDC4;
         white-space: nowrap;
@@ -2287,7 +2287,7 @@
         background: none;
         border: none;
         color: #555;
-        font-size: 12px;
+        font-size: 15px;
         cursor: pointer;
         padding: 2px;
         line-height: 1;
@@ -2299,17 +2299,17 @@
       .status-hp-row {
         display: flex;
         align-items: center;
-        gap: 4px;
+        gap: 5px;
         background: #2a2a2a;
         border-radius: 4px;
-        padding: 4px;
+        padding: 5px;
       }
 
-      .status-hp-icon { font-size: 12px; }
+      .status-hp-icon { font-size: 15px; }
 
       .status-hp-bar {
         flex: 1;
-        height: 14px;
+        height: 18px;
         background: #1a1a1a;
         border-radius: 3px;
         overflow: hidden;
@@ -2330,14 +2330,14 @@
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        font-size: 9px;
+        font-size: 11px;
         font-weight: bold;
         color: white;
         text-shadow: 0 0 2px rgba(0,0,0,0.8);
       }
 
       .status-temp-hp {
-        font-size: 9px;
+        font-size: 11px;
         color: #3498db;
         font-weight: bold;
       }
@@ -2345,19 +2345,19 @@
       /* Advantage Toggle */
       .status-adv-row {
         display: flex;
-        gap: 2px;
+        gap: 3px;
         background: #2a2a2a;
         border-radius: 4px;
-        padding: 3px;
+        padding: 4px;
       }
 
       .status-adv-btn {
         flex: 1;
-        padding: 4px 2px;
+        padding: 5px 3px;
         border: none;
         border-radius: 3px;
         cursor: pointer;
-        font-size: 12px;
+        font-size: 15px;
         background: #1a1a1a;
         transition: all 0.2s;
       }
@@ -2374,11 +2374,11 @@
       .status-conc-row {
         display: flex;
         align-items: center;
-        gap: 4px;
+        gap: 5px;
         background: #2a2a2a;
         border-radius: 4px;
-        padding: 4px;
-        font-size: 10px;
+        padding: 5px;
+        font-size: 12px;
       }
 
       .status-conc-row.active {
@@ -2401,15 +2401,15 @@
         position: relative;
         background: #2a2a2a;
         border-radius: 4px;
-        padding: 4px;
+        padding: 5px;
       }
 
       .status-slots-header {
         display: flex;
         align-items: center;
-        gap: 4px;
+        gap: 5px;
         cursor: pointer;
-        font-size: 10px;
+        font-size: 12px;
       }
 
       .status-slots-summary {
@@ -2418,7 +2418,7 @@
       }
 
       .status-slots-arrow {
-        font-size: 8px;
+        font-size: 10px;
         transition: transform 0.2s;
       }
 
@@ -2428,8 +2428,8 @@
 
       .status-slots-dropdown {
         display: none;
-        margin-top: 4px;
-        padding-top: 4px;
+        margin-top: 5px;
+        padding-top: 5px;
         border-top: 1px solid #333;
       }
 
@@ -2438,8 +2438,8 @@
       .status-slot-item {
         display: flex;
         justify-content: space-between;
-        padding: 2px 0;
-        font-size: 9px;
+        padding: 3px 0;
+        font-size: 11px;
       }
 
       .status-slot-item .lvl { color: #888; }
@@ -2458,7 +2458,7 @@
         display: flex;
         justify-content: space-between;
         padding: 2px 0;
-        font-size: 9px;
+        font-size: 11px;
       }
 
       .status-resource-item .name {
@@ -2466,7 +2466,7 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        max-width: 70px;
+        max-width: 88px;
       }
 
       .status-resource-item .val { color: #f39c12; font-weight: bold; }
@@ -2479,11 +2479,11 @@
         background: #2a2a2a;
         border-radius: 4px;
         padding: 4px;
-        min-height: 20px;
+        min-height: 24px;
       }
 
       .status-effect-badge {
-        font-size: 12px;
+        font-size: 15px;
         cursor: help;
         position: relative;
       }
@@ -2497,7 +2497,7 @@
         color: white;
         padding: 4px 8px;
         border-radius: 4px;
-        font-size: 10px;
+        font-size: 12px;
         white-space: nowrap;
         opacity: 0;
         pointer-events: none;
@@ -2509,7 +2509,7 @@
 
       .status-no-effects {
         color: #555;
-        font-size: 9px;
+        font-size: 11px;
         text-align: center;
         width: 100%;
       }
