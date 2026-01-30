@@ -308,6 +308,88 @@ setTimeout(() => {
   }
 }, 1500);
 
+// Global timeout: If we still don't have character data after 10 seconds, show error
+setTimeout(() => {
+  if (!characterData) {
+    debug.warn('⏰ Loading timeout - no character data after 10 seconds');
+    showLoadingError();
+  }
+}, 10000);
+
+// Show loading error with try again button
+function showLoadingError() {
+  const loadingOverlay = document.getElementById('loading-overlay');
+  if (!loadingOverlay) return;
+
+  loadingOverlay.innerHTML = `
+    <div style="text-align: center; color: var(--text-primary); max-width: 450px; padding: 20px;">
+      <div style="font-size: 4em; margin-bottom: 20px;">⚠️</div>
+      <div style="font-size: 1.3em; font-weight: bold; margin-bottom: 15px; color: var(--accent-danger);">
+        No Valid Character Data Found
+      </div>
+      <div style="font-size: 0.95em; color: var(--text-secondary); line-height: 1.6; margin-bottom: 25px;">
+        No character data could be loaded. This might happen if you haven't synced a character yet, or if the character data is outdated.
+      </div>
+      <div style="background: var(--background-secondary); padding: 20px; border-radius: 8px; margin-bottom: 25px; border-left: 4px solid var(--accent-info);">
+        <p style="margin: 0 0 12px 0; font-weight: bold; color: var(--text-primary); font-size: 0.95em;">To fix this:</p>
+        <ol style="text-align: left; margin: 0; padding-left: 20px; line-height: 1.8; font-size: 0.9em; color: var(--text-secondary);">
+          <li>Use the <strong>Refresh Characters</strong> button in the extension popup</li>
+          <li>Or visit your character on <a href="https://dicecloud.com" target="_blank" style="color: var(--accent-info);">DiceCloud.com</a> and click <strong>Sync to Extension</strong></li>
+        </ol>
+      </div>
+      <button id="try-again-btn" style="
+        padding: 14px 28px;
+        background: linear-gradient(135deg, var(--accent-info) 0%, #2980b9 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: bold;
+        font-size: 1em;
+        box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
+        transition: transform 0.2s, box-shadow 0.2s;
+      " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(52, 152, 219, 0.4)';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(52, 152, 219, 0.3)';">
+        🔄 Try Again
+      </button>
+    </div>
+  `;
+
+  // Add click handler to try again button
+  const tryAgainBtn = document.getElementById('try-again-btn');
+  if (tryAgainBtn) {
+    tryAgainBtn.addEventListener('click', () => {
+      debug.log('🔄 Try again button clicked - reloading character data...');
+
+      // Reset the loading overlay to show loading state
+      loadingOverlay.innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: center; width: 80px; height: 80px; margin: 0 auto 20px;">
+          <div style="width: 100%; height: 100%; border: 4px solid var(--border-subtle); border-top: 4px solid var(--accent-primary); border-radius: 50%; animation: spin 1s linear infinite;"></div>
+        </div>
+        <div style="text-align: center; color: var(--text-primary);">
+          <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 10px;">
+            Loading Characters...
+          </div>
+          <div style="font-size: 0.9em; color: var(--text-secondary); max-width: 300px; line-height: 1.4;">
+            Attempting to reload character data...
+          </div>
+        </div>
+      `;
+
+      // Reset characterData and try loading again
+      characterData = null;
+      loadCharacterWithTabs();
+
+      // Set another timeout in case it fails again
+      setTimeout(() => {
+        if (!characterData) {
+          debug.warn('⏰ Retry timeout - still no character data');
+          showLoadingError();
+        }
+      }, 10000);
+    });
+  }
+}
+
 // Load profiles and build tabs (without building sheet)
 async function loadAndBuildTabs() {
   try {
