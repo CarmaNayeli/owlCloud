@@ -160,7 +160,7 @@
           passivePerception: characterData.passivePerception || (10 + (characterData.perception || 0)),
           initiative: characterData.initiative,
           conditions: characterData.conditions || [],
-          concentration: characterData.concentration || null,
+          concentrationSpell: characterData.concentrationSpell || null,
           deathSaves: characterData.deathSaves || null
         }
       }, '*');

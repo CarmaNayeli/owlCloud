@@ -345,6 +345,19 @@
       max-height: 0;
       opacity: 0;
     }
+    /* Companions section - flex height with no scroll */
+    #companions-section .section-content {
+      display: flex;
+      flex-direction: column;
+      overflow: visible;
+      max-height: none;
+    }
+    #companions-container {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      overflow: visible;
+    }
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
@@ -1108,6 +1121,7 @@
         <span class="gm-mode-label"><span>👑</span> GM Mode</span>
         <button class="gm-mode-toggle" id="gm-mode-toggle" title="Toggle GM Mode" aria-label="Toggle GM Mode"></button>
       </div>
+      <button class="settings-btn" id="show-to-gm-btn" title="Share character with GM">👑 Share</button>
       <button class="settings-btn" id="status-bar-btn" title="Open Status Bar">📊</button>
       <button class="settings-btn" id="settings-btn" title="Settings">⚙️</button>
       <button class="close-btn" id="close-btn">✕</button>
@@ -1374,10 +1388,14 @@
   <script src="modules/class-feature-edge-cases.js"></script>
   <script src="modules/racial-feature-edge-cases.js"></script>
   <script src="modules/combat-maneuver-edge-cases.js"></script>
+  <script src="modules/warlock-invocations.js"></script>
   <script src="modules/action-executor.js"></script>
   <!-- Load core functionality modules (exported to globalThis) -->
   <script src="modules/notification-system.js"></script>
-  <script src="modules/status-bar-bridge.js"></script>
+  <script src="modules/gm-mode.js"></script>
+  <script src="modules/concentration-tracker.js"></script>
+  <script src="modules/ui-utilities.js"></script>
+  <script src="modules/window-management.js"></script>
   <script src="modules/hp-management.js"></script>
   <script src="modules/effects-manager.js"></script>
   <script src="modules/data-manager.js"></script>
@@ -1390,6 +1408,17 @@
   <script src="modules/action-options.js"></script>
   <script src="modules/action-announcements.js"></script>
   <script src="modules/action-display.js"></script>
+  <!-- Load character trait modules -->
+  <script src="modules/character-trait-popups.js"></script>
+  <script src="modules/character-traits.js"></script>
+  <!-- Load formula resolver -->
+  <script src="modules/formula-resolver.js"></script>
+  <!-- Load macro system -->
+  <script src="modules/macro-system.js"></script>
+  <!-- Load dice roller -->
+  <script src="modules/dice-roller.js"></script>
+  <!-- Load health modals -->
+  <script src="modules/health-modals.js"></script>
   <!-- Load spell modules (organized by functionality) -->
   <script src="modules/spell-display.js"></script>
   <script src="modules/spell-slots.js"></script>
@@ -1398,9 +1427,13 @@
   <script src="modules/spell-casting.js"></script>
   <script src="modules/spell-modals.js"></script>
   <!-- Load modules that need ES6 features -->
-  <script type="module" src="common/theme-manager.js"></script>
+  <script src="common/theme-manager.js"></script>
   <script type="module" src="modules/color-utils.js"></script>
   <script type="module" src="modules/card-creator.js"></script>
+
+  <!-- Sheet Builder - main UI construction (must load after all dependencies) -->
+  <script src="modules/sheet-builder.js"></script>
+
   <script src="popup-sheet.js"></script>
 </body>
 </html>

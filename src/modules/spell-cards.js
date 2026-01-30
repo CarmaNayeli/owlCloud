@@ -31,7 +31,7 @@
       tags += '<span class="concentration-tag">🧠 Concentration</span>';
     }
     if (spell.ritual) {
-      tags += '<span class="ritual-tag">📖 Ritual</span>';
+      tags += `<button class="ritual-tag ritual-cast-btn" data-spell-index="${index}" style="padding: 4px 8px; background: #8e44ad; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; transition: background 0.2s;" onmouseover="this.style.background='#9b59b6'" onmouseout="this.style.background='#8e44ad'" title="Cast as ritual (no spell slot required)">📖 Ritual</button>`;
     }
 
     // All spells get a single Cast button that opens a modal with options
@@ -90,7 +90,9 @@
     // Toggle functionality
     const toggleBtn = header.querySelector('.toggle-btn');
     header.addEventListener('click', (e) => {
-      if (!e.target.classList.contains('roll-btn') && !e.target.classList.contains('cast-spell-modal-btn')) {
+      if (!e.target.classList.contains('roll-btn') &&
+          !e.target.classList.contains('cast-spell-modal-btn') &&
+          !e.target.classList.contains('ritual-cast-btn')) {
         desc.classList.toggle('expanded');
         toggleBtn.textContent = desc.classList.contains('expanded') ? '▲ Hide' : '▼ Details';
       }
@@ -102,6 +104,32 @@
       rollBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         roll(spell.name, spell.formula);
+      });
+    }
+
+    // Ritual cast button
+    const ritualBtn = header.querySelector('.ritual-cast-btn');
+    if (ritualBtn) {
+      ritualBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        debug.log(`📖 Ritual cast button clicked for: ${spell.name}`);
+
+        // Cast as ritual - no spell slot consumed
+        if (typeof announceSpellDescription === 'function') {
+          // Announce with ritual note
+          const ritualSpell = { ...spell, name: `${spell.name} (Ritual)` };
+          announceSpellDescription(ritualSpell);
+        }
+
+        // Cast spell with skipSlotConsumption = true for rituals
+        if (typeof castSpell === 'function') {
+          castSpell(spell, index, null, spell.level, [], true, true); // skipSlotConsumption = true, skipAnnouncement = true
+        } else {
+          debug.error('❌ castSpell function not available');
+          if (typeof showNotification === 'function') {
+            showNotification('❌ Cannot cast spell', 'error');
+          }
+        }
       });
     }
 
@@ -419,10 +447,24 @@
           // Resolve non-slot-dependent variables for display (character level, ability mods, etc.)
           // Keep slotLevel as-is since we don't know what slot will be used yet
           let displayFormula = roll.damage;
+          let actualFormula = roll.damage; // Keep separate from display formula
+
+          // Apply warlock invocation modifications to damage
+          if (typeof getActiveInvocations === 'function' && typeof applyInvocationToDamage === 'function') {
+            const activeInvocations = getActiveInvocations(characterData);
+            if (activeInvocations.length > 0) {
+              const modified = applyInvocationToDamage(spell.name, displayFormula, activeInvocations, characterData);
+              if (modified.modified) {
+                displayFormula = modified.display;
+                actualFormula = modified.formula;
+              }
+            }
+          }
 
           // Replace ~target.level with character level (for cantrips like Toll the Dead)
           if (displayFormula.includes('~target.level') && characterData.level) {
             displayFormula = displayFormula.replace(/~target\.level/g, characterData.level);
+            actualFormula = actualFormula.replace(/~target\.level/g, characterData.level);
           }
 
           if (typeof resolveVariablesInFormula === 'function') {
@@ -449,7 +491,7 @@
               options.push({
                 type: choiceIsTempHP ? 'temphp' : (isHealing ? 'healing' : 'damage'),
                 label: label,
-                formula: roll.damage,
+                formula: actualFormula, // Use actualFormula which includes Agonizing Blast modifier
                 damageType: choice.damageType,
                 index: index,
                 icon: choiceIsTempHP ? '🛡️' : (isHealing ? '💚' : '💥'),
@@ -471,7 +513,7 @@
             options.push({
               type: isTempHP ? 'temphp' : (isHealing ? 'healing' : 'damage'),
               label: label,
-              formula: roll.damage, // Keep original formula for actual rolling
+              formula: actualFormula, // Use actualFormula which includes Agonizing Blast modifier
               damageType: roll.damageType,
               index: index,
               icon: isTempHP ? '🛡️' : (isHealing ? '💚' : '💥'),

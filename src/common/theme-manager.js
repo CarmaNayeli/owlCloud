@@ -18,6 +18,7 @@ const ThemeManager = {
    */
   async init() {
     // Check system preference FIRST before loading saved preference
+    debug.log('🎨 ThemeManager.init() starting...');
     try {
       if (typeof window === 'undefined' || !window.matchMedia) {
         debug.warn('⚠️ window.matchMedia not available, defaulting to light theme');
@@ -31,6 +32,8 @@ const ThemeManager = {
           media: darkModeQuery.media,
           systemPrefersDark: this.systemPrefersDark
         });
+        console.log('🎨 THEME DEBUG: Dark mode query matches:', darkModeQuery.matches);
+        console.log('🎨 THEME DEBUG: systemPrefersDark set to:', this.systemPrefersDark);
 
         // Verify the media query is valid
         if (darkModeQuery.media === 'not all') {
@@ -121,6 +124,7 @@ const ThemeManager = {
       effective: effectiveTheme,
       systemPrefersDark: this.systemPrefersDark
     });
+    console.log('🎨 THEME DEBUG: Applying theme - requested:', theme, 'effective:', effectiveTheme, 'systemPrefersDark:', this.systemPrefersDark);
 
     // Remove existing theme classes
     document.documentElement.classList.remove('theme-light', 'theme-dark');
@@ -130,6 +134,9 @@ const ThemeManager = {
 
     // Set data attribute for CSS targeting
     document.documentElement.setAttribute('data-theme', effectiveTheme);
+
+    console.log('🎨 THEME DEBUG: Applied class:', `theme-${effectiveTheme}`, 'to document element');
+    console.log('🎨 THEME DEBUG: Document classes:', document.documentElement.className);
 
     debug.log('🎨 Theme applied successfully:', effectiveTheme);
   },

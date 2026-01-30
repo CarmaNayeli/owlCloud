@@ -331,7 +331,8 @@ const RACIAL_FEATURE_EDGE_CASES = {
     trigger: 'move_on_turn',
     effect: 'double_speed_until_end_of_turn',
     limitation: 'once_per_turn',
-    description: 'Double speed until end of turn (once per turn)'
+    resetType: 'special', // Resets when you move 0 feet on a turn, NOT on rest
+    description: 'Double speed until end of turn. Recharges when you move 0 feet on a turn (not on rest).'
   },
 
   // ===== TRITON FEATURES =====

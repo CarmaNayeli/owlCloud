@@ -99,8 +99,6 @@
       { name: 'Green', value: '#27ae60', emoji: '🟢' },
       { name: 'Purple', value: '#9b59b6', emoji: '🟣' },
       { name: 'Orange', value: '#e67e22', emoji: '🟠' },
-      { name: 'Teal', value: '#1abc9c', emoji: '💠' },
-      { name: 'Pink', value: '#e91e63', emoji: '💖' },
       { name: 'Yellow', value: '#f1c40f', emoji: '🟡' },
       { name: 'Grey', value: '#95a5a6', emoji: '⚪' },
       { name: 'Black', value: '#34495e', emoji: '⚫' },

@@ -2081,7 +2081,8 @@
             damageType: damageType, // First damageType for backward compatibility
             damageRolls: damageRolls, // Array of all damage/healing rolls
             isLifesteal: isLifesteal, // Flag for lifesteal mechanics
-            resources: prop.resources || null // Store resource consumption data
+            resources: prop.resources || null, // Store resource consumption data
+            castWithoutSpellSlots: prop.castWithoutSpellSlots || false // DiceCloud "doesn't require spell slot" toggle
           });
           break;
 

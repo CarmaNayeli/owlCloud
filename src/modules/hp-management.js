@@ -507,6 +507,20 @@
     if (characterData.actions) {
       characterData.actions.forEach(action => {
         if (action.uses) {
+          // Check if this ability resets on short rest
+          // DiceCloud uses 'reset' property with values: 'shortRest', 'longRest', etc.
+          const resetType = action.reset || action.uses?.reset;
+          const resetsOnShortRest =
+            resetType === 'shortRest' ||
+            resetType === 'short_rest' ||
+            resetType === 'short rest' ||
+            resetType === 'shortOrLongRest';
+
+          if (!resetsOnShortRest) {
+            debug.log(`⏭️ Skipping ${action.name} (does not reset on short rest, reset=${resetType})`);
+            return;
+          }
+
           // Handle usesUsed pattern (older/local data)
           if (action.usesUsed !== undefined && action.usesUsed > 0) {
             action.usesUsed = 0;
@@ -684,12 +698,52 @@
       }
     }
 
-    // Reset limited uses for all abilities
+    // Reset limited uses for long rest abilities
     if (characterData.actions) {
       characterData.actions.forEach(action => {
-        if (action.uses && action.usesUsed > 0) {
-          action.usesUsed = 0;
-          debug.log(`✅ Reset uses for ${action.name}`);
+        if (action.uses) {
+          // Check if this ability resets on long rest
+          // DiceCloud uses 'reset' property with values: 'shortRest', 'longRest', 'special', etc.
+          const resetType = action.reset || action.uses?.reset;
+
+          // Long rest resets both short rest and long rest abilities, but NOT special reset abilities
+          const resetsOnLongRest =
+            resetType === 'longRest' ||
+            resetType === 'long_rest' ||
+            resetType === 'long rest' ||
+            resetType === 'shortRest' ||
+            resetType === 'short_rest' ||
+            resetType === 'short rest' ||
+            resetType === 'shortOrLongRest';
+
+          // Check for special reset conditions (like Feline Agility which resets when not moving)
+          const isSpecialReset =
+            resetType === 'special' ||
+            resetType === 'custom' ||
+            (typeof resetType === 'string' && resetType.toLowerCase().includes('agility'));
+
+          if (isSpecialReset) {
+            debug.log(`⏭️ Skipping ${action.name} (special reset condition, reset=${resetType})`);
+            return;
+          }
+
+          if (!resetsOnLongRest) {
+            debug.log(`⏭️ Skipping ${action.name} (does not reset on long rest, reset=${resetType})`);
+            return;
+          }
+
+          // Handle usesUsed pattern (older/local data)
+          if (action.usesUsed !== undefined && action.usesUsed > 0) {
+            action.usesUsed = 0;
+            debug.log(`✅ Reset uses for ${action.name}`);
+          }
+
+          // Handle usesLeft pattern (2024 D&D features, database data)
+          if (action.usesLeft !== undefined) {
+            const usesTotal = action.uses.total || action.uses.value || action.uses;
+            action.usesLeft = usesTotal;
+            debug.log(`✅ Restored ${action.name} (${action.usesLeft}/${usesTotal} uses)`);
+          }
         }
       });
     }

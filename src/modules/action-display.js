@@ -22,29 +22,70 @@ function buildActionsDisplay(container, actions) {
   debug.log('🔍 buildActionsDisplay called with actions:', actions.map(a => ({ name: a.name, damage: a.damage, actionType: a.actionType })));
   debug.log('🔍 Total actions received:', actions.length);
 
-  // Deduplicate actions by name and combine sources (similar to spells)
+  /**
+   * Normalize action name by removing common suffixes that indicate variants
+   * @param {string} name - The action name
+   * @returns {string} Normalized name for deduplication
+   */
+  function normalizeActionName(name) {
+    if (!name) return '';
+
+    // Remove common suffixes that indicate the same ability but free/different action type
+    const suffixPatterns = [
+      /\s*\(free\)$/i,
+      /\s*\(free action\)$/i,
+      /\s*\(bonus action\)$/i,
+      /\s*\(bonus\)$/i,
+      /\s*\(reaction\)$/i,
+      /\s*\(action\)$/i,
+      /\s*\(no spell slot\)$/i,
+      /\s*\(at will\)$/i
+    ];
+
+    let normalized = name.trim();
+    for (const pattern of suffixPatterns) {
+      normalized = normalized.replace(pattern, '');
+    }
+
+    return normalized.trim();
+  }
+
+  // Deduplicate actions by normalized name and combine sources (similar to spells)
   const deduplicatedActions = [];
-  const actionsByName = {};
+  const actionsByNormalizedName = {};
 
   // Sort actions by name for consistent processing
-  const sortedActions = [...actions].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  // Prefer base names without suffixes (shorter names first within same normalized group)
+  const sortedActions = [...actions].sort((a, b) => {
+    const normA = normalizeActionName(a.name || '');
+    const normB = normalizeActionName(b.name || '');
+
+    // First sort by normalized name
+    if (normA !== normB) {
+      return normA.localeCompare(normB);
+    }
+
+    // Within same normalized name, prefer shorter names (base versions)
+    return (a.name || '').length - (b.name || '').length;
+  });
 
   sortedActions.forEach(action => {
     const actionName = (action.name || '').trim();
-    
-    if (!actionName) {
+    const normalizedName = normalizeActionName(actionName);
+
+    if (!normalizedName) {
       debug.log('⚠️ Skipping action with no name');
       return;
     }
 
-    if (!actionsByName[actionName]) {
-      // First occurrence of this action
-      actionsByName[actionName] = action;
+    if (!actionsByNormalizedName[normalizedName]) {
+      // First occurrence of this action (by normalized name)
+      actionsByNormalizedName[normalizedName] = action;
       deduplicatedActions.push(action);
-      debug.log(`📝 First occurrence of action: "${actionName}"`);
+      debug.log(`📝 First occurrence of action: "${actionName}" (normalized: "${normalizedName}")`);
     } else {
       // Duplicate action - combine sources and other properties
-      const existingAction = actionsByName[actionName];
+      const existingAction = actionsByNormalizedName[normalizedName];
       
       // Combine sources if they exist
       if (action.source && !existingAction.source.includes(action.source)) {
@@ -476,7 +517,17 @@ function buildActionsDisplay(container, actions) {
             markActionAsUsed('action');
 
             // Attack roll is just the d20 + modifiers, no damage dice
-            roll(`${action.name} Attack`, option.formula);
+            debug.log(`🎯 Attack button clicked for "${action.name}", formula: "${option.formula}"`);
+            console.log(`🎯 ATTACK DEBUG: Rolling attack for ${action.name} with formula ${option.formula}`);
+
+            try {
+              roll(`${action.name} Attack`, option.formula);
+              debug.log(`✅ Attack roll called successfully for "${action.name}"`);
+            } catch (error) {
+              debug.error(`❌ Error rolling attack for "${action.name}":`, error);
+              console.error('❌ ATTACK ERROR:', error);
+              showNotification(`❌ Error rolling attack: ${error.message}`, 'error');
+            }
           } else if (option.type === 'healing' || option.type === 'temphp' || option.type === 'damage') {
             // Check and decrement uses before rolling
             if (action.uses && !decrementActionUses(action)) {

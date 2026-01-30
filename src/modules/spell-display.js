@@ -136,7 +136,7 @@
 
       const levelHeader = document.createElement('h4');
       levelHeader.textContent = `📚 ${levelKey}`;
-      levelHeader.style.cssText = 'color: var(--text-primary); margin-bottom: 10px; padding: 5px; background: #ecf0f1; border-radius: 4px;';
+      levelHeader.style.cssText = 'color: var(--text-primary); margin-bottom: 10px; padding: 5px; background: var(--bg-secondary, #ecf0f1); border-radius: 4px;';
       levelSection.appendChild(levelHeader);
 
       // Sort spells alphabetically within level
@@ -228,11 +228,68 @@
     return 'utility';
   }
 
+  /**
+   * Initialize spell filter event listeners
+   */
+  function initializeSpellFilters() {
+    // Initialize spell filters object
+    if (!window.spellFilters) {
+      window.spellFilters = {
+        level: 'all',
+        category: 'all',
+        castingTime: 'all',
+        search: ''
+      };
+    }
+
+    // Spell search filter
+    const spellsSearch = document.getElementById('spells-search');
+    if (spellsSearch) {
+      spellsSearch.addEventListener('input', (e) => {
+        window.spellFilters.search = e.target.value.toLowerCase();
+        rebuildSpells();
+      });
+    }
+
+    // Spell level filters
+    document.querySelectorAll('[data-type="spell-level"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        window.spellFilters.level = btn.dataset.filter;
+        document.querySelectorAll('[data-type="spell-level"]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        rebuildSpells();
+      });
+    });
+
+    // Spell category filters
+    document.querySelectorAll('[data-type="spell-category"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        window.spellFilters.category = btn.dataset.filter;
+        document.querySelectorAll('[data-type="spell-category"]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        rebuildSpells();
+      });
+    });
+
+    // Spell casting time filters
+    document.querySelectorAll('[data-type="spell-casting-time"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        window.spellFilters.castingTime = btn.dataset.filter;
+        document.querySelectorAll('[data-type="spell-casting-time"]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        rebuildSpells();
+      });
+    });
+
+    debug.log('✅ Spell filters initialized');
+  }
+
   // Export functions to globalThis
   Object.assign(globalThis, {
     buildSpellsBySource,
     rebuildSpells,
-    categorizeSpell
+    categorizeSpell,
+    initializeSpellFilters
   });
 
   console.log('✅ Spell Display module loaded');

@@ -84,7 +84,7 @@
 
   /**
    * Initialize status bar button
-   * Sets up click handler to toggle Roll20 status bar overlay
+   * Sets up click handler to toggle Roll20 GM panel overlay (status bar)
    */
   function initStatusBarButton() {
     const statusBarBtn = document.getElementById('status-bar-btn');
@@ -102,15 +102,13 @@
           // Send toggle message to all Roll20 tabs
           for (const tab of tabs) {
             try {
-              const response = await browserAPI.tabs.sendMessage(tab.id, {
-                action: 'toggleStatusBar'
+              await browserAPI.tabs.sendMessage(tab.id, {
+                action: 'toggleStatusBar',
+                enabled: undefined  // Toggle current state
               });
 
-              if (response && response.success) {
-                const statusText = response.visible ? 'shown' : 'hidden';
-                showNotification(`📊 Status bar ${statusText}`, 'success');
-                debug.log(`📊 Status bar toggled: ${statusText}`);
-              }
+              showNotification('📊 Status bar toggled', 'success');
+              debug.log('📊 Status bar overlay toggled');
             } catch (error) {
               debug.warn('⚠️ Could not toggle status bar on tab:', error.message);
             }

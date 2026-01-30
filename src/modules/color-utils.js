@@ -15,8 +15,6 @@ function getColorEmoji(color) {
     '#27ae60': '🟢', // Green
     '#9b59b6': '🟣', // Purple
     '#e67e22': '🟠', // Orange
-    '#1abc9c': '🔷', // Teal/Cyan
-    '#e91e63': '🩷', // Pink
     '#f1c40f': '🟡', // Yellow
     '#95a5a6': '⚪', // Grey
     '#34495e': '⚫', // Black
@@ -37,8 +35,6 @@ function getColorName(hexColor) {
     '#27ae60': 'Green',
     '#9b59b6': 'Purple',
     '#e67e22': 'Orange',
-    '#1abc9c': 'Teal',
-    '#e91e63': 'Pink',
     '#f1c40f': 'Yellow',
     '#95a5a6': 'Grey',
     '#34495e': 'Black',

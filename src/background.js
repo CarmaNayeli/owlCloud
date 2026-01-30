@@ -1209,6 +1209,18 @@ async function storeCharacterData(characterData, slotId) {
       }
     }
 
+    // SPECIAL CASE: Preserve notification color from existing profile
+    // When syncing from DiceCloud, the character data may not include notificationColor
+    // or may have a default color. Preserve the user's chosen color if it exists.
+    const existingProfile = characterProfiles[storageId];
+    if (existingProfile && existingProfile.notificationColor) {
+      // Only preserve if the new data doesn't have a color, or has the default color
+      if (!characterData.notificationColor || characterData.notificationColor === '#3498db') {
+        debug.log(`🎨 Preserving existing notification color: ${existingProfile.notificationColor}`);
+        characterData.notificationColor = existingProfile.notificationColor;
+      }
+    }
+
     // Store this character's data EXACTLY as received (now includes ownerUserId)
     characterProfiles[storageId] = characterData;
 
@@ -1572,6 +1584,16 @@ async function getAllCharacterProfiles() {
         profile.hasCloudVersion = true;
         profile.cloudSlotId = dbMatch.key;
         debug.log(`☁️ Local profile "${profile.name || profile.character_name}" has cloud version, marking as database source`);
+
+        // SPECIAL CASE: Always prefer database notification color over local
+        // This ensures color changes sync across devices
+        if (dbMatch.profile.notificationColor || dbMatch.profile.notification_color) {
+          const dbColor = dbMatch.profile.notificationColor || dbMatch.profile.notification_color;
+          if (profile.notificationColor !== dbColor) {
+            debug.log(`🎨 Updating local profile color from database: ${profile.notificationColor} -> ${dbColor}`);
+            profile.notificationColor = dbColor;
+          }
+        }
       }
 
       // If there's an existing entry with the same character ID, decide
@@ -1725,6 +1747,20 @@ async function getCharacterDataFromDatabase(characterId) {
         rawData = null;
       }
     }
+
+    // DEBUG: Check what data was actually returned from Supabase
+    debug.log('🔍 POST-RETRIEVE: raw_dicecloud_data from Supabase:', {
+      hasRawData: !!rawData,
+      rawDataType: typeof rawData,
+      rawDataIsArray: Array.isArray(rawData),
+      hasSpells: !!(rawData && rawData.spells),
+      spellsIsArray: Array.isArray(rawData?.spells),
+      spellsLength: rawData?.spells?.length,
+      hasActions: !!(rawData && rawData.actions),
+      actionsIsArray: Array.isArray(rawData?.actions),
+      actionsLength: rawData?.actions?.length,
+      topLevelKeys: rawData ? Object.keys(rawData).slice(0, 30) : []
+    });
 
     if (rawData && typeof rawData === 'object' && !Array.isArray(rawData)) {
       // Defensive unwrap: if rawData itself contains `raw_dicecloud_data`, drill down
@@ -2708,7 +2744,7 @@ async function linkDiscordUserToAuthTokens(discordUserId, discordUsername, disco
     );
 
     if (response.ok) {
-      debug.log('✅ Discord user linked to auth_tokens');
+      debug.log('✅ Discord user linked to auth_tokens via POST');
 
       // Also update any existing characters with this user's DiceCloud ID
       const authResult = await browserAPI.storage.local.get(['diceCloudUserId']);
@@ -2719,6 +2755,42 @@ async function linkDiscordUserToAuthTokens(discordUserId, discordUsername, disco
       return { success: true };
     } else {
       const errorText = await response.text();
+
+      // If duplicate key error, try PATCH instead
+      if (response.status === 409 && errorText.includes('auth_tokens_user_id_key')) {
+        debug.log('⚠️ Auth token exists, trying PATCH update:', visitorId);
+
+        const patchResponse = await fetch(
+          `${SUPABASE_URL}/rest/v1/auth_tokens?user_id=eq.${encodeURIComponent(visitorId)}`,
+          {
+            method: 'PATCH',
+            headers: {
+              'apikey': SUPABASE_ANON_KEY,
+              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+              'Content-Type': 'application/json',
+              'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify(upsertPayload)
+          }
+        );
+
+        if (patchResponse.ok) {
+          debug.log('✅ Discord user linked to auth_tokens via PATCH');
+
+          // Also update any existing characters with this user's DiceCloud ID
+          const authResult = await browserAPI.storage.local.get(['diceCloudUserId']);
+          if (authResult.diceCloudUserId) {
+            await linkDiscordUserToCharacters(discordUserId, authResult.diceCloudUserId);
+          }
+
+          return { success: true };
+        } else {
+          const patchError = await patchResponse.text();
+          debug.error('❌ PATCH also failed:', patchResponse.status, patchError);
+          return { success: false, error: patchError };
+        }
+      }
+
       debug.error('❌ Failed to link Discord user:', response.status, errorText);
       return { success: false, error: errorText };
     }
@@ -2945,6 +3017,18 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
     };
 
     const preparedRaw = prepareRawForPayload(characterData);
+
+    // DEBUG: Check what preparedRaw contains BEFORE saving to database
+    debug.log('🔍 PRE-SAVE: Prepared raw_dicecloud_data check:', {
+      hasSpells: !!preparedRaw.spells,
+      spellsIsArray: Array.isArray(preparedRaw.spells),
+      spellsLength: preparedRaw.spells?.length,
+      hasActions: !!preparedRaw.actions,
+      actionsIsArray: Array.isArray(preparedRaw.actions),
+      actionsLength: preparedRaw.actions?.length,
+      topLevelKeys: Object.keys(preparedRaw || {}).slice(0, 30),
+      rawDataSizeKB: (JSON.stringify(preparedRaw).length / 1024).toFixed(2)
+    });
 
     const payload = {
       user_id_dicecloud: dicecloudUserId,

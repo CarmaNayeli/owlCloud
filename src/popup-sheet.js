@@ -113,6 +113,16 @@ window.addEventListener('message', async (event) => {
       // Initialize class features based on character data
       initClassFeatures();
 
+      // Restore concentration state from saved data
+      if (characterData.concentrationSpell) {
+        // Directly set the global variable and update display
+        concentratingSpell = characterData.concentrationSpell;
+        if (typeof updateConcentrationDisplay === 'function') {
+          updateConcentrationDisplay();
+        }
+        debug.log(`🧠 Restored concentration: ${characterData.concentrationSpell}`);
+      }
+
       // Initialize character cache with current data
       if (characterData && characterData.id) {
         characterCache.set(characterData.id, JSON.parse(JSON.stringify(characterData)));
@@ -188,6 +198,16 @@ window.addEventListener('message', async (event) => {
 
       // Initialize class features based on character data
       initClassFeatures();
+
+      // Restore concentration state from saved data
+      if (characterData.concentrationSpell) {
+        // Directly set the global variable and update display
+        concentratingSpell = characterData.concentrationSpell;
+        if (typeof updateConcentrationDisplay === 'function') {
+          updateConcentrationDisplay();
+        }
+        debug.log(`🧠 Restored concentration: ${characterData.concentrationSpell}`);
+      }
 
       // Initialize character cache with current data
       if (characterData && characterData.id) {
@@ -928,13 +948,7 @@ let elementalWeaponDamage = '1d4';  // Default to level 3 (base damage)
 // Filter state for actions
 // actionFilters now in modules/action-filters.js
 
-// Filter state for spells
-let spellFilters = {
-  level: 'all',
-  category: 'all',
-  castingTime: 'all',
-  search: ''
-};
+// Filter state for spells (now handled by modules/spell-display.js as window.spellFilters)
 
 // Filter state for inventory (default to equipped only)
 let inventoryFilters = {
@@ -951,45 +965,9 @@ let inventoryFilters = {
 function initializeFilters() {
   // Action filters now handled by modules/action-filters.js
   initializeActionFilters();
-  
-  // Spells filters
-  const spellsSearch = document.getElementById('spells-search');
-  if (spellsSearch) {
-    spellsSearch.addEventListener('input', (e) => {
-      spellFilters.search = e.target.value.toLowerCase();
-      rebuildSpells();
-    });
-  }
-  
-  // Spell level filters
-  document.querySelectorAll('[data-type="spell-level"]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      spellFilters.level = btn.dataset.filter;
-      document.querySelectorAll('[data-type="spell-level"]').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      rebuildSpells();
-    });
-  });
-  
-  // Spell category filters
-  document.querySelectorAll('[data-type="spell-category"]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      spellFilters.category = btn.dataset.filter;
-      document.querySelectorAll('[data-type="spell-category"]').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      rebuildSpells();
-    });
-  });
 
-  // Spell casting time filters
-  document.querySelectorAll('[data-type="spell-casting-time"]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      spellFilters.castingTime = btn.dataset.filter;
-      document.querySelectorAll('[data-type="spell-casting-time"]').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      rebuildSpells();
-    });
-  });
+  // Spell filters now handled by modules/spell-display.js
+  initializeSpellFilters();
 
   // Inventory filters
   const inventorySearch = document.getElementById('inventory-search');
@@ -1413,9 +1391,11 @@ if (domReady) {
   initSettingsButton();
   initStatusBarButton();
   initGMMode();
+  initShowToGM();
 } else {
   pendingOperations.push(initCustomMacros);
   pendingOperations.push(initSettingsButton);
   pendingOperations.push(initStatusBarButton);
   pendingOperations.push(initGMMode);
+  pendingOperations.push(initShowToGM);
 }

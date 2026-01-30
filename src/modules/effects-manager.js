@@ -127,6 +127,30 @@
       autoApply: false
     },
     {
+      name: 'Rage',
+      icon: '😡',
+      color: '#e74c3c',
+      description: '+2 damage on melee attacks, advantage on STR checks/saves, resistance to physical damage',
+      modifier: { damage: 2, strCheck: 'advantage', strSave: 'advantage', physicalResistance: true },
+      autoApply: true
+    },
+    {
+      name: 'Rage (+3)',
+      icon: '😤',
+      color: '#c0392b',
+      description: 'Level 9-15: +3 damage on melee attacks, advantage on STR checks/saves, resistance to physical damage',
+      modifier: { damage: 3, strCheck: 'advantage', strSave: 'advantage', physicalResistance: true },
+      autoApply: true
+    },
+    {
+      name: 'Rage (+4)',
+      icon: '🔥',
+      color: '#8b0000',
+      description: 'Level 16+: +4 damage on melee attacks, advantage on STR checks/saves, resistance to physical damage',
+      modifier: { damage: 4, strCheck: 'advantage', strSave: 'advantage', physicalResistance: true },
+      autoApply: true
+    },
+    {
       name: 'Aid',
       icon: '❤️',
       color: '#e74c3c',

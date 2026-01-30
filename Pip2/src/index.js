@@ -80,11 +80,13 @@ function withTimeout(promise, timeoutMs, timeoutError = 'Operation timed out') {
   ]);
 }
 
-// Login to Discord with retry logic
-async function loginWithRetry(maxRetries = 3, retryDelay = 5000, loginTimeout = 30000) {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+// Login to Discord with retry logic (infinite retries)
+async function loginWithRetry(retryDelay = 5000, loginTimeout = 30000, maxBackoff = 60000) {
+  let attempt = 1;
+
+  while (true) { // Retry indefinitely until success
     try {
-      console.log(`\n🔑 Attempting Discord login (attempt ${attempt}/${maxRetries})...`);
+      console.log(`\n🔑 Attempting Discord login (attempt ${attempt})...`);
       console.log(`   Token present: ${!!process.env.DISCORD_TOKEN}`);
       console.log(`   Timeout: ${loginTimeout / 1000}s`);
 
@@ -97,17 +99,14 @@ async function loginWithRetry(maxRetries = 3, retryDelay = 5000, loginTimeout = 
       return;
 
     } catch (error) {
-      console.error(`❌ Login failed (attempt ${attempt}/${maxRetries}):`, error.message);
+      console.error(`❌ Login failed (attempt ${attempt}):`, error.message);
 
-      if (attempt < maxRetries) {
-        const waitTime = retryDelay * attempt; // Exponential backoff: 5s, 10s, 15s
-        console.log(`⏳ Retrying in ${waitTime / 1000} seconds...`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-      } else {
-        console.error('❌ All login attempts failed');
-        console.error('Stack:', error.stack);
-        process.exit(1);
-      }
+      // Exponential backoff with max cap: 5s, 10s, 15s, ..., up to maxBackoff
+      const waitTime = Math.min(retryDelay * attempt, maxBackoff);
+      console.log(`⏳ Retrying in ${waitTime / 1000} seconds...`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+
+      attempt++;
     }
   }
 }

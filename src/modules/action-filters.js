@@ -89,8 +89,43 @@
    */
   function rebuildActions() {
     if (!characterData || !characterData.actions) return;
+
+    // Filter actions based on current filter state
+    let filteredActions = characterData.actions.filter(action => {
+      // Filter by action type (action, bonus, reaction, free)
+      if (actionFilters.actionType !== 'all') {
+        const actionType = (action.actionType || '').toLowerCase();
+        if (actionType !== actionFilters.actionType) {
+          return false;
+        }
+      }
+
+      // Filter by category (damage, healing, utility)
+      if (actionFilters.category !== 'all') {
+        const category = categorizeAction(action);
+        if (category !== actionFilters.category) {
+          return false;
+        }
+      }
+
+      // Filter by search term
+      if (actionFilters.search) {
+        const searchLower = actionFilters.search.toLowerCase();
+        const nameMatch = (action.name || '').toLowerCase().includes(searchLower);
+        const descMatch = (action.description || '').toLowerCase().includes(searchLower);
+        const summaryMatch = (action.summary || '').toLowerCase().includes(searchLower);
+        if (!nameMatch && !descMatch && !summaryMatch) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    debug.log(`🔍 Filtered actions: ${filteredActions.length}/${characterData.actions.length} (type=${actionFilters.actionType}, category=${actionFilters.category}, search="${actionFilters.search}")`);
+
     const container = document.getElementById('actions-container');
-    buildActionsDisplay(container, characterData.actions);
+    buildActionsDisplay(container, filteredActions);
   }
 
   // ===== EXPORTS =====
