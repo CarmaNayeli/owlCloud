@@ -2537,7 +2537,7 @@
   }
 
   /**
-   * Makes the status bar draggable
+   * Makes the status bar draggable with viewport bounds checking
    */
   function makeStatusBarDraggable() {
     const statusBar = statusBarElement;
@@ -2546,22 +2546,53 @@
 
     const header = statusBar.querySelector('.status-bar-header');
 
-    // Load saved position
+    // Status bar dimensions (approximate)
+    const STATUS_BAR_WIDTH = 150;
+    const STATUS_BAR_HEIGHT = 200;
+
+    /**
+     * Validates if a position is within viewport bounds
+     */
+    function isPositionValid(leftPx, topPx) {
+      const minTop = -20;
+      const maxTop = window.innerHeight - 40; // Ensure at least 40px visible
+      const minLeft = -STATUS_BAR_WIDTH + 40; // Allow partial off left edge
+      const maxLeft = window.innerWidth - 40; // Ensure at least 40px visible on right
+
+      return topPx >= minTop && topPx <= maxTop && leftPx >= minLeft && leftPx <= maxLeft;
+    }
+
+    /**
+     * Clamps a position to viewport bounds
+     */
+    function clampPosition(leftPx, topPx) {
+      const minTop = 0;
+      const maxTop = window.innerHeight - 40;
+      const minLeft = 0;
+      const maxLeft = window.innerWidth - STATUS_BAR_WIDTH;
+
+      return {
+        left: Math.max(minLeft, Math.min(maxLeft, leftPx)),
+        top: Math.max(minTop, Math.min(maxTop, topPx))
+      };
+    }
+
+    // Load saved position with validation
     const savedPosition = localStorage.getItem('rollcloud-status-bar_position');
     if (savedPosition) {
-      const { left, top, right, bottom } = JSON.parse(savedPosition);
-      if (left !== undefined) statusBar.style.left = left;
-      if (top !== undefined) statusBar.style.top = top;
-      if (right !== undefined) statusBar.style.right = right;
-      if (bottom !== undefined) statusBar.style.bottom = bottom;
-      // Clear auto values when using saved position
-      if (left !== undefined || right !== undefined) {
-        if (left !== undefined) statusBar.style.right = 'auto';
-        if (right !== undefined) statusBar.style.left = 'auto';
-      }
-      if (top !== undefined || bottom !== undefined) {
-        if (top !== undefined) statusBar.style.bottom = 'auto';
-        if (bottom !== undefined) statusBar.style.top = 'auto';
+      const { left, top } = JSON.parse(savedPosition);
+      const leftPx = parseFloat(left);
+      const topPx = parseFloat(top);
+
+      if (isPositionValid(leftPx, topPx)) {
+        statusBar.style.left = left;
+        statusBar.style.top = top;
+        statusBar.style.right = 'auto';
+        statusBar.style.bottom = 'auto';
+      } else {
+        // Invalid position - clear it and use default
+        debug.log(`🔧 Clearing invalid status bar position: left=${left}, top=${top}`);
+        localStorage.removeItem('rollcloud-status-bar_position');
       }
     }
 
@@ -2588,8 +2619,13 @@
       const deltaX = e.clientX - startX;
       const deltaY = e.clientY - startY;
 
-      const newLeft = initialLeft + deltaX;
-      const newTop = initialTop + deltaY;
+      let newLeft = initialLeft + deltaX;
+      let newTop = initialTop + deltaY;
+
+      // Clamp to viewport bounds during drag
+      const clamped = clampPosition(newLeft, newTop);
+      newLeft = clamped.left;
+      newTop = clamped.top;
 
       requestAnimationFrame(() => {
         statusBar.style.left = `${newLeft}px`;
@@ -2604,11 +2640,18 @@
         isDragging = false;
         header.style.cursor = 'grab';
 
-        // Save position
-        localStorage.setItem('rollcloud-status-bar_position', JSON.stringify({
-          left: statusBar.style.left,
-          top: statusBar.style.top
-        }));
+        // Validate and save position only if within bounds
+        const leftPx = parseFloat(statusBar.style.left);
+        const topPx = parseFloat(statusBar.style.top);
+
+        if (isPositionValid(leftPx, topPx)) {
+          localStorage.setItem('rollcloud-status-bar_position', JSON.stringify({
+            left: statusBar.style.left,
+            top: statusBar.style.top
+          }));
+        } else {
+          debug.log('⚠️ Status bar position is off-screen, not saving');
+        }
       }
     });
 
