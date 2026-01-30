@@ -2245,7 +2245,7 @@
         right: 20px;
         width: 150px;
         min-width: 120px;
-        max-width: 300px;
+        max-width: 400px;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         font-size: 11px;
         z-index: 999997;
@@ -2737,6 +2737,11 @@
       resetSizeOption.addEventListener('click', () => {
         localStorage.removeItem('rollcloud-status-bar_size');
         statusBar.style.width = '150px';
+        const container = statusBar.querySelector('.status-bar-container');
+        if (container) {
+          container.style.height = '';
+          container.style.overflowY = '';
+        }
         menu.remove();
         showNotification('Status bar size reset', 'success');
       });
@@ -2752,27 +2757,34 @@
   }
 
   /**
-   * Makes the status bar resizable
+   * Makes the status bar resizable (width and height)
    */
   function makeStatusBarResizable() {
     const statusBar = statusBarElement;
+    const container = statusBar.querySelector('.status-bar-container');
     const resizeHandle = document.getElementById('status-resize-handle');
     let isResizing = false;
-    let startX, startWidth;
+    let startX, startY, startWidth, startHeight;
 
     // Load saved size
     const savedSize = localStorage.getItem('rollcloud-status-bar_size');
     if (savedSize) {
-      const { width } = JSON.parse(savedSize);
-      if (width >= 120 && width <= 300) {
+      const { width, height } = JSON.parse(savedSize);
+      if (width >= 120 && width <= 400) {
         statusBar.style.width = `${width}px`;
+      }
+      if (height >= 100 && height <= 600) {
+        container.style.height = `${height}px`;
+        container.style.overflowY = 'auto';
       }
     }
 
     resizeHandle.addEventListener('mousedown', (e) => {
       isResizing = true;
       startX = e.clientX;
+      startY = e.clientY;
       startWidth = statusBar.offsetWidth;
+      startHeight = container.offsetHeight;
       e.preventDefault();
       e.stopPropagation();
     });
@@ -2781,13 +2793,20 @@
       if (!isResizing) return;
 
       const deltaX = e.clientX - startX;
+      const deltaY = e.clientY - startY;
+
+      // Calculate new dimensions
       let newWidth = startWidth + deltaX;
+      let newHeight = startHeight + deltaY;
 
       // Clamp to min/max
-      newWidth = Math.max(120, Math.min(300, newWidth));
+      newWidth = Math.max(120, Math.min(400, newWidth));
+      newHeight = Math.max(100, Math.min(600, newHeight));
 
       requestAnimationFrame(() => {
         statusBar.style.width = `${newWidth}px`;
+        container.style.height = `${newHeight}px`;
+        container.style.overflowY = 'auto';
       });
     });
 
@@ -2797,7 +2816,8 @@
 
         // Save size
         localStorage.setItem('rollcloud-status-bar_size', JSON.stringify({
-          width: statusBar.offsetWidth
+          width: statusBar.offsetWidth,
+          height: container.offsetHeight
         }));
       }
     });
