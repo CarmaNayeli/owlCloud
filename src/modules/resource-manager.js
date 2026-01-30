@@ -72,6 +72,12 @@
         return;
       }
 
+      // Skip "Spell Level" resource - this is metadata, not an actual resource
+      if (lowerName === 'spell level' || lowerName === 'spelllevel') {
+        debug.log(`⏭️ Skipping Spell Level resource from display: ${resource.name}`);
+        return;
+      }
+
       debug.log(`📊 Displaying resource: ${resource.name} (${resource.current}/${resource.max})`);
 
       const resourceCard = document.createElement('div');

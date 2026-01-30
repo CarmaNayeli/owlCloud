@@ -139,7 +139,8 @@ function initializePopup() {
   const charRace = document.getElementById('charRace');
   const syncBtn = document.getElementById('syncBtn');
   const showSheetBtn = document.getElementById('showSheetBtn');
-  const clearBtn = document.getElementById('clearBtn');
+  const clearLocalBtn = document.getElementById('clearLocalBtn');
+  const clearCloudBtn = document.getElementById('clearCloudBtn');
   const syncCharacterToCloudBtn = document.getElementById('syncCharacterToCloudBtn');
   const howToBtn = document.getElementById('howToBtn');
   const settingsBtn = document.getElementById('settingsBtn');
@@ -306,7 +307,12 @@ function initializePopup() {
     syncCharacterToCloudBtn.addEventListener('click', handleSyncCharacterToCloud);
   }
 
-  clearBtn.addEventListener('click', handleClear);
+  if (clearLocalBtn) {
+    clearLocalBtn.addEventListener('click', handleClearLocal);
+  }
+  if (clearCloudBtn) {
+    clearCloudBtn.addEventListener('click', handleClearCloud);
+  }
 
   // Settings dropdown event listeners
   if (settingsBtn && settingsMenu) {
@@ -989,7 +995,8 @@ function initializePopup() {
     charClass.textContent = data.class || '-';
     charRace.textContent = data.race || '-';
     showSheetBtn.disabled = false;
-    clearBtn.disabled = false;
+    if (clearLocalBtn) clearLocalBtn.disabled = false;
+    if (clearCloudBtn) clearCloudBtn.disabled = false;
   }
 
   /**
@@ -1005,7 +1012,8 @@ function initializePopup() {
     charRace.textContent = '-';
     // Keep showSheetBtn enabled for testing
     showSheetBtn.disabled = false;
-    clearBtn.disabled = false;
+    if (clearLocalBtn) clearLocalBtn.disabled = false;
+    if (clearCloudBtn) clearCloudBtn.disabled = false;
   }
 
   /**
@@ -1420,35 +1428,88 @@ function initializePopup() {
   }
 
   /**
-   * Handles clear button click
+   * Handles clear local data button click
    */
-  async function handleClear() {
+  async function handleClearLocal() {
     try {
-      clearBtn.disabled = true;
-
       // Get currently selected character ID
       const selectedId = characterSelect.value;
+      const characterName = charName.textContent || 'this character';
 
       if (selectedId) {
-        // Clear specific character
+        if (!confirm(`Clear local data for ${characterName}?\n\nThis removes the character from this browser only. Cloud data will not be affected.`)) {
+          return;
+        }
+        clearLocalBtn.disabled = true;
         await browserAPI.runtime.sendMessage({
           action: 'clearCharacterData',
           characterId: selectedId
         });
-        showSuccess('Character data cleared');
+        showSuccess('Local character data cleared');
       } else {
-        // Clear all if no character is selected
+        if (!confirm('Clear ALL local character data?\n\nThis removes all characters from this browser. Cloud data will not be affected.')) {
+          return;
+        }
+        clearLocalBtn.disabled = true;
         await browserAPI.runtime.sendMessage({ action: 'clearCharacterData' });
-        showSuccess('All character data cleared');
+        showSuccess('All local character data cleared');
       }
 
       // Reload to update UI
       await loadCharacterData();
     } catch (error) {
-      debug.error('Error clearing data:', error);
-      showError('Error clearing data');
+      debug.error('Error clearing local data:', error);
+      showError('Error clearing local data');
     } finally {
-      clearBtn.disabled = false;
+      if (clearLocalBtn) clearLocalBtn.disabled = false;
+    }
+  }
+
+  /**
+   * Handles clear cloud data button click
+   */
+  async function handleClearCloud() {
+    try {
+      // Get currently selected character ID
+      const selectedId = characterSelect.value;
+      const characterName = charName.textContent || 'this character';
+
+      if (!selectedId) {
+        showError('Please select a character to delete from cloud');
+        return;
+      }
+
+      if (!confirm(`⚠️ DELETE ${characterName} from cloud?\n\nThis permanently removes the character from cloud storage. This action cannot be undone!\n\nLocal data will also be removed.`)) {
+        return;
+      }
+
+      clearCloudBtn.disabled = true;
+      clearCloudBtn.textContent = '⏳ Deleting...';
+
+      // Delete from cloud first
+      await browserAPI.runtime.sendMessage({
+        action: 'deleteCharacterFromCloud',
+        characterId: selectedId
+      });
+
+      // Then clear local data
+      await browserAPI.runtime.sendMessage({
+        action: 'clearCharacterData',
+        characterId: selectedId
+      });
+
+      showSuccess('Character deleted from cloud and local storage');
+
+      // Reload to update UI
+      await loadCharacterData();
+    } catch (error) {
+      debug.error('Error clearing cloud data:', error);
+      showError('Error deleting from cloud: ' + error.message);
+    } finally {
+      if (clearCloudBtn) {
+        clearCloudBtn.disabled = false;
+        clearCloudBtn.textContent = '☁️ Clear Cloud Data';
+      }
     }
   }
 

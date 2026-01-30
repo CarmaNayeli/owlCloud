@@ -32,11 +32,16 @@ const storage = {
   async get(keys) {
     return new Promise((resolve, reject) => {
       try {
-        const result = browserAPI.storage.local.get(keys);
+        const result = browserAPI.storage.local.get(keys, (items) => {
+          if (browserAPI.runtime.lastError) {
+            reject(new Error(browserAPI.runtime.lastError.message));
+          } else {
+            resolve(items);
+          }
+        });
+        // If it returns a Promise, use that instead (Chrome MV3)
         if (result && typeof result.then === 'function') {
           result.then(resolve).catch(reject);
-        } else {
-          browserAPI.runtime.lastError ? reject(new Error(browserAPI.runtime.lastError.message)) : resolve(result);
         }
       } catch (error) {
         reject(error);
@@ -47,11 +52,16 @@ const storage = {
   async set(items) {
     return new Promise((resolve, reject) => {
       try {
-        const result = browserAPI.storage.local.set(items);
+        const result = browserAPI.storage.local.set(items, () => {
+          if (browserAPI.runtime.lastError) {
+            reject(new Error(browserAPI.runtime.lastError.message));
+          } else {
+            resolve();
+          }
+        });
+        // If it returns a Promise, use that instead (Chrome MV3)
         if (result && typeof result.then === 'function') {
           result.then(resolve).catch(reject);
-        } else {
-          browserAPI.runtime.lastError ? reject(new Error(browserAPI.runtime.lastError.message)) : resolve();
         }
       } catch (error) {
         reject(error);
@@ -62,11 +72,16 @@ const storage = {
   async remove(keys) {
     return new Promise((resolve, reject) => {
       try {
-        const result = browserAPI.storage.local.remove(keys);
+        const result = browserAPI.storage.local.remove(keys, () => {
+          if (browserAPI.runtime.lastError) {
+            reject(new Error(browserAPI.runtime.lastError.message));
+          } else {
+            resolve();
+          }
+        });
+        // If it returns a Promise, use that instead (Chrome MV3)
         if (result && typeof result.then === 'function') {
           result.then(resolve).catch(reject);
-        } else {
-          browserAPI.runtime.lastError ? reject(new Error(browserAPI.runtime.lastError.message)) : resolve();
         }
       } catch (error) {
         reject(error);
@@ -1176,6 +1191,24 @@ async function storeCharacterData(characterData, slotId) {
     const result = await browserAPI.storage.local.get(['characterProfiles', 'activeCharacterId']);
     const characterProfiles = result.characterProfiles || {};
 
+    // Deduplication: Check if this character already exists in a different slot
+    // If it does, delete it from the old slot before saving to the new slot
+    const characterId = characterData.id || characterData._id;
+    if (characterId) {
+      for (const [existingSlotId, existingProfile] of Object.entries(characterProfiles)) {
+        // Skip if it's the same slot we're saving to
+        if (existingSlotId === storageId) continue;
+
+        // Check if the existing profile has the same character ID
+        const existingId = existingProfile.id || existingProfile._id;
+        if (existingId === characterId) {
+          debug.log(`🔄 Deduplicating character: "${characterData.name}" found in ${existingSlotId}, removing before saving to ${storageId}`);
+          delete characterProfiles[existingSlotId];
+          break; // Only one duplicate should exist
+        }
+      }
+    }
+
     // Store this character's data EXACTLY as received (now includes ownerUserId)
     characterProfiles[storageId] = characterData;
 
@@ -1512,6 +1545,16 @@ async function getAllCharacterProfiles() {
       if (fp) seenFingerprints.set(fp, key);
     }
 
+    // Build a lookup of database characters by ID and fingerprint for marking local profiles
+    const dbCharactersByCharId = new Map();
+    const dbCharactersByFingerprint = new Map();
+    for (const [key, profile] of Object.entries(databaseCharacters)) {
+      const charId = getCharId(profile);
+      const fp = getFingerprint(profile);
+      if (charId) dbCharactersByCharId.set(charId, { key, profile });
+      if (fp) dbCharactersByFingerprint.set(fp, { key, profile });
+    }
+
     // Process local profiles first (local saves have priority)
     for (const [key, profile] of Object.entries(localProfiles)) {
       const fp = getFingerprint(profile);
@@ -1519,6 +1562,17 @@ async function getAllCharacterProfiles() {
 
       const existingById = charId ? seenCharacterIds.get(charId) : null;
       const existingByFp = fp ? seenFingerprints.get(fp) : null;
+
+      // Check if this local profile has a database counterpart
+      const dbMatch = (charId && dbCharactersByCharId.get(charId)) ||
+                      (fp && dbCharactersByFingerprint.get(fp));
+      if (dbMatch) {
+        // Mark this local profile as having a cloud version
+        profile.source = 'database';
+        profile.hasCloudVersion = true;
+        profile.cloudSlotId = dbMatch.key;
+        debug.log(`☁️ Local profile "${profile.name || profile.character_name}" has cloud version, marking as database source`);
+      }
 
       // If there's an existing entry with the same character ID, decide
       // whether to replace it. Prefer local `slot-` keys over DB keys.
@@ -1557,7 +1611,7 @@ async function getAllCharacterProfiles() {
         markSeen(profile, key);
         mergedProfiles[key] = profile;
       } else {
-        debug.log(`🔒 Skipping database character ${key} because a local version exists`);
+        debug.log(`🔒 Skipping database character ${key} because a local version exists (but marked with cloud source)`);
       }
     }
 
@@ -1705,6 +1759,18 @@ async function getCharacterDataFromDatabase(characterId) {
       if (dbCharacter.notification_color) {
         fullCharacter.notificationColor = dbCharacter.notification_color;
       }
+
+      // DEBUG: Check if spells and actions are present
+      debug.log('🔍 Database character data check:', {
+        name: fullCharacter.name,
+        hasSpells: !!fullCharacter.spells,
+        spellsIsArray: Array.isArray(fullCharacter.spells),
+        spellsLength: fullCharacter.spells?.length,
+        hasActions: !!fullCharacter.actions,
+        actionsIsArray: Array.isArray(fullCharacter.actions),
+        actionsLength: fullCharacter.actions?.length,
+        topLevelKeys: Object.keys(fullCharacter).slice(0, 30)
+      });
       // Add a compact preview of the parsed raw data for debugging
       try {
         const keys = Object.keys(fullCharacter || {}).slice(0, 50);
@@ -1941,9 +2007,19 @@ async function clearCharacterData(characterId = null) {
 
       debug.log(`Character profile cleared for ID: ${characterId}`);
     } else {
-      // Clear all characters
-      await browserAPI.storage.local.remove(['characterProfiles', 'activeCharacterId', 'timestamp']);
-      debug.log('All character data cleared successfully');
+      // Clear all characters - include ALL legacy storage keys
+      const legacyKeys = [
+        'characterProfiles',
+        'activeCharacterId',
+        'timestamp',
+        'characterData',           // Legacy single-character key
+        'activeSlot',              // Legacy slot system
+        'slot1', 'slot2', 'slot3', 'slot4', 'slot5',  // Legacy slots
+        'currentCharacter',        // Another legacy key
+        'cachedCharacter'          // Cache key
+      ];
+      await browserAPI.storage.local.remove(legacyKeys);
+      debug.log('All character data cleared successfully (including legacy keys)');
     }
   } catch (error) {
     debug.error('Failed to clear character data:', error);
@@ -1966,24 +2042,44 @@ async function deleteCharacterFromCloud(characterId) {
 
     debug.log(`🗑️ Deleting character from cloud: ${characterId}`);
 
-    // Delete from Supabase
-    const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/rollcloud_characters?dicecloud_character_id=eq.${characterId}`,
-      {
-        method: 'DELETE',
-        headers: {
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-          'Prefer': 'return=minimal'
-        }
-      }
-    );
+    // Strip db- prefix if present for database query
+    const cleanId = characterId.startsWith('db-') ? characterId.replace('db-', '') : characterId;
 
-    if (!response.ok) {
-      throw new Error(`Failed to delete from cloud: ${response.status}`);
+    // Try to delete with both the clean ID and the original ID
+    // Some records may have been stored with the prefix, some without
+    const idsToTry = [cleanId];
+    if (cleanId !== characterId) {
+      idsToTry.push(characterId); // Also try with prefix
     }
 
-    debug.log(`✅ Character deleted from cloud: ${characterId}`);
+    let deleted = false;
+    for (const idToDelete of idsToTry) {
+      const response = await fetch(
+        `${SUPABASE_URL}/rest/v1/rollcloud_characters?dicecloud_character_id=eq.${encodeURIComponent(idToDelete)}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Prefer': 'return=representation'  // Return deleted rows to verify
+          }
+        }
+      );
+
+      if (response.ok) {
+        const deletedRows = await response.json();
+        if (deletedRows && deletedRows.length > 0) {
+          debug.log(`✅ Deleted ${deletedRows.length} record(s) from cloud with ID: ${idToDelete}`);
+          deleted = true;
+        }
+      }
+    }
+
+    if (!deleted) {
+      debug.warn(`⚠️ No records found in cloud for character: ${characterId}`);
+    }
+
+    debug.log(`✅ Character delete from cloud completed: ${characterId}`);
     return { success: true };
   } catch (error) {
     debug.error('Failed to delete character from cloud:', error);

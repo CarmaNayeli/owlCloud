@@ -1,26 +1,8 @@
 debug.log('✅ Popup HTML loaded');
 
-// Access D&D logic from window (loaded via script tags in popup-sheet.html)
-// Edge case modules and action-executor.js are loaded as regular scripts before this module
-const {
-  // Spell edge cases
-  SPELL_EDGE_CASES, isEdgeCase, getEdgeCase, applyEdgeCaseModifications, isReuseableSpell, isTooComplicatedSpell,
-  // Class feature edge cases
-  CLASS_FEATURE_EDGE_CASES, isClassFeatureEdgeCase, getClassFeatureEdgeCase, applyClassFeatureEdgeCaseModifications,
-  // Racial feature edge cases
-  RACIAL_FEATURE_EDGE_CASES, isRacialFeatureEdgeCase, getRacialFeatureEdgeCase, applyRacialFeatureEdgeCaseModifications,
-  // Combat maneuver edge cases
-  COMBAT_MANEUVER_EDGE_CASES, isCombatManeuverEdgeCase, getCombatManeuverEdgeCase, applyCombatManeuverEdgeCaseModifications,
-  // Metamagic & resource logic
-  METAMAGIC_COSTS,
-  calculateMetamagicCost: executorCalculateMetamagicCost,
-  getAvailableMetamagic: executorGetAvailableMetamagic,
-  getSorceryPointsResource: executorGetSorceryPointsResource,
-  isMagicItemSpell, isFreeSpell,
-  detectClassResources: executorDetectClassResources,
-  // Execution functions
-  resolveSpellCast, resolveActionUse
-} = window;
+// Note: Edge case modules and action-executor.js are loaded as regular scripts before this script.
+// They export their functions to globalThis, making them globally available without needing to import.
+// Functions like isEdgeCase, getEdgeCase, resolveSpellCast, etc. are already available globally.
 
 // Initialize theme manager
 if (typeof ThemeManager !== 'undefined') {
@@ -54,11 +36,21 @@ if (typeof ThemeManager !== 'undefined') {
 }
 
 // Store character data globally so we can update it
-let characterData = null;
+// Using 'var' instead of 'let' to ensure global scope accessibility for modules
+var characterData = null;
 
 // Track current character slot ID (e.g., "slot-1") for persistence
+var currentSlotId = null;
+
+// Track concentration state
+var concentratingSpell = null;
+
+// Track active buffs and conditions/debuffs
+var activeBuffs = [];
+var activeConditions = [];
+
 // Track Feline Agility usage
-let felineAgilityUsed = false;
+var felineAgilityUsed = false;
 
 // Setting: Show custom macro gear buttons on spells (disabled by default)
 let showCustomMacroButtons = false;
@@ -264,7 +256,7 @@ window.addEventListener('message', async (event) => {
   } else if (event.data && event.data.action === 'requestStatusData') {
     // Status bar is requesting current character status
     debug.log('📊 Status bar requesting data');
-    sendStatusUpdate();
+    sendStatusUpdate(event.source);
   }
 });
 
@@ -448,9 +440,42 @@ async function loadCharacterWithTabs() {
       initClassFeatures();
     } else {
       debug.error('❌ No character data found');
+      // Hide loading overlay even if no character data
+      const loadingOverlay = document.getElementById('loading-overlay');
+      if (loadingOverlay) {
+        loadingOverlay.innerHTML = `
+          <div style="text-align: center; color: var(--text-primary); max-width: 400px;">
+            <div style="font-size: 3em; margin-bottom: 20px;">📋</div>
+            <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 10px;">
+              No Character Found
+            </div>
+            <div style="font-size: 0.9em; color: var(--text-secondary); line-height: 1.4;">
+              Use the <strong>Refresh Characters</strong> button in the extension popup to sync your characters from DiceCloud
+            </div>
+          </div>
+        `;
+      }
     }
   } catch (error) {
     debug.error('❌ Failed to load characters:', error);
+    // Hide loading overlay and show error
+    const loadingOverlay = document.getElementById('loading-overlay');
+    if (loadingOverlay) {
+      loadingOverlay.innerHTML = `
+        <div style="text-align: center; color: var(--text-primary); max-width: 400px;">
+          <div style="font-size: 3em; margin-bottom: 20px;">⚠️</div>
+          <div style="font-size: 1.2em; font-weight: bold; margin-bottom: 10px;">
+            Failed to Load Character
+          </div>
+          <div style="font-size: 0.9em; color: var(--text-secondary); line-height: 1.4; margin-bottom: 15px;">
+            ${error.message || 'Unknown error'}
+          </div>
+          <div style="font-size: 0.9em; color: var(--text-secondary); line-height: 1.4;">
+            Try using the <strong>Refresh Characters</strong> button in the extension popup
+          </div>
+        </div>
+      `;
+    }
   }
 }
 
@@ -530,6 +555,7 @@ async function switchToCharacter(characterId) {
         if (dbResponse.success) {
           newCharacterData = dbResponse.data;
           debug.log('✅ Loaded database character:', newCharacterData.name);
+          showNotification(`☁️ Loaded ${newCharacterData.name} from cloud`, 'info');
         } else {
           throw new Error(dbResponse.error || 'Failed to load database character');
         }
@@ -540,14 +566,15 @@ async function switchToCharacter(characterId) {
       }
     } else {
       // Load from local storage
-      const response = await browserAPI.runtime.sendMessage({ 
-        action: 'getCharacterData', 
-        characterId: characterId 
+      const response = await browserAPI.runtime.sendMessage({
+        action: 'getCharacterData',
+        characterId: characterId
       });
-      
+
       if (response.success) {
         newCharacterData = response.data;
         debug.log('✅ Loaded local character:', newCharacterData.name);
+        showNotification(`💾 Loaded ${newCharacterData.name} from local storage`, 'success');
       } else {
         throw new Error(response.error || 'Failed to load local character');
       }
@@ -751,6 +778,12 @@ function showClearCharacterOptions(slotId, slotNum, characterName) {
 // Clear a character slot (local only)
 async function clearCharacterSlot(slotId, slotNum) {
   try {
+    // Clear in-memory state if this is the current character
+    if (currentSlotId === slotId) {
+      characterData = null;
+      currentSlotId = null;
+    }
+
     await browserAPI.runtime.sendMessage({
       action: 'clearCharacterData',
       characterId: slotId
@@ -758,7 +791,7 @@ async function clearCharacterSlot(slotId, slotNum) {
 
     showNotification(`✅ Slot ${slotNum} cleared from local storage`);
 
-    // Reload tabs
+    // Reload tabs (will load a different character if available)
     loadCharacterWithTabs();
   } catch (error) {
     debug.error('❌ Failed to clear slot:', error);
@@ -769,6 +802,12 @@ async function clearCharacterSlot(slotId, slotNum) {
 // Delete character from cloud AND local
 async function deleteCharacterFromCloud(slotId, slotNum) {
   try {
+    // Clear in-memory state if this is the current character
+    if (currentSlotId === slotId) {
+      characterData = null;
+      currentSlotId = null;
+    }
+
     // First delete from cloud
     await browserAPI.runtime.sendMessage({
       action: 'deleteCharacterFromCloud',
@@ -783,13 +822,14 @@ async function deleteCharacterFromCloud(slotId, slotNum) {
 
     showNotification(`✅ Character deleted from cloud and local storage`);
 
-    // Reload tabs
+    // Reload tabs (will load a different character if available)
     loadCharacterWithTabs();
   } catch (error) {
     debug.error('❌ Failed to delete character:', error);
     showNotification('❌ Failed to delete character: ' + error.message, 'error');
   }
 }
+
 
 // Global advantage state
 let advantageState = 'normal'; // 'advantage', 'normal', or 'disadvantage'
@@ -902,6 +942,85 @@ function setAdvantageState(state) {
   }
 }
 
+function updateConcentrationDisplay() {
+  const concentrationIndicator = document.getElementById('concentration-indicator');
+  const concentrationSpell = document.getElementById('concentration-spell');
+
+  if (!concentrationIndicator) return;
+
+  // Hide concentration row if character has no spell slots (e.g., rogues)
+  if (characterData && characterData.spellSlots) {
+    const spellSlots = characterData.spellSlots;
+    let hasSpellSlots = false;
+
+    // Check for regular spell slots (levels 1-9)
+    for (let level = 1; level <= 9; level++) {
+      if ((spellSlots[`level${level}SpellSlotsMax`] || 0) > 0) {
+        hasSpellSlots = true;
+        break;
+      }
+    }
+
+    // Also check for pact magic (warlocks)
+    if ((spellSlots.pactMagicSlotsMax || 0) > 0) {
+      hasSpellSlots = true;
+    }
+
+    // If no spell slots, hide the concentration tracker entirely
+    if (!hasSpellSlots) {
+      concentrationIndicator.style.display = 'none';
+      return;
+    }
+  }
+
+  // Show/hide based on concentration state
+  if (concentratingSpell) {
+    concentrationIndicator.style.display = 'flex';
+    if (concentrationSpell) {
+      concentrationSpell.textContent = concentratingSpell;
+    }
+  } else {
+    concentrationIndicator.style.display = 'none';
+  }
+}
+
+function initConcentrationTracker() {
+  const dropConcentrationBtn = document.getElementById('drop-concentration-btn');
+
+  if (dropConcentrationBtn) {
+    dropConcentrationBtn.addEventListener('click', () => {
+      dropConcentration();
+    });
+  }
+
+  debug.log('✅ Concentration tracker initialized');
+}
+
+function setConcentration(spellName) {
+  concentratingSpell = spellName;
+  if (characterData) {
+    characterData.concentration = spellName;
+    saveCharacterData();
+  }
+  updateConcentrationDisplay();
+  showNotification(`🧠 Concentrating on: ${spellName}`);
+  debug.log(`🧠 Concentration set: ${spellName}`);
+}
+
+function dropConcentration() {
+  if (!concentratingSpell) return;
+
+  const spellName = concentratingSpell;
+  concentratingSpell = null;
+  if (characterData) {
+    characterData.concentration = null;
+    saveCharacterData();
+  }
+  updateConcentrationDisplay();
+  showNotification(`✅ Dropped concentration on ${spellName}`);
+  debug.log(`🗑️ Concentration dropped: ${spellName}`);
+}
+
 function buildSheet(data) {
   debug.log('Building character sheet...');
   debug.log('📊 Character data received:', data);
@@ -990,8 +1109,38 @@ function buildSheet(data) {
     updateConcentrationDisplay();
   }
 
-  // Character name
-  charNameEl.textContent = data.name || 'Character';
+  // Character name with source badge
+  const characterName = data.name || 'Character';
+  const isCloudCharacter = data.source === 'database' ||
+                           data.hasCloudVersion === true ||
+                           (currentSlotId && currentSlotId.startsWith('db-')) ||
+                           data.id?.startsWith('db-');
+
+  if (isCloudCharacter) {
+    charNameEl.innerHTML = `${characterName} <span style="
+      background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.7em;
+      font-weight: bold;
+      margin-left: 8px;
+      vertical-align: middle;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    ">☁️ Cloud</span>`;
+  } else {
+    charNameEl.innerHTML = `${characterName} <span style="
+      background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.7em;
+      font-weight: bold;
+      margin-left: 8px;
+      vertical-align: middle;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    ">💾 Local</span>`;
+  }
 
   // Update color picker emoji in systems bar
   const currentColorEmoji = getColorEmoji(data.notificationColor || '#3498db');
@@ -1402,6 +1551,16 @@ function buildSheet(data) {
 
   // Initialize filter event listeners
   initializeFilters();
+
+  // Hide loading overlay and show the sheet with fade-in effect
+  const loadingOverlay = document.getElementById('loading-overlay');
+  const container = document.querySelector('.container');
+  if (loadingOverlay) {
+    loadingOverlay.style.display = 'none';
+  }
+  if (container) {
+    container.classList.add('loaded');
+  }
 
   debug.log('✅ Sheet built successfully');
 }
@@ -8711,44 +8870,145 @@ function executeRoll(name, formula, effectNotes, prerolledResult = null) {
   });
 }
 
-function getHitDieType() {
-  // Determine hit die based on class (D&D 5e)
-  const className = (characterData.class || '').toLowerCase();
+function showNotification(message) {
+  const notif = document.createElement('div');
+  notif.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #27AE60; color: white; padding: 15px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 10000;';
+  notif.textContent = message;
+  document.body.appendChild(notif);
+  setTimeout(() => notif.remove(), 2000);
+}
 
-  const hitDiceMap = {
-    'barbarian': 'd12',
-    'fighter': 'd10',
-    'paladin': 'd10',
-    'ranger': 'd10',
-    'bard': 'd8',
-    'cleric': 'd8',
-    'druid': 'd8',
-    'monk': 'd8',
-    'rogue': 'd8',
-    'warlock': 'd8',
-    'sorcerer': 'd6',
-    'wizard': 'd6'
-  };
+function takeShortRest() {
+  if (!characterData) {
+    showNotification('❌ Character data not available', 'error');
+    return;
+  }
 
-  for (const [classKey, die] of Object.entries(hitDiceMap)) {
-    if (className.includes(classKey)) {
-      return die;
+  const confirmed = confirm('Take a Short Rest?\n\nThis will:\n- Allow you to spend Hit Dice to restore HP\n- Restore Warlock spell slots\n- Restore some class features');
+
+  if (!confirmed) return;
+
+  debug.log('☕ Taking short rest...');
+
+  // Clear temporary HP (RAW: temp HP doesn't persist through rest)
+  if (characterData.temporaryHP > 0) {
+    characterData.temporaryHP = 0;
+    debug.log('✅ Cleared temporary HP');
+  }
+
+  // Note: Inspiration is NOT restored on short rest (DM grants it)
+  debug.log(`ℹ️ Inspiration status unchanged (${characterData.inspiration ? 'active' : 'none'})`);
+
+  // Restore Warlock Pact Magic slots (they recharge on short rest)
+  // Check both spellSlots and otherVariables for Pact Magic
+  if (characterData.spellSlots && characterData.spellSlots.pactMagicSlotsMax !== undefined) {
+    characterData.spellSlots.pactMagicSlots = characterData.spellSlots.pactMagicSlotsMax;
+    debug.log(`✅ Restored Pact Magic slots (spellSlots): ${characterData.spellSlots.pactMagicSlots}/${characterData.spellSlots.pactMagicSlotsMax}`);
+  }
+  if (characterData.otherVariables) {
+    if (characterData.otherVariables.pactMagicSlotsMax !== undefined) {
+      characterData.otherVariables.pactMagicSlots = characterData.otherVariables.pactMagicSlotsMax;
+      debug.log('✅ Restored Pact Magic slots (otherVariables)');
+    }
+
+    // Restore Ki points for Monk (short rest feature)
+    if (characterData.otherVariables.kiMax !== undefined) {
+      characterData.otherVariables.ki = characterData.otherVariables.kiMax;
+      debug.log('✅ Restored Ki points');
+    } else if (characterData.otherVariables.kiPointsMax !== undefined) {
+      characterData.otherVariables.kiPoints = characterData.otherVariables.kiPointsMax;
+      debug.log('✅ Restored Ki points');
+    }
+
+    // Restore Action Surge, Second Wind (short rest features)
+    if (characterData.otherVariables.actionSurgeMax !== undefined) {
+      characterData.otherVariables.actionSurge = characterData.otherVariables.actionSurgeMax;
+    }
+    if (characterData.otherVariables.secondWindMax !== undefined) {
+      characterData.otherVariables.secondWind = characterData.otherVariables.secondWindMax;
     }
   }
 
-  // Default to d8 if class not found
-  return 'd8';
-}
+  // Handle Hit Dice spending for HP restoration
+  spendHitDice();
 
-function initializeHitDice() {
-  // Initialize hit dice if not already set
-  if (characterData.hitDice === undefined) {
-    const level = characterData.level || 1;
-    characterData.hitDice = {
-      current: level,
-      max: level,
-      type: getHitDieType()
-    };
+  // Restore class resources that recharge on short rest
+  // Most resources restore on short rest (Ki, Channel Divinity, Action Surge, etc.)
+  // Notable exceptions: Sorcery Points and Rage restore on long rest only
+  if (characterData.resources && characterData.resources.length > 0) {
+    characterData.resources.forEach(resource => {
+      const lowerName = resource.name.toLowerCase();
+
+      // Long rest only resources
+      if (lowerName.includes('sorcery') || lowerName.includes('rage')) {
+        debug.log(`⏭️ Skipping ${resource.name} (long rest only)`);
+        return;
+      }
+
+      // Restore all other resources
+      resource.current = resource.max;
+
+      // Also update otherVariables to keep data in sync
+      if (characterData.otherVariables && resource.varName) {
+        characterData.otherVariables[resource.varName] = resource.current;
+      }
+
+      debug.log(`✅ Restored ${resource.name} (${resource.current}/${resource.max})`);
+    });
+  }
+
+  // Reset limited uses for short rest abilities
+  if (characterData.actions) {
+    characterData.actions.forEach(action => {
+      if (action.uses) {
+        // Handle usesUsed pattern (older/local data)
+        if (action.usesUsed !== undefined && action.usesUsed > 0) {
+          action.usesUsed = 0;
+          debug.log(`✅ Reset uses for ${action.name}`);
+        }
+
+        // Handle usesLeft pattern (2024 D&D features, database data)
+        if (action.usesLeft !== undefined) {
+          const usesTotal = action.uses.total || action.uses.value || action.uses;
+          action.usesLeft = usesTotal;
+          debug.log(`✅ Restored ${action.name} (${action.usesLeft}/${usesTotal} uses)`);
+        }
+      }
+    });
+  }
+
+  saveCharacterData();
+  buildSheet(characterData);
+
+  showNotification('☕ Short Rest complete! Resources recharged.');
+  debug.log('✅ Short rest complete');
+
+  // Announce to Roll20 with fancy formatting
+  const colorBanner = getColoredBanner();
+  const messageData = {
+    action: 'announceSpell',
+    message: `&{template:default} {{name=${colorBanner}${characterData.name} takes a short rest}} {{=☕ Short rest complete. Resources recharged!}}`,
+    color: characterData.notificationColor
+  };
+
+  // Try window.opener first (Chrome)
+  if (window.opener && !window.opener.closed) {
+    try {
+      window.opener.postMessage(messageData, '*');
+    } catch (error) {
+      debug.warn('⚠️ Could not send via window.opener:', error.message);
+      // Fallback to background script relay
+      browserAPI.runtime.sendMessage({
+        action: 'relayRollToRoll20',
+        roll: messageData
+      });
+    }
+  } else {
+    // Fallback: Use background script to relay to Roll20 (Firefox)
+    browserAPI.runtime.sendMessage({
+      action: 'relayRollToRoll20',
+      roll: messageData
+    });
   }
 }
 
@@ -8851,19 +9111,31 @@ window.addEventListener('beforeunload', () => {
 function initCombatMechanics() {
   debug.log('🎮 Initializing combat mechanics...');
 
+  // TODO: Restore combat mechanics functions that were lost in modularization merge
+  // These functions need to be restored or moved to a combat-tracker.js module:
+  // - initActionEconomy()
+  // - initConditionsManager()
+  // - updateActionEconomyAvailability()
+  // - postActionToChat()
+  // - postActionEconomyToDiscord()
+
   // Initialize action economy trackers
-  initActionEconomy();
+  // initActionEconomy();
 
   // Initialize conditions manager
-  initConditionsManager();
+  // initConditionsManager();
 
   // Initialize concentration tracker
-  initConcentrationTracker();
+  if (typeof initConcentrationTracker === 'function') {
+    initConcentrationTracker();
+  }
 
   // Initialize GM mode toggle
-  initGMMode();
+  if (typeof initGMMode === 'function') {
+    initGMMode();
+  }
 
-  debug.log('✅ Combat mechanics initialized');
+  debug.log('⚠️ Combat mechanics partially initialized (some functions missing)');
 }
 
 /**
@@ -12013,30 +12285,36 @@ let statusBarWindow = null;
 function initStatusBarButton() {
   const statusBarBtn = document.getElementById('status-bar-btn');
   if (statusBarBtn) {
-    statusBarBtn.addEventListener('click', () => {
-      // Open status bar window
-      const width = 350;
-      const height = 500;
-      const left = window.screenX + window.outerWidth - width - 50;
-      const top = window.screenY + 50;
+    statusBarBtn.addEventListener('click', async () => {
+      // Send message to Roll20 tabs to toggle the status bar overlay
+      try {
+        const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
 
-      statusBarWindow = window.open(
-        browserAPI.runtime.getURL('src/status-bar.html'),
-        'status-bar',
-        `width=${width},height=${height},left=${left},top=${top},scrollbars=no,resizable=yes`
-      );
+        if (tabs.length === 0) {
+          showNotification('⚠️ No Roll20 tabs found. Open Roll20 to use the status bar.', 'warning');
+          return;
+        }
 
-      if (!statusBarWindow) {
-        showNotification('❌ Failed to open status bar - please allow popups', 'error');
-        return;
+        // Send toggle message to all Roll20 tabs
+        for (const tab of tabs) {
+          try {
+            const response = await browserAPI.tabs.sendMessage(tab.id, {
+              action: 'toggleStatusBar'
+            });
+
+            if (response && response.success) {
+              const statusText = response.visible ? 'shown' : 'hidden';
+              showNotification(`📊 Status bar ${statusText}`, 'success');
+              debug.log(`📊 Status bar toggled: ${statusText}`);
+            }
+          } catch (error) {
+            debug.warn('⚠️ Could not toggle status bar on tab:', error.message);
+          }
+        }
+      } catch (error) {
+        debug.error('❌ Failed to toggle status bar:', error);
+        showNotification('❌ Failed to toggle status bar', 'error');
       }
-
-      debug.log('📊 Status bar opened');
-
-      // Send initial data after a short delay
-      setTimeout(() => {
-        sendStatusUpdate();
-      }, 500);
     });
     debug.log('✅ Status bar button initialized');
   }
@@ -12045,24 +12323,36 @@ function initStatusBarButton() {
 /**
  * Send status update to status bar window
  */
-function sendStatusUpdate() {
-  if (!statusBarWindow || statusBarWindow.closed) return;
+function sendStatusUpdate(targetWindow = null) {
+  // Use provided target window or the stored statusBarWindow
+  const target = targetWindow || statusBarWindow;
+
+  if (!target || target.closed) {
+    debug.log('📊 No valid status bar window to send to');
+    return;
+  }
+
+  if (!characterData) {
+    debug.log('📊 No character data available to send');
+    return;
+  }
 
   const statusData = {
     action: 'updateStatusData',
     data: {
       name: characterData.name || characterData.character_name,
       hitPoints: characterData.hitPoints || characterData.hit_points,
-      concentrating: characterData.concentrating || false,
-      concentrationSpell: characterData.concentrationSpell || '',
-      activeBuffs: characterData.activeBuffs || [],
-      activeDebuffs: characterData.activeDebuffs || [],
+      temporaryHP: characterData.temporaryHP || 0,
+      concentrating: !!concentratingSpell,
+      concentrationSpell: concentratingSpell || '',
+      activeBuffs: activeBuffs || [],
+      activeDebuffs: activeConditions || [],
       spellSlots: characterData.spellSlots || {}
     }
   };
 
-  statusBarWindow.postMessage(statusData, '*');
-  debug.log('📊 Sent status update to status bar');
+  target.postMessage(statusData, '*');
+  debug.log('📊 Sent status update to status bar', statusData.data);
 }
 
 // Check if opened from GM panel and request character data

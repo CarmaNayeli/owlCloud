@@ -17,17 +17,43 @@ const ThemeManager = {
    * Initialize theme manager
    */
   async init() {
-    // Check system preference
-    if (window.matchMedia) {
-      this.systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    // Check system preference FIRST before loading saved preference
+    try {
+      if (typeof window === 'undefined' || !window.matchMedia) {
+        debug.warn('⚠️ window.matchMedia not available, defaulting to light theme');
+        this.systemPrefersDark = false;
+      } else {
+        const darkModeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        this.systemPrefersDark = darkModeQuery.matches;
 
-      // Listen for system theme changes
-      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-        this.systemPrefersDark = e.matches;
-        if (this.currentTheme === this.THEMES.SYSTEM) {
-          this.applyTheme(this.THEMES.SYSTEM);
+        debug.log('🎨 System dark mode query result:', {
+          matches: darkModeQuery.matches,
+          media: darkModeQuery.media,
+          systemPrefersDark: this.systemPrefersDark
+        });
+
+        // Verify the media query is valid
+        if (darkModeQuery.media === 'not all') {
+          debug.warn('⚠️ Dark mode media query not supported, defaulting to light theme');
+          this.systemPrefersDark = false;
         }
-      });
+
+        // Listen for system theme changes
+        try {
+          darkModeQuery.addEventListener('change', (e) => {
+            this.systemPrefersDark = e.matches;
+            debug.log('🎨 System dark mode preference changed:', this.systemPrefersDark);
+            if (this.currentTheme === this.THEMES.SYSTEM) {
+              this.applyTheme(this.THEMES.SYSTEM);
+            }
+          });
+        } catch (listenerError) {
+          debug.warn('⚠️ Could not add dark mode change listener:', listenerError);
+        }
+      }
+    } catch (error) {
+      debug.error('❌ Error detecting system theme preference:', error);
+      this.systemPrefersDark = false;
     }
 
     // Load saved theme preference
@@ -36,7 +62,11 @@ const ThemeManager = {
     // Apply initial theme
     this.applyTheme(this.currentTheme);
 
-    debug.log('🎨 Theme Manager initialized:', this.currentTheme);
+    debug.log('🎨 Theme Manager initialized:', {
+      currentTheme: this.currentTheme,
+      effectiveTheme: this.getEffectiveTheme(this.currentTheme),
+      systemPrefersDark: this.systemPrefersDark
+    });
   },
 
   /**
@@ -86,6 +116,12 @@ const ThemeManager = {
   applyTheme(theme) {
     const effectiveTheme = this.getEffectiveTheme(theme);
 
+    debug.log('🎨 Applying theme:', {
+      requested: theme,
+      effective: effectiveTheme,
+      systemPrefersDark: this.systemPrefersDark
+    });
+
     // Remove existing theme classes
     document.documentElement.classList.remove('theme-light', 'theme-dark');
 
@@ -95,7 +131,7 @@ const ThemeManager = {
     // Set data attribute for CSS targeting
     document.documentElement.setAttribute('data-theme', effectiveTheme);
 
-    debug.log('🎨 Applied theme:', effectiveTheme, '(requested:', theme, ')');
+    debug.log('🎨 Theme applied successfully:', effectiveTheme);
   },
 
   /**
@@ -156,6 +192,37 @@ const ThemeManager = {
    */
   getEffectiveCurrentTheme() {
     return this.getEffectiveTheme(this.currentTheme);
+  },
+
+  /**
+   * Force refresh system preference detection
+   * Call this if system theme detection seems incorrect
+   */
+  refreshSystemPreference() {
+    try {
+      if (window.matchMedia) {
+        const darkModeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        const oldValue = this.systemPrefersDark;
+        this.systemPrefersDark = darkModeQuery.matches;
+
+        debug.log('🔄 Refreshed system preference:', {
+          oldValue: oldValue,
+          newValue: this.systemPrefersDark,
+          mediaQuery: darkModeQuery.media,
+          matches: darkModeQuery.matches
+        });
+
+        // Re-apply theme if using system preference
+        if (this.currentTheme === this.THEMES.SYSTEM) {
+          this.applyTheme(this.THEMES.SYSTEM);
+        }
+
+        return this.systemPrefersDark;
+      }
+    } catch (error) {
+      debug.error('❌ Error refreshing system preference:', error);
+    }
+    return this.systemPrefersDark;
   }
 };
 

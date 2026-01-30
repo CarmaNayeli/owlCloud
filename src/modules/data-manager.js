@@ -380,27 +380,76 @@
     tabsContainer.innerHTML = '';
     const maxSlots = 10; // Support up to 10 character slots
 
-    // Filter out incomplete characters from tabs
-    const validProfiles = {};
-    Object.entries(profiles).forEach(([slotId, profile]) => {
-      const validation = validateCharacterData(profile);
-      if (validation.valid) {
-        validProfiles[slotId] = profile;
-      } else {
-        debug.log(`⏭️ Skipping incomplete character in tabs: ${profile.name || profile.character_name} (missing ${validation.missing.join(', ')})`);
+    // First, add database characters. Include both:
+    // 1. Keys starting with `db-` (direct database characters)
+    // 2. Characters with source='database' or hasCloudVersion=true (local profiles with cloud sync)
+    const databaseCharacters = Object.entries(profiles).filter(([slotId, profile]) =>
+      slotId.startsWith('db-') ||
+      profile.source === 'database' ||
+      profile.hasCloudVersion === true
+    );
+
+    // Add database character tabs
+    databaseCharacters.forEach(([slotId, charInSlot], index) => {
+      const isActive = slotId === activeCharacterId;
+
+      const displayName = charInSlot.name || charInSlot.character_name || (charInSlot._fullData && (charInSlot._fullData.character_name || charInSlot._fullData.name)) || 'Unknown';
+      debug.log(`🌐 DB Character: ${displayName} (active: ${isActive})`);
+
+      const tab = document.createElement('div');
+      tab.className = 'character-tab database-tab';
+      if (isActive) {
+        tab.classList.add('active');
       }
+      tab.dataset.slotId = slotId;
+
+      // Create special styling for database characters
+      tab.innerHTML = `
+        <span class="slot-number">🌐</span>
+        <span class="char-name">${displayName}</span>
+        <span class="char-details">${charInSlot.level || 1} ${charInSlot.class || 'Unknown'}</span>
+      `;
+
+      // Add click handler
+      tab.addEventListener('click', (e) => {
+        debug.log(`🖱️ Database tab clicked for ${slotId}`, charInSlot.name);
+        if (typeof switchToCharacter === 'function') {
+          switchToCharacter(slotId);
+        }
+      });
+
+      tabsContainer.appendChild(tab);
     });
 
-    for (let i = 1; i <= maxSlots; i++) {
-      const slotId = `slot-${i}`;
-      const profile = validProfiles[slotId];
+    // Add separator if we have both database and local characters
+    if (databaseCharacters.length > 0) {
+      const separator = document.createElement('div');
+      separator.className = 'tab-separator';
+      separator.innerHTML = '<span style="color: var(--text-secondary); font-size: 0.8em;">Local Characters</span>';
+      tabsContainer.appendChild(separator);
+    }
+
+    // Create tabs for local slots (skip characters already shown in database section)
+    for (let slotNum = 1; slotNum <= maxSlots; slotNum++) {
+      const slotId = `slot-${slotNum}`;
+      // Find character in this slot using slotId as key
+      const charInSlot = profiles[slotId];
+
+      // Skip if this character was already shown in the database section
+      if (charInSlot && (charInSlot.source === 'database' || charInSlot.hasCloudVersion === true)) {
+        debug.log(`  ⏭️ Slot ${slotNum}: ${charInSlot.name} (skipped - shown in cloud section)`);
+        continue;
+      }
+
+      if (charInSlot) {
+        debug.log(`  📌 Slot ${slotNum}: ${charInSlot.name} (active: ${slotId === activeCharacterId})`);
+      }
 
       const tab = document.createElement('div');
       tab.className = 'character-tab';
       tab.dataset.slotId = slotId;
 
-      if (profile) {
-        const characterName = profile.name || profile.character_name || 'Unnamed';
+      if (charInSlot) {
         const isActive = slotId === activeCharacterId;
 
         if (isActive) {
@@ -408,31 +457,36 @@
         }
 
         tab.innerHTML = `
-          <div class="tab-content">
-            <div class="tab-name" title="${characterName}">${characterName}</div>
-            <div class="tab-slot">Slot ${i}</div>
-          </div>
+          <span class="slot-number">${slotNum}</span>
+          <span class="char-name">${charInSlot.name || 'Unknown'}</span>
+          <span class="close-tab" title="Clear slot">✕</span>
         `;
 
-        tab.addEventListener('click', async () => {
-          debug.log(`🔄 Switching to character in ${slotId}`);
+        // Click to switch character
+        tab.addEventListener('click', (e) => {
+          debug.log(`🖱️ Tab clicked for ${slotId}`, charInSlot.name);
+          if (!e.target.classList.contains('close-tab')) {
+            if (typeof switchToCharacter === 'function') {
+              switchToCharacter(slotId);
+            }
+          }
+        });
 
-          // Set active character
-          await setActiveCharacter(slotId);
-
-          // Reload window to load new character
-          window.location.reload();
+        // Close button - show options modal
+        const closeBtn = tab.querySelector('.close-tab');
+        closeBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (typeof showClearCharacterOptions === 'function') {
+            showClearCharacterOptions(slotId, slotNum, charInSlot.name);
+          }
         });
       } else {
+        // Empty slot
         tab.classList.add('empty');
         tab.innerHTML = `
-          <div class="tab-content">
-            <div class="tab-name">Empty</div>
-            <div class="tab-slot">Slot ${i}</div>
-          </div>
+          <span class="slot-number">${slotNum}</span>
+          <span class="char-name">Empty Slot</span>
         `;
-        tab.style.opacity = '0.4';
-        tab.style.cursor = 'default';
       }
 
       tabsContainer.appendChild(tab);

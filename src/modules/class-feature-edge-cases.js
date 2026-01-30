@@ -275,6 +275,14 @@ const CLASS_FEATURE_EDGE_CASES = {
     special: 'can_catch_and_throw_missile_for_1_ki',
     description: 'Reduce ranged damage, can throw back for 1 ki'
   },
+  'deflect attacks': {
+    type: 'reaction',
+    timing: 'when_hit_by_attack',
+    effect: 'damage_reduction',
+    formula: '1d10 + dex_mod + monk_level',
+    special: 'can_redirect_attack_for_1_ki',
+    description: '2024 Monk: Reduce melee/ranged damage, can redirect for 1 ki'
+  },
   'slow fall': {
     type: 'damage_reduction',
     trigger: 'falling',

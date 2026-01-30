@@ -1,67 +1,128 @@
 /**
  * Compact Status Bar
- * Displays HP, concentration, buffs, and debuffs in a small window
+ * Displays HP, concentration, buffs/debuffs, resources, and advantage toggle
  */
 
 let characterData = null;
+let advantageState = 'normal';
+
+// Effect icons mapping
+const EFFECT_ICONS = {
+  // Buffs
+  'Bless': '🙏',
+  'Guidance': '🧭',
+  'Bardic Inspiration': '🎵',
+  'Shield of Faith': '🛡️',
+  'Haste': '⚡',
+  'Heroism': '🦸',
+  'Aid': '💪',
+  'Protection from Evil': '✝️',
+  'Sanctuary': '🏛️',
+  'Blur': '👻',
+  'Mirror Image': '🪞',
+  'Invisibility': '👁️',
+  'Greater Invisibility': '👁️',
+  'Freedom of Movement': '🏃',
+  'Death Ward': '💀',
+  // Debuffs
+  'Bane': '😰',
+  'Poisoned': '🤢',
+  'Frightened': '😱',
+  'Charmed': '💕',
+  'Stunned': '💫',
+  'Paralyzed': '🧊',
+  'Blinded': '🙈',
+  'Deafened': '🙉',
+  'Restrained': '⛓️',
+  'Grappled': '🤝',
+  'Prone': '🛏️',
+  'Incapacitated': '😵',
+  'Exhaustion': '😫',
+  'Unconscious': '💤',
+  'Petrified': '🗿',
+  'Concentration': '🧠',
+  'Hexed': '🔮'
+};
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-  debug.log('📊 Status bar loaded');
+  if (typeof debug !== 'undefined') debug.log('📊 Status bar loaded');
 
   // Close button
-  document.getElementById('close-btn').addEventListener('click', () => {
-    window.close();
+  document.getElementById('close-btn').addEventListener('click', () => window.close());
+
+  // Advantage toggle buttons
+  document.getElementById('adv-btn').addEventListener('click', () => setAdvantage('advantage'));
+  document.getElementById('norm-btn').addEventListener('click', () => setAdvantage('normal'));
+  document.getElementById('dis-btn').addEventListener('click', () => setAdvantage('disadvantage'));
+
+  // Spell slots dropdown toggle
+  document.getElementById('slots-header').addEventListener('click', () => {
+    document.getElementById('slots-row').classList.toggle('open');
   });
 
   // Request character data from parent window
   if (window.opener && !window.opener.closed) {
     window.opener.postMessage({ action: 'requestStatusData' }, '*');
-    debug.log('📊 Requested status data from parent');
   } else {
-    debug.error('❌ No parent window available');
-    document.getElementById('character-name').textContent = 'Error: No parent window';
+    document.getElementById('character-name').textContent = 'No parent';
   }
 });
 
-// Listen for character data updates from parent
+// Listen for messages from parent
 window.addEventListener('message', (event) => {
   if (event.data && event.data.action === 'updateStatusData') {
     characterData = event.data.data;
-    debug.log('📊 Received status update:', characterData);
     updateDisplay();
+  } else if (event.data && event.data.action === 'updateAdvantageState') {
+    setAdvantageUI(event.data.state);
   }
 });
+
+function setAdvantage(state) {
+  advantageState = state;
+  setAdvantageUI(state);
+
+  // Send to parent window
+  if (window.opener && !window.opener.closed) {
+    window.opener.postMessage({ action: 'setAdvantageState', state: state }, '*');
+  }
+}
+
+function setAdvantageUI(state) {
+  advantageState = state;
+  document.querySelectorAll('.adv-btn').forEach(btn => btn.classList.remove('active'));
+
+  if (state === 'advantage') {
+    document.getElementById('adv-btn').classList.add('active');
+  } else if (state === 'disadvantage') {
+    document.getElementById('dis-btn').classList.add('active');
+  } else {
+    document.getElementById('norm-btn').classList.add('active');
+  }
+}
 
 function updateDisplay() {
   if (!characterData) return;
 
-  // Update character name
-  const nameEl = document.getElementById('character-name');
-  nameEl.textContent = characterData.name || 'Unknown';
+  // Character name
+  document.getElementById('character-name').textContent = characterData.name || 'Unknown';
 
-  // Update HP
   updateHP();
-
-  // Update concentration
   updateConcentration();
-
-  // Update buffs and debuffs
-  updateEffects();
-
-  // Update spell slots
   updateSpellSlots();
+  updateResources();
+  updateEffects();
 }
 
 function updateHP() {
   const hp = characterData.hitPoints || characterData.hit_points || {};
   const current = hp.current || 0;
   const max = hp.max || 1;
-  const tempHP = hp.temp || hp.temporary || 0;
+  const tempHP = characterData.temporaryHP || hp.temp || 0;
 
   const percentage = Math.max(0, Math.min(100, (current / max) * 100));
 
-  // Update HP bar
   const hpFill = document.getElementById('hp-fill');
   const hpText = document.getElementById('hp-text');
   const tempHPEl = document.getElementById('temp-hp');
@@ -69,93 +130,39 @@ function updateHP() {
   hpFill.style.width = `${percentage}%`;
   hpText.textContent = `${current}/${max}`;
 
-  // Color based on HP percentage
   hpFill.className = 'hp-fill';
-  if (percentage <= 25) {
-    hpFill.classList.add('critical');
-  } else if (percentage <= 50) {
-    hpFill.classList.add('low');
-  }
+  if (percentage <= 25) hpFill.classList.add('critical');
+  else if (percentage <= 50) hpFill.classList.add('low');
 
-  // Show temp HP if any
-  if (tempHP > 0) {
-    tempHPEl.textContent = `+${tempHP} temp`;
-    tempHPEl.style.display = 'block';
-  } else {
-    tempHPEl.style.display = 'none';
-  }
+  tempHPEl.textContent = tempHP > 0 ? `+${tempHP}` : '';
 }
 
 function updateConcentration() {
-  const concentrationEl = document.getElementById('concentration');
-  const spellEl = document.getElementById('concentration-spell');
+  const concEl = document.getElementById('concentration');
+  const spellEl = document.getElementById('conc-spell');
 
-  // Check if concentration is active
-  const concentrating = characterData.concentrating || false;
-  const concentrationSpell = characterData.concentrationSpell || '';
+  const spell = characterData.concentrationSpell || '';
 
-  if (concentrating && concentrationSpell) {
-    concentrationEl.classList.remove('inactive');
-    concentrationEl.classList.add('active');
-    spellEl.textContent = concentrationSpell;
+  if (spell) {
+    concEl.classList.remove('inactive');
+    concEl.classList.add('active');
+    spellEl.textContent = spell;
   } else {
-    concentrationEl.classList.remove('active');
-    concentrationEl.classList.add('inactive');
-    spellEl.textContent = 'No concentration';
-  }
-}
-
-function updateEffects() {
-  const buffs = characterData.activeBuffs || [];
-  const debuffs = characterData.activeDebuffs || [];
-
-  // Update buffs
-  const buffsSection = document.getElementById('buffs-section');
-  const buffsList = document.getElementById('buffs-list');
-
-  if (buffs.length > 0) {
-    buffsSection.style.display = 'block';
-    buffsList.innerHTML = buffs.map(buff => `
-      <div class="effect-item buff">
-        <span class="effect-icon">✨</span>
-        <span class="effect-name">${buff.name || buff}</span>
-        ${buff.duration ? `<span class="effect-duration">${buff.duration}</span>` : ''}
-      </div>
-    `).join('');
-  } else {
-    buffsSection.style.display = 'none';
-  }
-
-  // Update debuffs
-  const debuffsSection = document.getElementById('debuffs-section');
-  const debuffsList = document.getElementById('debuffs-list');
-
-  if (debuffs.length > 0) {
-    debuffsSection.style.display = 'block';
-    debuffsList.innerHTML = debuffs.map(debuff => `
-      <div class="effect-item debuff">
-        <span class="effect-icon">💀</span>
-        <span class="effect-name">${debuff.name || debuff}</span>
-        ${debuff.duration ? `<span class="effect-duration">${debuff.duration}</span>` : ''}
-      </div>
-    `).join('');
-  } else {
-    debuffsSection.style.display = 'none';
+    concEl.classList.remove('active');
+    concEl.classList.add('inactive');
+    spellEl.textContent = '—';
   }
 }
 
 function updateSpellSlots() {
   const spellSlots = characterData.spellSlots || {};
-  const container = document.getElementById('spell-slots-container');
-
-  if (!spellSlots || Object.keys(spellSlots).length === 0) {
-    document.getElementById('spell-slots-bar').style.display = 'none';
-    return;
-  }
-
-  document.getElementById('spell-slots-bar').style.display = 'block';
+  const slotsRow = document.getElementById('slots-row');
+  const dropdown = document.getElementById('slots-dropdown');
+  const summary = document.getElementById('slots-summary');
 
   const slots = [];
+  let totalCurrent = 0;
+  let totalMax = 0;
 
   // Regular spell slots (levels 1-9)
   for (let level = 1; level <= 9; level++) {
@@ -163,51 +170,90 @@ function updateSpellSlots() {
     const max = spellSlots[`level${level}SpellSlotsMax`] || 0;
 
     if (max > 0) {
-      slots.push({
-        level: level,
-        current: current,
-        max: max,
-        type: 'regular',
-        label: `Level ${level}`
-      });
+      slots.push({ level: level, current, max, type: 'regular' });
+      totalCurrent += current;
+      totalMax += max;
     }
   }
 
-  // Pact Magic slots
+  // Pact Magic
   const pactCurrent = spellSlots.pactMagicSlots || 0;
   const pactMax = spellSlots.pactMagicSlotsMax || 0;
   const pactLevel = spellSlots.pactMagicLevel || 0;
 
-  if (pactMax > 0 && pactLevel > 0) {
-    slots.push({
-      level: `P${pactLevel}`,
-      current: pactCurrent,
-      max: pactMax,
-      type: 'pact',
-      label: `Pact Magic Level ${pactLevel}`
-    });
+  if (pactMax > 0) {
+    slots.push({ level: `P${pactLevel}`, current: pactCurrent, max: pactMax, type: 'pact' });
+    totalCurrent += pactCurrent;
+    totalMax += pactMax;
   }
 
-  // Render slot indicators
-  container.innerHTML = slots.map(slot => {
-    const hasSlots = slot.current > 0;
-    const slotClass = slot.type === 'pact' ? 'slot-indicator pact-slots' : `slot-indicator ${hasSlots ? 'has-slots' : 'empty'}`;
+  if (slots.length === 0) {
+    slotsRow.style.display = 'none';
+    return;
+  }
 
-    return `
-      <div class="${slotClass}">
-        ${slot.level}
-        <div class="slot-tooltip">${slot.label}: ${slot.current}/${slot.max}</div>
-      </div>
-    `;
+  slotsRow.style.display = 'block';
+  summary.textContent = `${totalCurrent}/${totalMax}`;
+
+  dropdown.innerHTML = slots.map(slot => `
+    <div class="slot-item ${slot.type === 'pact' ? 'pact' : ''}">
+      <span class="lvl">${slot.type === 'pact' ? 'Pact' : 'Lv' + slot.level}</span>
+      <span class="val ${slot.current === 0 ? 'empty' : ''}">${slot.current}/${slot.max}</span>
+    </div>
+  `).join('');
+}
+
+function updateResources() {
+  const resources = characterData.resources || [];
+  const resourcesRow = document.getElementById('resources-row');
+  const resourcesList = document.getElementById('resources-list');
+
+  // Filter out HP, Lucky, and zero-max resources
+  const filteredResources = resources.filter(r => {
+    const name = (r.name || '').toLowerCase();
+    return r.max > 0 && !name.includes('hit points') && !name.includes('lucky');
+  });
+
+  if (filteredResources.length === 0) {
+    resourcesRow.style.display = 'none';
+    return;
+  }
+
+  resourcesRow.style.display = 'block';
+  resourcesList.innerHTML = filteredResources.slice(0, 4).map(r => `
+    <div class="resource-item">
+      <span class="name" title="${r.name}">${r.name}</span>
+      <span class="val">${r.current}/${r.max}</span>
+    </div>
+  `).join('');
+}
+
+function updateEffects() {
+  const buffs = characterData.activeBuffs || [];
+  const debuffs = characterData.activeDebuffs || [];
+  const effectsRow = document.getElementById('effects-row');
+
+  const allEffects = [
+    ...buffs.map(b => ({ name: typeof b === 'string' ? b : b.name, type: 'buff' })),
+    ...debuffs.map(d => ({ name: typeof d === 'string' ? d : d.name, type: 'debuff' }))
+  ];
+
+  if (allEffects.length === 0) {
+    effectsRow.innerHTML = '<span class="no-effects">No effects</span>';
+    return;
+  }
+
+  effectsRow.innerHTML = allEffects.map(e => {
+    const icon = EFFECT_ICONS[e.name] || (e.type === 'buff' ? '✨' : '💀');
+    return `<span class="effect-badge" title="${e.name}">${icon}<span class="tooltip">${e.name}</span></span>`;
   }).join('');
 }
 
-// Request updates periodically (in case parent doesn't push updates)
+// Request updates periodically
 setInterval(() => {
   if (window.opener && !window.opener.closed) {
     window.opener.postMessage({ action: 'requestStatusData' }, '*');
   } else {
-    // Parent window closed, close this window too
     window.close();
   }
 }, 5000);

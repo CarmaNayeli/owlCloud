@@ -1710,14 +1710,18 @@
         window.addEventListener('message', messageHandler);
 
         // Close any existing popup window before opening a new one
-        if (activePopupWindow && !activePopupWindow.closed) {
-          debug.log('📋 Closing existing popup window...');
-          try {
+        // Firefox can throw errors when accessing properties of closed windows
+        try {
+          if (activePopupWindow && !activePopupWindow.closed) {
+            debug.log('📋 Closing existing popup window...');
             activePopupWindow.close();
-          } catch (error) {
-            debug.warn(' Could not close existing popup:', error.message);
           }
+        } catch (error) {
+          // Firefox throws "can't access dead object" error for closed windows
+          debug.log('📋 Existing popup already closed (Firefox)');
         }
+        // Always reset the reference before opening new window
+        activePopupWindow = null;
 
         // Now open the popup window
         try {
@@ -2109,8 +2113,993 @@
         showNotification('Character Sheet button shown', 'success');
       }
       sendResponse({ success: true });
+    } else if (request.action === 'showStatusBar') {
+      // Show the status bar
+      showStatusBar();
+      showNotification('Status bar shown', 'success');
+      sendResponse({ success: true });
+    } else if (request.action === 'hideStatusBar') {
+      // Hide the status bar
+      hideStatusBar();
+      sendResponse({ success: true });
+    } else if (request.action === 'toggleStatusBar') {
+      // Toggle the status bar visibility
+      toggleStatusBar();
+      sendResponse({ success: true, visible: statusBarVisible });
+    } else if (request.action === 'refreshStatusBar') {
+      // Refresh status bar with latest character data
+      loadStatusBarData();
+      sendResponse({ success: true });
     }
     return true;
+  });
+
+  // ============================================
+  // STATUS BAR OVERLAY
+  // ============================================
+
+  let statusBarElement = null;
+  let statusBarVisible = true; // Start visible by default
+  let statusBarAdvantageState = 'normal';
+
+  /**
+   * Creates the compact status bar overlay
+   */
+  function createStatusBarOverlay() {
+    if (statusBarElement) return;
+
+    statusBarElement = document.createElement('div');
+    statusBarElement.id = 'rollcloud-status-bar';
+    statusBarElement.innerHTML = `
+      <div class="status-bar-container">
+        <div class="status-bar-header">
+          <span class="status-char-name" id="status-char-name">Loading...</span>
+          <button class="status-close-btn" id="status-close-btn">✕</button>
+        </div>
+
+        <!-- HP Row -->
+        <div class="status-hp-row">
+          <span class="status-hp-icon">❤️</span>
+          <div class="status-hp-bar">
+            <div class="status-hp-fill" id="status-hp-fill"></div>
+            <div class="status-hp-text" id="status-hp-text">0/0</div>
+          </div>
+          <span class="status-temp-hp" id="status-temp-hp"></span>
+        </div>
+
+        <!-- Advantage Toggle -->
+        <div class="status-adv-row">
+          <button class="status-adv-btn adv" id="status-adv-btn" title="Advantage">⬆️</button>
+          <button class="status-adv-btn norm active" id="status-norm-btn" title="Normal">🎲</button>
+          <button class="status-adv-btn dis" id="status-dis-btn" title="Disadvantage">⬇️</button>
+        </div>
+
+        <!-- Concentration -->
+        <div class="status-conc-row inactive" id="status-concentration">
+          <span>🧠</span>
+          <span class="status-conc-spell" id="status-conc-spell">—</span>
+        </div>
+
+        <!-- Spell Slots Dropdown -->
+        <div class="status-slots-row" id="status-slots-row">
+          <div class="status-slots-header" id="status-slots-header">
+            <span>✨</span>
+            <span class="status-slots-summary" id="status-slots-summary">Slots</span>
+            <span class="status-slots-arrow">▼</span>
+          </div>
+          <div class="status-slots-dropdown" id="status-slots-dropdown"></div>
+        </div>
+
+        <!-- Resources -->
+        <div class="status-resources-row" id="status-resources-row" style="display: none;">
+          <div id="status-resources-list"></div>
+        </div>
+
+        <!-- Effects -->
+        <div class="status-effects-row" id="status-effects-row">
+          <span class="status-no-effects">No effects</span>
+        </div>
+
+        <!-- Resize Handle -->
+        <div class="status-resize-handle" id="status-resize-handle"></div>
+      </div>
+    `;
+
+    // Add styles
+    const style = document.createElement('style');
+    style.id = 'rollcloud-status-bar-styles';
+    style.textContent = `
+      #rollcloud-status-bar {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        width: 180px;
+        min-width: 150px;
+        max-width: 400px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 14px;
+        z-index: 999997;
+        user-select: none;
+      }
+
+      .status-bar-container {
+        background: #1a1a1a;
+        color: #e0e0e0;
+        padding: 8px;
+        border-radius: 8px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        border: 1px solid #4ECDC4;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        position: relative;
+      }
+
+      .status-bar-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 5px;
+        border-bottom: 1px solid #333;
+      }
+
+      .status-char-name {
+        font-size: 14px;
+        font-weight: bold;
+        color: #4ECDC4;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex: 1;
+      }
+
+      .status-close-btn {
+        background: none;
+        border: none;
+        color: #555;
+        font-size: 15px;
+        cursor: pointer;
+        padding: 2px;
+        line-height: 1;
+      }
+
+      .status-close-btn:hover { color: #e74c3c; }
+
+      /* HP Row */
+      .status-hp-row {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        background: #2a2a2a;
+        border-radius: 4px;
+        padding: 5px;
+      }
+
+      .status-hp-icon { font-size: 15px; }
+
+      .status-hp-bar {
+        flex: 1;
+        height: 18px;
+        background: #1a1a1a;
+        border-radius: 3px;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .status-hp-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #27ae60, #2ecc71);
+        transition: width 0.3s ease;
+      }
+
+      .status-hp-fill.low { background: linear-gradient(90deg, #e67e22, #f39c12); }
+      .status-hp-fill.critical { background: linear-gradient(90deg, #c0392b, #e74c3c); }
+
+      .status-hp-text {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 11px;
+        font-weight: bold;
+        color: white;
+        text-shadow: 0 0 2px rgba(0,0,0,0.8);
+      }
+
+      .status-temp-hp {
+        font-size: 11px;
+        color: #3498db;
+        font-weight: bold;
+      }
+
+      /* Advantage Toggle */
+      .status-adv-row {
+        display: flex;
+        gap: 3px;
+        background: #2a2a2a;
+        border-radius: 4px;
+        padding: 4px;
+      }
+
+      .status-adv-btn {
+        flex: 1;
+        padding: 5px 3px;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 15px;
+        background: #1a1a1a;
+        transition: all 0.2s;
+      }
+
+      .status-adv-btn.adv { color: #27ae60; }
+      .status-adv-btn.norm { color: #888; }
+      .status-adv-btn.dis { color: #e74c3c; }
+
+      .status-adv-btn.active.adv { background: #27ae60; color: white; }
+      .status-adv-btn.active.norm { background: #3498db; color: white; }
+      .status-adv-btn.active.dis { background: #e74c3c; color: white; }
+
+      /* Concentration */
+      .status-conc-row {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        background: #2a2a2a;
+        border-radius: 4px;
+        padding: 5px;
+        font-size: 12px;
+      }
+
+      .status-conc-row.active {
+        background: #2c3e50;
+        border: 1px solid #9b59b6;
+      }
+
+      .status-conc-spell {
+        flex: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: #9b59b6;
+      }
+
+      .status-conc-row.inactive .status-conc-spell { color: #555; }
+
+      /* Spell Slots */
+      .status-slots-row {
+        position: relative;
+        background: #2a2a2a;
+        border-radius: 4px;
+        padding: 5px;
+      }
+
+      .status-slots-header {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        cursor: pointer;
+        font-size: 12px;
+      }
+
+      .status-slots-summary {
+        flex: 1;
+        color: #9b59b6;
+      }
+
+      .status-slots-arrow {
+        font-size: 10px;
+        transition: transform 0.2s;
+      }
+
+      .status-slots-row.open .status-slots-arrow {
+        transform: rotate(180deg);
+      }
+
+      .status-slots-dropdown {
+        display: none;
+        margin-top: 5px;
+        padding-top: 5px;
+        border-top: 1px solid #333;
+      }
+
+      .status-slots-row.open .status-slots-dropdown { display: block; }
+
+      .status-slot-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 3px 0;
+        font-size: 11px;
+      }
+
+      .status-slot-item .lvl { color: #888; }
+      .status-slot-item .val { color: #9b59b6; font-weight: bold; }
+      .status-slot-item .val.empty { color: #555; }
+      .status-slot-item.pact .val { color: #1abc9c; }
+
+      /* Resources */
+      .status-resources-row {
+        background: #2a2a2a;
+        border-radius: 4px;
+        padding: 4px;
+      }
+
+      .status-resource-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 2px 0;
+        font-size: 11px;
+      }
+
+      .status-resource-item .name {
+        color: #888;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 88px;
+      }
+
+      .status-resource-item .val { color: #f39c12; font-weight: bold; }
+
+      /* Effects */
+      .status-effects-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 3px;
+        background: #2a2a2a;
+        border-radius: 4px;
+        padding: 4px;
+        min-height: 24px;
+      }
+
+      .status-effect-badge {
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        white-space: nowrap;
+        font-weight: 500;
+      }
+
+      .status-effect-badge.buff {
+        background: #27ae60;
+        color: white;
+      }
+
+      .status-effect-badge.debuff {
+        background: #c0392b;
+        color: white;
+      }
+
+      .status-no-effects {
+        color: #555;
+        font-size: 11px;
+        text-align: center;
+        width: 100%;
+      }
+
+      /* Resize Handle */
+      .status-resize-handle {
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        width: 16px;
+        height: 16px;
+        cursor: nwse-resize;
+        background: linear-gradient(135deg, transparent 50%, #4ECDC4 50%);
+        border-radius: 0 0 8px 0;
+        opacity: 0.5;
+        transition: opacity 0.2s;
+      }
+
+      .status-resize-handle:hover {
+        opacity: 1;
+      }
+
+      .status-resize-handle::before {
+        content: '';
+        position: absolute;
+        bottom: 3px;
+        right: 3px;
+        width: 6px;
+        height: 6px;
+        border-right: 2px solid #1a1a1a;
+        border-bottom: 2px solid #1a1a1a;
+      }
+    `;
+
+    document.head.appendChild(style);
+    document.body.appendChild(statusBarElement);
+
+    // Event listeners
+    document.getElementById('status-close-btn').addEventListener('click', () => {
+      hideStatusBar();
+    });
+
+    // Advantage toggle buttons
+    document.getElementById('status-adv-btn').addEventListener('click', () => setStatusBarAdvantage('advantage'));
+    document.getElementById('status-norm-btn').addEventListener('click', () => setStatusBarAdvantage('normal'));
+    document.getElementById('status-dis-btn').addEventListener('click', () => setStatusBarAdvantage('disadvantage'));
+
+    // Spell slots dropdown toggle
+    document.getElementById('status-slots-header').addEventListener('click', () => {
+      document.getElementById('status-slots-row').classList.toggle('open');
+    });
+
+    // Make status bar draggable
+    makeStatusBarDraggable();
+
+    // Make status bar resizable
+    makeStatusBarResizable();
+
+    // Load character data
+    loadStatusBarData();
+
+    debug.log('✅ Status bar overlay created');
+  }
+
+  /**
+   * Makes the status bar draggable with viewport bounds checking
+   */
+  function makeStatusBarDraggable() {
+    const statusBar = statusBarElement;
+    let isDragging = false;
+    let startX, startY, initialLeft, initialTop;
+
+    const header = statusBar.querySelector('.status-bar-header');
+
+    // Status bar dimensions (approximate)
+    const STATUS_BAR_WIDTH = 150;
+    const STATUS_BAR_HEIGHT = 200;
+
+    /**
+     * Validates if a position is within viewport bounds
+     */
+    function isPositionValid(leftPx, topPx) {
+      const minTop = -20;
+      const maxTop = window.innerHeight - 40; // Ensure at least 40px visible
+      const minLeft = -STATUS_BAR_WIDTH + 40; // Allow partial off left edge
+      const maxLeft = window.innerWidth - 40; // Ensure at least 40px visible on right
+
+      return topPx >= minTop && topPx <= maxTop && leftPx >= minLeft && leftPx <= maxLeft;
+    }
+
+    /**
+     * Clamps a position to viewport bounds
+     */
+    function clampPosition(leftPx, topPx) {
+      const minTop = 0;
+      const maxTop = window.innerHeight - 40;
+      const minLeft = 0;
+      const maxLeft = window.innerWidth - STATUS_BAR_WIDTH;
+
+      return {
+        left: Math.max(minLeft, Math.min(maxLeft, leftPx)),
+        top: Math.max(minTop, Math.min(maxTop, topPx))
+      };
+    }
+
+    // Load saved position with validation
+    const savedPosition = localStorage.getItem('rollcloud-status-bar_position');
+    if (savedPosition) {
+      const { left, top } = JSON.parse(savedPosition);
+      const leftPx = parseFloat(left);
+      const topPx = parseFloat(top);
+
+      if (isPositionValid(leftPx, topPx)) {
+        statusBar.style.left = left;
+        statusBar.style.top = top;
+        statusBar.style.right = 'auto';
+        statusBar.style.bottom = 'auto';
+      } else {
+        // Invalid position - clear it and use default
+        debug.log(`🔧 Clearing invalid status bar position: left=${left}, top=${top}`);
+        localStorage.removeItem('rollcloud-status-bar_position');
+      }
+    }
+
+    header.style.cursor = 'grab';
+
+    header.addEventListener('mousedown', (e) => {
+      if (e.target.classList.contains('status-close-btn')) return;
+
+      isDragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+
+      const rect = statusBar.getBoundingClientRect();
+      initialLeft = rect.left;
+      initialTop = rect.top;
+
+      header.style.cursor = 'grabbing';
+      e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+
+      const deltaX = e.clientX - startX;
+      const deltaY = e.clientY - startY;
+
+      let newLeft = initialLeft + deltaX;
+      let newTop = initialTop + deltaY;
+
+      // Clamp to viewport bounds during drag
+      const clamped = clampPosition(newLeft, newTop);
+      newLeft = clamped.left;
+      newTop = clamped.top;
+
+      requestAnimationFrame(() => {
+        statusBar.style.left = `${newLeft}px`;
+        statusBar.style.top = `${newTop}px`;
+        statusBar.style.right = 'auto';
+        statusBar.style.bottom = 'auto';
+      });
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (isDragging) {
+        isDragging = false;
+        header.style.cursor = 'grab';
+
+        // Validate and save position only if within bounds
+        const leftPx = parseFloat(statusBar.style.left);
+        const topPx = parseFloat(statusBar.style.top);
+
+        if (isPositionValid(leftPx, topPx)) {
+          localStorage.setItem('rollcloud-status-bar_position', JSON.stringify({
+            left: statusBar.style.left,
+            top: statusBar.style.top
+          }));
+        } else {
+          debug.log('⚠️ Status bar position is off-screen, not saving');
+        }
+      }
+    });
+
+    // Right-click context menu for reset
+    statusBar.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+
+      const existingMenu = document.getElementById('status-bar-context-menu');
+      if (existingMenu) existingMenu.remove();
+
+      const menu = document.createElement('div');
+      menu.id = 'status-bar-context-menu';
+      menu.style.cssText = `
+        position: fixed;
+        left: ${e.clientX}px;
+        top: ${e.clientY}px;
+        background: white;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        z-index: 1000000;
+        padding: 5px 0;
+      `;
+
+      const resetPositionOption = document.createElement('div');
+      resetPositionOption.textContent = '🔄 Reset Position';
+      resetPositionOption.style.cssText = `padding: 8px 16px; cursor: pointer; font-size: 14px;`;
+      resetPositionOption.addEventListener('mouseenter', () => resetPositionOption.style.background = '#f0f0f0');
+      resetPositionOption.addEventListener('mouseleave', () => resetPositionOption.style.background = 'white');
+      resetPositionOption.addEventListener('click', () => {
+        localStorage.removeItem('rollcloud-status-bar_position');
+        statusBar.style.left = 'auto';
+        statusBar.style.top = 'auto';
+        statusBar.style.right = '20px';
+        statusBar.style.bottom = '20px';
+        menu.remove();
+        showNotification('Status bar position reset', 'success');
+      });
+
+      const resetSizeOption = document.createElement('div');
+      resetSizeOption.textContent = '📐 Reset Size';
+      resetSizeOption.style.cssText = `padding: 8px 16px; cursor: pointer; font-size: 14px; border-top: 1px solid #eee;`;
+      resetSizeOption.addEventListener('mouseenter', () => resetSizeOption.style.background = '#f0f0f0');
+      resetSizeOption.addEventListener('mouseleave', () => resetSizeOption.style.background = 'white');
+      resetSizeOption.addEventListener('click', () => {
+        localStorage.removeItem('rollcloud-status-bar_size');
+        statusBar.style.width = '150px';
+        const container = statusBar.querySelector('.status-bar-container');
+        if (container) {
+          container.style.height = '';
+          container.style.overflowY = '';
+        }
+        menu.remove();
+        showNotification('Status bar size reset', 'success');
+      });
+
+      menu.appendChild(resetPositionOption);
+      menu.appendChild(resetSizeOption);
+      document.body.appendChild(menu);
+
+      setTimeout(() => {
+        document.addEventListener('click', () => menu.remove(), { once: true });
+      }, 0);
+    });
+  }
+
+  /**
+   * Makes the status bar resizable (width and height)
+   */
+  function makeStatusBarResizable() {
+    const statusBar = statusBarElement;
+    const container = statusBar.querySelector('.status-bar-container');
+    const resizeHandle = document.getElementById('status-resize-handle');
+    let isResizing = false;
+    let startX, startY, startWidth, startHeight;
+
+    // Load saved size
+    const savedSize = localStorage.getItem('rollcloud-status-bar_size');
+    if (savedSize) {
+      const { width, height } = JSON.parse(savedSize);
+      if (width >= 120 && width <= 400) {
+        statusBar.style.width = `${width}px`;
+      }
+      if (height >= 100 && height <= 600) {
+        container.style.height = `${height}px`;
+        container.style.overflowY = 'auto';
+      }
+    }
+
+    resizeHandle.addEventListener('mousedown', (e) => {
+      isResizing = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      startWidth = statusBar.offsetWidth;
+      startHeight = container.offsetHeight;
+      e.preventDefault();
+      e.stopPropagation();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isResizing) return;
+
+      const deltaX = e.clientX - startX;
+      const deltaY = e.clientY - startY;
+
+      // Calculate new dimensions
+      let newWidth = startWidth + deltaX;
+      let newHeight = startHeight + deltaY;
+
+      // Clamp to min/max
+      newWidth = Math.max(120, Math.min(400, newWidth));
+      newHeight = Math.max(100, Math.min(600, newHeight));
+
+      requestAnimationFrame(() => {
+        statusBar.style.width = `${newWidth}px`;
+        container.style.height = `${newHeight}px`;
+        container.style.overflowY = 'auto';
+      });
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (isResizing) {
+        isResizing = false;
+
+        // Save size
+        localStorage.setItem('rollcloud-status-bar_size', JSON.stringify({
+          width: statusBar.offsetWidth,
+          height: container.offsetHeight
+        }));
+      }
+    });
+  }
+
+  /**
+   * Sets the advantage state in the status bar
+   */
+  function setStatusBarAdvantage(state) {
+    statusBarAdvantageState = state;
+
+    // Update UI
+    document.querySelectorAll('.status-adv-btn').forEach(btn => btn.classList.remove('active'));
+
+    if (state === 'advantage') {
+      document.getElementById('status-adv-btn').classList.add('active');
+    } else if (state === 'disadvantage') {
+      document.getElementById('status-dis-btn').classList.add('active');
+    } else {
+      document.getElementById('status-norm-btn').classList.add('active');
+    }
+
+    // Sync with overlay roll settings
+    rollStats.settings.advantageMode = state;
+
+    // Update overlay toggle buttons if they exist
+    document.querySelectorAll('.toggle-btn').forEach(btn => {
+      const btnMode = btn.getAttribute('data-mode');
+      if (btnMode === state) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+
+    debug.log(`🎲 Status bar advantage set to: ${state}`);
+  }
+
+  /**
+   * Loads character data into status bar
+   */
+  function loadStatusBarData() {
+    browserAPI.runtime.sendMessage({ action: 'getCharacterData' }, (response) => {
+      if (browserAPI.runtime.lastError) {
+        debug.error('❌ Error loading status bar data:', browserAPI.runtime.lastError);
+        return;
+      }
+
+      if (response && response.data) {
+        characterData = response.data;
+        updateStatusBarDisplay();
+        debug.log('✅ Status bar data loaded:', response.data.name);
+      } else {
+        document.getElementById('status-char-name').textContent = 'No character';
+      }
+    });
+  }
+
+  /**
+   * Updates the status bar display with current character data
+   */
+  function updateStatusBarDisplay() {
+    if (!characterData) return;
+
+    // Character name
+    document.getElementById('status-char-name').textContent = characterData.name || 'Unknown';
+
+    updateStatusBarHP();
+    updateStatusBarConcentration();
+    updateStatusBarSpellSlots();
+    updateStatusBarResources();
+    updateStatusBarEffects();
+  }
+
+  function updateStatusBarHP() {
+    const hp = characterData.hitPoints || characterData.hit_points || {};
+    const current = hp.current || 0;
+    const max = hp.max || 1;
+    const tempHP = characterData.temporaryHP || hp.temp || 0;
+
+    const percentage = Math.max(0, Math.min(100, (current / max) * 100));
+
+    const hpFill = document.getElementById('status-hp-fill');
+    const hpText = document.getElementById('status-hp-text');
+    const tempHPEl = document.getElementById('status-temp-hp');
+
+    hpFill.style.width = `${percentage}%`;
+    hpText.textContent = `${current}/${max}`;
+
+    hpFill.className = 'status-hp-fill';
+    if (percentage <= 25) hpFill.classList.add('critical');
+    else if (percentage <= 50) hpFill.classList.add('low');
+
+    tempHPEl.textContent = tempHP > 0 ? `+${tempHP}` : '';
+  }
+
+  function updateStatusBarConcentration() {
+    const concEl = document.getElementById('status-concentration');
+    const spellEl = document.getElementById('status-conc-spell');
+
+    // Hide concentration row if character has no spell slots (e.g., rogues)
+    const spellSlots = characterData.spellSlots || {};
+    let hasSpellSlots = false;
+    for (let level = 1; level <= 9; level++) {
+      if ((spellSlots[`level${level}SpellSlotsMax`] || 0) > 0) {
+        hasSpellSlots = true;
+        break;
+      }
+    }
+    // Also check for pact magic
+    if ((spellSlots.pactMagicSlotsMax || 0) > 0) {
+      hasSpellSlots = true;
+    }
+
+    if (!hasSpellSlots) {
+      concEl.style.display = 'none';
+      return;
+    }
+
+    concEl.style.display = 'flex';
+
+    // Support both formats: concentrationSpell (from postMessage) and concentration (from storage)
+    const spell = characterData.concentrationSpell || characterData.concentration || '';
+
+    if (spell) {
+      concEl.classList.remove('inactive');
+      concEl.classList.add('active');
+      spellEl.textContent = spell;
+    } else {
+      concEl.classList.remove('active');
+      concEl.classList.add('inactive');
+      spellEl.textContent = '—';
+    }
+  }
+
+  function updateStatusBarSpellSlots() {
+    const spellSlots = characterData.spellSlots || {};
+    const slotsRow = document.getElementById('status-slots-row');
+    const dropdown = document.getElementById('status-slots-dropdown');
+    const summary = document.getElementById('status-slots-summary');
+
+    const slots = [];
+    let totalCurrent = 0;
+    let totalMax = 0;
+
+    // Regular spell slots (levels 1-9)
+    for (let level = 1; level <= 9; level++) {
+      const current = spellSlots[`level${level}SpellSlots`] || 0;
+      const max = spellSlots[`level${level}SpellSlotsMax`] || 0;
+
+      if (max > 0) {
+        slots.push({ level: level, current, max, type: 'regular' });
+        totalCurrent += current;
+        totalMax += max;
+      }
+    }
+
+    // Pact Magic
+    const pactCurrent = spellSlots.pactMagicSlots || 0;
+    const pactMax = spellSlots.pactMagicSlotsMax || 0;
+    const pactLevel = spellSlots.pactMagicLevel || 0;
+
+    if (pactMax > 0) {
+      slots.push({ level: `P${pactLevel}`, current: pactCurrent, max: pactMax, type: 'pact' });
+      totalCurrent += pactCurrent;
+      totalMax += pactMax;
+    }
+
+    if (slots.length === 0) {
+      slotsRow.style.display = 'none';
+      return;
+    }
+
+    slotsRow.style.display = 'block';
+    summary.textContent = `${totalCurrent}/${totalMax}`;
+
+    dropdown.innerHTML = slots.map(slot => `
+      <div class="status-slot-item ${slot.type === 'pact' ? 'pact' : ''}">
+        <span class="lvl">${slot.type === 'pact' ? 'Pact' : 'Lv' + slot.level}</span>
+        <span class="val ${slot.current === 0 ? 'empty' : ''}">${slot.current}/${slot.max}</span>
+      </div>
+    `).join('');
+  }
+
+  function updateStatusBarResources() {
+    const resources = characterData.resources || [];
+    const resourcesRow = document.getElementById('status-resources-row');
+    const resourcesList = document.getElementById('status-resources-list');
+
+    // Filter out HP, Lucky, Spell Level, and zero-max resources
+    const filteredResources = resources.filter(r => {
+      const name = (r.name || '').toLowerCase();
+      return r.max > 0 && !name.includes('hit points') && !name.includes('lucky') && !name.includes('spell level');
+    });
+
+    if (filteredResources.length === 0) {
+      resourcesRow.style.display = 'none';
+      return;
+    }
+
+    resourcesRow.style.display = 'block';
+    resourcesList.innerHTML = filteredResources.slice(0, 4).map(r => `
+      <div class="status-resource-item">
+        <span class="name" title="${r.name}">${r.name}</span>
+        <span class="val">${r.current}/${r.max}</span>
+      </div>
+    `).join('');
+  }
+
+  function updateStatusBarEffects() {
+    // Support both data formats:
+    // - Direct: activeBuffs/activeDebuffs (from postMessage)
+    // - Nested: activeEffects.buffs/debuffs (from storage)
+    const activeEffects = characterData.activeEffects || {};
+    const buffs = characterData.activeBuffs || activeEffects.buffs || [];
+    const debuffs = characterData.activeDebuffs || activeEffects.debuffs || [];
+    const effectsRow = document.getElementById('status-effects-row');
+
+    const allEffects = [
+      ...buffs.map(b => ({ name: typeof b === 'string' ? b : b.name, type: 'buff' })),
+      ...debuffs.map(d => ({ name: typeof d === 'string' ? d : d.name, type: 'debuff' }))
+    ];
+
+    if (allEffects.length === 0) {
+      effectsRow.innerHTML = '<span class="status-no-effects">No effects</span>';
+      return;
+    }
+
+    effectsRow.innerHTML = allEffects.map(e => {
+      return `<span class="status-effect-badge ${e.type}">${e.name}</span>`;
+    }).join('');
+  }
+
+  /**
+   * Shows the status bar
+   */
+  function showStatusBar() {
+    if (statusBarElement) {
+      statusBarElement.style.display = 'block';
+      statusBarVisible = true;
+      localStorage.removeItem('rollcloud-status-bar_hidden');
+    }
+  }
+
+  /**
+   * Hides the status bar
+   */
+  function hideStatusBar() {
+    if (statusBarElement) {
+      statusBarElement.style.display = 'none';
+      statusBarVisible = false;
+      localStorage.setItem('rollcloud-status-bar_hidden', 'true');
+      showNotification('Status bar hidden. Use extension popup to show again.', 'info');
+    }
+  }
+
+  /**
+   * Toggles the status bar visibility
+   */
+  function toggleStatusBar() {
+    if (statusBarVisible) {
+      hideStatusBar();
+    } else {
+      showStatusBar();
+      showNotification('Status bar shown', 'success');
+    }
+  }
+
+  /**
+   * Initializes the status bar overlay
+   */
+  function initializeStatusBar() {
+    createStatusBarOverlay();
+
+    // Check if it was previously hidden
+    const wasHidden = localStorage.getItem('rollcloud-status-bar_hidden');
+    if (wasHidden === 'true') {
+      statusBarElement.style.display = 'none';
+      statusBarVisible = false;
+    } else {
+      // Start visible by default
+      statusBarElement.style.display = 'block';
+      statusBarVisible = true;
+    }
+
+    debug.log('✅ Status bar overlay initialized');
+  }
+
+  // Listen for status bar data updates
+  window.addEventListener('message', (event) => {
+    if (event.data && event.data.action === 'updateStatusData') {
+      characterData = event.data.data;
+      if (statusBarElement) {
+        updateStatusBarDisplay();
+      }
+    } else if (event.data && event.data.action === 'updateAdvantageState') {
+      setStatusBarAdvantage(event.data.state);
+    }
+  });
+
+  // Periodic refresh of status bar data (fallback)
+  setInterval(() => {
+    if (statusBarVisible && statusBarElement) {
+      loadStatusBarData();
+    }
+  }, 5000);
+
+  // Listen for storage changes to update status bar immediately
+  browserAPI.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === 'local' && statusBarVisible && statusBarElement) {
+      // Check if character data changed
+      const relevantKeys = ['characterProfiles', 'activeCharacterId', 'characterData'];
+      const hasRelevantChange = Object.keys(changes).some(key => relevantKeys.includes(key));
+
+      if (hasRelevantChange) {
+        debug.log('📊 Storage changed, refreshing status bar');
+        loadStatusBarData();
+      }
+    }
   });
 
   // Initialize - wait for page to be fully loaded
@@ -2139,6 +3128,9 @@
 
       createToggleButton();
       debug.log('✅ RollCloud character sheet toggle button added');
+
+      // Initialize status bar overlay
+      initializeStatusBar();
     } else {
       debug.log('⏳ Waiting for document.body...');
       setTimeout(initializeButton, 100);

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Status Bar</title>
+  <title>Status</title>
   <style>
     * {
       margin: 0;
@@ -15,49 +15,46 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: #1a1a1a;
       color: #e0e0e0;
-      padding: 8px;
-      min-width: 300px;
-      max-width: 500px;
+      padding: 6px;
+      width: 140px;
+      font-size: 11px;
     }
 
     .status-container {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 4px;
     }
 
     .character-name {
-      font-size: 14px;
+      font-size: 11px;
       font-weight: bold;
       color: #4ECDC4;
       text-align: center;
-      padding: 4px;
+      padding: 2px;
       border-bottom: 1px solid #333;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    .hp-bar {
-      background: #2a2a2a;
-      border-radius: 8px;
-      padding: 8px;
-    }
-
-    .hp-label {
-      font-size: 11px;
-      color: #888;
-      margin-bottom: 4px;
-    }
-
-    .hp-display {
+    /* HP Row */
+    .hp-row {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 4px;
+      background: #2a2a2a;
+      border-radius: 4px;
+      padding: 4px;
     }
 
-    .hp-progress {
+    .hp-icon { font-size: 12px; }
+
+    .hp-bar {
       flex: 1;
-      height: 24px;
+      height: 14px;
       background: #1a1a1a;
-      border-radius: 4px;
+      border-radius: 3px;
       overflow: hidden;
       position: relative;
     }
@@ -66,213 +63,205 @@
       height: 100%;
       background: linear-gradient(90deg, #27ae60, #2ecc71);
       transition: width 0.3s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-      font-weight: bold;
-      color: white;
     }
 
-    .hp-fill.low {
-      background: linear-gradient(90deg, #e67e22, #f39c12);
-    }
-
-    .hp-fill.critical {
-      background: linear-gradient(90deg, #c0392b, #e74c3c);
-    }
+    .hp-fill.low { background: linear-gradient(90deg, #e67e22, #f39c12); }
+    .hp-fill.critical { background: linear-gradient(90deg, #c0392b, #e74c3c); }
 
     .hp-text {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      font-size: 11px;
+      font-size: 9px;
       font-weight: bold;
       color: white;
-      text-shadow: 0 0 3px rgba(0,0,0,0.8);
-      z-index: 1;
+      text-shadow: 0 0 2px rgba(0,0,0,0.8);
     }
 
     .temp-hp {
-      font-size: 11px;
+      font-size: 9px;
       color: #3498db;
-      white-space: nowrap;
+      font-weight: bold;
     }
 
-    .concentration {
+    /* Advantage Toggle */
+    .adv-row {
+      display: flex;
+      gap: 2px;
       background: #2a2a2a;
-      border-radius: 8px;
-      padding: 8px;
+      border-radius: 4px;
+      padding: 3px;
     }
 
-    .concentration.active {
+    .adv-btn {
+      flex: 1;
+      padding: 4px 2px;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 12px;
+      background: #1a1a1a;
+      transition: all 0.2s;
+    }
+
+    .adv-btn.adv { color: #27ae60; }
+    .adv-btn.norm { color: #888; }
+    .adv-btn.dis { color: #e74c3c; }
+
+    .adv-btn.active.adv { background: #27ae60; color: white; }
+    .adv-btn.active.norm { background: #3498db; color: white; }
+    .adv-btn.active.dis { background: #e74c3c; color: white; }
+
+    /* Concentration */
+    .conc-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: #2a2a2a;
+      border-radius: 4px;
+      padding: 4px;
+      font-size: 10px;
+    }
+
+    .conc-row.active {
       background: #2c3e50;
       border: 1px solid #9b59b6;
     }
 
-    .concentration-header {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-    }
-
-    .concentration-spell {
-      font-weight: bold;
+    .conc-spell {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
       color: #9b59b6;
     }
 
-    .concentration.inactive .concentration-spell {
-      color: #666;
-    }
+    .conc-row.inactive .conc-spell { color: #555; }
 
-    .effects-section {
-      background: #2a2a2a;
-      border-radius: 8px;
-      padding: 8px;
-    }
-
-    .effects-label {
-      font-size: 11px;
-      color: #888;
-      margin-bottom: 4px;
-    }
-
-    .effects-list {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .effect-item {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 6px;
-      background: #1a1a1a;
-      border-radius: 4px;
-      font-size: 11px;
-    }
-
-    .effect-item.buff {
-      border-left: 3px solid #27ae60;
-    }
-
-    .effect-item.debuff {
-      border-left: 3px solid #e74c3c;
-    }
-
-    .effect-icon {
-      font-size: 14px;
-    }
-
-    .effect-name {
-      flex: 1;
-      font-weight: 500;
-    }
-
-    .effect-duration {
-      color: #888;
-      font-size: 10px;
-    }
-
-    .no-effects {
-      color: #666;
-      font-size: 11px;
-      text-align: center;
-      padding: 4px;
-    }
-
-    .close-btn {
-      position: absolute;
-      top: 4px;
-      right: 4px;
-      background: none;
-      border: none;
-      color: #888;
-      font-size: 16px;
-      cursor: pointer;
-      padding: 4px;
-      line-height: 1;
-    }
-
-    .close-btn:hover {
-      color: #e74c3c;
-    }
-
-    .spell-slots-bar {
-      background: #2a2a2a;
-      border-radius: 8px;
-      padding: 8px;
-    }
-
-    .spell-slots-label {
-      font-size: 11px;
-      color: #888;
-      margin-bottom: 6px;
-    }
-
-    .spell-slots-container {
-      display: flex;
-      gap: 4px;
-      flex-wrap: wrap;
-    }
-
-    .slot-indicator {
+    /* Spell Slots Dropdown */
+    .slots-row {
       position: relative;
-      width: 28px;
-      height: 28px;
+      background: #2a2a2a;
       border-radius: 4px;
-      background: #1a1a1a;
+      padding: 4px;
+    }
+
+    .slots-header {
       display: flex;
       align-items: center;
-      justify-content: center;
+      gap: 4px;
+      cursor: pointer;
       font-size: 10px;
-      font-weight: bold;
+    }
+
+    .slots-summary {
+      flex: 1;
+      color: #9b59b6;
+    }
+
+    .slots-dropdown {
+      display: none;
+      margin-top: 4px;
+      padding-top: 4px;
+      border-top: 1px solid #333;
+    }
+
+    .slots-row.open .slots-dropdown { display: block; }
+
+    .slot-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 2px 0;
+      font-size: 9px;
+    }
+
+    .slot-item .lvl { color: #888; }
+    .slot-item .val { color: #9b59b6; font-weight: bold; }
+    .slot-item .val.empty { color: #555; }
+    .slot-item.pact .val { color: #1abc9c; }
+
+    /* Resources */
+    .resources-row {
+      background: #2a2a2a;
+      border-radius: 4px;
+      padding: 4px;
+    }
+
+    .resource-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 2px 0;
+      font-size: 9px;
+    }
+
+    .resource-item .name {
+      color: #888;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 70px;
+    }
+
+    .resource-item .val { color: #f39c12; font-weight: bold; }
+
+    /* Effects */
+    .effects-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+      background: #2a2a2a;
+      border-radius: 4px;
+      padding: 4px;
+    }
+
+    .effect-badge {
+      font-size: 12px;
       cursor: help;
-      border: 1px solid #333;
+      position: relative;
     }
 
-    .slot-indicator.has-slots {
-      background: linear-gradient(135deg, #8e44ad, #9b59b6);
-      border-color: #9b59b6;
-      color: white;
-    }
-
-    .slot-indicator.empty {
-      background: #1a1a1a;
-      border-color: #333;
-      color: #555;
-    }
-
-    .slot-tooltip {
+    .effect-badge .tooltip {
       position: absolute;
       bottom: 100%;
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(0, 0, 0, 0.95);
+      background: rgba(0,0,0,0.95);
       color: white;
-      padding: 6px 10px;
+      padding: 4px 8px;
       border-radius: 4px;
-      font-size: 11px;
+      font-size: 10px;
       white-space: nowrap;
-      pointer-events: none;
       opacity: 0;
+      pointer-events: none;
       transition: opacity 0.2s;
-      margin-bottom: 4px;
-      z-index: 1000;
-      border: 1px solid #4ECDC4;
+      z-index: 100;
     }
 
-    .slot-indicator:hover .slot-tooltip {
-      opacity: 1;
+    .effect-badge:hover .tooltip { opacity: 1; }
+
+    .no-effects {
+      color: #555;
+      font-size: 9px;
+      text-align: center;
+      width: 100%;
     }
 
-    .pact-slots {
-      background: linear-gradient(135deg, #16a085, #1abc9c);
-      border-color: #1abc9c;
+    /* Close button */
+    .close-btn {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      background: none;
+      border: none;
+      color: #555;
+      font-size: 12px;
+      cursor: pointer;
+      padding: 2px;
+      line-height: 1;
     }
+
+    .close-btn:hover { color: #e74c3c; }
   </style>
 </head>
 <body>
@@ -281,47 +270,52 @@
   <div class="status-container">
     <div class="character-name" id="character-name">Loading...</div>
 
-    <!-- HP Bar -->
-    <div class="hp-bar">
-      <div class="hp-label">Hit Points</div>
-      <div class="hp-display">
-        <div class="hp-progress">
-          <div class="hp-fill" id="hp-fill"></div>
-          <div class="hp-text" id="hp-text">0/0</div>
-        </div>
-        <div class="temp-hp" id="temp-hp"></div>
+    <!-- HP -->
+    <div class="hp-row">
+      <span class="hp-icon">❤️</span>
+      <div class="hp-bar">
+        <div class="hp-fill" id="hp-fill"></div>
+        <div class="hp-text" id="hp-text">0/0</div>
       </div>
+      <span class="temp-hp" id="temp-hp"></span>
+    </div>
+
+    <!-- Advantage Toggle -->
+    <div class="adv-row">
+      <button class="adv-btn adv" id="adv-btn" title="Advantage">⬆️</button>
+      <button class="adv-btn norm active" id="norm-btn" title="Normal">🎲</button>
+      <button class="adv-btn dis" id="dis-btn" title="Disadvantage">⬇️</button>
     </div>
 
     <!-- Concentration -->
-    <div class="concentration inactive" id="concentration">
-      <div class="concentration-header">
-        <span>🧠</span>
-        <span class="concentration-spell" id="concentration-spell">No concentration</span>
+    <div class="conc-row inactive" id="concentration">
+      <span>🧠</span>
+      <span class="conc-spell" id="conc-spell">—</span>
+    </div>
+
+    <!-- Spell Slots Dropdown -->
+    <div class="slots-row" id="slots-row">
+      <div class="slots-header" id="slots-header">
+        <span>✨</span>
+        <span class="slots-summary" id="slots-summary">Slots</span>
+        <span>▼</span>
       </div>
+      <div class="slots-dropdown" id="slots-dropdown"></div>
     </div>
 
-    <!-- Spell Slots -->
-    <div class="spell-slots-bar" id="spell-slots-bar">
-      <div class="spell-slots-label">✨ Spell Slots</div>
-      <div class="spell-slots-container" id="spell-slots-container"></div>
+    <!-- Resources -->
+    <div class="resources-row" id="resources-row" style="display: none;">
+      <div id="resources-list"></div>
     </div>
 
-    <!-- Buffs -->
-    <div class="effects-section" id="buffs-section" style="display: none;">
-      <div class="effects-label">✨ Active Buffs</div>
-      <div class="effects-list" id="buffs-list"></div>
-    </div>
-
-    <!-- Debuffs -->
-    <div class="effects-section" id="debuffs-section" style="display: none;">
-      <div class="effects-label">💀 Active Debuffs</div>
-      <div class="effects-list" id="debuffs-list"></div>
+    <!-- Buffs/Debuffs -->
+    <div class="effects-row" id="effects-row">
+      <span class="no-effects">No effects</span>
     </div>
   </div>
 
-  <script src="lib/browser-polyfill.js"></script>
-  <script src="lib/debug.js"></script>
+  <script src="common/browser-polyfill.js"></script>
+  <script src="common/debug.js"></script>
   <script src="status-bar.js"></script>
 </body>
 </html>
