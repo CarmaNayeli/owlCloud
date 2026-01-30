@@ -383,7 +383,7 @@
 
         btn.addEventListener('click', () => {
           // Send custom macro to chat
-          const colorBanner = getColoredBanner();
+          const colorBanner = getColoredBanner(characterData);
           const message = customBtn.macro;
 
           const messageData = {
@@ -640,7 +640,7 @@
                 buildSheet(characterData);
 
                 // Announce healing
-                const colorBanner = getColoredBanner();
+                const colorBanner = getColoredBanner(characterData);
                 const message = `&{template:default} {{name=${colorBanner}${characterData.name} - Lifesteal}} {{💉 Damage Dealt=${damage}}} {{💚 HP Regained=${actualHealing}}} {{Current HP=${characterData.hitPoints.current}/${maxHP}}}`;
 
                 const messageData = {

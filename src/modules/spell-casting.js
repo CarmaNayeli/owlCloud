@@ -447,7 +447,7 @@
       return;
     }
 
-    const colorBanner = typeof getColoredBanner === 'function' ? getColoredBanner() : '';
+    const colorBanner = typeof getColoredBanner === 'function' ? getColoredBanner(characterData) : '';
     let message = `&{template:default} {{name=${colorBanner}${spell.name}}}`;
     message += ` {{Resource Used=${resourceUsed}}}`;
 

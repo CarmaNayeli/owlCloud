@@ -131,7 +131,7 @@
           const bonus = parseInt(btn.dataset.bonus);
 
           // Announce companion attack
-          const announcement = `&{template:default} {{name=${getColoredBanner()}${characterData.name}'s ${name} attacks!}} {{Type=Companion Attack}}`;
+          const announcement = `&{template:default} {{name=${getColoredBanner(characterData)}${characterData.name}'s ${name} attacks!}} {{Type=Companion Attack}}`;
           const messageData = {
             action: 'announceSpell',
             message: announcement,
@@ -157,7 +157,7 @@
           const damage = btn.dataset.damage;
 
           // Announce companion damage
-          const announcement = `&{template:default} {{name=${getColoredBanner()}${characterData.name}'s ${name} deals damage!}} {{Type=Companion Damage}}`;
+          const announcement = `&{template:default} {{name=${getColoredBanner(characterData)}${characterData.name}'s ${name} deals damage!}} {{Type=Companion Damage}}`;
           const messageData = {
             action: 'announceSpell',
             message: announcement,

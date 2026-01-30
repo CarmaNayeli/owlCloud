@@ -143,7 +143,7 @@
 
       const oldHP = characterData.hitPoints.current;
       const oldTempHP = characterData.temporaryHP || 0;
-      const colorBanner = typeof getColoredBanner !== 'undefined' ? getColoredBanner() : '';
+      const colorBanner = typeof getColoredBanner !== 'undefined' ? getColoredBanner(characterData) : '';
       let messageData;
 
       if (actionType === 'heal') {
@@ -382,7 +382,7 @@
 
       // Announce the roll with fancy formatting
       if (window.opener && !window.opener.closed) {
-        const colorBanner = typeof getColoredBanner !== 'undefined' ? getColoredBanner() : '';
+        const colorBanner = typeof getColoredBanner !== 'undefined' ? getColoredBanner(characterData) : '';
         window.opener.postMessage({
           action: 'announceSpell',
           message: `&{template:default} {{name=${colorBanner}${characterData.name} spends hit dice}} {{Roll=🎲 ${hitDie}: ${roll} + ${conMod} CON}} {{HP Restored=${healing}}} {{Current HP=${characterData.hitPoints.current}/${characterData.hitPoints.max}}}`,
@@ -402,7 +402,7 @@
     }
 
     // Announce short rest completion to Roll20
-    const colorBanner = typeof getColoredBanner !== 'undefined' ? getColoredBanner() : '';
+    const colorBanner = typeof getColoredBanner !== 'undefined' ? getColoredBanner(characterData) : '';
     const announcement = `&{template:default} {{name=${colorBanner}${characterData.name} takes a Short Rest!}} {{Type=Short Rest}} {{HP=${characterData.hitPoints.current}/${characterData.hitPoints.max}}}`;
     const messageData = {
       action: 'announceSpell',
@@ -537,7 +537,7 @@
     debug.log('✅ Short rest complete');
 
     // Announce to Roll20 with fancy formatting
-    const colorBanner = typeof getColoredBanner !== 'undefined' ? getColoredBanner() : '';
+    const colorBanner = typeof getColoredBanner !== 'undefined' ? getColoredBanner(characterData) : '';
     const messageData = {
       action: 'announceSpell',
       message: `&{template:default} {{name=${colorBanner}${characterData.name} takes a short rest}} {{=☕ Short rest complete. Resources recharged!}}`,
@@ -708,7 +708,7 @@
     debug.log('✅ Long rest complete');
 
     // Announce to Roll20 with fancy formatting
-    const colorBanner = typeof getColoredBanner !== 'undefined' ? getColoredBanner() : '';
+    const colorBanner = typeof getColoredBanner !== 'undefined' ? getColoredBanner(characterData) : '';
     const messageData = {
       action: 'announceSpell',
       message: `&{template:default} {{name=${colorBanner}${characterData.name} takes a long rest}} {{=🌙 Long rest complete!}} {{HP=${characterData.hitPoints.current}/${characterData.hitPoints.max} (Fully Restored)}} {{=All spell slots and resources restored!}}`,

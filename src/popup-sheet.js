@@ -916,7 +916,7 @@ function setAdvantageState(state) {
 
   // Announce advantage state change to Roll20
   const stateEmoji = state === 'advantage' ? '🎯' : state === 'disadvantage' ? '🎲' : '⚖️';
-  const announcement = `&{template:default} {{name=${getColoredBanner()}${characterData.name} sets roll mode}} {{${stateEmoji}=${state === 'advantage' ? 'Advantage' : state === 'disadvantage' ? 'Disadvantage' : 'Normal'} rolls selected}}`;
+  const announcement = `&{template:default} {{name=${getColoredBanner(characterData)}${characterData.name} sets roll mode}} {{${stateEmoji}=${state === 'advantage' ? 'Advantage' : state === 'disadvantage' ? 'Disadvantage' : 'Normal'} rolls selected}}`;
   const messageData = {
     action: 'announceSpell',
     message: announcement,
@@ -1323,7 +1323,7 @@ function buildSheet(data) {
     const initiativeBonus = data.initiative || 0;
     
     // Announce initiative roll
-    const announcement = `&{template:default} {{name=${getColoredBanner()}${data.name} rolls for initiative!}} {{Type=Initiative}} {{Bonus=+${initiativeBonus}}}`;
+    const announcement = `&{template:default} {{name=${getColoredBanner(data)}${data.name} rolls for initiative!}} {{Type=Initiative}} {{Bonus=+${initiativeBonus}}}`;
     const messageData = {
       action: 'announceSpell',
       message: announcement,
@@ -1373,7 +1373,7 @@ function buildSheet(data) {
     const mod = data.attributeMods?.[ability] || 0;
     const card = createCard(ability.substring(0, 3).toUpperCase(), score, `+${mod}`, () => {
       // Announce ability check
-      const announcement = `&{template:default} {{name=${getColoredBanner()}${data.name} makes a ${ability.charAt(0).toUpperCase() + ability.slice(1)} check!}} {{Type=Ability Check}} {{Bonus=+${mod}}}`;
+      const announcement = `&{template:default} {{name=${getColoredBanner(data)}${data.name} makes a ${ability.charAt(0).toUpperCase() + ability.slice(1)} check!}} {{Type=Ability Check}} {{Bonus=+${mod}}}`;
       const messageData = {
         action: 'announceSpell',
         message: announcement,
@@ -1400,7 +1400,7 @@ function buildSheet(data) {
     const bonus = data.savingThrows?.[ability] || 0;
     const card = createCard(`${ability.substring(0, 3).toUpperCase()}`, `+${bonus}`, '', () => {
       // Announce saving throw
-      const announcement = `&{template:default} {{name=${getColoredBanner()}${data.name} makes a ${ability.toUpperCase()} save!}} {{Type=Saving Throw}} {{Bonus=+${bonus}}}`;
+      const announcement = `&{template:default} {{name=${getColoredBanner(data)}${data.name} makes a ${ability.toUpperCase()} save!}} {{Type=Saving Throw}} {{Bonus=+${bonus}}}`;
       const messageData = {
         action: 'announceSpell',
         message: announcement,
@@ -1443,7 +1443,7 @@ function buildSheet(data) {
     const displayName = skill.charAt(0).toUpperCase() + skill.slice(1).replace(/-/g, ' ');
     const card = createCard(displayName, `${bonus >= 0 ? '+' : ''}${bonus}`, '', () => {
       // Announce skill check
-      const announcement = `&{template:default} {{name=${getColoredBanner()}${data.name} makes a ${displayName} check!}} {{Type=Skill Check}} {{Bonus=${bonus >= 0 ? '+' : ''}${bonus}}}`;
+      const announcement = `&{template:default} {{name=${getColoredBanner(data)}${data.name} makes a ${displayName} check!}} {{Type=Skill Check}} {{Bonus=${bonus >= 0 ? '+' : ''}${bonus}}}`;
       const messageData = {
         action: 'announceSpell',
         message: announcement,
@@ -3368,7 +3368,7 @@ function showHPModal() {
 
     const oldHP = characterData.hitPoints.current;
     const oldTempHP = characterData.temporaryHP || 0;
-    const colorBanner = getColoredBanner();
+    const colorBanner = getColoredBanner(characterData);
     let messageData;
 
     if (actionType === 'heal') {
@@ -3699,7 +3699,7 @@ function calculateMetamagicCost(metamagicName, spellLevel) {
 
 function announceAction(action) {
   // Announce the use of an action (bonus action, reaction, etc.) to Roll20 chat
-  const colorBanner = getColoredBanner();
+  const colorBanner = getColoredBanner(characterData);
 
   // Determine action type emoji
   const actionTypeEmoji = {
@@ -5407,7 +5407,7 @@ function applyAdvantageToFormula(formula, effectNotes) {
  * Execute the roll after optional effects have been handled
  */
 function executeRoll(name, formula, effectNotes, prerolledResult = null) {
-  const colorBanner = getColoredBanner();
+  const colorBanner = getColoredBanner(characterData);
   // Format: "🔵 CharacterName rolls Initiative"
   let rollName = `${colorBanner}${characterData.name} rolls ${name}`;
 
@@ -7002,7 +7002,7 @@ function showWildMagicSurgePopup(d100Roll, effect) {
   });
 
   // Also announce to Roll20 chat
-  const colorBanner = getColoredBanner();
+  const colorBanner = getColoredBanner(characterData);
   const message = `&{template:default} {{name=${colorBanner}${characterData.name} - Wild Magic Surge! 🌀}} {{d100 Roll=${d100Roll}}} {{Effect=${effect}}}`;
 
   if (window.opener && !window.opener.closed) {
@@ -7312,7 +7312,7 @@ function performElvenAccuracyReroll(originalRollData) {
   debug.log('🧝 Third die roll:', thirdRoll);
 
   // Announce the third die roll to Roll20
-  const colorBanner = getColoredBanner();
+  const colorBanner = getColoredBanner(characterData);
   const message = `&{template:default} {{name=${colorBanner}${characterData.name} uses Elven Accuracy! 🧝}} {{Action=Reroll lower die}} {{Third d20=${thirdRoll}}} {{=Choose the highest of all three rolls!}}`;
 
   if (window.opener && !window.opener.closed) {

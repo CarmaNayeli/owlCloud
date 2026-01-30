@@ -450,7 +450,7 @@
 
       // Announce to Roll20
       if (typeof getColoredBanner !== 'undefined') {
-        const colorBanner = getColoredBanner();
+        const colorBanner = getColoredBanner(characterData);
         const message = `&{template:default} {{name=${colorBanner}${characterData.name} uses Font of Magic⚡}} {{Action=Convert Spell Slot to Sorcery Points}} {{Result=Expended Level ${selectedLevel} spell slot for ${pointsGained} SP}} {{Sorcery Points=${sorceryPoints.current}/${sorceryPoints.max}}}`;
 
         if (window.opener && !window.opener.closed) {
@@ -581,7 +581,7 @@
 
       // Announce to Roll20
       if (typeof getColoredBanner !== 'undefined') {
-        const colorBanner = getColoredBanner();
+        const colorBanner = getColoredBanner(characterData);
         const message = `&{template:default} {{name=${colorBanner}${characterData.name} uses Font of Magic⚡}} {{Action=Convert Sorcery Points to Spell Slot}} {{Result=Created Level ${selectedLevel} spell slot for ${cost} SP}} {{Sorcery Points=${sorceryPoints.current}/${sorceryPoints.max}}}`;
 
         if (window.opener && !window.opener.closed) {
@@ -737,7 +737,7 @@
 
     // Announce to Roll20
     if (typeof getColoredBanner !== 'undefined') {
-      const colorBanner = getColoredBanner();
+      const colorBanner = getColoredBanner(characterData);
       const newCurrent = characterData.spellSlots[slotVar];
       const messageData = {
         action: 'announceSpell',

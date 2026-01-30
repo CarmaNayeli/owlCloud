@@ -209,7 +209,7 @@
       }
 
       // Announce to Roll20
-      const colorBanner = typeof getColoredBanner !== 'undefined' ? getColoredBanner() : '';
+      const colorBanner = typeof getColoredBanner !== 'undefined' ? getColoredBanner(characterData) : '';
       const messageData = {
         action: 'announceSpell',
         message: `&{template:default} {{name=${colorBanner}${characterData.name} gains Inspiration}} {{${emoji}=You now have Inspiration!}}`,
@@ -314,7 +314,7 @@
       }
 
       // Announce to Roll20
-      const colorBanner = typeof getColoredBanner !== 'undefined' ? getColoredBanner() : '';
+      const colorBanner = typeof getColoredBanner !== 'undefined' ? getColoredBanner(characterData) : '';
       const messageData = {
         action: 'announceSpell',
         message: `&{template:default} {{name=${colorBanner}${characterData.name} uses Inspiration (2014)}} {{${emoji}=Gain advantage on your next attack roll, saving throw, or ability check!}}`,
@@ -360,7 +360,7 @@
         }
 
         // Announce to Roll20
-        const colorBanner = typeof getColoredBanner !== 'undefined' ? getColoredBanner() : '';
+        const colorBanner = typeof getColoredBanner !== 'undefined' ? getColoredBanner(characterData) : '';
         const messageData = {
           action: 'announceSpell',
           message: `&{template:default} {{name=${colorBanner}${characterData.name} uses Inspiration (2024)}} {{${emoji}=Rerolling: ${characterData.lastRoll.name}}}`,
