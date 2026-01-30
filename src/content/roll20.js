@@ -340,6 +340,36 @@
   }
 
   /**
+   * Check if a character belongs to this tab's user
+   * Used to filter Discord commands to prevent cross-user contamination
+   */
+  function isOurCharacter(characterName) {
+    if (!characterName) return false;
+
+    // Check if character is in our registered popups
+    if (characterPopups && characterPopups[characterName]) {
+      return true;
+    }
+
+    // Check if character is in our player data (GM panel)
+    if (playerData && playerData[characterName]) {
+      return true;
+    }
+
+    // If we have no characters registered yet, allow it through
+    // (first-time setup or user hasn't opened sheets yet)
+    const hasAnyCharacters = (characterPopups && Object.keys(characterPopups).length > 0) ||
+                           (playerData && Object.keys(playerData).length > 0);
+
+    if (!hasAnyCharacters) {
+      debug.log(`✅ Allowing ${characterName} (no characters registered yet)`);
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
    * Get color emoji for character notification color (matches popup-sheet getColoredBanner)
    */
   function getColorEmoji(color) {
@@ -349,8 +379,6 @@
       '#27ae60': '🟢', // Green
       '#9b59b6': '🟣', // Purple
       '#e67e22': '🟠', // Orange
-      '#1abc9c': '🔷', // Teal/Cyan
-      '#e91e63': '🩷', // Pink
       '#f1c40f': '🟡', // Yellow
       '#95a5a6': '⚪', // Grey
       '#34495e': '⚫', // Black
@@ -363,26 +391,38 @@
    * Formats roll data for Roll20 chat display with fancy template
    */
   function formatRollForRoll20(rollData) {
-    const { name, formula, characterName, advantage, disadvantage, checkType } = rollData;
+    const { name, formula, characterName, advantage, disadvantage, checkType, prerolledResult, color } = rollData;
 
     // Handle advantage/disadvantage for d20 rolls
     let rollFormula = formula;
     let rollType = '';
-    
+
     if ((advantage || disadvantage) && formula.includes('d20')) {
       if (advantage && !disadvantage) {
         rollFormula = formula.replace('1d20', '2d20kh1'); // 2d20 keep highest
         rollType = ' (Advantage)';
       } else if (disadvantage && !advantage) {
-        rollFormula = formula.replace('1d20', '2d20kl1'); // 2d20 keep lowest  
+        rollFormula = formula.replace('1d20', '2d20kl1'); // 2d20 keep lowest
         rollType = ' (Disadvantage)';
       }
     }
 
+    // Get color emoji for character
+    const colorEmoji = color ? getColorEmoji(color) : '';
+    const colorPrefix = colorEmoji ? `${colorEmoji} ` : '';
+
     // Build character display name
     let displayName = name;
     if (characterName && !name.includes(characterName)) {
-      displayName = `${characterName} - ${name}`;
+      displayName = `${colorPrefix}${characterName} - ${name}`;
+    } else {
+      displayName = `${colorPrefix}${name}`;
+    }
+
+    // If we have a prerolled result (e.g., from death saves), use it instead of rolling again
+    if (prerolledResult !== null && prerolledResult !== undefined) {
+      debug.log(`🎲 Using prerolled result: ${prerolledResult} instead of rolling ${rollFormula}`);
+      return `&{template:default} {{name=${displayName}${rollType}}} {{Roll=${prerolledResult}}}`;
     }
 
     // Use Roll20's template system with inline rolls for fancy formatting
@@ -470,13 +510,13 @@
       school: spell.school,
 
       // Spell details
-      castingTime: spell.castingTime,
+      castingTime: spell.castingTime || spell.casting_time,
       range: spell.range,
       duration: spell.duration,
       components: spell.components,
       source: spell.source,
-      summary: spell.summary,
-      description: spell.description,
+      summary: spell.summary || spellData.summary,
+      description: spell.description || spellData.description,
 
       // Tags and modifiers
       concentration: spell.concentration,
@@ -494,13 +534,14 @@
       resourceChanges: spellData.resourceChanges || [],
 
       // Rolls
-      attackRoll: spell.attackRoll,
-      damageRolls: spellData.damageRolls || [],
+      attackRoll: spell.attackRoll || spell.attack_roll,
+      damageRolls: spellData.damageRolls || spellData.damage_rolls || [],
       fallbackDamage: spell.damage,
-      fallbackDamageType: spell.damageType,
+      fallbackDamageType: spell.damageType || spell.damage_type,
 
-      // Visual
-      notificationColor: spellData.notification_color || '#3498db'
+      // Visual - check multiple possible field names
+      notificationColor: spellData.notification_color || spellData.notificationColor ||
+                        spell.notification_color || spell.notificationColor || '#3498db'
     };
   }
 
@@ -754,7 +795,8 @@
       const rollData = {
         name: request.name || request.roll?.name,
         formula: request.formula || request.roll?.formula,
-        characterName: request.characterName || request.roll?.characterName
+        characterName: request.characterName || request.roll?.characterName,
+        color: request.color || request.roll?.color
       };
 
       // Check if silent rolls mode is enabled - if so, hide the roll instead of posting
@@ -927,6 +969,13 @@
         const commandData = request.commandData || {};
         const charName = commandData.character_name || 'Character';
 
+        // SECURITY: Only process if this character belongs to this tab's user
+        if (!isOurCharacter(charName)) {
+          debug.log(`⏭️ Ignoring Discord action for ${charName} (not our character)`);
+          sendResponse({ success: true, ignored: true });
+          return true;
+        }
+
         // Get action data - check multiple possible locations
         const actionData = commandData.action_data || commandData || {};
         debug.log('⚔️ Action data:', actionData);
@@ -985,6 +1034,14 @@
       try {
         debug.log('🔮 Received castSpellFromDiscord:', request);
 
+        // SECURITY: Only process if this character belongs to this tab's user
+        const characterName = request.spellData?.character_name;
+        if (characterName && !isOurCharacter(characterName)) {
+          debug.log(`⏭️ Ignoring Discord spell for ${characterName} (not our character)`);
+          sendResponse({ success: true, ignored: true });
+          return true;
+        }
+
         // Normalize the Discord spell data into common format
         const normalizedSpellData = normalizeDiscordSpellData(request.spellData || {});
 
@@ -1002,6 +1059,14 @@
       const abilityName = request.abilityName || 'Unknown Ability';
       const abilityData = request.abilityData || {};
       const charName = abilityData.character_name || 'Character';
+
+      // SECURITY: Only process if this character belongs to this tab's user
+      if (!isOurCharacter(charName)) {
+        debug.log(`⏭️ Ignoring Discord ability for ${charName} (not our character)`);
+        sendResponse({ success: true, ignored: true });
+        return true;
+      }
+
       const action = abilityData.action_data || abilityData.action || {};
       const notificationColor = abilityData.notification_color || '#3498db';
 
@@ -1080,6 +1145,13 @@
         const isTemp = request.isTemp || false;
         const charName = request.characterName || 'Character';
 
+        // SECURITY: Only process if this character belongs to this tab's user
+        if (!isOurCharacter(charName)) {
+          debug.log(`⏭️ Ignoring Discord heal for ${charName} (not our character)`);
+          sendResponse({ success: true, ignored: true });
+          return true;
+        }
+
         // Post announcement to Roll20 chat
         const healType = isTemp ? 'Temporary HP' : 'HP';
         const emoji = isTemp ? '🛡️' : '💚';
@@ -1098,6 +1170,13 @@
         const damageType = request.damageType || 'untyped';
         const charName = request.characterName || 'Character';
 
+        // SECURITY: Only process if this character belongs to this tab's user
+        if (!isOurCharacter(charName)) {
+          debug.log(`⏭️ Ignoring Discord damage for ${charName} (not our character)`);
+          sendResponse({ success: true, ignored: true });
+          return true;
+        }
+
         // Post announcement to Roll20 chat
         const damageTypeDisplay = damageType !== 'untyped' ? ` (${damageType})` : '';
         const announcement = `&{template:default} {{name=💔 ${charName} takes damage}} {{Damage=${amount}${damageTypeDisplay}}}`;
@@ -1113,6 +1192,13 @@
         debug.log('🛏️ Received restFromDiscord:', request);
         const restType = request.restType || 'short';
         const charName = request.characterName || 'Character';
+
+        // SECURITY: Only process if this character belongs to this tab's user
+        if (!isOurCharacter(charName)) {
+          debug.log(`⏭️ Ignoring Discord rest for ${charName} (not our character)`);
+          sendResponse({ success: true, ignored: true });
+          return true;
+        }
 
         // Post announcement to Roll20 chat
         const emoji = restType === 'short' ? '☕' : '🛏️';
@@ -1218,7 +1304,7 @@
   // GM INITIATIVE TRACKER
   // ============================================================================
 
-  let gmModeEnabled = false;
+  let gmModeEnabled = false; // Start disabled - GM panel is a popup when toggled on
   let silentRollsEnabled = false; // Separate toggle for silent rolls
   let gmPanel = null;
   const characterPopups = {}; // Track popup windows by character name
@@ -2053,10 +2139,10 @@
                 ` : '<div style="padding: 10px; text-align: center; color: #888; font-size: 0.95em;">No active conditions</div>'}
 
                 <!-- Concentration -->
-                ${player.concentration ? `
+                ${player.concentrationSpell ? `
                   <div style="background: #9b59b6; padding: 10px; border-radius: 4px; margin-bottom: 10px;">
                     <div style="font-size: 0.95em; font-weight: bold; margin-bottom: 4px;">🧠 Concentrating</div>
-                    <div style="font-size: 0.9em;">${player.concentration}</div>
+                    <div style="font-size: 0.9em;">${player.concentrationSpell}</div>
                   </div>
                 ` : ''}
 
@@ -2265,13 +2351,35 @@
       return;
     }
 
+    // Check if ANY popup is currently open (enforce single popup limit)
+    const openPopups = Object.entries(characterPopups).filter(([name, popup]) => popup && !popup.closed);
+
+    if (openPopups.length > 0) {
+      const [existingPlayerName, existingPopup] = openPopups[0];
+
+      // If the same character is already open, just focus it
+      if (existingPlayerName === playerName) {
+        existingPopup.focus();
+        debug.log(`👁️ Focused existing character popup for ${playerName}`);
+        return;
+      }
+
+      // Different character - close the existing popup and open the new one
+      debug.log(`🔄 Closing popup for ${existingPlayerName} to open ${playerName}`);
+      existingPopup.close();
+      delete characterPopups[existingPlayerName];
+    }
+
     // Create popout window and load the EXISTING popup-sheet.html file
     const popup = window.open(browserAPI.runtime.getURL('src/popup-sheet.html'), `character-${playerName}`, 'width=900,height=700,scrollbars=yes,resizable=yes,toolbar=no,menubar=no,location=no,status=no');
-    
+
     if (!popup) {
       debug.error('❌ Failed to open popup window - please allow popups for this site');
       return;
     }
+
+    // Track the popup
+    characterPopups[playerName] = popup;
 
     // Store player data for the popup to request
     window.currentPopoutPlayer = player;
@@ -3246,6 +3354,12 @@ ${player.deathSaves ? `Death Saves: ✓${player.deathSaves.successes || 0} / ✗
     if (text.includes('created the character') ||
         text.includes('Welcome to Roll20') ||
         text.includes('has joined the game')) {
+      return;
+    }
+
+    // Skip initiative rolls (handled separately in initiative tracker)
+    if (/\binitiative\b/i.test(text) || /\binit\b/i.test(text)) {
+      debug.log('⏭️ Skipping initiative roll for player tracking');
       return;
     }
 

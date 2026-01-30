@@ -65,11 +65,15 @@
       color: characterData.notificationColor
     };
 
+    // Get color emoji and character name for notification
+    const colorEmoji = typeof getColorEmoji === 'function' ? getColorEmoji(characterData.notificationColor) : '';
+    const notificationText = colorEmoji ? `${colorEmoji} ${characterData.name} used ${action.name}!` : `✨ ${characterData.name} used ${action.name}!`;
+
     // Try window.opener first (Chrome)
     if (window.opener && !window.opener.closed) {
       try {
         window.opener.postMessage(messageData, '*');
-        showNotification(`✨ ${action.name} used!`);
+        showNotification(notificationText);
         debug.log('✅ Action announcement sent via window.opener');
         return;
       } catch (error) {
@@ -88,7 +92,7 @@
         showNotification('❌ Failed to announce action');
       } else if (response && response.success) {
         debug.log('✅ Action announcement relayed to Roll20');
-        showNotification(`✨ ${action.name} used!`);
+        showNotification(notificationText);
       }
     });
   }

@@ -60,10 +60,12 @@
       spell.source.toLowerCase().includes('potion')
     );
 
-    // Check if spell has resources field indicating it doesn't consume spell slots
-    const isFreeSpell = spell.resources &&
-                         spell.resources.itemsConsumed &&
-                         spell.resources.itemsConsumed.length > 0;
+    // Check if spell doesn't require spell slots (DiceCloud toggle or resource consumption)
+    const isFreeSpell = (spell.castWithoutSpellSlots === true) || (
+      spell.resources &&
+      spell.resources.itemsConsumed &&
+      spell.resources.itemsConsumed.length > 0
+    );
 
     // Cantrips (level 0), magic item spells, free spells, or concentration recast don't need slots
     if (!spell.level || spell.level === 0 || spell.level === '0' || isMagicItemSpell || isFreeSpell || skipSlotConsumption) {
@@ -121,8 +123,8 @@
         actualLevel = parseInt(selectedSlotLevel.split(':')[1]);
         slotVar = 'pactMagicSlots';
         currentSlots = slotsObject.pactMagicSlots ?? characterData.otherVariables?.pactMagicSlots ?? 0;
-        const isUpcast = actualLevel > spellLevel;
-        slotLabel = isUpcast ? `Pact Magic (level ${actualLevel}, upcast from ${spellLevel})` : `Pact Magic (level ${actualLevel})`;
+        // Pact Magic always casts at the pact slot level - no "upcasting" terminology
+        slotLabel = `Pact Magic (level ${actualLevel})`;
         debug.log(`🔮 Using Pact Magic slot at level ${actualLevel}, current=${currentSlots}`);
       } else {
         // Regular spell slot
@@ -437,19 +439,19 @@
    * @param {string|null} resourceUsed - Description of resource used
    */
   function announceSpellCast(spell, resourceUsed) {
-    if (!resourceUsed) {
-      // If no resource specified and spell has a formula, roll it
-      if (spell.formula && typeof roll === 'function') {
-        setTimeout(() => {
-          roll(spell.name, spell.formula);
-        }, 500);
-      }
-      return;
-    }
+    const debug = window.debug || console;
 
+    // Check if spell has damage rolls (buttons will be shown)
+    const hasDamageRolls = spell.damageRolls && spell.damageRolls.length > 0;
+
+    // Build the announcement message
     const colorBanner = typeof getColoredBanner === 'function' ? getColoredBanner(characterData) : '';
-    let message = `&{template:default} {{name=${colorBanner}${spell.name}}}`;
-    message += ` {{Resource Used=${resourceUsed}}}`;
+    let message = `&{template:default} {{name=${colorBanner}${characterData.name} casts ${spell.name}!}}`;
+
+    // Add resource usage if specified
+    if (resourceUsed) {
+      message += ` {{Resource Used=${resourceUsed}}}`;
+    }
 
     const messageData = {
       action: 'announceSpell',
@@ -459,21 +461,28 @@
       color: characterData.notificationColor
     };
 
-    const debug = window.debug || console;
-
+    // Send announcement to Roll20
     // Try window.opener first (Chrome)
     if (window.opener && !window.opener.closed) {
       try {
         window.opener.postMessage(messageData, '*');
-        debug.log('✅ Spell resource usage sent via window.opener');
-        return;
+        debug.log('✅ Spell announcement sent via window.opener');
       } catch (error) {
         debug.warn('⚠️ Could not send via window.opener:', error.message);
+        // Fallback
+        if (typeof browserAPI !== 'undefined') {
+          browserAPI.runtime.sendMessage({
+            action: 'relayRollToRoll20',
+            roll: messageData
+          }, (response) => {
+            if (browserAPI.runtime.lastError) {
+              debug.error('❌ Error relaying spell announcement:', browserAPI.runtime.lastError);
+            }
+          });
+        }
       }
-    }
-
-    // Fallback
-    if (typeof browserAPI !== 'undefined') {
+    } else if (typeof browserAPI !== 'undefined') {
+      // Fallback
       browserAPI.runtime.sendMessage({
         action: 'relayRollToRoll20',
         roll: messageData
@@ -484,11 +493,15 @@
       });
     }
 
-    // Also roll if there's a formula
-    if (spell.formula && typeof roll === 'function') {
+    // Only auto-roll if there are NO damage rolls (no buttons)
+    // If there are damage rolls, the modal will handle rolling when buttons are clicked
+    if (spell.formula && typeof roll === 'function' && !hasDamageRolls) {
+      debug.log('✨ Auto-rolling spell formula (no damage rolls - no buttons)', spell.name);
       setTimeout(() => {
         roll(spell.name, spell.formula);
       }, 500);
+    } else if (hasDamageRolls) {
+      debug.log('✨ Spell has damage rolls - skipping auto-roll, modal buttons will handle it', spell.name);
     }
   }
 
