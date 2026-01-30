@@ -74,15 +74,9 @@ BEGIN
     END IF;
 END $$;
 
--- Update existing rows to add user_id_dicecloud from auth_tokens
-UPDATE public.rollcloud_characters
-SET user_id_dicecloud = (
-    SELECT user_id_dicecloud 
-    FROM public.auth_tokens 
-    WHERE user_id = user_id_dicecloud
-    LIMIT 1
-)
-WHERE user_id_dicecloud IS NULL;
+-- Note: user_id_dicecloud cannot be reliably backfilled from existing data
+-- New character syncs will populate this field automatically
+-- Existing rows will remain NULL until next sync
 
 -- Update existing rows to add created_at if null
 UPDATE public.rollcloud_characters
