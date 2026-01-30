@@ -385,11 +385,13 @@ function buildCharacterTabs(profiles, activeCharacterId) {
   // Appears to be cosmetic - character data loads fine, just tab display issue
   // Next occurrence: Check console for "📦 Found X characters" and "🌐 DB Character:" messages
 
-  // First, add database characters. Some profiles may be missing a `source`
-  // property (older records), so treat any key starting with `db-` as a
-  // database character.
+  // First, add database characters. Include both:
+  // 1. Keys starting with `db-` (direct database characters)
+  // 2. Characters with source='database' or hasCloudVersion=true (local profiles with cloud sync)
   const databaseCharacters = Object.entries(profiles).filter(([slotId, profile]) =>
-    slotId.startsWith('db-')
+    slotId.startsWith('db-') ||
+    profile.source === 'database' ||
+    profile.hasCloudVersion === true
   );
   
   // Add database character tabs
@@ -430,11 +432,17 @@ function buildCharacterTabs(profiles, activeCharacterId) {
     tabsContainer.appendChild(separator);
   }
 
-  // Create tabs for local slots
+  // Create tabs for local slots (skip characters already shown in database section)
   for (let slotNum = 1; slotNum <= maxSlots; slotNum++) {
     const slotId = `slot-${slotNum}`;
     // Find character in this slot using slotId as key
     const charInSlot = profiles[slotId];
+
+    // Skip if this character was already shown in the database section
+    if (charInSlot && (charInSlot.source === 'database' || charInSlot.hasCloudVersion === true)) {
+      debug.log(`  ⏭️ Slot ${slotNum}: ${charInSlot.name} (skipped - shown in cloud section)`);
+      continue;
+    }
 
     if (charInSlot) {
       debug.log(`  📌 Slot ${slotNum}: ${charInSlot.name} (active: ${slotId === activeCharacterId})`);
@@ -1029,6 +1037,7 @@ function buildSheet(data) {
   // Character name with source badge
   const characterName = data.name || 'Character';
   const isCloudCharacter = data.source === 'database' ||
+                           data.hasCloudVersion === true ||
                            (currentSlotId && currentSlotId.startsWith('db-')) ||
                            data.id?.startsWith('db-');
 

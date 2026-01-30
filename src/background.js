@@ -1519,6 +1519,16 @@ async function getAllCharacterProfiles() {
       if (fp) seenFingerprints.set(fp, key);
     }
 
+    // Build a lookup of database characters by ID and fingerprint for marking local profiles
+    const dbCharactersByCharId = new Map();
+    const dbCharactersByFingerprint = new Map();
+    for (const [key, profile] of Object.entries(databaseCharacters)) {
+      const charId = getCharId(profile);
+      const fp = getFingerprint(profile);
+      if (charId) dbCharactersByCharId.set(charId, { key, profile });
+      if (fp) dbCharactersByFingerprint.set(fp, { key, profile });
+    }
+
     // Process local profiles first (local saves have priority)
     for (const [key, profile] of Object.entries(localProfiles)) {
       const fp = getFingerprint(profile);
@@ -1526,6 +1536,17 @@ async function getAllCharacterProfiles() {
 
       const existingById = charId ? seenCharacterIds.get(charId) : null;
       const existingByFp = fp ? seenFingerprints.get(fp) : null;
+
+      // Check if this local profile has a database counterpart
+      const dbMatch = (charId && dbCharactersByCharId.get(charId)) ||
+                      (fp && dbCharactersByFingerprint.get(fp));
+      if (dbMatch) {
+        // Mark this local profile as having a cloud version
+        profile.source = 'database';
+        profile.hasCloudVersion = true;
+        profile.cloudSlotId = dbMatch.key;
+        debug.log(`☁️ Local profile "${profile.name || profile.character_name}" has cloud version, marking as database source`);
+      }
 
       // If there's an existing entry with the same character ID, decide
       // whether to replace it. Prefer local `slot-` keys over DB keys.
@@ -1564,7 +1585,7 @@ async function getAllCharacterProfiles() {
         markSeen(profile, key);
         mergedProfiles[key] = profile;
       } else {
-        debug.log(`🔒 Skipping database character ${key} because a local version exists`);
+        debug.log(`🔒 Skipping database character ${key} because a local version exists (but marked with cloud source)`);
       }
     }
 
