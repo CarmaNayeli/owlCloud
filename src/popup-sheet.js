@@ -215,7 +215,7 @@ window.addEventListener('message', async (event) => {
   } else if (event.data && event.data.action === 'requestStatusData') {
     // Status bar is requesting current character status
     debug.log('📊 Status bar requesting data');
-    sendStatusUpdate();
+    sendStatusUpdate(event.source);
   }
 });
 
@@ -14735,24 +14735,36 @@ function initStatusBarButton() {
 /**
  * Send status update to status bar window
  */
-function sendStatusUpdate() {
-  if (!statusBarWindow || statusBarWindow.closed) return;
+function sendStatusUpdate(targetWindow = null) {
+  // Use provided target window or the stored statusBarWindow
+  const target = targetWindow || statusBarWindow;
+
+  if (!target || target.closed) {
+    debug.log('📊 No valid status bar window to send to');
+    return;
+  }
+
+  if (!characterData) {
+    debug.log('📊 No character data available to send');
+    return;
+  }
 
   const statusData = {
     action: 'updateStatusData',
     data: {
       name: characterData.name || characterData.character_name,
       hitPoints: characterData.hitPoints || characterData.hit_points,
-      concentrating: characterData.concentrating || false,
-      concentrationSpell: characterData.concentrationSpell || '',
-      activeBuffs: characterData.activeBuffs || [],
-      activeDebuffs: characterData.activeDebuffs || [],
+      temporaryHP: characterData.temporaryHP || 0,
+      concentrating: !!concentratingSpell,
+      concentrationSpell: concentratingSpell || '',
+      activeBuffs: activeBuffs || [],
+      activeDebuffs: activeConditions || [],
       spellSlots: characterData.spellSlots || {}
     }
   };
 
-  statusBarWindow.postMessage(statusData, '*');
-  debug.log('📊 Sent status update to status bar');
+  target.postMessage(statusData, '*');
+  debug.log('📊 Sent status update to status bar', statusData.data);
 }
 
 // Check if opened from GM panel and request character data
