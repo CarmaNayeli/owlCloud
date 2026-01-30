@@ -581,7 +581,8 @@ class SupabaseTokenManager {
         if (pairingResponse.ok) {
           const pairings = await pairingResponse.json();
           if (pairings.length > 0) {
-            payload.pairing_id = pairings[0].id;
+            // TODO: pairing_id field requires database migration - commented out for now
+            // payload.pairing_id = pairings[0].id;
             payload.discord_user_id = pairings[0].discord_user_id;
           }
         }

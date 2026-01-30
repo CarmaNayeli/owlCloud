@@ -3063,7 +3063,8 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
       if (pairingResponse.ok) {
         const pairings = await pairingResponse.json();
         if (pairings.length > 0) {
-          payload.pairing_id = pairings[0].id;
+          // TODO: pairing_id field requires database migration - commented out for now
+          // payload.pairing_id = pairings[0].id;
           payload.discord_user_id = pairings[0].discord_user_id;
           debug.log('✅ Linked to pairing:', pairings[0].id);
         }
@@ -3110,7 +3111,8 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
             const pairings = await pairingResponse.json();
             if (pairings.length > 0 && pairings[0].discord_user_id) {
               discordUserId = pairings[0].discord_user_id;
-              payload.pairing_id = pairings[0].id;
+              // TODO: pairing_id field requires database migration - commented out for now
+              // payload.pairing_id = pairings[0].id;
               debug.log('✅ Found Discord user ID from pairings:', discordUserId);
               debug.log('✅ Linked to pairing:', pairings[0].id);
               // Also update auth_tokens so future lookups are faster
@@ -3152,7 +3154,8 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
               const pairings = await pairingResponse.json();
               if (pairings.length > 0 && pairings[0].discord_user_id) {
                 discordUserId = pairings[0].discord_user_id;
-                payload.pairing_id = pairings[0].id;
+                // TODO: pairing_id field requires database migration - commented out for now
+                // payload.pairing_id = pairings[0].id;
                 debug.log('✅ Found Discord user ID from stored pairing:', discordUserId);
                 debug.log('✅ Linked to pairing:', pairings[0].id);
                 // Also update auth_tokens with all Discord info
