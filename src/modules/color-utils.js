@@ -63,7 +63,11 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = { getColorEmoji, getColorName, getColoredBanner };
 }
 
-// Make available globally for popup-sheet.js
+// Make available globally for popup-sheet.js (both as ColorUtils namespace and individual functions)
 if (typeof window !== 'undefined') {
   window.ColorUtils = { getColorEmoji, getColorName, getColoredBanner };
+  // Also export individual functions to globalThis for direct access
+  window.getColorEmoji = getColorEmoji;
+  window.getColorName = getColorName;
+  window.getColoredBanner = getColoredBanner;
 }
