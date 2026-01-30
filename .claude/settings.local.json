@@ -11,7 +11,9 @@
       "Bash(npm view:*)",
       "Bash(for cmd in actions characters check sheet spells stats)",
       "Bash(do echo \"Fixing $cmd.js...\")",
-      "Bash(powershell -Command:*)"
+      "Bash(powershell -Command:*)",
+      "Bash(git merge:*)",
+      "Read(//c/Users/c_dow/rollCloud/**)"
     ]
   }
 }

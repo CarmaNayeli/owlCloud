@@ -1208,7 +1208,7 @@
           if (!isMetamagicFeature && (feature.roll || feature.damage)) {
             characterData.actions.push({
               name: feature.name,
-              actionType: 'feature',
+              actionType: 'action', // Features with rolls are typically actions
               attackRoll: '',
               damage: feature.damage || feature.roll,
               damageType: '',
@@ -1403,9 +1403,11 @@
                 debug.log(`🔘 shouldAddToActions for "${toggleFeature.name}": ${shouldAddToActions} (isDamageEffect=${isDamageEffect})`);
 
                 if (shouldAddToActions) {
+                  // Features with damage/roll default to 'action', others keep explicit type or default to 'other'
+                  const defaultType = (hasValidRoll || hasValidDamage) ? 'action' : 'other';
                   characterData.actions.push({
                     name: toggleFeature.name,
-                    actionType: child.actionType || 'feature',
+                    actionType: child.actionType || defaultType,
                     attackRoll: '',
                     damage: toggleFeature.damage || toggleFeature.roll,
                     damageType: child.damageType || '',
@@ -2291,7 +2293,7 @@
               const action = {
                 _id: prop._id, // Include DiceCloud property ID for syncing
                 name: prop.name,
-                actionType: prop.actionType || 'other',
+                actionType: prop.actionType || (attackRoll ? 'action' : 'other'), // Attacks default to 'action'
                 attackRoll: attackRoll,
                 damage: damage,
                 damageType: damageType,
@@ -2646,7 +2648,11 @@
       /mount/i,
       /steel defender/i,
       /homunculus/i,
-      /drake/i
+      /drake/i,
+      /drake warden/i,
+      /primal companion/i,
+      /beast master/i,
+      /ranger's companion/i
     ];
 
     debug.log('🐾 Total features to check:', characterData.features.length);
