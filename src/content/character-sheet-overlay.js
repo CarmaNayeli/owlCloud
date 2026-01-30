@@ -2229,6 +2229,9 @@
         <div class="status-effects-row" id="status-effects-row">
           <span class="status-no-effects">No effects</span>
         </div>
+
+        <!-- Resize Handle -->
+        <div class="status-resize-handle" id="status-resize-handle"></div>
       </div>
     `;
 
@@ -2241,6 +2244,8 @@
         bottom: 20px;
         right: 20px;
         width: 150px;
+        min-width: 120px;
+        max-width: 300px;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         font-size: 11px;
         z-index: 999997;
@@ -2257,6 +2262,7 @@
         display: flex;
         flex-direction: column;
         gap: 4px;
+        position: relative;
       }
 
       .status-bar-header {
@@ -2507,6 +2513,35 @@
         text-align: center;
         width: 100%;
       }
+
+      /* Resize Handle */
+      .status-resize-handle {
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        width: 16px;
+        height: 16px;
+        cursor: nwse-resize;
+        background: linear-gradient(135deg, transparent 50%, #4ECDC4 50%);
+        border-radius: 0 0 8px 0;
+        opacity: 0.5;
+        transition: opacity 0.2s;
+      }
+
+      .status-resize-handle:hover {
+        opacity: 1;
+      }
+
+      .status-resize-handle::before {
+        content: '';
+        position: absolute;
+        bottom: 3px;
+        right: 3px;
+        width: 6px;
+        height: 6px;
+        border-right: 2px solid #1a1a1a;
+        border-bottom: 2px solid #1a1a1a;
+      }
     `;
 
     document.head.appendChild(style);
@@ -2529,6 +2564,9 @@
 
     // Make status bar draggable
     makeStatusBarDraggable();
+
+    // Make status bar resizable
+    makeStatusBarResizable();
 
     // Load character data
     loadStatusBarData();
@@ -2676,12 +2714,12 @@
         padding: 5px 0;
       `;
 
-      const resetOption = document.createElement('div');
-      resetOption.textContent = '🔄 Reset Position';
-      resetOption.style.cssText = `padding: 8px 16px; cursor: pointer; font-size: 14px;`;
-      resetOption.addEventListener('mouseenter', () => resetOption.style.background = '#f0f0f0');
-      resetOption.addEventListener('mouseleave', () => resetOption.style.background = 'white');
-      resetOption.addEventListener('click', () => {
+      const resetPositionOption = document.createElement('div');
+      resetPositionOption.textContent = '🔄 Reset Position';
+      resetPositionOption.style.cssText = `padding: 8px 16px; cursor: pointer; font-size: 14px;`;
+      resetPositionOption.addEventListener('mouseenter', () => resetPositionOption.style.background = '#f0f0f0');
+      resetPositionOption.addEventListener('mouseleave', () => resetPositionOption.style.background = 'white');
+      resetPositionOption.addEventListener('click', () => {
         localStorage.removeItem('rollcloud-status-bar_position');
         statusBar.style.left = 'auto';
         statusBar.style.top = 'auto';
@@ -2691,12 +2729,77 @@
         showNotification('Status bar position reset', 'success');
       });
 
-      menu.appendChild(resetOption);
+      const resetSizeOption = document.createElement('div');
+      resetSizeOption.textContent = '📐 Reset Size';
+      resetSizeOption.style.cssText = `padding: 8px 16px; cursor: pointer; font-size: 14px; border-top: 1px solid #eee;`;
+      resetSizeOption.addEventListener('mouseenter', () => resetSizeOption.style.background = '#f0f0f0');
+      resetSizeOption.addEventListener('mouseleave', () => resetSizeOption.style.background = 'white');
+      resetSizeOption.addEventListener('click', () => {
+        localStorage.removeItem('rollcloud-status-bar_size');
+        statusBar.style.width = '150px';
+        menu.remove();
+        showNotification('Status bar size reset', 'success');
+      });
+
+      menu.appendChild(resetPositionOption);
+      menu.appendChild(resetSizeOption);
       document.body.appendChild(menu);
 
       setTimeout(() => {
         document.addEventListener('click', () => menu.remove(), { once: true });
       }, 0);
+    });
+  }
+
+  /**
+   * Makes the status bar resizable
+   */
+  function makeStatusBarResizable() {
+    const statusBar = statusBarElement;
+    const resizeHandle = document.getElementById('status-resize-handle');
+    let isResizing = false;
+    let startX, startWidth;
+
+    // Load saved size
+    const savedSize = localStorage.getItem('rollcloud-status-bar_size');
+    if (savedSize) {
+      const { width } = JSON.parse(savedSize);
+      if (width >= 120 && width <= 300) {
+        statusBar.style.width = `${width}px`;
+      }
+    }
+
+    resizeHandle.addEventListener('mousedown', (e) => {
+      isResizing = true;
+      startX = e.clientX;
+      startWidth = statusBar.offsetWidth;
+      e.preventDefault();
+      e.stopPropagation();
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isResizing) return;
+
+      const deltaX = e.clientX - startX;
+      let newWidth = startWidth + deltaX;
+
+      // Clamp to min/max
+      newWidth = Math.max(120, Math.min(300, newWidth));
+
+      requestAnimationFrame(() => {
+        statusBar.style.width = `${newWidth}px`;
+      });
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (isResizing) {
+        isResizing = false;
+
+        // Save size
+        localStorage.setItem('rollcloud-status-bar_size', JSON.stringify({
+          width: statusBar.offsetWidth
+        }));
+      }
     });
   }
 
