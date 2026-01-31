@@ -510,13 +510,19 @@ function populateAbilitiesTab(character) {
 
     html += `
       <div class="ability-box ${isProficient ? 'save-proficient' : ''}">
-        <div style="cursor: pointer; padding: 4px;" onclick="rollAbilityCheck('${abilityLabel}', ${modifier})" title="Click to roll ${abilityLabel} check">
+        <div style="padding: 8px; text-align: center;">
           <div class="ability-name">${abilityLabel}</div>
-          <div class="ability-modifier">${modifier >= 0 ? '+' : ''}${modifier}</div>
-          <div class="ability-score">${score}</div>
+          <div class="ability-score" style="font-size: 18px; font-weight: bold;">${score}</div>
         </div>
-        <div style="cursor: pointer; padding: 4px; margin-top: 4px; border-top: 1px solid rgba(139, 92, 246, 0.3);" onclick="rollSavingThrow('${abilityLabel}', ${saveMod})" title="Click to roll ${abilityLabel} save">
-          <div class="ability-score" style="color: ${isProficient ? '#10B981' : '#A78BFA'}; font-size: 11px;">Save: ${saveMod >= 0 ? '+' : ''}${saveMod}</div>
+        <div style="display: flex; border-top: 1px solid rgba(139, 92, 246, 0.3);">
+          <div style="flex: 1; padding: 6px; cursor: pointer; text-align: center; border-right: 1px solid rgba(139, 92, 246, 0.3);" onclick="rollAbilityCheck('${abilityLabel}', ${modifier})" title="Roll ${abilityLabel} check">
+            <div style="font-size: 11px; color: #A78BFA;">Check</div>
+            <div style="font-weight: bold;">${modifier >= 0 ? '+' : ''}${modifier}</div>
+          </div>
+          <div style="flex: 1; padding: 6px; cursor: pointer; text-align: center;" onclick="rollSavingThrow('${abilityLabel}', ${saveMod})" title="Roll ${abilityLabel} save">
+            <div style="font-size: 11px; color: ${isProficient ? '#10B981' : '#A78BFA'};">Save</div>
+            <div style="font-weight: bold; color: ${isProficient ? '#10B981' : 'inherit'};">${saveMod >= 0 ? '+' : ''}${saveMod}</div>
+          </div>
         </div>
       </div>
     `;
@@ -658,7 +664,7 @@ function populateActionsTab(character) {
       let damageFormula = damage;
 
       const hasRollAction = attackRoll || damage;
-      const rollButtonHtml = hasRollAction ? `<button class="rest-btn" style="margin-top: 8px; width: 100%;" onclick="event.stopPropagation(); rollAttack('${(action.name || 'Action').replace(/'/g, "\\'")}', ${attackBonus}, '${damageFormula}')">🎲 Roll Attack</button>` : '';
+      const rollButtonHtml = hasRollAction ? `<button class="rest-btn" style="margin-top: 8px; width: 100%; display: block;" onclick="event.stopPropagation(); rollAttack('${(action.name || 'Action').replace(/'/g, "\\'")}', ${attackBonus}, '${damageFormula}')">🎲 Roll Attack</button>` : '';
 
       html += `
         <div class="feature-card">
@@ -810,7 +816,7 @@ function populateSpellsTab(character) {
       const duration = spell.duration || '';
       const spellLevel = parseInt(spell.level) || 0;
 
-      const castButtonHtml = `<button class="rest-btn" style="margin-top: 8px; width: 100%;" onclick="event.stopPropagation(); castSpell('${(spell.name || 'Unknown Spell').replace(/'/g, "\\'")}', ${spellLevel})">✨ Cast Spell</button>`;
+      const castButtonHtml = `<button class="rest-btn" style="margin-top: 8px; width: 100%; display: block;" onclick="event.stopPropagation(); castSpell('${(spell.name || 'Unknown Spell').replace(/'/g, "\\'")}', ${spellLevel})">✨ Cast Spell</button>`;
 
       html += `
         <div class="spell-card ${isConcentration ? 'concentration' : ''} ${isRitual ? 'ritual' : ''}">
