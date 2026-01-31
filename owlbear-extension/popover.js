@@ -599,8 +599,8 @@ function populateFeaturesTab(character) {
       filteredFeatures.forEach((feature, index) => {
         const featureId = `feature-${index}`;
         html += `
-          <div class="feature-card" onclick="toggleFeatureCard('${featureId}')">
-            <div class="feature-header">
+          <div class="feature-card">
+            <div class="feature-header" onclick="toggleFeatureCard('${featureId}')" style="cursor: pointer;">
               <div class="feature-name">${feature.name || 'Unknown Feature'}</div>
               <span class="expand-icon">▼</span>
             </div>
@@ -661,8 +661,8 @@ function populateActionsTab(character) {
       const rollButtonHtml = hasRollAction ? `<button class="rest-btn" style="margin-top: 8px; width: 100%;" onclick="event.stopPropagation(); rollAttack('${(action.name || 'Action').replace(/'/g, "\\'")}', ${attackBonus}, '${damageFormula}')">🎲 Roll Attack</button>` : '';
 
       html += `
-        <div class="feature-card" onclick="toggleFeatureCard('${actionId}')">
-          <div class="feature-header">
+        <div class="feature-card">
+          <div class="feature-header" onclick="toggleFeatureCard('${actionId}')" style="cursor: pointer;">
             <div class="feature-name">${action.name || 'Unknown Action'}</div>
             <span class="expand-icon">▼</span>
           </div>
@@ -813,8 +813,8 @@ function populateSpellsTab(character) {
       const castButtonHtml = `<button class="rest-btn" style="margin-top: 8px; width: 100%;" onclick="event.stopPropagation(); castSpell('${(spell.name || 'Unknown Spell').replace(/'/g, "\\'")}', ${spellLevel})">✨ Cast Spell</button>`;
 
       html += `
-        <div class="spell-card ${isConcentration ? 'concentration' : ''} ${isRitual ? 'ritual' : ''}" onclick="toggleFeatureCard('${spellCardId}')">
-          <div class="spell-card-header">
+        <div class="spell-card ${isConcentration ? 'concentration' : ''} ${isRitual ? 'ritual' : ''}">
+          <div class="spell-card-header" onclick="toggleFeatureCard('${spellCardId}')" style="cursor: pointer;">
             <span class="spell-name">${spell.name || 'Unknown Spell'}</span>
             <div class="spell-badges">
               ${isConcentration ? '<span class="spell-concentration-badge">C</span>' : ''}
