@@ -532,22 +532,31 @@ function populateActionsTab(character) {
 
   // Features & Traits Section
   if (character.features && character.features.length > 0) {
-    const featuresId = 'features-list-' + Date.now();
-    html += `<div class="section-header collapsible" onclick="toggleCollapsible('${featuresId}')">Features & Traits (${character.features.length})</div>`;
-    html += `<div id="${featuresId}" class="collapsible-content">`;
-    html += '<div class="feature-list">';
-
-    character.features.forEach(feature => {
-      html += `
-        <div class="feature-card">
-          <div class="feature-name">${feature.name || 'Unknown Feature'}</div>
-          ${feature.description ? `<div class="feature-description">${feature.description}</div>` : ''}
-        </div>
-      `;
+    // Filter out generic spellcasting features
+    const filteredFeatures = character.features.filter(feature => {
+      const name = (feature.name || '').toLowerCase();
+      // Exclude generic spellcasting features
+      return !name.match(/^spellcasting\s*\[/i) && name !== 'spellcasting';
     });
 
-    html += '</div>';
-    html += '</div>';
+    if (filteredFeatures.length > 0) {
+      const featuresId = 'features-list-' + Date.now();
+      html += `<div class="section-header collapsible" onclick="toggleCollapsible('${featuresId}')">Features & Traits (${filteredFeatures.length})</div>`;
+      html += `<div id="${featuresId}" class="collapsible-content">`;
+      html += '<div class="feature-list">';
+
+      filteredFeatures.forEach(feature => {
+        html += `
+          <div class="feature-card">
+            <div class="feature-name">${feature.name || 'Unknown Feature'}</div>
+            ${feature.description ? `<div class="feature-description">${feature.description}</div>` : ''}
+          </div>
+        `;
+      });
+
+      html += '</div>';
+      html += '</div>';
+    }
   }
 
   // Actions Section
