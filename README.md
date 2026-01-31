@@ -1,6 +1,6 @@
 # OwlCloud
 
-**Seamlessly integrate your DiceCloud V2 characters into Owlbear Rodeo with full Discord support.**
+**Seamlessly integrate your DiceCloud V2 characters into Owlbear Rodeo.**
 
 OwlCloud bridges DiceCloud character sheets with Owlbear Rodeo's virtual tabletop, allowing you to view character data, roll dice, and track resources directly in your game sessions.
 
@@ -79,6 +79,13 @@ Displays your character sheet UI and handles dice rolling inside Owlbear Rodeo.
 - Seamless popover UI within the VTT
 - Character selection and switching
 - Persistent room metadata for chat history
+
+---
+
+## 🚀 Coming Soon
+
+### 💬 Discord Integration
+Roll dice and view character sheets directly from Discord. Get turn notifications, share rolls with your party, and manage your character without leaving your voice channel.
 
 ---
 
