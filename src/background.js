@@ -1369,7 +1369,7 @@ async function getAllCharacterProfiles() {
         if (currentDicecloudUserId) {
           // Get all characters for this user from database
           const response = await fetch(
-            `${supabase.supabaseUrl}/rest/v1/owlcloud_characters?user_id_dicecloud=eq.${currentDicecloudUserId}&select=*`,
+            `${supabase.supabaseUrl}/rest/v1/rollcloud_characters?user_id_dicecloud=eq.${currentDicecloudUserId}&select=*`,
             {
               headers: {
                 'apikey': supabase.supabaseKey,
@@ -1626,7 +1626,7 @@ async function getCharacterDataFromDatabase(characterId) {
     // a storage key, or a DB primary key. Query order: exact dicecloud_character_id,
     // dicecloud_character_id prefixed with/without `db-`, then primary `id`.
     const tryQuery = async (field, value) => {
-      const url = `${supabase.supabaseUrl}/rest/v1/owlcloud_characters?${field}=eq.${encodeURIComponent(value)}${userFilter}&select=*&order=updated_at.desc&limit=1`;
+      const url = `${supabase.supabaseUrl}/rest/v1/rollcloud_characters?${field}=eq.${encodeURIComponent(value)}${userFilter}&select=*&order=updated_at.desc&limit=1`;
       const resp = await fetch(url, {
         headers: {
           'apikey': supabase.supabaseKey,
@@ -1878,7 +1878,7 @@ async function markCharacterActiveInSupabase(characterId, characterName) {
 
     // First, get the Discord user ID for this character
     const pairingResponse = await fetch(
-      `${SUPABASE_URL}/rest/v1/owlcloud_characters?dicecloud_character_id=eq.${characterId}&select=discord_user_id`,
+      `${SUPABASE_URL}/rest/v1/rollcloud_characters?dicecloud_character_id=eq.${characterId}&select=discord_user_id`,
       {
         headers: {
           'apikey': SUPABASE_ANON_KEY,
@@ -1895,7 +1895,7 @@ async function markCharacterActiveInSupabase(characterId, characterName) {
         if (discordUserId && discordUserId !== 'not_linked') {
           // Deactivate all other characters for this user
           await fetch(
-            `${SUPABASE_URL}/rest/v1/owlcloud_characters?discord_user_id=eq.${discordUserId}`,
+            `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}`,
             {
               method: 'PATCH',
               headers: {
@@ -1909,7 +1909,7 @@ async function markCharacterActiveInSupabase(characterId, characterName) {
 
           // Activate this character
           const updateResponse = await fetch(
-            `${SUPABASE_URL}/rest/v1/owlcloud_characters?dicecloud_character_id=eq.${characterId}`,
+            `${SUPABASE_URL}/rest/v1/rollcloud_characters?dicecloud_character_id=eq.${characterId}`,
             {
               method: 'PATCH',
               headers: {
@@ -2023,7 +2023,7 @@ async function deleteCharacterFromCloud(characterId) {
     let deleted = false;
     for (const idToDelete of idsToTry) {
       const response = await fetch(
-        `${SUPABASE_URL}/rest/v1/owlcloud_characters?dicecloud_character_id=eq.${encodeURIComponent(idToDelete)}`,
+        `${SUPABASE_URL}/rest/v1/rollcloud_characters?dicecloud_character_id=eq.${encodeURIComponent(idToDelete)}`,
         {
           method: 'DELETE',
           headers: {
@@ -2636,7 +2636,7 @@ async function linkDiscordUserToCharacters(discordUserId, diceCloudUserId) {
 
     // Update characters that have user_id_dicecloud matching but discord_user_id is 'not_linked'
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/owlcloud_characters?user_id_dicecloud=eq.${diceCloudUserId}&discord_user_id=eq.not_linked`,
+      `${SUPABASE_URL}/rest/v1/rollcloud_characters?user_id_dicecloud=eq.${diceCloudUserId}&discord_user_id=eq.not_linked`,
       {
         method: 'PATCH',
         headers: {
@@ -3057,7 +3057,7 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
     // This handles cases where the same character was stored with different IDs
     try {
       const deleteResponse = await fetch(
-        `${SUPABASE_URL}/rest/v1/owlcloud_characters?user_id_dicecloud=eq.${encodeURIComponent(payload.user_id_dicecloud)}&character_name=eq.${encodeURIComponent(payload.character_name)}`,
+        `${SUPABASE_URL}/rest/v1/rollcloud_characters?user_id_dicecloud=eq.${encodeURIComponent(payload.user_id_dicecloud)}&character_name=eq.${encodeURIComponent(payload.character_name)}`,
         {
           method: 'DELETE',
           headers: {
@@ -3077,7 +3077,7 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
 
     // Insert the new character record
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/owlcloud_characters`,
+      `${SUPABASE_URL}/rest/v1/rollcloud_characters`,
       {
         method: 'POST',
         headers: {
@@ -3096,7 +3096,7 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
 
       // Try PATCH (update) instead
       const updateResponse = await fetch(
-        `${SUPABASE_URL}/rest/v1/owlcloud_characters?dicecloud_character_id=eq.${characterData.id}`,
+        `${SUPABASE_URL}/rest/v1/rollcloud_characters?dicecloud_character_id=eq.${characterData.id}`,
         {
           method: 'PATCH',
           headers: {
@@ -3152,7 +3152,7 @@ async function syncCharacterColorToSupabase(characterId, color) {
 
     // Update only the notification_color field
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/owlcloud_characters?dicecloud_character_id=eq.${characterId}`,
+      `${SUPABASE_URL}/rest/v1/rollcloud_characters?dicecloud_character_id=eq.${characterId}`,
       {
         method: 'PATCH',
         headers: {
@@ -3673,7 +3673,7 @@ async function getUserCharactersFromCloud(pairingId = null) {
           
           // Get characters for this Discord user
           const charsResponse = await fetch(
-            `${SUPABASE_URL}/rest/v1/owlcloud_characters?discord_user_id=eq.${discordUserId}&select=character_name,level,race,class,is_active,updated_at&order=updated_at.desc`,
+            `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}&select=character_name,level,race,class,is_active,updated_at&order=updated_at.desc`,
             {
               headers: {
                 'apikey': SUPABASE_ANON_KEY,

@@ -2272,7 +2272,7 @@ function initializePopup() {
               : `user_id_dicecloud=eq.${dicecloudUserId}&is_active=eq.true`;
 
             const charResponse = await fetch(
-              `${supabaseManager.supabaseUrl}/rest/v1/owlcloud_characters?${charQuery}&select=*&limit=1`,
+              `${supabaseManager.supabaseUrl}/rest/v1/rollcloud_characters?${charQuery}&select=*&limit=1`,
               {
                 headers: {
                   'apikey': supabaseManager.supabaseKey,
