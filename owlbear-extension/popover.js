@@ -509,11 +509,11 @@ function populateAbilitiesTab(character) {
     const abilityLabel = abilityShortNames[abilityName];
 
     html += `
-      <div class="ability-box ${isProficient ? 'save-proficient' : ''}" onclick="rollAbilityCheck('${abilityLabel}', ${modifier})" title="Click to roll ${abilityLabel} check">
+      <div class="ability-box ${isProficient ? 'save-proficient' : ''}" onclick="promptAbilityRoll('${abilityLabel}', ${modifier}, ${saveMod})" title="Click to roll ${abilityLabel} check or save">
         <div class="ability-name">${abilityLabel}</div>
         <div class="ability-modifier">${modifier >= 0 ? '+' : ''}${modifier}</div>
         <div class="ability-score">${score}</div>
-        ${isProficient ? `<div class="ability-score" style="color: #10B981; cursor: pointer;" onclick="event.stopPropagation(); rollSavingThrow('${abilityLabel}', ${saveMod});">Save: ${saveMod >= 0 ? '+' : ''}${saveMod}</div>` : ''}
+        ${isProficient ? `<div class="ability-score" style="color: #10B981;">Save: ${saveMod >= 0 ? '+' : ''}${saveMod}</div>` : ''}
       </div>
     `;
   });
@@ -1259,6 +1259,23 @@ async function showRollResult(name, result) {
   // Send to persistent chat
   await addChatMessage(message, 'roll', currentCharacter?.name);
 }
+
+/**
+ * Prompt user to choose between ability check or saving throw
+ */
+window.promptAbilityRoll = function(abilityName, checkModifier, saveModifier) {
+  const choice = window.confirm(
+    `Roll ${abilityName}:\n\n` +
+    `OK = Ability Check (${checkModifier >= 0 ? '+' : ''}${checkModifier})\n` +
+    `Cancel = Saving Throw (${saveModifier >= 0 ? '+' : ''}${saveModifier})`
+  );
+
+  if (choice) {
+    rollAbilityCheck(abilityName, checkModifier);
+  } else {
+    rollSavingThrow(abilityName, saveModifier);
+  }
+};
 
 /**
  * Roll ability check
