@@ -663,7 +663,8 @@ function populateActionsTab(character) {
       // Parse damage formula (like "1d8+3" or "2d6")
       let damageFormula = damage;
 
-      const hasRollAction = attackRoll || damage;
+      // Only show roll button if there's actual attack or damage data (not empty strings)
+      const hasRollAction = (attackRoll && attackRoll.trim()) || (damage && damage.trim());
       const rollButtonHtml = hasRollAction ? `<button class="rest-btn" style="margin-top: 8px; width: 100%; display: block;" onclick="event.stopPropagation(); rollAttack('${(action.name || 'Action').replace(/'/g, "\\'")}', ${attackBonus}, '${damageFormula}')">🎲 Roll Attack</button>` : '';
 
       html += `
