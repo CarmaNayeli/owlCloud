@@ -24,7 +24,6 @@ const ROOT = path.join(__dirname, '..'); // Parent directory (project root)
 const DIST = path.join(ROOT, isExperimental ? 'dist-experimental' : 'dist');
 const BUILD_CHROME = path.join(DIST, 'chrome');
 const BUILD_FIREFOX = path.join(DIST, 'firefox');
-const BUILD_SAFARI = path.join(DIST, 'safari');
 
 // Files and directories to include in the build
 const INCLUDE = [
@@ -65,7 +64,6 @@ if (fs.existsSync(DIST)) {
 fs.mkdirSync(DIST, { recursive: true });
 fs.mkdirSync(BUILD_CHROME, { recursive: true });
 fs.mkdirSync(BUILD_FIREFOX, { recursive: true });
-fs.mkdirSync(BUILD_SAFARI, { recursive: true });
 
 /**
  * Copy directory recursively
@@ -298,38 +296,6 @@ function buildFirefox() {
   console.log('   ✅ Firefox package built to ' + (isExperimental ? 'dist-experimental' : 'dist') + '/firefox/');
 }
 
-/**
- * Build Safari package
- */
-function buildSafari() {
-  console.log('📦 Building Safari package (Manifest V2)...');
-
-  // Copy included files
-  INCLUDE.forEach(item => {
-    const srcPath = path.join(ROOT, item);
-    const destPath = path.join(BUILD_SAFARI, item);
-
-    if (fs.existsSync(srcPath)) {
-      const stat = fs.statSync(srcPath);
-      if (stat.isDirectory()) {
-        copyDir(srcPath, destPath);
-      } else {
-        fs.copyFileSync(srcPath, destPath);
-      }
-    }
-  });
-
-  // Copy Safari-specific manifest (Manifest V2)
-  fs.copyFileSync(
-    path.join(ROOT, 'manifest_safari.json'),
-    path.join(BUILD_SAFARI, 'manifest.json')
-  );
-
-  // Process debug.js to set DEBUG flag
-  processDebugFlag(BUILD_SAFARI);
-
-  console.log('   ✅ Safari package built to dist/safari/');
-}
 
 /**
  * Create zip archives
@@ -346,7 +312,6 @@ function createZips() {
       // Use PowerShell Compress-Archive on Windows
       const chromeZip = path.join(DIST, `owlcloud-chrome${suffix}.zip`);
       const firefoxZip = path.join(DIST, `owlcloud-firefox${suffix}.zip`);
-      const safariZip = path.join(DIST, `owlcloud-safari${suffix}.zip`);
 
       // Create Chrome zip
       execSync(`powershell -Command "Compress-Archive -Path '${BUILD_CHROME}\\*' -DestinationPath '${chromeZip}' -Force"`, { stdio: 'inherit' });
@@ -355,10 +320,6 @@ function createZips() {
       // Create Firefox zip
       execSync(`powershell -Command "Compress-Archive -Path '${BUILD_FIREFOX}\\*' -DestinationPath '${firefoxZip}' -Force"`, { stdio: 'inherit' });
       console.log(`   ✅ Firefox zip: ${distPath}/owlcloud-firefox${suffix}.zip`);
-
-      // Create Safari zip
-      execSync(`powershell -Command "Compress-Archive -Path '${BUILD_SAFARI}\\*' -DestinationPath '${safariZip}' -Force"`, { stdio: 'inherit' });
-      console.log(`   ✅ Safari zip: ${distPath}/owlcloud-safari${suffix}.zip`);
     } else {
       // Use zip command on Unix-like systems
       // Create Chrome zip
@@ -370,11 +331,6 @@ function createZips() {
       process.chdir(BUILD_FIREFOX);
       execSync(`zip -r ../owlcloud-firefox${suffix}.zip . -x "*.DS_Store"`, { stdio: 'inherit' });
       console.log(`   ✅ Firefox zip: ${distPath}/owlcloud-firefox${suffix}.zip`);
-
-      // Create Safari zip
-      process.chdir(BUILD_SAFARI);
-      execSync(`zip -r ../owlcloud-safari${suffix}.zip . -x "*.DS_Store"`, { stdio: 'inherit' });
-      console.log(`   ✅ Safari zip: ${distPath}/owlcloud-safari${suffix}.zip`);
 
       process.chdir(ROOT);
     }
@@ -403,19 +359,16 @@ function showSummary() {
   console.log('📂 Output:');
   console.log(`   Chrome (MV3):  ${distPath}/chrome/`);
   console.log(`   Firefox (MV2): ${distPath}/firefox/`);
-  console.log(`   Safari (MV2):  ${distPath}/safari/`);
 
   if (fs.existsSync(path.join(DIST, `owlcloud-chrome${suffix}.zip`))) {
     console.log('\n📦 Zip files:');
     console.log(`   ${distPath}/owlcloud-chrome${suffix}.zip`);
     console.log(`   ${distPath}/owlcloud-firefox${suffix}.zip`);
-    console.log(`   ${distPath}/owlcloud-safari${suffix}.zip`);
   }
 
   console.log('\n🚀 Next steps:');
   console.log(`   Chrome:  chrome://extensions/ → Load unpacked → ${distPath}/chrome/`);
   console.log(`   Firefox: about:debugging → Load Temporary Add-on → ${distPath}/firefox/manifest.json`);
-  console.log(`   Safari:  See SAFARI.md for conversion and testing instructions`);
 
   if (isExperimental) {
     console.log('\n📚 Experimental Sync Documentation:');
@@ -429,7 +382,6 @@ function showSummary() {
 try {
   buildChrome();
   buildFirefox();
-  buildSafari();
   createZips();
   showSummary();
 } catch (error) {

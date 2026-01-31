@@ -50,8 +50,7 @@ console.log('📦 Packaging releases...\n');
 
 const zipMappings = [
   { src: 'owlcloud-chrome.zip', dest: 'owlcloud-extension-chrome.zip', name: 'Chrome' },
-  { src: 'owlcloud-firefox.zip', dest: 'owlcloud-extension-firefox.zip', name: 'Firefox' },
-  { src: 'owlcloud-safari.zip', dest: 'owlcloud-extension-safari.zip', name: 'Safari' }
+  { src: 'owlcloud-firefox.zip', dest: 'owlcloud-extension-firefox.zip', name: 'Firefox' }
 ];
 
 zipMappings.forEach(({ src, dest, name }) => {
@@ -86,7 +85,6 @@ This directory contains packaged browser extensions ready for distribution.
 - **owlcloud-extension.zip** - Universal package for Chrome and Edge (recommended)
 - **owlcloud-extension-chrome.zip** - Chrome/Edge specific package
 - **owlcloud-extension-firefox.zip** - Firefox specific package
-- **owlcloud-extension-safari.zip** - Safari specific package
 
 ## Installation Instructions
 
@@ -102,10 +100,6 @@ This directory contains packaged browser extensions ready for distribution.
 2. Open \`about:debugging#/runtime/this-firefox\`
 3. Click "Load Temporary Add-on"
 4. Select the zip file (no need to unzip)
-
-### Safari
-1. Download \`owlcloud-extension-safari.zip\`
-2. See SAFARI.md in the project root for conversion instructions
 
 ## GitHub Releases
 
@@ -129,7 +123,6 @@ console.log('📦 Files ready for distribution:');
 console.log('   • owlcloud-extension.zip (universal - Chrome/Edge)');
 console.log('   • owlcloud-extension-chrome.zip');
 console.log('   • owlcloud-extension-firefox.zip');
-console.log('   • owlcloud-extension-safari.zip');
 console.log('   • README.md');
 
 console.log('\n🚀 Next steps:');
