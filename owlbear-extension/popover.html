@@ -70,6 +70,29 @@
       box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
     }
 
+    .roll-mode-btn {
+      background: rgba(138, 92, 246, 0.1);
+      border: 1px solid rgba(138, 92, 246, 0.3);
+      color: #A78BFA;
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+      transition: all 0.2s ease;
+    }
+
+    .roll-mode-btn:hover {
+      background: rgba(138, 92, 246, 0.2);
+      border-color: rgba(138, 92, 246, 0.5);
+    }
+
+    .roll-mode-btn.active {
+      background: rgba(138, 92, 246, 0.3);
+      border-color: #8B5CF6;
+      color: #C4B5FD;
+    }
+
     .status {
       background: rgba(138, 92, 246, 0.1);
       border-left: 4px solid #8B5CF6;
@@ -844,6 +867,12 @@
         <div class="character-header-text">
           <h1 id="character-header-name">Character Name</h1>
           <p class="subtitle" id="character-header-details">Level ? Class</p>
+          <div style="display: flex; gap: 4px; align-items: center; margin-top: 8px;">
+            <span style="font-size: 11px; color: #888; margin-right: 4px;">Rolls:</span>
+            <button id="roll-advantage-btn" class="roll-mode-btn" onclick="setRollMode('advantage')" title="Advantage">^</button>
+            <button id="roll-normal-btn" class="roll-mode-btn active" onclick="setRollMode('normal')" title="Normal">|</button>
+            <button id="roll-disadvantage-btn" class="roll-mode-btn" onclick="setRollMode('disadvantage')" title="Disadvantage">⌄</button>
+          </div>
         </div>
         <img id="character-portrait" class="character-portrait" src="" alt="Character Portrait" style="display: none;">
       </div>

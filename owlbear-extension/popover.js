@@ -14,6 +14,7 @@
 let currentCharacter = null;
 let allCharacters = [];
 let isOwlbearReady = false;
+let rollMode = 'normal'; // 'advantage', 'normal', or 'disadvantage'
 
 // ============== DOM Elements ==============
 
@@ -1334,6 +1335,43 @@ async function addChatMessage(text, type = 'system', author = null) {
  * @param {string} formula - Dice formula like "1d20+5" or "2d6"
  * @returns {object} - {total, rolls, formula}
  */
+/**
+ * Set roll mode (advantage, normal, disadvantage)
+ */
+window.setRollMode = function(mode) {
+  rollMode = mode;
+
+  // Update button active states
+  document.querySelectorAll('.roll-mode-btn').forEach(btn => btn.classList.remove('active'));
+  if (mode === 'advantage') {
+    document.getElementById('roll-advantage-btn')?.classList.add('active');
+  } else if (mode === 'disadvantage') {
+    document.getElementById('roll-disadvantage-btn')?.classList.add('active');
+  } else {
+    document.getElementById('roll-normal-btn')?.classList.add('active');
+  }
+};
+
+/**
+ * Roll a d20 with advantage/disadvantage based on current roll mode
+ */
+function rollD20() {
+  if (rollMode === 'advantage') {
+    const roll1 = Math.floor(Math.random() * 20) + 1;
+    const roll2 = Math.floor(Math.random() * 20) + 1;
+    const total = Math.max(roll1, roll2);
+    return {total, rolls: [roll1, roll2], modifier: 0, formula: '2d20 (advantage)', count: 2, sides: 20, mode: 'advantage'};
+  } else if (rollMode === 'disadvantage') {
+    const roll1 = Math.floor(Math.random() * 20) + 1;
+    const roll2 = Math.floor(Math.random() * 20) + 1;
+    const total = Math.min(roll1, roll2);
+    return {total, rolls: [roll1, roll2], modifier: 0, formula: '2d20 (disadvantage)', count: 2, sides: 20, mode: 'disadvantage'};
+  } else {
+    const roll = Math.floor(Math.random() * 20) + 1;
+    return {total: roll, rolls: [roll], modifier: 0, formula: '1d20', count: 1, sides: 20, mode: 'normal'};
+  }
+}
+
 function rollDice(formula) {
   // Parse formula like "2d6+3" or "1d20"
   const match = formula.match(/(\d+)?d(\d+)([+-]\d+)?/i);
@@ -1362,7 +1400,15 @@ function rollDice(formula) {
  * Show roll result notification and send to chat
  */
 async function showRollResult(name, result) {
-  const rollsText = result.rolls.join(' + ');
+  let rollsText = result.rolls.join(' + ');
+
+  // For advantage/disadvantage, show both rolls
+  if (result.mode === 'advantage' && result.rolls.length === 2) {
+    rollsText = `[${result.rolls[0]}, ${result.rolls[1]}] = ${result.total} (adv)`;
+  } else if (result.mode === 'disadvantage' && result.rolls.length === 2) {
+    rollsText = `[${result.rolls[0]}, ${result.rolls[1]}] = ${result.total} (dis)`;
+  }
+
   const modText = result.modifier !== 0 ? ` ${result.modifier >= 0 ? '+' : ''}${result.modifier}` : '';
   const message = `🎲 ${name}: ${rollsText}${modText} = <strong>${result.total}</strong>`;
 
@@ -1379,7 +1425,7 @@ async function showRollResult(name, result) {
  * Roll ability check
  */
 window.rollAbilityCheck = async function(abilityName, modifier) {
-  const result = rollDice('1d20');
+  const result = rollD20();
   const total = result.total + modifier;
   await showRollResult(`${abilityName} Check (${modifier >= 0 ? '+' : ''}${modifier})`, {...result, total, modifier});
 };
@@ -1388,7 +1434,7 @@ window.rollAbilityCheck = async function(abilityName, modifier) {
  * Roll saving throw
  */
 window.rollSavingThrow = async function(abilityName, modifier) {
-  const result = rollDice('1d20');
+  const result = rollD20();
   const total = result.total + modifier;
   await showRollResult(`${abilityName} Save (${modifier >= 0 ? '+' : ''}${modifier})`, {...result, total, modifier});
 };
@@ -1397,7 +1443,7 @@ window.rollSavingThrow = async function(abilityName, modifier) {
  * Roll skill check
  */
 window.rollSkillCheck = async function(skillName, bonus) {
-  const result = rollDice('1d20');
+  const result = rollD20();
   const total = result.total + bonus;
   await showRollResult(`${skillName} (${bonus >= 0 ? '+' : ''}${bonus})`, {...result, total, modifier: bonus});
 };
@@ -1406,7 +1452,7 @@ window.rollSkillCheck = async function(skillName, bonus) {
  * Roll initiative
  */
 window.rollInitiative = async function(initiativeBonus) {
-  const result = rollDice('1d20');
+  const result = rollD20();
   const total = result.total + initiativeBonus;
   await showRollResult(`Initiative (${initiativeBonus >= 0 ? '+' : ''}${initiativeBonus})`, {...result, total, modifier: initiativeBonus});
 };
@@ -1452,7 +1498,7 @@ window.rollDeathSave = async function() {
  * Roll attack only (no damage)
  */
 window.rollAttackOnly = async function(actionName, attackBonus) {
-  const attackRoll = rollDice('1d20');
+  const attackRoll = rollD20();
   const attackTotal = attackRoll.total + (attackBonus || 0);
 
   let message = `⚔️ ${actionName} Attack: ${attackRoll.rolls[0]}`;
