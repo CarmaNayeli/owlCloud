@@ -4,11 +4,11 @@
   "version": "2.0.0",
   "description": "Sync DiceCloud V2 characters to Owlbear Rodeo with Discord integration",
   "author": "OwlCloud Team",
-  "icon": "icon.svg",
+  "icon": "/extension/icon.svg",
   "action": {
     "title": "OwlCloud Character",
-    "icon": "icon.svg",
-    "popover": "popover.html",
+    "icon": "/extension/icon.svg",
+    "popover": "/extension/popover.html",
     "height": 600,
     "width": 400
   }
