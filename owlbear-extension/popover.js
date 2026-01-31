@@ -1440,9 +1440,10 @@ window.adjustHP = async function() {
     OBR.notification.show(message, amount > 0 ? 'SUCCESS' : 'WARNING');
   }
 
-  // Send message to chat
+  // Send message to chat (use different type for healing vs damage)
+  const messageType = amount > 0 ? 'healing' : 'damage';
   console.log('  Sending message to chat:', message);
-  await addChatMessage(message, 'combat', currentCharacter.name);
+  await addChatMessage(message, messageType, currentCharacter.name);
 
   // Re-render stats tab
   console.log('  Re-rendering stats tab with currentCharacter:', currentCharacter.hitPoints);

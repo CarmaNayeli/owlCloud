@@ -16,7 +16,8 @@
       "Read(//c/Users/c_dow/owlCloud/**)",
       "Bash(bash:*)",
       "Bash(git reset:*)",
-      "Bash(xargs:*)"
+      "Bash(xargs:*)",
+      "Bash(npx supabase functions deploy update-character-hp)"
     ]
   }
 }
