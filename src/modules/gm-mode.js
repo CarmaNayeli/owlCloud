@@ -1,4 +1,4 @@
-/**
+﻿/**
  * GM Mode Module
  *
  * Handles GM (Game Master) mode features for Roll20 integration:
@@ -109,7 +109,7 @@
         try {
           // Create character broadcast message with ENTIRE sheet data
           const broadcastData = {
-            type: 'ROLLCLOUD_CHARACTER_BROADCAST',
+            type: 'OWLCLOUD_CHARACTER_BROADCAST',
             character: characterData,
             // Include ALL character data for complete sheet
             fullSheet: {
@@ -147,7 +147,7 @@
           // Encode the data for safe transmission (handle UTF-8 properly)
           const jsonString = JSON.stringify(broadcastData);
           const encodedData = btoa(unescape(encodeURIComponent(jsonString)));
-          const broadcastMessage = `👑[ROLLCLOUD:CHARACTER:${encodedData}]👑`;
+          const broadcastMessage = `👑[OWLCLOUD:CHARACTER:${encodedData}]👑`;
 
           // Send to Roll20 chat via parent window
           if (window.opener && !window.opener.closed) {

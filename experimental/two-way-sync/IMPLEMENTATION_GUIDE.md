@@ -1,8 +1,8 @@
-# DiceCloud Two-Way Sync Implementation Guide
+﻿# DiceCloud Two-Way Sync Implementation Guide
 
 ## Overview
 
-This guide explains how to implement two-way synchronization between RollCloud and DiceCloud using Meteor's DDP protocol.
+This guide explains how to implement two-way synchronization between OwlCloud and DiceCloud using Meteor's DDP protocol.
 
 ## Architecture
 

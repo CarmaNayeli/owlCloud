@@ -1,4 +1,4 @@
-# RollCloud Build Script for PowerShell
+﻿# OwlCloud Build Script for PowerShell
 # Builds browser-specific distributions
 
 param(
@@ -10,7 +10,7 @@ param(
 $BUILD_DIR = "dist"
 $VERSION = (Get-Content manifest.json | ConvertFrom-Json).version
 
-Write-Host "🚀 RollCloud Build Script v$VERSION" -ForegroundColor Cyan
+Write-Host "🚀 OwlCloud Build Script v$VERSION" -ForegroundColor Cyan
 Write-Host ""
 
 function Build-Chrome {
@@ -51,7 +51,7 @@ function Build-Firefox {
 
 function Package-Chrome {
     Write-Host "📦 Packaging Chrome extension..." -ForegroundColor Cyan
-    $zipPath = Join-Path $BUILD_DIR "rollcloud-chrome-$VERSION.zip"
+    $zipPath = Join-Path $BUILD_DIR "owlcloud-chrome-$VERSION.zip"
     
     if (Test-Path $zipPath) {
         Remove-Item -Force $zipPath
@@ -64,7 +64,7 @@ function Package-Chrome {
 
 function Package-Firefox {
     Write-Host "📦 Packaging Firefox add-on..." -ForegroundColor Cyan
-    $zipPath = Join-Path $BUILD_DIR "rollcloud-firefox-$VERSION.zip"
+    $zipPath = Join-Path $BUILD_DIR "owlcloud-firefox-$VERSION.zip"
     
     if (Test-Path $zipPath) {
         Remove-Item -Force $zipPath

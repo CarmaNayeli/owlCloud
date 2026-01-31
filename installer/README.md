@@ -1,6 +1,6 @@
-# RollCloud Setup Wizard
+﻿# OwlCloud Setup Wizard
 
-One-time installer that sets up the RollCloud browser extension and connects it to Discord via Pip Bot.
+One-time installer that sets up the OwlCloud browser extension and connects it to Discord via Pip Bot.
 
 ## What It Does
 
@@ -15,9 +15,9 @@ One-time installer that sets up the RollCloud browser extension and connects it 
 
 Download the installer for your platform from [Releases](https://github.com/CarmaNayeli/rollCloud/releases):
 
-- **Windows**: `RollCloud-Setup-1.0.0.exe`
-- **macOS**: `RollCloud-Setup-1.0.0.dmg`
-- **Linux**: `RollCloud-Setup-1.0.0.AppImage`
+- **Windows**: `OwlCloud-Setup-1.0.0.exe`
+- **macOS**: `OwlCloud-Setup-1.0.0.dmg`
+- **Linux**: `OwlCloud-Setup-1.0.0.AppImage`
 
 ### Requirements
 
@@ -30,7 +30,7 @@ Download the installer for your platform from [Releases](https://github.com/Carm
 1. Run the installer
 2. Select your browser
 3. Click "Add Pip Bot to Discord" and authorize it
-4. Type the pairing code in Discord: `/rollcloud XXXXXX`
+4. Type the pairing code in Discord: `/owlcloud XXXXXX`
 5. Done! Close the installer.
 
 ## For Developers
@@ -103,7 +103,7 @@ installer/
 - Similar mechanism, Chrome reads on startup
 
 #### Chrome/Edge (Linux)
-- Writes JSON to `/etc/opt/chrome/policies/managed/rollcloud.json`
+- Writes JSON to `/etc/opt/chrome/policies/managed/owlcloud.json`
 - Chrome reads this directory for policies
 
 #### Firefox (All platforms)

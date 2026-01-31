@@ -1,4 +1,4 @@
-# 🎯 Automatic Extension Deployment - Updated Installer
+﻿# 🎯 Automatic Extension Deployment - Updated Installer
 
 ## ✅ What's Now Fixed
 
@@ -18,7 +18,7 @@ The installer now **automatically configures Chrome and Firefox policies** for e
 1. **Chrome/Edge**: Automatically creates registry entries:
    ```
    HKLM\SOFTWARE\Policies\Google\Chrome\ExtensionInstallForcelist
-   Value: "mkckngoemfjdkhcpaomdndlecolckgdj;https://raw.githubusercontent.com/CarmaNayeli/rollCloud/main/updates/update_manifest.xml"
+   Value: "mkckngoemfjdkhcpaomdndlecolckgdj;https://raw.githubusercontent.com/CarmaNayeli/owlCloud/main/updates/update_manifest.xml"
    ```
 
 2. **Firefox**: Automatically creates distribution policies:
@@ -26,7 +26,7 @@ The installer now **automatically configures Chrome and Firefox policies** for e
    {
      "policies": {
        "ExtensionSettings": {
-         "rollcloud@dicecat.dev": {
+         "owlcloud@dicecat.dev": {
            "installation_mode": "force_installed",
            "install_url": "https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-firefox-signed.xpi"
          }
@@ -50,9 +50,9 @@ The installer now **automatically configures Chrome and Firefox policies** for e
 ### 🔍 Verification
 
 After installation:
-1. **Check Chrome**: `chrome://extensions/` - RollCloud should appear
+1. **Check Chrome**: `chrome://extensions/` - OwlCloud should appear
 2. **Check Chrome**: `chrome://policy/` - Verify policies applied
-3. **Check Firefox**: `about:addons` - RollCloud should appear
+3. **Check Firefox**: `about:addons` - OwlCloud should appear
 4. **Test functionality** on DiceCloud/Roll20
 
 ### 🎯 Expected Behavior
@@ -73,7 +73,7 @@ After installation:
 
 ## 🚀 Test It Now
 
-1. **Run the updated installer**: `RollCloud Setup Setup 1.2.0.exe`
+1. **Run the updated installer**: `OwlCloud Setup Setup 1.2.0.exe`
 2. **Select Chrome** (or Firefox)
 3. **Restart browser** when prompted
 4. **Verify extension appears** automatically

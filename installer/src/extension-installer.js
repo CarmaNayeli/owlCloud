@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Extension Installer Module
  * Handles enterprise policy installation for Chrome/Firefox on Windows/macOS/Linux
  */
@@ -21,7 +21,7 @@ const BROWSER_CONFIG = {
       plistKey: 'ExtensionInstallForcelist'
     },
     linux: {
-      jsonPath: '/etc/opt/chrome/policies/managed/rollcloud.json',
+      jsonPath: '/etc/opt/chrome/policies/managed/owlcloud.json',
       jsonKey: 'ExtensionInstallForcelist'
     }
   },
@@ -113,7 +113,7 @@ async function installWindowsPolicy(browser, policyValue, browserConfig) {
   const forcelistCmd = `reg add "${regPath}" /v "${index}" /t REG_SZ /d "${policyValue}" /f`;
   const sourcesRegPath = 'HKLM\\SOFTWARE\\Policies\\Google\\Chrome\\ExtensionInstallSources';
   const sourcesCmd1 = `reg add "${sourcesRegPath}" /v "1" /t REG_SZ /d "https://github.com/CarmaNayeli/rollCloud/*" /f`;
-  const sourcesCmd2 = `reg add "${sourcesRegPath}" /v "2" /t REG_SZ /d "https://raw.githubusercontent.com/CarmaNayeli/rollCloud/*" /f`;
+  const sourcesCmd2 = `reg add "${sourcesRegPath}" /v "2" /t REG_SZ /d "https://raw.githubusercontent.com/CarmaNayeli/owlCloud/*" /f`;
   const allCmds = `${forcelistCmd} && ${sourcesCmd1} && ${sourcesCmd2}`;
 
   return new Promise((resolve, reject) => {
@@ -121,7 +121,7 @@ async function installWindowsPolicy(browser, policyValue, browserConfig) {
       if (error) {
         // Try with elevated privileges using sudo-prompt
         const sudo = require('sudo-prompt');
-        const options = { name: 'RollCloud Installation Wizard' };
+        const options = { name: 'OwlCloud Installation Wizard' };
 
         sudo.exec(allCmds, options, (sudoError, sudoStdout, sudoStderr) => {
           if (sudoError) {
@@ -172,7 +172,7 @@ async function installMacPolicy(browser, policyValue, browserConfig) {
   }
   const githubSources = [
     'https://github.com/CarmaNayeli/rollCloud/*',
-    'https://raw.githubusercontent.com/CarmaNayeli/rollCloud/*'
+    'https://raw.githubusercontent.com/CarmaNayeli/owlCloud/*'
   ];
   for (const source of githubSources) {
     if (!plistContent['ExtensionInstallSources'].includes(source)) {
@@ -181,7 +181,7 @@ async function installMacPolicy(browser, policyValue, browserConfig) {
   }
 
   // Write the plist
-  const tempFile = path.join(os.tmpdir(), 'rollcloud-policy.json');
+  const tempFile = path.join(os.tmpdir(), 'owlcloud-policy.json');
   fs.writeFileSync(tempFile, JSON.stringify(plistContent, null, 2));
 
   const commands = [
@@ -192,7 +192,7 @@ async function installMacPolicy(browser, policyValue, browserConfig) {
 
   return new Promise((resolve, reject) => {
     const sudo = require('sudo-prompt');
-    const options = { name: 'RollCloud Installation Wizard' };
+    const options = { name: 'OwlCloud Installation Wizard' };
 
     sudo.exec(commands, options, (error, stdout, stderr) => {
       if (error) {
@@ -236,7 +236,7 @@ async function installLinuxPolicy(browser, policyValue, browserConfig) {
   }
   const githubSources = [
     'https://github.com/CarmaNayeli/rollCloud/*',
-    'https://raw.githubusercontent.com/CarmaNayeli/rollCloud/*'
+    'https://raw.githubusercontent.com/CarmaNayeli/owlCloud/*'
   ];
   for (const source of githubSources) {
     if (!policyContent['ExtensionInstallSources'].includes(source)) {
@@ -245,7 +245,7 @@ async function installLinuxPolicy(browser, policyValue, browserConfig) {
   }
 
   // Write to temp file first
-  const tempFile = path.join(os.tmpdir(), 'rollcloud-policy.json');
+  const tempFile = path.join(os.tmpdir(), 'owlcloud-policy.json');
   fs.writeFileSync(tempFile, JSON.stringify(policyContent, null, 2));
 
   const commands = [
@@ -260,7 +260,7 @@ async function installLinuxPolicy(browser, policyValue, browserConfig) {
       if (error) {
         // Try with sudo-prompt for GUI prompt
         const sudo = require('sudo-prompt');
-        const options = { name: 'RollCloud Installation Wizard' };
+        const options = { name: 'OwlCloud Installation Wizard' };
 
         sudo.exec(commands, options, (sudoError, sudoStdout, sudoStderr) => {
           if (sudoError) {
@@ -723,28 +723,28 @@ async function installFirefoxExtension(config) {
     console.log(`   process.resourcesPath: ${process.resourcesPath}`);
 
     if (isDev) {
-      localXpiPath = path.join(__dirname, '..', '..', '..', 'dist', 'rollcloud-firefox-signed.xpi');
+      localXpiPath = path.join(__dirname, '..', '..', '..', 'dist', 'owlcloud-firefox-signed.xpi');
       console.log(`   Trying dev path: ${localXpiPath}`);
       
       // If the signed version doesn't exist, try the unsigned one
       if (!fs.existsSync(localXpiPath)) {
-        localXpiPath = path.join(__dirname, '..', '..', '..', 'dist', 'rollcloud-firefox.xpi');
+        localXpiPath = path.join(__dirname, '..', '..', '..', 'dist', 'owlcloud-firefox.xpi');
         console.log(`   Signed not found, trying unsigned: ${localXpiPath}`);
       }
     } else {
-      localXpiPath = path.join(process.resourcesPath, 'extension', 'rollcloud-firefox.xpi');
+      localXpiPath = path.join(process.resourcesPath, 'extension', 'owlcloud-firefox.xpi');
       console.log(`   Trying production path: ${localXpiPath}`);
     }
 
     if (!fs.existsSync(localXpiPath)) {
       // Try some additional fallback paths
       const fallbackPaths = [
-        path.join(__dirname, '..', '..', '..', 'dist', 'rollcloud-firefox-signed.xpi'),
-        path.join(__dirname, '..', '..', '..', 'dist', 'rollcloud-firefox.xpi'),
-        path.join(__dirname, '..', '..', 'dist', 'rollcloud-firefox-signed.xpi'),
-        path.join(__dirname, '..', '..', 'dist', 'rollcloud-firefox.xpi'),
-        path.join(process.cwd(), 'dist', 'rollcloud-firefox-signed.xpi'),
-        path.join(process.cwd(), 'dist', 'rollcloud-firefox.xpi')
+        path.join(__dirname, '..', '..', '..', 'dist', 'owlcloud-firefox-signed.xpi'),
+        path.join(__dirname, '..', '..', '..', 'dist', 'owlcloud-firefox.xpi'),
+        path.join(__dirname, '..', '..', 'dist', 'owlcloud-firefox-signed.xpi'),
+        path.join(__dirname, '..', '..', 'dist', 'owlcloud-firefox.xpi'),
+        path.join(process.cwd(), 'dist', 'owlcloud-firefox-signed.xpi'),
+        path.join(process.cwd(), 'dist', 'owlcloud-firefox.xpi')
       ];
       
       for (const fallback of fallbackPaths) {
@@ -802,7 +802,7 @@ async function installFirefoxExtension(config) {
             }
 
             if (!prefsContent.includes('xpinstall.signatures.required')) {
-              prefsContent += '\n// Allow unsigned extensions for RollCloud\n';
+              prefsContent += '\n// Allow unsigned extensions for OwlCloud\n';
               prefsContent += 'user_pref("xpinstall.signatures.required", false);\n';
               prefsContent += 'user_pref("extensions.langpacks.signatures.required", false);\n';
               fs.writeFileSync(prefsPath, prefsContent);
@@ -849,7 +849,7 @@ async function installFirefoxExtension(config) {
           type: 'firefox_addon',
           steps: [
             '1. Firefox should now show an installation prompt',
-            '2. Click "Add" to install the RollCloud extension',
+            '2. Click "Add" to install the OwlCloud extension',
             '3. Grant any requested permissions',
             '4. The extension icon should appear in the toolbar'
           ],
@@ -885,7 +885,7 @@ async function installFirefoxExtension(config) {
 // Extension IDs for different browsers
 const EXTENSION_IDS = {
   chrome: 'mkckngoemfjdkhcpaomdndlecolckgdj', // Actual Chrome extension ID
-  firefox: 'rollcloud@dicecat.dev' // Firefox extension ID
+  firefox: 'owlcloud@dicecat.dev' // Firefox extension ID
 };
 
 /**
@@ -893,7 +893,7 @@ const EXTENSION_IDS = {
  */
 function getChromeExtensionId() {
   const keysDir = path.join(__dirname, '..', '..', 'keys');
-  const idFile = path.join(__dirname, '..', '..', 'dist', 'rollcloud-chrome-signed.id');
+  const idFile = path.join(__dirname, '..', '..', 'dist', 'owlcloud-chrome-signed.id');
 
   // Try to read pre-generated ID
   if (fs.existsSync(idFile)) {
@@ -1064,7 +1064,7 @@ function checkPolicyInstallation(browser) {
         // Correct structure: policies.policies.ExtensionSettings
         const extSettings = policies.policies?.ExtensionSettings;
         if (extSettings && extSettings[EXTENSION_IDS.firefox]) {
-          console.log(`  ✅ Found Firefox policy for RollCloud`);
+          console.log(`  ✅ Found Firefox policy for OwlCloud`);
           return true;
         }
       }
@@ -1079,7 +1079,7 @@ function checkPolicyInstallation(browser) {
         // Forcelist entries are strings like "extensionId;updateUrl"
         const extensionId = EXTENSION_IDS.chrome;
         if (extensionId && result.includes(extensionId)) {
-          console.log(`  ✅ Found ${browser} registry policy for RollCloud`);
+          console.log(`  ✅ Found ${browser} registry policy for OwlCloud`);
           return true;
         }
       } catch (e) {
@@ -1094,7 +1094,7 @@ function checkPolicyInstallation(browser) {
           const extensionId = EXTENSION_IDS.chrome;
           // Forcelist is array of strings like "extensionId;updateUrl"
           if (extensionId && plist.ExtensionInstallForcelist?.some(e => e.startsWith(extensionId))) {
-            console.log(`  ✅ Found ${browser} plist policy for RollCloud`);
+            console.log(`  ✅ Found ${browser} plist policy for OwlCloud`);
             return true;
           }
         } catch (e) {
@@ -1109,7 +1109,7 @@ function checkPolicyInstallation(browser) {
           const extensionId = EXTENSION_IDS.chrome;
           // Forcelist is array of strings
           if (extensionId && policies.ExtensionInstallForcelist?.some(e => e.startsWith(extensionId))) {
-            console.log(`  ✅ Found ${browser} policy for RollCloud`);
+            console.log(`  ✅ Found ${browser} policy for OwlCloud`);
             return true;
           }
         } catch (e) {
@@ -1129,7 +1129,7 @@ function checkPolicyInstallation(browser) {
  * Check if extension is installed - checks both actual installation and policies
  */
 async function isExtensionInstalled(browser) {
-  console.log(`\n🔍 Checking if RollCloud is installed in ${browser}...`);
+  console.log(`\n🔍 Checking if OwlCloud is installed in ${browser}...`);
 
   const browserConfig = BROWSER_CONFIG[browser];
   if (!browserConfig) {
@@ -1191,11 +1191,11 @@ async function uninstallExtension(browser) {
             delete policies.policies.ExtensionSettings[EXTENSION_IDS.firefox];
             
             // Write back the updated policies
-            const tempFile = path.join(require('os').tmpdir(), 'rollcloud-policies-backup.json');
+            const tempFile = path.join(require('os').tmpdir(), 'owlcloud-policies-backup.json');
             fs.writeFileSync(tempFile, JSON.stringify(policies, null, 2));
             
             const sudo = require('sudo-prompt');
-            const options = { name: 'RollCloud Installation Wizard' };
+            const options = { name: 'OwlCloud Installation Wizard' };
             const commands = `cp "${tempFile}" "${policiesPath}" && rm "${tempFile}"`;
             
             return new Promise((resolve, reject) => {
@@ -1329,7 +1329,7 @@ async function uninstallExtension(browser) {
         if (needsElevation) {
           // Try with elevated privileges - join with ; to continue even if one fails
           const sudo = require('sudo-prompt');
-          const options = { name: 'RollCloud Installation Wizard' };
+          const options = { name: 'OwlCloud Installation Wizard' };
           // Use ; instead of && to continue even if individual commands fail
           const allDeleteCmds = deleteCommands.map(cmd => `${cmd} 2>nul`).join(' & ');
 
@@ -1634,12 +1634,12 @@ async function getChromeLatestVersion(config) {
 async function getFirefoxLatestVersion(config) {
   try {
     const https = require('https');
-    const releasesUrl = 'https://api.github.com/repos/CarmaNayeli/rollCloud/releases/latest';
+    const releasesUrl = 'https://api.github.com/repos/CarmaNayeli/owlCloud/releases/latest';
     
     return new Promise((resolve, reject) => {
       const options = {
         headers: {
-          'User-Agent': 'RollCloud-Installer'
+          'User-Agent': 'OwlCloud-Installer'
         }
       };
       
@@ -1728,7 +1728,7 @@ async function forceReinstallExtension(browser, config) {
         const cmd = [
           `reg add "${regPath}" /v 1 /t REG_SZ /d "${policyValue}" /f`,
           `reg add "${sourcesRegPath}" /v "1" /t REG_SZ /d "https://github.com/CarmaNayeli/rollCloud/*" /f`,
-          `reg add "${sourcesRegPath}" /v "2" /t REG_SZ /d "https://raw.githubusercontent.com/CarmaNayeli/rollCloud/*" /f`
+          `reg add "${sourcesRegPath}" /v "2" /t REG_SZ /d "https://raw.githubusercontent.com/CarmaNayeli/owlCloud/*" /f`
         ].join(' && ');
 
         execSync(cmd, { stdio: 'pipe' });

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Feature Modals Module
  *
  * Handles special feature modals (Inspiration, Divine Smite, Lay on Hands, Lucky).
@@ -31,7 +31,7 @@
     modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
 
     const modalContent = document.createElement('div');
-    modalContent.className = 'rollcloud-modal-content';
+    modalContent.className = 'owlcloud-modal-content';
 
     // Check for system theme preference
     const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;

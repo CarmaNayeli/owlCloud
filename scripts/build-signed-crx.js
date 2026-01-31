@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 
 /**
  * Build properly signed CRX files for enterprise deployment
@@ -168,8 +168,8 @@ async function buildSignedChrome() {
   console.log('\n📦 Building extension...');
   execSync('node', ['scripts/build-extension-fixed.js'], { stdio: 'inherit' });
 
-  const zipPath = path.join(DIST_DIR, 'rollcloud-chrome.zip');
-  const crxPath = path.join(DIST_DIR, 'rollcloud-chrome-signed.crx');
+  const zipPath = path.join(DIST_DIR, 'owlcloud-chrome.zip');
+  const crxPath = path.join(DIST_DIR, 'owlcloud-chrome-signed.crx');
 
   if (!fs.existsSync(zipPath)) {
     throw new Error('Extension ZIP not found. Run build-extension-fixed.js first.');

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, Tray, Menu, nativeImage, Notification } = require('electron');
+﻿const { app, BrowserWindow, ipcMain, dialog, shell, Tray, Menu, nativeImage, Notification } = require('electron');
 const path = require('path');
 const https = require('https');
 const fs = require('fs');
@@ -8,10 +8,10 @@ const { execSync } = require('child_process');
 // Configuration
 const CONFIG = {
   extensionId: 'mkckngoemfjdkhcpaomdndlecolckgdj',
-  firefoxExtensionIds: ['rollcloud@dicecat.com', 'rollcloud@dicecat.dev'],
-  chromeUpdateUrl: 'https://raw.githubusercontent.com/CarmaNayeli/rollCloud/main/updates/update_manifest.xml',
+  firefoxExtensionIds: ['owlcloud@dicecat.com', 'owlcloud@dicecat.dev'],
+  chromeUpdateUrl: 'https://raw.githubusercontent.com/CarmaNayeli/owlCloud/main/updates/update_manifest.xml',
   firefoxUpdateUrl: 'https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-firefox-signed.xpi',
-  githubApiUrl: 'https://api.github.com/repos/CarmaNayeli/rollCloud/releases/latest'
+  githubApiUrl: 'https://api.github.com/repos/CarmaNayeli/owlCloud/releases/latest'
 };
 
 // Check for --minimized flag
@@ -86,9 +86,9 @@ class GitHubReleaseMonitor {
     try {
       const options = {
         hostname: 'api.github.com',
-        path: '/repos/CarmaNayeli/rollCloud/releases/latest',
+        path: '/repos/CarmaNayeli/owlCloud/releases/latest',
         headers: {
-          'User-Agent': 'RollCloud-Updater',
+          'User-Agent': 'OwlCloud-Updater',
           'Accept': 'application/vnd.github.v3+json'
         }
       };
@@ -178,7 +178,7 @@ class GitHubReleaseMonitor {
       console.log('Auto-update enabled, starting update process...');
 
       showNotification(
-        'RollCloud Update Downloading',
+        'OwlCloud Update Downloading',
         `Version ${release.version} is being downloaded and installed automatically.`,
         { urgency: 'normal' }
       );
@@ -194,7 +194,7 @@ class GitHubReleaseMonitor {
       } catch (error) {
         console.error('Auto-update failed:', error);
         showNotification(
-          'RollCloud Auto-Update Failed',
+          'OwlCloud Auto-Update Failed',
           `Failed to auto-update: ${error.message}. Please update manually.`,
           { urgency: 'critical' }
         );
@@ -202,7 +202,7 @@ class GitHubReleaseMonitor {
     } else {
       // Manual update - just notify
       showNotification(
-        'RollCloud Update Available!',
+        'OwlCloud Update Available!',
         `Version ${release.version} is now available.\n\n${release.name}`,
         { urgency: 'normal' }
       );
@@ -217,11 +217,11 @@ class GitHubReleaseMonitor {
   async performAutoUpdate(release) {
     // Download assets
     const assets = {
-      chrome: release.assets?.find(a => a.name === 'rollcloud-chrome-signed.crx'),
-      firefox: release.assets?.find(a => a.name === 'rollcloud-firefox-signed.xpi')
+      chrome: release.assets?.find(a => a.name === 'owlcloud-chrome-signed.crx'),
+      firefox: release.assets?.find(a => a.name === 'owlcloud-firefox-signed.xpi')
     };
 
-    const tempDir = path.join(app.getPath('temp'), 'rollcloud-update');
+    const tempDir = path.join(app.getPath('temp'), 'owlcloud-update');
     if (!fs.existsSync(tempDir)) {
       fs.mkdirSync(tempDir, { recursive: true });
     }
@@ -229,7 +229,7 @@ class GitHubReleaseMonitor {
     // Download and install Chrome extension if asset exists
     if (assets.chrome) {
       try {
-        const tempFile = path.join(tempDir, 'rollcloud-chrome.crx');
+        const tempFile = path.join(tempDir, 'owlcloud-chrome.crx');
         await downloadFile(assets.chrome.browser_download_url, tempFile);
         await updateChromeExtension(tempFile, 'chrome');
         fs.unlinkSync(tempFile);
@@ -242,7 +242,7 @@ class GitHubReleaseMonitor {
     // Download and install Firefox extension if asset exists
     if (assets.firefox) {
       try {
-        const tempFile = path.join(tempDir, 'rollcloud-firefox.xpi');
+        const tempFile = path.join(tempDir, 'owlcloud-firefox.xpi');
         await downloadFile(assets.firefox.browser_download_url, tempFile);
         await updateFirefoxExtension(tempFile);
         fs.unlinkSync(tempFile);
@@ -254,7 +254,7 @@ class GitHubReleaseMonitor {
 
     // Show completion notification
     showNotification(
-      'RollCloud Updated Successfully!',
+      'OwlCloud Updated Successfully!',
       `Version ${release.version} has been installed. Please restart your browsers.`,
       { urgency: 'normal' }
     );
@@ -324,7 +324,7 @@ function createTray() {
 
   tray = new Tray(trayIcon.resize({ width: 16, height: 16 }));
 
-  tray.setToolTip('RollCloud Updater');
+  tray.setToolTip('OwlCloud Updater');
 
   // Build the initial menu
   updateTrayMenu();
@@ -419,7 +419,7 @@ app.whenReady().then(() => {
     // If there's a new release and we're minimized, show a notification
     if (result.isNew && notificationSettings.startMinimized) {
       showNotification(
-        'RollCloud Update Available!',
+        'OwlCloud Update Available!',
         `Version ${result.release.version} is now available.\nClick to open updater.`,
         { urgency: 'normal' }
       );
@@ -451,7 +451,7 @@ app.whenReady().then(() => {
     // Show welcome notification after a short delay
     setTimeout(() => {
       showNotification(
-        'RollCloud Updater Running',
+        'OwlCloud Updater Running',
         'The updater is now running in your system tray.\n\n' +
         'Right-click the tray icon to:\n' +
         '• Enable/disable notifications\n' +
@@ -481,7 +481,7 @@ function updateTrayMenu() {
 
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: 'RollCloud Updater',
+      label: 'OwlCloud Updater',
       enabled: false
     },
     { type: 'separator' },
@@ -492,14 +492,14 @@ function updateTrayMenu() {
           releaseMonitor.checkNow().then(result => {
             if (result.isNew) {
               showNotification(
-                'RollCloud Update Available!',
+                'OwlCloud Update Available!',
                 `Version ${result.release.version} is now available.`,
                 { urgency: 'normal' }
               );
             } else {
               showNotification(
                 'No Updates Available',
-                'You have the latest version of RollCloud.',
+                'You have the latest version of OwlCloud.',
                 { urgency: 'low' }
               );
             }
@@ -773,9 +773,9 @@ async function checkForUpdates() {
   return new Promise((resolve, reject) => {
     const options = {
       hostname: 'api.github.com',
-      path: '/repos/CarmaNayeli/rollCloud/releases/latest',
+      path: '/repos/CarmaNayeli/owlCloud/releases/latest',
       headers: {
-        'User-Agent': 'RollCloud-Updater'
+        'User-Agent': 'OwlCloud-Updater'
       }
     };
 
@@ -842,7 +842,7 @@ ipcMain.handle('check-updates', async () => {
     // Check if notifications are enabled and this is a new version
     if (notificationSettings.enabled && updates.version && updates.version !== notificationSettings.lastVersion) {
       showNotification(
-        'RollCloud Update Available!',
+        'OwlCloud Update Available!',
         `Version ${updates.version} is now available. Click to open updater.`,
         { urgency: 'normal' }
       );
@@ -894,11 +894,11 @@ async function downloadFile(url, destinationPath) {
 function getBrowserPolicyPaths(browser) {
   const paths = {
     chrome: {
-      crxPath: path.join(process.env.PROGRAMFILES, 'RollCloud', 'rollcloud-chrome.crx'),
+      crxPath: path.join(process.env.PROGRAMFILES, 'OwlCloud', 'owlcloud-chrome.crx'),
       registryPath: 'HKLM\\SOFTWARE\\Policies\\Google\\Chrome\\ExtensionInstallForcelist'
     },
     firefox: {
-      xpiPath: path.join(process.env.PROGRAMFILES, 'Mozilla Firefox', 'distribution', 'extensions', 'rollcloud@dicecat.com.xpi'),
+      xpiPath: path.join(process.env.PROGRAMFILES, 'Mozilla Firefox', 'distribution', 'extensions', 'owlcloud@dicecat.com.xpi'),
       policyPath: path.join(process.env.PROGRAMFILES, 'Mozilla Firefox', 'distribution', 'policies.json')
     }
   };
@@ -914,9 +914,9 @@ ipcMain.handle('update-extension', async (event, browser) => {
     const release = await new Promise((resolve, reject) => {
       https.get({
         hostname: 'api.github.com',
-        path: '/repos/CarmaNayeli/rollCloud/releases/latest',
+        path: '/repos/CarmaNayeli/owlCloud/releases/latest',
         headers: {
-          'User-Agent': 'RollCloud-Updater',
+          'User-Agent': 'OwlCloud-Updater',
           'Accept': 'application/vnd.github.v3+json'
         }
       }, (res) => {
@@ -934,7 +934,7 @@ ipcMain.handle('update-extension', async (event, browser) => {
 
     // Find the appropriate asset
     const isChromeOrEdge = browser === 'chrome' || browser === 'edge';
-    const assetName = isChromeOrEdge ? 'rollcloud-chrome-signed.crx' : 'rollcloud-firefox-signed.xpi';
+    const assetName = isChromeOrEdge ? 'owlcloud-chrome-signed.crx' : 'owlcloud-firefox-signed.xpi';
     const asset = release.assets.find(a => a.name === assetName);
 
     if (!asset) {
@@ -944,7 +944,7 @@ ipcMain.handle('update-extension', async (event, browser) => {
     console.log(`Downloading ${asset.name} from ${asset.browser_download_url}...`);
 
     // Download to temp directory
-    const tempDir = path.join(app.getPath('temp'), 'rollcloud-update');
+    const tempDir = path.join(app.getPath('temp'), 'owlcloud-update');
     if (!fs.existsSync(tempDir)) {
       fs.mkdirSync(tempDir, { recursive: true });
     }
@@ -979,13 +979,13 @@ ipcMain.handle('update-extension', async (event, browser) => {
 
 async function updateChromeExtension(tempFile, browser) {
   // Target path for extension file
-  const extensionDir = path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'RollCloud');
+  const extensionDir = path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'OwlCloud');
 
   if (!fs.existsSync(extensionDir)) {
     fs.mkdirSync(extensionDir, { recursive: true });
   }
 
-  const targetPath = path.join(extensionDir, 'rollcloud-chrome.crx');
+  const targetPath = path.join(extensionDir, 'owlcloud-chrome.crx');
 
   // Copy new extension file
   fs.copyFileSync(tempFile, targetPath);
@@ -1022,7 +1022,7 @@ async function updateFirefoxExtension(tempFile) {
     fs.mkdirSync(extensionsDir, { recursive: true });
   }
 
-  const targetPath = path.join(extensionsDir, 'rollcloud@dicecat.com.xpi');
+  const targetPath = path.join(extensionsDir, 'owlcloud@dicecat.com.xpi');
 
   // Copy new extension file
   fs.copyFileSync(tempFile, targetPath);

@@ -1,6 +1,6 @@
-#!/bin/bash
+﻿#!/bin/bash
 
-# RollCloud Experimental Build Script
+# OwlCloud Experimental Build Script
 # Builds browser distributions WITH experimental two-way sync feature
 
 set -e
@@ -9,7 +9,7 @@ BUILD_DIR="dist-experimental"
 VERSION=$(grep '"version"' manifest.json | head -1 | sed 's/.*: "\(.*\)".*/\1/')
 EXPERIMENTAL_TAG="-experimental"
 
-echo "🧪 RollCloud Experimental Build Script v$VERSION$EXPERIMENTAL_TAG"
+echo "🧪 OwlCloud Experimental Build Script v$VERSION$EXPERIMENTAL_TAG"
 echo "⚠️  This build includes experimental two-way DiceCloud sync"
 echo ""
 
@@ -153,8 +153,8 @@ build_firefox_experimental() {
 package_chrome_experimental() {
     echo "📦 Packaging experimental Chrome extension..."
     cd "$BUILD_DIR"
-    zip -r "rollcloud-chrome-$VERSION$EXPERIMENTAL_TAG.zip" chrome/
-    echo "✅ Chrome package: $BUILD_DIR/rollcloud-chrome-$VERSION$EXPERIMENTAL_TAG.zip"
+    zip -r "owlcloud-chrome-$VERSION$EXPERIMENTAL_TAG.zip" chrome/
+    echo "✅ Chrome package: $BUILD_DIR/owlcloud-chrome-$VERSION$EXPERIMENTAL_TAG.zip"
     cd ..
     echo ""
 }
@@ -162,8 +162,8 @@ package_chrome_experimental() {
 package_firefox_experimental() {
     echo "📦 Packaging experimental Firefox add-on..."
     cd "$BUILD_DIR"
-    zip -r "rollcloud-firefox-$VERSION$EXPERIMENTAL_TAG.zip" firefox/
-    echo "✅ Firefox package: $BUILD_DIR/rollcloud-firefox-$VERSION$EXPERIMENTAL_TAG.zip"
+    zip -r "owlcloud-firefox-$VERSION$EXPERIMENTAL_TAG.zip" firefox/
+    echo "✅ Firefox package: $BUILD_DIR/owlcloud-firefox-$VERSION$EXPERIMENTAL_TAG.zip"
     cd ..
     echo ""
 }
@@ -171,7 +171,7 @@ package_firefox_experimental() {
 create_readme() {
     echo "📄 Creating experimental build README..."
     cat > "$BUILD_DIR/README.md" << 'EOF'
-# RollCloud Experimental Build
+# OwlCloud Experimental Build
 
 ⚠️ **EXPERIMENTAL FEATURE**
 
@@ -181,13 +181,13 @@ This build includes experimental two-way synchronization with DiceCloud.
 
 This experimental version includes:
 - Meteor DDP client for real-time communication with DiceCloud
-- Two-way sync: changes made in RollCloud update DiceCloud automatically
+- Two-way sync: changes made in OwlCloud update DiceCloud automatically
 - Syncs action uses, resource consumption, HP changes, and more
 
 ## How to Test
 
 1. Install this experimental build (load unpacked extension)
-2. Log in to DiceCloud through RollCloud
+2. Log in to DiceCloud through OwlCloud
 3. Use an action with limited uses (e.g., "Second Wind")
 4. Check DiceCloud character sheet - uses should update automatically
 5. Use resources (Ki Points, Sorcery Points)
@@ -209,13 +209,13 @@ See `IMPLEMENTATION_GUIDE.md` for complete technical documentation.
 If you encounter issues:
 1. Check browser console (F12) for error messages
 2. Look for `[DDP]` or `[Sync]` prefixed messages
-3. Report to the RollCloud GitHub repository with console logs
+3. Report to the OwlCloud GitHub repository with console logs
 
 ## Reverting to Stable
 
 To go back to the stable version:
 1. Uninstall this experimental build
-2. Install the regular RollCloud extension from the Chrome/Firefox store
+2. Install the regular OwlCloud extension from the Chrome/Firefox store
 EOF
     echo "✅ README created"
     echo ""

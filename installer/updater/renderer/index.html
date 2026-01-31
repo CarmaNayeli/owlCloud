@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RollCloud Updater</title>
+    <title>OwlCloud Updater</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -273,8 +273,8 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🔄 RollCloud Updater</h1>
-            <p>Manage and update your RollCloud browser extensions</p>
+            <h1>🔄 OwlCloud Updater</h1>
+            <p>Manage and update your OwlCloud browser extensions</p>
         </div>
 
         <div class="version-info" id="versionInfo">
@@ -340,7 +340,7 @@
                         <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
                             <input type="checkbox" id="runOnStartupToggle" style="width: 18px; height: 18px;">
                             <label for="runOnStartupToggle" style="font-size: 1.05em; cursor: pointer;">
-                                Run RollCloud Updater on system startup
+                                Run OwlCloud Updater on system startup
                             </label>
                         </div>
             <div style="margin: 15px 0; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px;">
@@ -367,7 +367,7 @@
               </div>
             </div>
             <p style="font-size: 0.9em; opacity: 0.8; margin: 0;">
-              When enabled, the updater will automatically check for new RollCloud releases and notify you.
+              When enabled, the updater will automatically check for new OwlCloud releases and notify you.
             </p>
           </div>
 
@@ -430,7 +430,7 @@
                     <button class="modal-close" onclick="closeNotificationSetup()">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <p>Would you like to receive notifications when RollCloud updates are available?</p>
+                    <p>Would you like to receive notifications when OwlCloud updates are available?</p>
                     <div style="margin: 20px 0;">
                         <label style="display: flex; align-items: center; cursor: pointer; font-size: 1.1em; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 8px;">
                             <input type="checkbox" id="setupNotificationToggle" checked style="margin-right: 10px; width: 18px; height: 18px;">
@@ -454,7 +454,7 @@
                     <h2>🔄 Restart Required</h2>
                 </div>
                 <div class="modal-body">
-                    <p style="margin-bottom: 15px;">RollCloud extension has been updated successfully!</p>
+                    <p style="margin-bottom: 15px;">OwlCloud extension has been updated successfully!</p>
                     <p style="font-size: 1.1em; font-weight: bold; color: #fbbf24; margin-bottom: 15px;">
                         Please restart your browser to apply the update.
                     </p>
@@ -474,7 +474,7 @@
         </div>
 
         <div class="footer">
-            <p>RollCloud Updater v1.0.0 • Made with ❤️ for D&D players</p>
+            <p>OwlCloud Updater v1.0.0 • Made with ❤️ for D&D players</p>
             <button class="btn btn-outline" id="quitBtn" style="margin-top: 10px;">Quit</button>
         </div>
     </div>
@@ -1059,7 +1059,7 @@
             
             updateContent.innerHTML = `
                 <p><strong>New version available!</strong></p>
-                <p>RollCloud v${updates.version} is ready to download.</p>
+                <p>OwlCloud v${updates.version} is ready to download.</p>
                 <p style="font-size: 0.9em; opacity: 0.8;">
                     Release notes and improvements will be available after update.
                 </p>
@@ -1159,7 +1159,7 @@
         }
 
         async function uninstallAllExtensions() {
-            const confirmed = confirm('Are you sure you want to uninstall RollCloud from all browsers? This will remove the extension and all its data.');
+            const confirmed = confirm('Are you sure you want to uninstall OwlCloud from all browsers? This will remove the extension and all its data.');
             if (!confirmed) return;
 
             showLoading(true);

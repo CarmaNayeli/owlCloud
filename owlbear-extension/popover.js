@@ -1,5 +1,5 @@
-/**
- * RollCloud Owlbear Extension - Popover Script
+﻿/**
+ * OwlCloud Owlbear Extension - Popover Script
  *
  * This script runs inside the Owlbear extension popover and:
  * 1. Communicates with the browser extension via window.postMessage
@@ -48,7 +48,7 @@ async function checkForActiveCharacter() {
     // Try to communicate with the browser extension content script
     // The content script should be running on the owlbear.rodeo page
     const message = {
-      type: 'ROLLCLOUD_GET_ACTIVE_CHARACTER',
+      type: 'OWLCLOUD_GET_ACTIVE_CHARACTER',
       source: 'owlbear-extension'
     };
 
@@ -99,7 +99,7 @@ function showNoCharacter() {
 openSheetBtn.addEventListener('click', () => {
   // Send message to browser extension content script to open character sheet
   const message = {
-    type: 'ROLLCLOUD_OPEN_CHARACTER_SHEET',
+    type: 'OWLCLOUD_OPEN_CHARACTER_SHEET',
     source: 'owlbear-extension'
   };
 
@@ -117,7 +117,7 @@ openSheetBtn.addEventListener('click', () => {
 syncCharacterBtn.addEventListener('click', () => {
   // Send message to browser extension to sync character
   const message = {
-    type: 'ROLLCLOUD_SYNC_CHARACTER',
+    type: 'OWLCLOUD_SYNC_CHARACTER',
     source: 'owlbear-extension'
   };
 
@@ -141,13 +141,13 @@ syncCharacterBtn.addEventListener('click', () => {
 openExtensionBtn.addEventListener('click', () => {
   // Send message to browser extension to open popup
   const message = {
-    type: 'ROLLCLOUD_OPEN_POPUP',
+    type: 'OWLCLOUD_OPEN_POPUP',
     source: 'owlbear-extension'
   };
 
   window.parent.postMessage(message, 'https://www.owlbear.rodeo');
 
-  alert('Please click the RollCloud extension icon in your browser toolbar to select a character.');
+  alert('Please click the OwlCloud extension icon in your browser toolbar to select a character.');
 });
 
 // ============== Message Listener ==============
@@ -164,7 +164,7 @@ window.addEventListener('message', (event) => {
   const { type, data } = event.data;
 
   switch (type) {
-    case 'ROLLCLOUD_ACTIVE_CHARACTER_RESPONSE':
+    case 'OWLCLOUD_ACTIVE_CHARACTER_RESPONSE':
       if (data && data.character) {
         displayCharacter(data.character);
       } else {
@@ -172,7 +172,7 @@ window.addEventListener('message', (event) => {
       }
       break;
 
-    case 'ROLLCLOUD_CHARACTER_UPDATED':
+    case 'OWLCLOUD_CHARACTER_UPDATED':
       if (data && data.character) {
         displayCharacter(data.character);
         if (isOwlbearReady) {
@@ -181,7 +181,7 @@ window.addEventListener('message', (event) => {
       }
       break;
 
-    case 'ROLLCLOUD_SYNC_COMPLETE':
+    case 'OWLCLOUD_SYNC_COMPLETE':
       if (isOwlbearReady) {
         OBR.notification.show('Character synced successfully', 'SUCCESS');
       }
@@ -189,7 +189,7 @@ window.addEventListener('message', (event) => {
       checkForActiveCharacter();
       break;
 
-    case 'ROLLCLOUD_ERROR':
+    case 'OWLCLOUD_ERROR':
       if (isOwlbearReady) {
         OBR.notification.show(`Error: ${data.message}`, 'ERROR');
       }
@@ -234,14 +234,14 @@ window.addEventListener('message', (event) => {
     return;
   }
 
-  if (event.data.type === 'ROLLCLOUD_POST_ROLL') {
+  if (event.data.type === 'OWLCLOUD_POST_ROLL') {
     postRollToOwlbear(event.data.data);
   }
 });
 
 // ============== Initialization ==============
 
-console.log('🎲 RollCloud Owlbear extension popover loaded');
+console.log('🎲 OwlCloud Owlbear extension popover loaded');
 statusText.textContent = 'Initializing...';
 
 // Initial check for character (will happen after OBR.onReady)

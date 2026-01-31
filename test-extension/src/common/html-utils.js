@@ -1,4 +1,4 @@
-/**
+﻿/**
  * HTML Utilities
  * Functions for safe HTML handling and XSS prevention
  */
@@ -58,9 +58,9 @@ function validateMessageOrigin(event, allowedOrigins) {
 }
 
 /**
- * Allowed origins for RollCloud extension
+ * Allowed origins for OwlCloud extension
  */
-const ROLLCLOUD_ALLOWED_ORIGINS = [
+const OWLCLOUD_ALLOWED_ORIGINS = [
   'https://app.roll20.net',
   'https://roll20.net',
   'https://dicecloud.com',
@@ -95,7 +95,7 @@ function safePostMessage(target, message, origin = 'https://app.roll20.net') {
  * @param {string[]} allowedOrigins - Optional custom allowed origins
  * @returns {Function} Wrapped handler with validation
  */
-function createSafeMessageHandler(handler, allowedOrigins = ROLLCLOUD_ALLOWED_ORIGINS) {
+function createSafeMessageHandler(handler, allowedOrigins = OWLCLOUD_ALLOWED_ORIGINS) {
   return function(event) {
     if (!validateMessageOrigin(event, allowedOrigins)) {
       return; // Reject invalid origins
@@ -113,7 +113,7 @@ if (typeof module !== 'undefined' && module.exports) {
     validateMessageOrigin,
     safePostMessage,
     createSafeMessageHandler,
-    ROLLCLOUD_ALLOWED_ORIGINS
+    OWLCLOUD_ALLOWED_ORIGINS
   };
 }
 
@@ -124,6 +124,6 @@ if (typeof window !== 'undefined') {
     validateMessageOrigin,
     safePostMessage,
     createSafeMessageHandler,
-    ROLLCLOUD_ALLOWED_ORIGINS
+    OWLCLOUD_ALLOWED_ORIGINS
   };
 }

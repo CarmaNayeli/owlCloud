@@ -1,7 +1,7 @@
-# RollCloud Extension - Complete Functionality Documentation
+﻿# OwlCloud Extension - Complete Functionality Documentation
 
 ## 🎲 Overview
-RollCloud is a browser extension (Chrome, Firefox, Safari) that seamlessly integrates **Dice Cloud** character sheets with **Roll20** virtual tabletop, providing character data synchronization, an interactive character sheet overlay with click-to-roll functionality, direct Roll20 chat integration, and comprehensive combat management tools.
+OwlCloud is a browser extension (Chrome, Firefox, Safari) that seamlessly integrates **Dice Cloud** character sheets with **Roll20** virtual tabletop, providing character data synchronization, an interactive character sheet overlay with click-to-roll functionality, direct Roll20 chat integration, and comprehensive combat management tools.
 
 **Current Version:** 1.1.2
 
@@ -161,7 +161,7 @@ RollCloud is a browser extension (Chrome, Firefox, Safari) that seamlessly integ
   - Applies proficiency bonuses to skills and saves
   - Handles expertise (double proficiency)
 - **Resource Tracking**: Extracts and formats spell slots, HP, class resources
-- **Sync Button**: Adds "🔄 Sync to RollCloud" button to Dice Cloud interface
+- **Sync Button**: Adds "🔄 Sync to OwlCloud" button to Dice Cloud interface
 - **Roll Detection**: Monitors Dice Cloud rolls (experimental)
 
 **Key Functions:**
@@ -213,7 +213,7 @@ RollCloud is a browser extension (Chrome, Firefox, Safari) that seamlessly integ
 1. **Install Extension**: Load unpacked extension in Chrome
 2. **Get API Token**: Obtain Dice Cloud API token from account settings
 3. **Navigate to Dice Cloud**: Open character sheet
-4. **Sync Character**: Click "🔄 Sync to RollCloud" button
+4. **Sync Character**: Click "🔄 Sync to OwlCloud" button
 5. **Open Roll20**: Navigate to Roll20 campaign
 
 ### Usage
@@ -235,11 +235,11 @@ RollCloud is a browser extension (Chrome, Firefox, Safari) that seamlessly integ
 │  Sheet         │
 └────────┬────────┘
          │
-         │ 1. User clicks "Sync to RollCloud"
+         │ 1. User clicks "Sync to OwlCloud"
          │
          ▼
 ┌─────────────────┐
-│  RollCloud      │
+│  OwlCloud      │
 │  Background     │
 │  Script         │
 │  (API Request)  │
@@ -297,7 +297,7 @@ RollCloud is a browser extension (Chrome, Firefox, Safari) that seamlessly integ
 ### Character Sheet Popup
 
 #### Header
-- **Title**: "🎲 RollCloud Character Sheet"
+- **Title**: "🎲 OwlCloud Character Sheet"
 - **Close Button**: Red "✕ Close" button
 - **Character Name**: Displayed prominently
 
@@ -555,7 +555,7 @@ RollCloud is a browser extension (Chrome, Firefox, Safari) that seamlessly integ
 
 ### File Structure
 ```
-rollCloud/
+owlCloud/
 ├── manifest.json                    # Extension manifest
 ├── src/
 │   ├── background.js                # Service worker (349 lines)
@@ -635,14 +635,14 @@ This extension is provided as-is for personal use with Dice Cloud and Roll20 pla
 For issues, feature requests, or questions:
 - Check console logs for debugging info
 - Verify Dice Cloud API token is valid
-- Ensure popup blockers allow RollCloud windows
+- Ensure popup blockers allow OwlCloud windows
 - Refresh both Dice Cloud and Roll20 pages
 
 ---
 
 ## 🎲 Summary
 
-**RollCloud** is a powerful, seamless integration between Dice Cloud character management and Roll20 virtual tabletop gameplay. It provides:
+**OwlCloud** is a powerful, seamless integration between Dice Cloud character management and Roll20 virtual tabletop gameplay. It provides:
 
 ✅ **Automatic character data synchronization**
 ✅ **Beautiful, interactive character sheet popup**

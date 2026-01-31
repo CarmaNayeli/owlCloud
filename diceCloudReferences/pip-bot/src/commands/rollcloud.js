@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
+﻿import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 
 // Import the storeCharacterOptions function
 import { storeCharacterOptions } from './roll.js';
@@ -9,26 +9,26 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
 export default {
   data: new SlashCommandBuilder()
-    .setName('rollcloud')
-    .setDescription('Connect RollCloud extension to this Discord server')
+    .setName('owlcloud')
+    .setDescription('Connect OwlCloud extension to this Discord server')
     .addStringOption(option =>
       option
         .setName('code')
-        .setDescription('The 6-character pairing code from your RollCloud extension')
+        .setDescription('The 6-character pairing code from your OwlCloud extension')
         .setRequired(true)
         .setMinLength(6)
         .setMaxLength(6)
     ),
 
   async execute(interaction) {
-    console.log(`[DEBUG] /rollcloud command executed by ${interaction.user.tag}`);
+    console.log(`[DEBUG] /owlcloud command executed by ${interaction.user.tag}`);
     console.log(`[DEBUG] Options:`, interaction.options.data);
     
     // Check permissions
     if (!interaction.member.permissions.has(PermissionFlagsBits.ManageWebhooks)) {
       console.log('[DEBUG] User lacks Manage Webhooks permission');
       await interaction.reply({
-        content: '❌ You need the **Manage Webhooks** permission to set up RollCloud.',
+        content: '❌ You need the **Manage Webhooks** permission to set up OwlCloud.',
         ephemeral: true
       });
       return;
@@ -54,7 +54,7 @@ export default {
             .setDescription(
               `The code **${code}** was not found or has expired.\n\n` +
               '**To get a new code:**\n' +
-              '1. Open RollCloud extension\n' +
+              '1. Open OwlCloud extension\n' +
               '2. Expand "Discord Integration"\n' +
               '3. Click "Setup Discord"\n' +
               '4. Copy the new code shown'
@@ -82,8 +82,8 @@ export default {
       // 2. Create webhook in this channel
       console.log('[DEBUG] Step 2: Creating webhook...');
       const webhook = await interaction.channel.createWebhook({
-        name: '🎲 RollCloud',
-        reason: `RollCloud pairing by ${interaction.user.tag}`
+        name: '🎲 OwlCloud',
+        reason: `OwlCloud pairing by ${interaction.user.tag}`
       });
       console.log(`[DEBUG] Webhook created: ${webhook.url}`);
 
@@ -122,11 +122,11 @@ export default {
       // 4. Send success message
       const embed = new EmbedBuilder()
         .setColor(0x4ECDC4)
-        .setTitle('✅ RollCloud Connected!')
+        .setTitle('✅ OwlCloud Connected!')
         .setDescription(
           `Turn notifications will now appear in this channel.\n\n` +
           '**What happens next:**\n' +
-          '• Your RollCloud extension will auto-connect in a few seconds\n' +
+          '• Your OwlCloud extension will auto-connect in a few seconds\n' +
           '• When combat starts in Roll20, turns will appear here\n' +
           '• Players can check their phones to see whose turn it is!'
         )
@@ -134,7 +134,7 @@ export default {
           { name: 'DiceCloud User', value: pairing.dicecloud_username || 'Unknown', inline: true },
           { name: 'Channel', value: `#${interaction.channel.name}`, inline: true }
         )
-        .setFooter({ text: 'Pip Bot • RollCloud Integration' })
+        .setFooter({ text: 'Pip Bot • OwlCloud Integration' })
         .setTimestamp();
 
       await interaction.editReply({ embeds: [embed] });
@@ -142,9 +142,9 @@ export default {
       // 5. Send a test message via the webhook
       await webhook.send({
         embeds: [{
-          title: '🎲 RollCloud Ready!',
+          title: '🎲 OwlCloud Ready!',
           description:
-            'This channel is now connected to RollCloud.\n\n' +
+            'This channel is now connected to OwlCloud.\n\n' +
             '**You\'ll see:**\n' +
             '• Turn announcements\n' +
             '• Action economy status (✅ ❌)\n' +
@@ -156,7 +156,7 @@ export default {
       });
 
     } catch (error) {
-      console.error('RollCloud setup error:', error);
+      console.error('OwlCloud setup error:', error);
 
       await interaction.editReply({
         embeds: [new EmbedBuilder()
@@ -185,7 +185,7 @@ async function lookupPairingCode(code) {
     throw new Error('Supabase not configured');
   }
 
-  const url = `${SUPABASE_URL}/rest/v1/rollcloud_pairings?pairing_code=eq.${code}&select=*`;
+  const url = `${SUPABASE_URL}/rest/v1/owlcloud_pairings?pairing_code=eq.${code}&select=*`;
   console.log(`[DEBUG] Fetching from: ${url}`);
 
   const response = await fetch(url, {
@@ -217,7 +217,7 @@ async function completePairing(code, discordInfo) {
   }
 
   const response = await fetch(
-    `${SUPABASE_URL}/rest/v1/rollcloud_pairings?pairing_code=eq.${code}`,
+    `${SUPABASE_URL}/rest/v1/owlcloud_pairings?pairing_code=eq.${code}`,
     {
       method: 'PATCH',
       headers: {

@@ -1,11 +1,11 @@
-# Security Audit Report
+﻿# Security Audit Report
 **Date:** 2026-01-20
 **Auditor:** Claude
 **Scope:** Full codebase security analysis
 
 ## Executive Summary
 
-The RollCloud extension has **4 medium-to-high severity security vulnerabilities** that should be addressed before production deployment. While the extension operates within a trusted context (Roll20 ↔ Dice Cloud), proper security measures prevent potential attacks and protect users.
+The OwlCloud extension has **4 medium-to-high severity security vulnerabilities** that should be addressed before production deployment. While the extension operates within a trusted context (Roll20 ↔ Dice Cloud), proper security measures prevent potential attacks and protect users.
 
 ### Risk Level: 🟡 MEDIUM
 - No critical vulnerabilities found
@@ -384,7 +384,7 @@ After implementing fixes:
 
 ## Conclusion
 
-The RollCloud extension has **no critical vulnerabilities** but has **4 medium-severity issues** that should be addressed before public release:
+The OwlCloud extension has **no critical vulnerabilities** but has **4 medium-severity issues** that should be addressed before public release:
 
 1. ✅ Add message origin validation (MUST FIX)
 2. ✅ Escape HTML in user data (MUST FIX)

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 
@@ -55,9 +55,9 @@ function SetupGuideContent() {
         <div className="flex items-start space-x-4">
           <div className="text-4xl">1</div>
           <div className="flex-1">
-            <h2 className="text-2xl font-bold mb-4">Download RollCloud</h2>
+            <h2 className="text-2xl font-bold mb-4">Download OwlCloud</h2>
             <p className="text-gray-600 dark:text-gray-400 mb-4">
-              Download the RollCloud browser extension installer for your platform.
+              Download the OwlCloud browser extension installer for your platform.
             </p>
             <div className="flex flex-wrap gap-4 mb-6">
               <a
@@ -140,7 +140,7 @@ function SetupGuideContent() {
               <h3 className="font-semibold mb-2">Bot Permissions</h3>
               <ul className="text-sm space-y-1 text-gray-600 dark:text-gray-400">
                 <li>Send Messages - for turn notifications</li>
-                <li>Use Slash Commands - for /rollcloud commands</li>
+                <li>Use Slash Commands - for /owlcloud commands</li>
                 <li>Embed Links - for formatted turn cards</li>
               </ul>
             </div>
@@ -161,7 +161,7 @@ function SetupGuideContent() {
             <ol className="space-y-3 text-sm">
               <li className="flex items-start space-x-2">
                 <span className="font-bold">1.</span>
-                <div>Click the RollCloud icon in your browser toolbar to open the popup</div>
+                <div>Click the OwlCloud icon in your browser toolbar to open the popup</div>
               </li>
               <li className="flex items-start space-x-2">
                 <span className="font-bold">2.</span>
@@ -173,7 +173,7 @@ function SetupGuideContent() {
               </li>
               <li className="flex items-start space-x-2">
                 <span className="font-bold">4.</span>
-                <div>In Discord, type <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">/rollcloud YOUR-CODE</code> in your game channel</div>
+                <div>In Discord, type <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">/owlcloud YOUR-CODE</code> in your game channel</div>
               </li>
               <li className="flex items-start space-x-2">
                 <span className="font-bold">5.</span>
@@ -205,7 +205,7 @@ function SetupGuideContent() {
 
             <div className="space-y-2 font-mono text-sm">
               <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded">
-                <code>/rollcloud status</code>
+                <code>/owlcloud status</code>
                 <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 font-sans">Check your pairing status</p>
               </div>
               <div className="bg-gray-100 dark:bg-gray-700 p-3 rounded">
@@ -232,7 +232,7 @@ function SetupGuideContent() {
           <div>
             <h3 className="font-semibold text-red-600 dark:text-red-400">Discord notifications not appearing?</h3>
             <ul className="text-sm text-gray-600 dark:text-gray-400 list-disc list-inside space-y-1">
-              <li>Check your pairing status with <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">/rollcloud status</code></li>
+              <li>Check your pairing status with <code className="bg-gray-100 dark:bg-gray-700 px-1 rounded">/owlcloud status</code></li>
               <li>Make sure the bot has permission to post in the channel</li>
               <li>Verify your character ID is correct</li>
             </ul>
@@ -279,7 +279,7 @@ function ManualDownloadContent() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 border border-gray-200 dark:border-gray-700">
         <h2 className="text-2xl font-bold mb-4">Direct Downloads</h2>
         <p className="text-gray-600 dark:text-gray-400 mb-6">
-          Download the RollCloud extension directly for your browser or platform.
+          Download the OwlCloud extension directly for your browser or platform.
         </p>
 
         <div className="grid md:grid-cols-2 gap-4 mb-6">
@@ -290,7 +290,7 @@ function ManualDownloadContent() {
             <span className="text-3xl">&#128187;</span>
             <div>
               <div className="font-semibold">Windows Installer</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">RollCloud-Setup.exe</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">OwlCloud-Setup.exe</div>
             </div>
           </a>
 
@@ -301,7 +301,7 @@ function ManualDownloadContent() {
             <span className="text-3xl">&#127822;</span>
             <div>
               <div className="font-semibold">macOS Installer</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">RollCloud-Setup.dmg</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">OwlCloud-Setup.dmg</div>
             </div>
           </a>
 
@@ -312,7 +312,7 @@ function ManualDownloadContent() {
             <span className="text-3xl">C</span>
             <div>
               <div className="font-semibold">Chrome Extension</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">rollcloud-chrome.crx</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">owlcloud-chrome.crx</div>
             </div>
           </a>
 
@@ -323,7 +323,7 @@ function ManualDownloadContent() {
             <span className="text-3xl">F</span>
             <div>
               <div className="font-semibold">Firefox Extension</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">rollcloud-firefox-signed.xpi</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">owlcloud-firefox-signed.xpi</div>
             </div>
           </a>
         </div>
@@ -359,7 +359,7 @@ function ManualDownloadContent() {
           <div>
             <h3 className="font-semibold mb-2">Step 2: Build the Extension</h3>
             <code className="block bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded text-sm overflow-x-auto">
-              cd rollCloud && npm install && npm run build
+              cd owlCloud && npm install && npm run build
             </code>
           </div>
 

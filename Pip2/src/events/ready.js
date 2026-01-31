@@ -1,5 +1,5 @@
-import { Events, ActivityType } from 'discord.js';
-import { startTurnPoller } from '../rollcloud/turnPoller.js';
+﻿import { Events, ActivityType } from 'discord.js';
+import { startTurnPoller } from '../owlcloud/turnPoller.js';
 
 export default {
   name: Events.ClientReady,
@@ -12,15 +12,15 @@ export default {
 
     // Set bot status
     client.user.setPresence({
-      activities: [{ name: 'RollCloud | /help', type: ActivityType.Playing }],
+      activities: [{ name: 'OwlCloud | /help', type: ActivityType.Playing }],
       status: 'online',
     });
 
-    // Start RollCloud turn poller (if Supabase is configured)
+    // Start OwlCloud turn poller (if Supabase is configured)
     if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY) {
       startTurnPoller(client);
     } else {
-      console.log('ℹ️ RollCloud turn poller disabled (Supabase not configured)');
+      console.log('ℹ️ OwlCloud turn poller disabled (Supabase not configured)');
     }
 
     console.log('🤖 Pip 2 is ready!\n');

@@ -1,7 +1,7 @@
-{
+﻿{
   "name": "pip2",
   "version": "2.0.0",
-  "description": "Discord bot for RollCloud integration",
+  "description": "Discord bot for OwlCloud integration",
   "main": "src/index.js",
   "type": "module",
   "scripts": {

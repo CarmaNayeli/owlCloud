@@ -1,8 +1,8 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 
 /**
  * Build Updater Script
- * Builds the RollCloud Updater and copies it to installer resources
+ * Builds the OwlCloud Updater and copies it to installer resources
  */
 
 const { execSync } = require('child_process');
@@ -12,10 +12,10 @@ const path = require('path');
 const ROOT_DIR = __dirname;
 const UPDATER_DIR = path.join(ROOT_DIR, 'updater');
 const RESOURCES_DIR = path.join(ROOT_DIR, 'resources');
-const UPDATER_DIST = path.join(UPDATER_DIR, 'dist', 'RollCloud Updater 1.0.0.exe');
-const UPDATER_TARGET = path.join(RESOURCES_DIR, 'RollCloud-Updater.exe');
+const UPDATER_DIST = path.join(UPDATER_DIR, 'dist', 'OwlCloud Updater 1.0.0.exe');
+const UPDATER_TARGET = path.join(RESOURCES_DIR, 'OwlCloud-Updater.exe');
 
-console.log('\n🔨 Building RollCloud Updater...\n');
+console.log('\n🔨 Building OwlCloud Updater...\n');
 
 // Ensure resources directory exists
 if (!fs.existsSync(RESOURCES_DIR)) {
@@ -37,7 +37,7 @@ try {
 
     const stats = fs.statSync(UPDATER_TARGET);
     const size = (stats.size / (1024 * 1024)).toFixed(1);
-    console.log(`   ✅ RollCloud-Updater.exe (${size} MB)`);
+    console.log(`   ✅ OwlCloud-Updater.exe (${size} MB)`);
   } else {
     console.error('   ❌ Updater executable not found at:', UPDATER_DIST);
     process.exit(1);

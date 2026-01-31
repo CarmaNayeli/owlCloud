@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
@@ -101,7 +101,7 @@ export default function MyInstancesPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">My Pip 2 Instances</h1>
         <p className="text-gray-600 dark:text-gray-400 mt-2">
-          Manage your RollCloud connections across Discord servers
+          Manage your OwlCloud connections across Discord servers
         </p>
       </div>
 
@@ -118,7 +118,7 @@ export default function MyInstancesPage() {
             No instances yet
           </h2>
           <p className="text-gray-600 dark:text-gray-400 mb-6">
-            Use the /rollcloud command in Discord to connect a server to RollCloud.
+            Use the /owlcloud command in Discord to connect a server to OwlCloud.
           </p>
           <a
             href="/setup"
@@ -186,8 +186,8 @@ export default function MyInstancesPage() {
         <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Need help?</h3>
         <p className="text-gray-600 dark:text-gray-400 text-sm">
           To add a new instance, invite Pip 2 to your Discord server and use the{' '}
-          <code className="bg-gray-200 dark:bg-gray-700 px-1 rounded">/rollcloud</code>{' '}
-          command to connect it to RollCloud.
+          <code className="bg-gray-200 dark:bg-gray-700 px-1 rounded">/owlcloud</code>{' '}
+          command to connect it to OwlCloud.
         </p>
       </div>
     </div>

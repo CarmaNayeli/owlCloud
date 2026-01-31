@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Native Messaging for Installer-Extension Communication
  *
  * Architecture:
@@ -19,7 +19,7 @@ const os = require('os');
 const electron = require('electron');
 
 // Shared file location for IPC between installer and native host
-const PAIRING_FILE_NAME = 'rollcloud-pairing.json';
+const PAIRING_FILE_NAME = 'owlcloud-pairing.json';
 
 /**
  * Get the path to the shared pairing file
@@ -36,10 +36,10 @@ function getPairingFilePath() {
 function getNativeHostPath() {
   if (process.platform === 'win32') {
     // On Windows, use a batch file that runs the JS host
-    return path.join(electron.app.getPath('userData'), 'native-host', 'rollcloud_host.bat');
+    return path.join(electron.app.getPath('userData'), 'native-host', 'owlcloud_host.bat');
   } else {
     // On Mac/Linux, use the JS file directly
-    return path.join(electron.app.getPath('userData'), 'native-host', 'rollcloud_host.js');
+    return path.join(electron.app.getPath('userData'), 'native-host', 'owlcloud_host.js');
   }
 }
 
@@ -88,7 +88,7 @@ async function installNativeHost() {
     }
 
     // Read the host script template
-    const sourceHostPath = path.join(__dirname, '..', 'native-messaging', 'rollcloud_installer_host.js');
+    const sourceHostPath = path.join(__dirname, '..', 'native-messaging', 'owlcloud_installer_host.js');
     let hostScript = fs.readFileSync(sourceHostPath, 'utf8');
 
     // Inject the pairing file path into the host script
@@ -198,14 +198,14 @@ async function installChromeNativeMessaging() {
     const hostPath = getNativeHostPath();
 
     const manifest = {
-      name: 'com.rollcloud.installer',
-      description: 'RollCloud Installer Native Messaging Host',
+      name: 'com.owlcloud.installer',
+      description: 'OwlCloud Installer Native Messaging Host',
       path: hostPath,
       type: 'stdio',
       allowed_origins: ['chrome-extension://mkckngoemfjdkhcpaomdndlecolckgdj/']
     };
 
-    const manifestPath = path.join(manifestDir, 'com.rollcloud.installer.json');
+    const manifestPath = path.join(manifestDir, 'com.owlcloud.installer.json');
     fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
 
     // On Windows, also register in registry
@@ -243,14 +243,14 @@ async function installFirefoxNativeMessaging() {
     const hostPath = getNativeHostPath();
 
     const manifest = {
-      name: 'com.rollcloud.installer',
-      description: 'RollCloud Installer Native Messaging Host',
+      name: 'com.owlcloud.installer',
+      description: 'OwlCloud Installer Native Messaging Host',
       path: hostPath,
       type: 'stdio',
-      allowed_extensions: ['rollcloud@dicecat.dev']
+      allowed_extensions: ['owlcloud@dicecat.dev']
     };
 
-    const manifestPath = path.join(manifestDir, 'com.rollcloud.installer.json');
+    const manifestPath = path.join(manifestDir, 'com.owlcloud.installer.json');
     fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
 
     console.log('✅ Firefox native messaging manifest installed at:', manifestPath);
@@ -272,9 +272,9 @@ async function registerWindowsNativeHost(browser, manifestPath) {
 
     let regPath;
     if (browser === 'chrome') {
-      regPath = 'HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts\\com.rollcloud.installer';
+      regPath = 'HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts\\com.owlcloud.installer';
     } else if (browser === 'firefox') {
-      regPath = 'HKCU\\Software\\Mozilla\\NativeMessagingHosts\\com.rollcloud.installer';
+      regPath = 'HKCU\\Software\\Mozilla\\NativeMessagingHosts\\com.owlcloud.installer';
     } else {
       return;
     }
@@ -361,7 +361,7 @@ async function uninstallNativeMessaging(browser) {
   try {
     const manifestDir = getNativeMessagingManifestPath(browser);
     if (manifestDir) {
-      const manifestPath = path.join(manifestDir, 'com.rollcloud.installer.json');
+      const manifestPath = path.join(manifestDir, 'com.owlcloud.installer.json');
       if (fs.existsSync(manifestPath)) {
         fs.unlinkSync(manifestPath);
         console.log(`✅ Removed ${browser} native messaging manifest`);

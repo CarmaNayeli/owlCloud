@@ -1,4 +1,4 @@
-# ✅ Edge Browser Option Removed from Installer
+﻿# ✅ Edge Browser Option Removed from Installer
 
 ## 🔧 Changes Made
 
@@ -27,7 +27,7 @@ The installer now supports only:
 ## 📦 Updated Enterprise Package
 
 The `dist/enterprise/` package now contains:
-- `RollCloud Enterprise Setup.exe` - Updated installer without Edge option
+- `OwlCloud Enterprise Setup.exe` - Updated installer without Edge option
 - Chrome and Firefox extensions only
 - Updated deployment documentation
 

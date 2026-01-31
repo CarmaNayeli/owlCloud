@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Popup UI Script
  * Handles user interactions in the extension popup
  */
@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <p><strong>Steps to fix:</strong></p>
         <ol>
           <li>Go to chrome://extensions/</li>
-          <li>Click "Remove" on RollCloud</li>
+          <li>Click "Remove" on OwlCloud</li>
           <li>Reload the extension fresh</li>
         </ol>
         <p style="font-size: 12px; color: #666;">
@@ -200,7 +200,7 @@ function initializePopup() {
 
       // Load cached character profiles if present
       const profiles = result.characterProfiles || {};
-      const characterIds = Object.keys(profiles).filter(id => profiles[id].type !== 'rollcloudPlayer');
+      const characterIds = Object.keys(profiles).filter(id => profiles[id].type !== 'owlcloudPlayer');
 
       if (characterIds.length > 0) {
         characterSelect.innerHTML = '';
@@ -253,7 +253,7 @@ function initializePopup() {
     try {
       const result = await browserAPI.storage.local.get(['characterProfiles']);
       const profiles = result.characterProfiles || {};
-      const currentCount = Object.keys(profiles).filter(id => profiles[id].type !== 'rollcloudPlayer').length;
+      const currentCount = Object.keys(profiles).filter(id => profiles[id].type !== 'owlcloudPlayer').length;
       
       if (currentCount > lastCharacterCount) {
         debug.log('🔄 Detected new character data via polling');
@@ -580,7 +580,7 @@ function initializePopup() {
       ]);
       
       // Show conflict warning
-      let conflictMessage = 'You have been logged out because RollCloud was opened in a different browser.';
+      let conflictMessage = 'You have been logged out because OwlCloud was opened in a different browser.';
       
       if (sessionCheck.reason === 'conflict_detected' && sessionCheck.conflict) {
         const conflict = sessionCheck.conflict.conflictingSession;
@@ -591,7 +591,7 @@ function initializePopup() {
                            conflict.browserInfo.userAgent.includes('Firefox') ? 'Firefox' : 
                            conflict.browserInfo.userAgent.includes('Edge') ? 'Edge' : 'another browser';
           
-          conflictMessage = `You have been logged out because RollCloud was opened in ${browserName} as "${conflict.username}" at ${detectedTime}.`;
+          conflictMessage = `You have been logged out because OwlCloud was opened in ${browserName} as "${conflict.username}" at ${detectedTime}.`;
         }
       } else if (sessionCheck.reason === 'token_mismatch') {
         conflictMessage = 'You have been logged out because your login session was invalidated by another device.';
@@ -897,7 +897,7 @@ function initializePopup() {
 
       // Populate character dropdown (exclude GM player data)
       const characterIds = Object.keys(profiles).filter(id =>
-        profiles[id].type !== 'rollcloudPlayer'
+        profiles[id].type !== 'owlcloudPlayer'
       );
       if (characterIds.length > 0) {
         characterSelect.innerHTML = '';
@@ -1055,7 +1055,7 @@ function initializePopup() {
       const profiles = profilesResponse.success ? profilesResponse.profiles : {};
       
       const characterCount = Object.keys(profiles).filter(id => 
-        profiles[id].type !== 'rollcloudPlayer'
+        profiles[id].type !== 'owlcloudPlayer'
       ).length;
       
       console.log(`Found ${characterCount} characters in local storage`);
@@ -1267,9 +1267,9 @@ function initializePopup() {
       // Check if there's any synced character data (excluding GM player data)
       const profilesResponse = await browserAPI.runtime.sendMessage({ action: 'getAllCharacterProfiles' });
       const profiles = profilesResponse.success ? profilesResponse.profiles : {};
-      // Only count actual character slots, not rollcloudPlayer entries
+      // Only count actual character slots, not owlcloudPlayer entries
       const hasCharacters = Object.keys(profiles).some(key =>
-        profiles[key].type !== 'rollcloudPlayer'
+        profiles[key].type !== 'owlcloudPlayer'
       );
 
       if (!hasCharacters) {
@@ -1531,10 +1531,10 @@ function initializePopup() {
       const profilesResponse = await browserAPI.runtime.sendMessage({ action: 'getAllCharacterProfiles' });
       const profiles = profilesResponse.success ? profilesResponse.profiles : {};
 
-      // Filter out non-character entries (like rollcloudPlayer)
+      // Filter out non-character entries (like owlcloudPlayer)
       const characterProfiles = {};
       for (const [key, value] of Object.entries(profiles)) {
-        if (!key.startsWith('rollcloudPlayer')) {
+        if (!key.startsWith('owlcloudPlayer')) {
           characterProfiles[key] = value;
         }
       }
@@ -1556,7 +1556,7 @@ function initializePopup() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `rollcloud-characters-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `owlcloud-characters-${new Date().toISOString().split('T')[0]}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -1807,7 +1807,7 @@ function initializePopup() {
           if (sessionMatches) {
             // User's session matches - show Discord setup
             setupBtn.textContent = '🎮 Setup Discord';
-            setupBtn.title = 'Connect RollCloud to Discord for bot commands';
+            setupBtn.title = 'Connect OwlCloud to Discord for bot commands';
           } else {
             // User's session doesn't match - show sync prompt
             setupBtn.textContent = '🔄 Sync Account';
@@ -2272,7 +2272,7 @@ function initializePopup() {
               : `user_id_dicecloud=eq.${dicecloudUserId}&is_active=eq.true`;
 
             const charResponse = await fetch(
-              `${supabaseManager.supabaseUrl}/rest/v1/rollcloud_characters?${charQuery}&select=*&limit=1`,
+              `${supabaseManager.supabaseUrl}/rest/v1/owlcloud_characters?${charQuery}&select=*&limit=1`,
               {
                 headers: {
                   'apikey': supabaseManager.supabaseKey,

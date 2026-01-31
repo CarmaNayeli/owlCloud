@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Renderer Process
  * Handles UI interactions for the installation wizard
  */
@@ -201,7 +201,7 @@ async function saveUpdaterConfig() {
     // Create startup shortcut if requested
     if (updaterConfig.startWithWindows) {
       const startupPath = path.join(require('os').homedir(), 'AppData', 'Roaming', 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup');
-      const shortcutPath = path.join(startupPath, 'RollCloud Updater.lnk');
+      const shortcutPath = path.join(startupPath, 'OwlCloud Updater.lnk');
       // This would need PowerShell - handled by NSIS instead
       console.log('Startup shortcut will be created by NSIS');
     }
@@ -348,7 +348,7 @@ async function checkForUpdatesAndProceed() {
       });
       
       document.getElementById('btnUninstallExtension').addEventListener('click', async () => {
-        if (confirm(`Are you sure you want to uninstall the RollCloud extension from ${selectedBrowser}? This will remove the extension and all its data.`)) {
+        if (confirm(`Are you sure you want to uninstall the OwlCloud extension from ${selectedBrowser}? This will remove the extension and all its data.`)) {
           statusText.textContent = 'Uninstalling extension...';
           try {
             const result = await window.api.uninstallExtension(selectedBrowser);
@@ -491,7 +491,7 @@ async function handleUninstallExtension() {
   const statusText = document.getElementById('browserStatus');
   const browserName = getBrowserName(selectedBrowser);
 
-  if (!confirm(`Are you sure you want to uninstall the RollCloud extension from ${browserName}?\n\nThis will remove the extension and all its data.`)) {
+  if (!confirm(`Are you sure you want to uninstall the OwlCloud extension from ${browserName}?\n\nThis will remove the extension and all its data.`)) {
     return;
   }
 
@@ -619,7 +619,7 @@ async function installExtension() {
     console.log('🔧 Installing extension for:', selectedBrowser);
     console.log('🔧 CONFIG:', {
       extensionId: 'mkckngoemfjdkhcpaomdndlecolckgdj',
-      chromeUpdateUrl: 'https://raw.githubusercontent.com/CarmaNayeli/rollCloud/main/updates/update_manifest.xml',
+      chromeUpdateUrl: 'https://raw.githubusercontent.com/CarmaNayeli/owlCloud/main/updates/update_manifest.xml',
       firefoxUpdateUrl: 'https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-firefox-signed.xpi'
     });
     
@@ -804,7 +804,7 @@ async function installUpdaterUtility() {
   const statusText = document.getElementById('browserStatus');
   
   statusText.innerHTML = `
-    <div style="color: #ff9500;">🔄 Installing RollCloud Updater...</div>
+    <div style="color: #ff9500;">🔄 Installing OwlCloud Updater...</div>
     <div style="font-size: 0.9em; margin-top: 5px;">This will install a permanent updater utility on your system.</div>
     <div style="font-size: 0.85em; margin-top: 5px; color: #666;">The updater allows you to manage extensions without reinstalling.</div>
   `;
@@ -816,7 +816,7 @@ async function installUpdaterUtility() {
       statusText.innerHTML = `
         <div style="color: #28a745;">✅ Updater installed successfully!</div>
         <div style="font-size: 0.9em; margin-top: 5px;">${result.message}</div>
-        <div style="font-size: 0.85em; margin-top: 5px; color: #666;">You can now run RollCloud Updater anytime from your Start Menu.</div>
+        <div style="font-size: 0.85em; margin-top: 5px; color: #666;">You can now run OwlCloud Updater anytime from your Start Menu.</div>
         <div style="margin-top: 15px;">
           <button id="btnLaunchUpdater" class="btn btn-primary" style="background: #60a5fa; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
             🚀 Launch Updater
@@ -907,7 +907,7 @@ function showCompletionMessage() {
 
   statusText.innerHTML = `
     <div style="color: #4ade80;">✅ Installation Complete!</div>
-    <div style="font-size: 0.9em; margin-top: 5px;">RollCloud extension is ready to use.</div>
+    <div style="font-size: 0.9em; margin-top: 5px;">OwlCloud extension is ready to use.</div>
     <div style="font-size: 0.85em; margin-top: 5px; color: #666;">You can install the updater later if needed.</div>
     <div style="margin-top: 15px;">
       <button id="btnFinishInstallation" class="btn btn-primary" style="background: #4ade80; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
@@ -1136,7 +1136,7 @@ async function restartBrowser(browser) {
     try {
       const result = await window.api.restartBrowser(browser);
       if (result.success) {
-        alert(`${browserName} has been restarted.\n\nThe RollCloud extension should now be active.`);
+        alert(`${browserName} has been restarted.\n\nThe OwlCloud extension should now be active.`);
       } else {
         alert(`Could not restart ${browserName} automatically.\n\nPlease close and reopen ${browserName} manually.\n\nTip: Make sure to close ALL ${browserName} windows, including any in the system tray.`);
       }

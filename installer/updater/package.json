@@ -1,7 +1,7 @@
-{
-  "name": "rollcloud-updater",
+﻿{
+  "name": "owlcloud-updater",
   "version": "1.0.0",
-  "description": "RollCloud Extension Updater - Manage and update RollCloud browser extensions",
+  "description": "OwlCloud Extension Updater - Manage and update OwlCloud browser extensions",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
@@ -12,8 +12,8 @@
     "build:linux": "electron-builder --linux"
   },
   "build": {
-    "appId": "com.rollcloud.updater",
-    "productName": "RollCloud Updater",
+    "appId": "com.owlcloud.updater",
+    "productName": "OwlCloud Updater",
     "directories": {
       "output": "dist"
     },

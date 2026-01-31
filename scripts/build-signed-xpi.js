@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 
 /**
  * Build properly signed XPI files for Firefox deployment
@@ -69,8 +69,8 @@ async function buildSignedFirefox() {
   console.log('\n📦 Building extension...');
   execSync('node', ['scripts/build-extension-fixed.js'], { stdio: 'inherit' });
   
-  const zipPath = path.join(DIST_DIR, 'rollcloud-firefox.zip');
-  const xpiPath = path.join(DIST_DIR, 'rollcloud-firefox-signed.xpi');
+  const zipPath = path.join(DIST_DIR, 'owlcloud-firefox.zip');
+  const xpiPath = path.join(DIST_DIR, 'owlcloud-firefox-signed.xpi');
   
   if (!fs.existsSync(zipPath)) {
     throw new Error('Extension ZIP not found. Run build-extension-fixed.js first.');

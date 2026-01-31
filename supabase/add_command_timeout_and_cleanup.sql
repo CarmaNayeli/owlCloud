@@ -1,11 +1,11 @@
--- Migration: Add timeout and cleanup functionality to rollcloud_commands table
+﻿-- Migration: Add timeout and cleanup functionality to owlcloud_commands table
 -- Run this in your Supabase SQL Editor to add command timeout and cleanup features
 
 -- Step 1: Drop dependent objects first (if they exist)
-DROP VIEW IF EXISTS public.rollcloud_command_stats;
+DROP VIEW IF EXISTS public.owlcloud_command_stats;
 DROP FUNCTION IF EXISTS public.cleanup_old_commands();
 DROP FUNCTION IF EXISTS public.mark_expired_commands_failed();
-DROP TRIGGER IF EXISTS set_rollcloud_command_expires_at ON public.rollcloud_commands;
+DROP TRIGGER IF EXISTS set_owlcloud_command_expires_at ON public.owlcloud_commands;
 DROP FUNCTION IF EXISTS public.set_command_expires_at();
 
 -- Step 2: Add expires_at column for command timeout
@@ -13,12 +13,12 @@ DO $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'rollcloud_commands' AND column_name = 'expires_at'
+        WHERE table_name = 'owlcloud_commands' AND column_name = 'expires_at'
     ) THEN
-        ALTER TABLE public.rollcloud_commands ADD COLUMN expires_at TIMESTAMP WITH TIME ZONE;
-        RAISE NOTICE 'Added expires_at column to rollcloud_commands';
+        ALTER TABLE public.owlcloud_commands ADD COLUMN expires_at TIMESTAMP WITH TIME ZONE;
+        RAISE NOTICE 'Added expires_at column to owlcloud_commands';
     ELSE
-        RAISE NOTICE 'expires_at column already exists in rollcloud_commands';
+        RAISE NOTICE 'expires_at column already exists in owlcloud_commands';
     END IF;
 END $$;
 
@@ -27,12 +27,12 @@ DO $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'rollcloud_commands' AND column_name = 'processed_at'
+        WHERE table_name = 'owlcloud_commands' AND column_name = 'processed_at'
     ) THEN
-        ALTER TABLE public.rollcloud_commands ADD COLUMN processed_at TIMESTAMP WITH TIME ZONE;
-        RAISE NOTICE 'Added processed_at column to rollcloud_commands';
+        ALTER TABLE public.owlcloud_commands ADD COLUMN processed_at TIMESTAMP WITH TIME ZONE;
+        RAISE NOTICE 'Added processed_at column to owlcloud_commands';
     ELSE
-        RAISE NOTICE 'processed_at column already exists in rollcloud_commands';
+        RAISE NOTICE 'processed_at column already exists in owlcloud_commands';
     END IF;
 END $$;
 
@@ -41,9 +41,9 @@ DO $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM pg_indexes 
-        WHERE tablename = 'rollcloud_commands' AND indexname = 'idx_rollcloud_commands_expires_at'
+        WHERE tablename = 'owlcloud_commands' AND indexname = 'idx_owlcloud_commands_expires_at'
     ) THEN
-        CREATE INDEX idx_rollcloud_commands_expires_at ON public.rollcloud_commands(expires_at);
+        CREATE INDEX idx_owlcloud_commands_expires_at ON public.owlcloud_commands(expires_at);
         RAISE NOTICE 'Created index on expires_at';
     ELSE
         RAISE NOTICE 'Index on expires_at already exists';
@@ -54,9 +54,9 @@ DO $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM pg_indexes 
-        WHERE tablename = 'rollcloud_commands' AND indexname = 'idx_rollcloud_commands_processed_at'
+        WHERE tablename = 'owlcloud_commands' AND indexname = 'idx_owlcloud_commands_processed_at'
     ) THEN
-        CREATE INDEX idx_rollcloud_commands_processed_at ON public.rollcloud_commands(processed_at);
+        CREATE INDEX idx_owlcloud_commands_processed_at ON public.owlcloud_commands(processed_at);
         RAISE NOTICE 'Created index on processed_at';
     ELSE
         RAISE NOTICE 'Index on processed_at already exists';
@@ -78,21 +78,21 @@ DECLARE
     timeout_minutes INTEGER := 5; -- Commands expire after 5 minutes
 BEGIN
     -- Delete expired commands (timeout)
-    DELETE FROM public.rollcloud_commands 
+    DELETE FROM public.owlcloud_commands 
     WHERE expires_at < NOW() 
     AND status IN ('pending', 'processing');
     
     GET DIAGNOSTICS expired_commands = ROW_COUNT;
     
     -- Delete old pending commands (stuck)
-    DELETE FROM public.rollcloud_commands 
+    DELETE FROM public.owlcloud_commands 
     WHERE created_at < NOW() - INTERVAL '1 hour'
     AND status = 'pending';
     
     GET DIAGNOSTICS old_pending_commands = ROW_COUNT;
     
     -- Delete old completed/failed commands (cleanup)
-    DELETE FROM public.rollcloud_commands 
+    DELETE FROM public.owlcloud_commands 
     WHERE created_at < NOW() - INTERVAL '%s days' % format('%s', cleanup_days)
     AND status IN ('completed', 'failed');
     
@@ -113,7 +113,7 @@ DECLARE
     marked_count INTEGER;
 BEGIN
     -- Mark expired pending commands as failed
-    UPDATE public.rollcloud_commands 
+    UPDATE public.owlcloud_commands 
     SET status = 'failed',
         error_message = 'Command timed out',
         updated_at = NOW()
@@ -139,14 +139,14 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Step 8: Add the trigger
-CREATE TRIGGER set_rollcloud_command_expires_at
-    BEFORE INSERT ON public.rollcloud_commands
+CREATE TRIGGER set_owlcloud_command_expires_at
+    BEFORE INSERT ON public.owlcloud_commands
     FOR EACH ROW
     EXECUTE FUNCTION set_command_expires_at();
 
 -- Step 9: Add comments for documentation
-COMMENT ON COLUMN public.rollcloud_commands.expires_at IS 'Command expiration time (5 minutes after creation)';
-COMMENT ON COLUMN public.rollcloud_commands.processed_at IS 'When the command was actually processed by the extension';
+COMMENT ON COLUMN public.owlcloud_commands.expires_at IS 'Command expiration time (5 minutes after creation)';
+COMMENT ON COLUMN public.owlcloud_commands.processed_at IS 'When the command was actually processed by the extension';
 COMMENT ON FUNCTION public.cleanup_old_commands() IS 'Cleans up expired and old commands to prevent database clutter';
 COMMENT ON FUNCTION public.mark_expired_commands_failed() IS 'Marks expired pending commands as failed';
 COMMENT ON FUNCTION public.set_command_expires_at() IS 'Automatically sets expiration time for new commands';
@@ -154,7 +154,7 @@ COMMENT ON FUNCTION public.set_command_expires_at() IS 'Automatically sets expir
 -- Step 10: Verify the migration worked
 SELECT column_name, data_type, is_nullable 
 FROM information_schema.columns 
-WHERE table_name = 'rollcloud_commands' 
+WHERE table_name = 'owlcloud_commands' 
 AND column_name IN ('expires_at', 'processed_at')
 ORDER BY column_name;
 

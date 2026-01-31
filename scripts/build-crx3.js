@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 
 /**
  * Build CRX3 format for modern Chrome
@@ -172,8 +172,8 @@ async function build() {
   console.log(`🔑 Using existing RSA key pair`);
   console.log(`   Public key (DER) size: ${publicKeyDer.length} bytes`);
 
-  const zipPath = path.join(DIST_DIR, 'rollcloud-chrome.zip');
-  const crxPath = path.join(DIST_DIR, 'rollcloud-chrome-v3.crx');
+  const zipPath = path.join(DIST_DIR, 'owlcloud-chrome.zip');
+  const crxPath = path.join(DIST_DIR, 'owlcloud-chrome-v3.crx');
 
   if (!fs.existsSync(zipPath)) {
     console.log('❌ ZIP not found. Run build-extension-fixed.js first.');

@@ -1,4 +1,4 @@
-# RollCloud Optimizations - Phase 1 Complete
+﻿# OwlCloud Optimizations - Phase 1 Complete
 
 ## Summary
 Implemented Phase 1 "Quick Wins" optimizations to improve code quality, performance, and maintainability.
@@ -59,13 +59,13 @@ debug.log('Message');
 
 **Before:**
 ```javascript
-console.log('RollCloud: Roll20 content script loaded');
+console.log('OwlCloud: Roll20 content script loaded');
 console.error('❌ Error:', error);
 ```
 
 **After:**
 ```javascript
-debug.log('RollCloud: Roll20 content script loaded');
+debug.log('OwlCloud: Roll20 content script loaded');
 debug.error('❌ Error:', error);
 ```
 
@@ -301,16 +301,16 @@ npm run build
 
 # 4. Package and distribute
 # - Create release on GitHub
-# - Attach dist/chrome.zip as rollcloud-chrome.zip
-# - Attach dist/firefox.zip as rollcloud-firefox.zip
-# - Attach dist/safari.zip as rollcloud-safari.zip
+# - Attach dist/chrome.zip as owlcloud-chrome.zip
+# - Attach dist/firefox.zip as owlcloud-firefox.zip
+# - Attach dist/safari.zip as owlcloud-safari.zip
 ```
 
 ---
 
 **All optimizations complete!** 🎉
 
-The RollCloud extension is now:
+The OwlCloud extension is now:
 - ✅ Performant (5-15% faster)
 - ✅ Professional (clean console)
 - ✅ Themeable (light/dark/system)

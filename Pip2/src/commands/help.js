@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+﻿import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -10,7 +10,7 @@ export default {
         .setDescription('Get detailed help on a specific topic')
         .setRequired(false)
         .addChoices(
-          { name: 'RollCloud Setup', value: 'rollcloud' },
+          { name: 'OwlCloud Setup', value: 'owlcloud' },
           { name: 'Character Commands', value: 'characters' },
           { name: 'Rolling Dice', value: 'rolling' },
           { name: 'Discord Integration', value: 'discord' },
@@ -23,8 +23,8 @@ export default {
 
     let embed;
     switch (topic) {
-      case 'rollcloud':
-        embed = buildRollCloudHelp();
+      case 'owlcloud':
+        embed = buildOwlCloudHelp();
         break;
       case 'characters':
         embed = buildCharacterHelp();
@@ -51,14 +51,14 @@ function buildMainHelp() {
     .setColor(0x4ECDC4)
     .setTitle('🎲 Pip Bot Help')
     .setDescription(
-      'A comprehensive D&D companion bot with RollCloud integration.\n\n' +
+      'A comprehensive D&D companion bot with OwlCloud integration.\n\n' +
       'Use `/help topic:<name>` for detailed help on specific features.'
     )
     .addFields(
       {
-        name: '🎮 RollCloud Integration',
+        name: '🎮 OwlCloud Integration',
         value:
-          '`/rollcloud <code>` - Link your Discord to RollCloud\n' +
+          '`/owlcloud <code>` - Link your Discord to OwlCloud\n' +
           '`/characters` - List your synced characters\n' +
           '`/character [name]` - View/set active character\n' +
           '`/spells [level] [search]` - List your character\'s spells\n' +
@@ -68,7 +68,7 @@ function buildMainHelp() {
           '`/use <action> [target]` - Use an action in Roll20\n' +
           '`/roll20 [character]` - Check Roll20 connection status\n' +
           '`/webhook [action]` - Show Discord webhook status\n' +
-          '*Use `/help topic:RollCloud Setup` for setup guide*',
+          '*Use `/help topic:OwlCloud Setup` for setup guide*',
         inline: false
       },
       {
@@ -107,7 +107,7 @@ function buildMainHelp() {
         value:
           '`/ping` - Check bot latency\n' +
           '`/changelog view` - View Dice Cat updates\n' +
-          '`/disconnect` - Remove RollCloud from channel\n' +
+          '`/disconnect` - Remove OwlCloud from channel\n' +
           '`/ticket` - Create support tickets\n' +
           '`/reactionrole` - Manage reaction roles',
         inline: false
@@ -116,18 +116,18 @@ function buildMainHelp() {
     .setFooter({ text: 'Pip Bot • Dice Cat Community • 20 commands available' });
 }
 
-function buildRollCloudHelp() {
+function buildOwlCloudHelp() {
   return new EmbedBuilder()
     .setColor(0x4ECDC4)
-    .setTitle('🎮 RollCloud Setup Guide')
+    .setTitle('🎮 OwlCloud Setup Guide')
     .setDescription('Connect your DiceCloud characters to Discord!')
     .addFields(
       {
         name: 'Step 1: Get Pairing Code',
         value:
-          '1. Install the RollCloud browser extension\n' +
+          '1. Install the OwlCloud browser extension\n' +
           '2. Open a DiceCloud character sheet\n' +
-          '3. Click the RollCloud extension icon\n' +
+          '3. Click the OwlCloud extension icon\n' +
           '4. Expand "Discord Integration"\n' +
           '5. Click "Setup Discord"\n' +
           '6. Copy the 6-character code shown',
@@ -136,8 +136,8 @@ function buildRollCloudHelp() {
       {
         name: 'Step 2: Link Discord',
         value:
-          'Run `/rollcloud <code>` with your pairing code.\n' +
-          'Example: `/rollcloud ABC123`\n\n' +
+          'Run `/owlcloud <code>` with your pairing code.\n' +
+          'Example: `/owlcloud ABC123`\n\n' +
           '*Each user needs their own code - multiple users can pair in the same channel!*',
         inline: false
       },
@@ -145,7 +145,7 @@ function buildRollCloudHelp() {
         name: 'Step 3: Sync Characters',
         value:
           '1. Open any DiceCloud character sheet\n' +
-          '2. Click "Sync Character" in the RollCloud extension\n' +
+          '2. Click "Sync Character" in the OwlCloud extension\n' +
           '3. Repeat for each character you want to use\n\n' +
           '*Characters sync automatically when you view them!*',
         inline: false
@@ -270,7 +270,7 @@ function buildCharacterHelp() {
         inline: false
       }
     )
-    .setFooter({ text: 'Sync characters from the RollCloud browser extension!' });
+    .setFooter({ text: 'Sync characters from the OwlCloud browser extension!' });
 }
 
 function buildRollingHelp() {
@@ -398,11 +398,11 @@ function buildDiscordHelp() {
           '**Roll20 Issues:**\n' +
           '• Use `/roll20` to check connection status\n' +
           '• Ensure Roll20 tab is open with character selected\n' +
-          '• Verify RollCloud extension is installed',
+          '• Verify OwlCloud extension is installed',
         inline: false
       }
     )
-    .setFooter({ text: 'Discord integration requires RollCloud extension and proper setup!' });
+    .setFooter({ text: 'Discord integration requires OwlCloud extension and proper setup!' });
 }
 
 function buildAllCommandsHelp() {
@@ -412,14 +412,14 @@ function buildAllCommandsHelp() {
     .setDescription('Complete list of all 21 available commands.')
     .addFields(
       {
-        name: '🎮 RollCloud Integration',
+        name: '🎮 OwlCloud Integration',
         value:
-          '`/rollcloud <code>` - Link Discord to RollCloud extension\n' +
+          '`/owlcloud <code>` - Link Discord to OwlCloud extension\n' +
           '`/characters` - List your synced characters\n' +
           '`/character [name]` - View or set active character\n' +
           '`/roll20 [character]` - Check Roll20 connection status\n' +
           '`/webhook [action]` - Manage Discord webhooks\n' +
-          '`/disconnect` - Remove RollCloud from this channel',
+          '`/disconnect` - Remove OwlCloud from this channel',
         inline: false
       },
       {
@@ -463,7 +463,7 @@ function buildAllCommandsHelp() {
         value:
           '`/testdbconnection` - Test database connectivity\n' +
           '`/testdiscordlink` - Test Discord connection\n' +
-          '`/testpairing` - Test RollCloud pairing\n' +
+          '`/testpairing` - Test OwlCloud pairing\n' +
           '`/mydiscordinfo` - Show your Discord user info',
         inline: false
       }

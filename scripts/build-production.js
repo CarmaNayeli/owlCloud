@@ -1,7 +1,7 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 
 /**
- * Production Build Script for RollCloud
+ * Production Build Script for OwlCloud
  * Creates proper signed CRX and XPI files for distribution
  */
 
@@ -143,7 +143,7 @@ function updateChromeManifest(extensionId, version) {
   Chrome Extension Update Manifest
 
   This file is used by Chrome's enterprise policy to check for and install
-  the RollCloud extension. It should be hosted at a publicly accessible URL.
+  the OwlCloud extension. It should be hosted at a publicly accessible URL.
 
   When you release a new version:
   1. Update the version number below
@@ -165,7 +165,7 @@ function updateChromeManifest(extensionId, version) {
 
 // Build production extensions
 async function buildProduction() {
-  console.log('RollCloud Production Build Script');
+  console.log('OwlCloud Production Build Script');
   console.log('====================================');
   
   ensureReleaseDir();
@@ -177,8 +177,8 @@ async function buildProduction() {
   console.log('\nBuilding base extensions...');
   execSync('node', ['scripts/build-extension.js'], { stdio: 'inherit' });
   
-  const chromeZip = path.join(DIST_DIR, 'rollcloud-chrome.zip');
-  const firefoxZip = path.join(DIST_DIR, 'rollcloud-firefox.zip');
+  const chromeZip = path.join(DIST_DIR, 'owlcloud-chrome.zip');
+  const firefoxZip = path.join(DIST_DIR, 'owlcloud-firefox.zip');
   
   if (!fs.existsSync(chromeZip) || !fs.existsSync(firefoxZip)) {
     console.error('Extension ZIP files not found. Run build:extension first.');
@@ -188,8 +188,8 @@ async function buildProduction() {
   // Create production files
   console.log('\nCreating production files...');
   
-  const chromeCRX = path.join(RELEASE_DIR, `rollcloud-chrome-${version}.crx`);
-  const firefoxXPI = path.join(RELEASE_DIR, `rollcloud-firefox-${version}.xpi`);
+  const chromeCRX = path.join(RELEASE_DIR, `owlcloud-chrome-${version}.crx`);
+  const firefoxXPI = path.join(RELEASE_DIR, `owlcloud-firefox-${version}.xpi`);
   
   try {
     // Create CRX
@@ -205,8 +205,8 @@ async function buildProduction() {
     console.log(`  Version: ${version}`);
     console.log(`  Output directory: ${RELEASE_DIR}`);
     console.log('\nFiles created:');
-    console.log(`  - rollcloud-chrome-${version}.crx (Chrome Web Store)`);
-    console.log(`  - rollcloud-firefox-${version}.xpi (Firefox Add-ons)`);
+    console.log(`  - owlcloud-chrome-${version}.crx (Chrome Web Store)`);
+    console.log(`  - owlcloud-firefox-${version}.xpi (Firefox Add-ons)`);
     console.log(`  - Chrome extension ID: ${chromeResult.extensionId}`);
     console.log(`  - Firefox extension ID: ${firefoxResult.extensionId}`);
     

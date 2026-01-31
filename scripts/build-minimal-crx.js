@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 
 /**
  * Build minimal CRX following Chrome CRX v2 specification exactly
@@ -74,8 +74,8 @@ async function build() {
     console.log('🔧 Building Minimal CRX');
     console.log('========================');
     
-    const zipPath = path.join(DIST_DIR, 'rollcloud-chrome.zip');
-    const crxPath = path.join(DIST_DIR, 'rollcloud-chrome-minimal.crx');
+    const zipPath = path.join(DIST_DIR, 'owlcloud-chrome.zip');
+    const crxPath = path.join(DIST_DIR, 'owlcloud-chrome-minimal.crx');
     
     if (!fs.existsSync(zipPath)) {
       console.error('❌ ZIP file not found:', zipPath);

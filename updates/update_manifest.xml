@@ -1,9 +1,9 @@
-<?xml version='1.0' encoding='UTF-8'?>
+﻿<?xml version='1.0' encoding='UTF-8'?>
 <!--
   Chrome Extension Update Manifest
 
   This file is used by Chrome's enterprise policy to check for and install
-  the RollCloud extension. It should be hosted at a publicly accessible URL.
+  the OwlCloud extension. It should be hosted at a publicly accessible URL.
 
   When you release a new version:
   1. Update the version number below

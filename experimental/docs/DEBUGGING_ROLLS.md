@@ -1,10 +1,10 @@
-# Roll Detection Debugging (DEPRECATED)
+﻿# Roll Detection Debugging (DEPRECATED)
 
-**Note:** This document is deprecated as of the current version of RollCloud.
+**Note:** This document is deprecated as of the current version of OwlCloud.
 
 ## Architecture Change
 
-RollCloud no longer detects and forwards rolls from DiceCloud to Roll20. Instead:
+OwlCloud no longer detects and forwards rolls from DiceCloud to Roll20. Instead:
 
 1. **Character data is imported** from DiceCloud using the REST API
 2. **An interactive character sheet overlay** displays on Roll20 with your character data

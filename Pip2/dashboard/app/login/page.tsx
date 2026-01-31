@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { signIn } from 'next-auth/react';
 import { useSearchParams } from 'next/navigation';
@@ -12,7 +12,7 @@ function LoginContent() {
   return (
     <div className="min-h-[60vh] flex items-center justify-center">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 max-w-md w-full mx-4">
-        <h1 className="text-2xl font-bold text-center mb-2">Sign in to RollCloud</h1>
+        <h1 className="text-2xl font-bold text-center mb-2">Sign in to OwlCloud</h1>
         <p className="text-gray-500 dark:text-gray-400 text-center mb-6">
           Connect your Discord account to manage your Pip 2 instances
         </p>
@@ -36,7 +36,7 @@ function LoginContent() {
         </button>
 
         <p className="text-sm text-gray-500 dark:text-gray-400 text-center mt-6">
-          By signing in, you agree to allow RollCloud to access your Discord profile
+          By signing in, you agree to allow OwlCloud to access your Discord profile
           and server list.
         </p>
       </div>

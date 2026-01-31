@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+﻿import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { createClient } from '@supabase/supabase-js';
 
 // Supabase config - set via environment variables
@@ -118,7 +118,7 @@ export default {
               { name: '📝 Direct Input', value: '`/roll 1d20+5`\n`/roll 2d6`\n`/roll 3d10-2`', inline: false },
               { name: '⚡ Quick Examples', value: '`/roll perception` (use autocomplete)\n`/roll strength save`\n`/roll initiative`', inline: false }
             )
-            .setFooter({ text: '💡 Tip: Link your character with `/rollcloud [code]` to use ability checks from your sheet' })
+            .setFooter({ text: '💡 Tip: Link your character with `/owlcloud [code]` to use ability checks from your sheet' })
           ]
         });
         return;
@@ -137,7 +137,7 @@ export default {
         
         await interaction.editReply({ embeds: [checkResult.embed] });
 
-        // Send real-time message to RollCloud extension (unless forced Discord only)
+        // Send real-time message to OwlCloud extension (unless forced Discord only)
         if (!forceDiscord && checkResult.character) {
           console.log(`🎯 Attempting Roll20 integration for ${checkResult.character.name}`);
           const rollId = await sendRollToExtension(interaction, {
@@ -229,7 +229,7 @@ export default {
 
       await interaction.editReply({ embeds: [embed] });
 
-      // Send real-time message to RollCloud extension (unless forced Discord only)
+      // Send real-time message to OwlCloud extension (unless forced Discord only)
       if (!forceDiscord) {
         console.log(`🎯 Attempting Roll20 integration for generic dice roll: ${diceNotation}`);
         const rollId = await sendRollToExtension(interaction, {
@@ -390,9 +390,9 @@ async function getCharacterData(discordUserId) {
     throw new Error('Supabase not configured');
   }
 
-  // Find the user's RollCloud connection
+  // Find the user's OwlCloud connection
   const connectionResponse = await fetch(
-    `${SUPABASE_URL}/rest/v1/rollcloud_pairings?discord_user_id=eq.${discordUserId}&status=eq.connected&select=*`,
+    `${SUPABASE_URL}/rest/v1/owlcloud_pairings?discord_user_id=eq.${discordUserId}&status=eq.connected&select=*`,
     {
       headers: {
         'apikey': SUPABASE_SERVICE_KEY,
@@ -858,17 +858,17 @@ function rollSavingThrow(character, ability, options = {}) {
 }
 
 /**
- * Send roll data to RollCloud extension via Supabase broadcast
+ * Send roll data to OwlCloud extension via Supabase broadcast
  */
 async function sendRollToExtension(interaction, rollData) {
   console.log(`📡 Sending roll to extension for ${interaction.user.displayName}`);
   console.log(`📊 Roll data:`, JSON.stringify(rollData, null, 2));
   
   try {
-    // Get the user's RollCloud pairing
+    // Get the user's OwlCloud pairing
     console.log(`🔍 Looking up pairing for Discord user ID: ${interaction.user.id}`);
     const pairingResponse = await fetch(
-      `${SUPABASE_URL}/rest/v1/rollcloud_pairings?discord_user_id=eq.${interaction.user.id}&status=eq.connected&select=*`,
+      `${SUPABASE_URL}/rest/v1/owlcloud_pairings?discord_user_id=eq.${interaction.user.id}&status=eq.connected&select=*`,
       {
         headers: {
           'apikey': SUPABASE_SERVICE_KEY,
@@ -1012,7 +1012,7 @@ async function sendRollToExtensionREST(interaction, rollData, pairing, meteorCha
     };
 
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/rollcloud_rolls`,
+      `${SUPABASE_URL}/rest/v1/owlcloud_rolls`,
       {
         method: 'POST',
         headers: {
@@ -1037,7 +1037,7 @@ async function sendRollToExtensionREST(interaction, rollData, pairing, meteorCha
 
     // Update pairing activity
     await fetch(
-      `${SUPABASE_URL}/rest/v1/rollcloud_pairings?id=eq.${pairing.id}`,
+      `${SUPABASE_URL}/rest/v1/owlcloud_pairings?id=eq.${pairing.id}`,
       {
         method: 'PATCH',
         headers: {
@@ -1073,7 +1073,7 @@ async function waitForRoll20Response(interaction, originalTotal) {
     try {
       // Query Supabase for the roll status
       const response = await fetch(
-        `${SUPABASE_URL}/rest/v1/rollcloud_rolls?discord_message_id=eq.${interaction.id}&select=*&order=created_at.desc&limit=1`,
+        `${SUPABASE_URL}/rest/v1/owlcloud_rolls?discord_message_id=eq.${interaction.id}&select=*&order=created_at.desc&limit=1`,
         {
           headers: {
             'apikey': SUPABASE_SERVICE_KEY,
@@ -1179,7 +1179,7 @@ async function updateDiscordMessageWithFallback(interaction, fallbackMessage) {
 async function markRollAsTimeout(discordMessageId) {
   try {
     await fetch(
-      `${SUPABASE_URL}/rest/v1/rollcloud_rolls?discord_message_id=eq.${discordMessageId}`,
+      `${SUPABASE_URL}/rest/v1/owlcloud_rolls?discord_message_id=eq.${discordMessageId}`,
       {
         method: 'PATCH',
         headers: {
@@ -1203,9 +1203,9 @@ async function markRollAsTimeout(discordMessageId) {
  */
 async function getStoredCharacterOptions(discordUserId) {
   try {
-    // Get the user's RollCloud pairing
+    // Get the user's OwlCloud pairing
     const pairingResponse = await fetch(
-      `${SUPABASE_URL}/rest/v1/rollcloud_pairings?discord_user_id=eq.${discordUserId}&status=eq.connected&select=*`,
+      `${SUPABASE_URL}/rest/v1/owlcloud_pairings?discord_user_id=eq.${discordUserId}&status=eq.connected&select=*`,
       {
         headers: {
           'apikey': SUPABASE_SERVICE_KEY,
@@ -1229,7 +1229,7 @@ async function getStoredCharacterOptions(discordUserId) {
 
     // Get stored character options
     const optionsResponse = await fetch(
-      `${SUPABASE_URL}/rest/v1/rollcloud_character_options?pairing_id=eq.${pairing.id}&status=eq.active&select=*&order=updated_at.desc&limit=1`,
+      `${SUPABASE_URL}/rest/v1/owlcloud_character_options?pairing_id=eq.${pairing.id}&status=eq.active&select=*&order=updated_at.desc&limit=1`,
       {
         headers: {
           'apikey': SUPABASE_SERVICE_KEY,
@@ -1296,7 +1296,7 @@ async function storeCharacterOptions(pairingId, characterData) {
 
     // Check if options already exist
     const existingResponse = await fetch(
-      `${SUPABASE_URL}/rest/v1/rollcloud_character_options?pairing_id=eq.${pairingId}&character_id=eq.${characterData.id}&select=id`,
+      `${SUPABASE_URL}/rest/v1/owlcloud_character_options?pairing_id=eq.${pairingId}&character_id=eq.${characterData.id}&select=id`,
       {
         headers: {
           'apikey': SUPABASE_SERVICE_KEY,
@@ -1325,7 +1325,7 @@ async function storeCharacterOptions(pairingId, characterData) {
       if (existing.length > 0) {
         // Update existing options
         await fetch(
-          `${SUPABASE_URL}/rest/v1/rollcloud_character_options?id=eq.${existing[0].id}`,
+          `${SUPABASE_URL}/rest/v1/owlcloud_character_options?id=eq.${existing[0].id}`,
           {
             method: 'PATCH',
             headers: {
@@ -1339,7 +1339,7 @@ async function storeCharacterOptions(pairingId, characterData) {
       } else {
         // Insert new options
         await fetch(
-          `${SUPABASE_URL}/rest/v1/rollcloud_character_options`,
+          `${SUPABASE_URL}/rest/v1/owlcloud_character_options`,
           {
             method: 'POST',
             headers: {

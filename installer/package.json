@@ -1,7 +1,7 @@
-{
-  "name": "rollcloud-setup",
+﻿{
+  "name": "owlcloud-setup",
   "version": "1.2.7",
-  "description": "RollCloud Extension Installation Wizard",
+  "description": "OwlCloud Extension Installation Wizard",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
@@ -15,10 +15,10 @@
     "build:updater": "node build-updater.js"
   },
   "build": {
-    "appId": "com.dicecat.rollcloud.setup",
-    "productName": "RollCloud Wizard",
+    "appId": "com.dicecat.owlcloud.setup",
+    "productName": "OwlCloud Wizard",
     "copyright": "Copyright © 2025 Carmabella",
-    "artifactName": "RollCloudWizard.${ext}",
+    "artifactName": "OwlCloudWizard.${ext}",
     "directories": {
       "output": "dist"
     },
@@ -28,20 +28,20 @@
     ],
     "extraResources": [
       {
-        "from": "../dist/rollcloud-chrome-signed.crx",
-        "to": "extension/rollcloud-chrome.crx"
+        "from": "../dist/owlcloud-chrome-signed.crx",
+        "to": "extension/owlcloud-chrome.crx"
       },
       {
-        "from": "../dist/rollcloud-firefox-signed.xpi",
-        "to": "extension/rollcloud-firefox.xpi"
+        "from": "../dist/owlcloud-firefox-signed.xpi",
+        "to": "extension/owlcloud-firefox.xpi"
       },
       {
         "from": "assets/FirefoxDeveloperEdition.exe",
         "to": "installers/FirefoxDeveloperEdition.exe"
       },
       {
-        "from": "resources/RollCloud-Updater.exe",
-        "to": "RollCloud-Updater.exe"
+        "from": "resources/OwlCloud-Updater.exe",
+        "to": "OwlCloud-Updater.exe"
       }
     ],
     "win": {
@@ -88,7 +88,7 @@
     }
   },
   "keywords": [
-    "rollcloud",
+    "owlcloud",
     "dicecloud",
     "roll20",
     "discord",
@@ -106,5 +106,5 @@
   "dependencies": {
     "sudo-prompt": "^9.2.1"
   },
-  "productName": "RollCloud Wizard"
+  "productName": "OwlCloud Wizard"
 }

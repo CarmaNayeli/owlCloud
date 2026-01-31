@@ -1,7 +1,7 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 
 /**
- * Build script for RollCloud browser extension
+ * Build script for OwlCloud browser extension
  * Creates distributable packages for Chrome and Firefox
  */
 
@@ -119,7 +119,7 @@ async function buildChrome() {
   const version = prepareBuildDir(buildDir);
 
   // Create ZIP (Chrome Web Store format)
-  const zipPath = path.join(DIST_DIR, 'rollcloud-chrome.zip');
+  const zipPath = path.join(DIST_DIR, 'owlcloud-chrome.zip');
   await createZip(buildDir, zipPath);
 
   // Note: For local development, use the ZIP file directly
@@ -151,7 +151,7 @@ async function buildFirefox() {
     // Firefox uses browser_specific_settings
     browser_specific_settings: {
       gecko: {
-        id: 'rollcloud@dicecat.dev',
+        id: 'owlcloud@dicecat.dev',
         strict_min_version: '109.0'
       }
     }
@@ -183,11 +183,11 @@ async function buildFirefox() {
   copyDirRecursive(SRC_DIR, srcDest);
 
   // Create ZIP file for Firefox (XPI is essentially a ZIP)
-  const zipPath = path.join(DIST_DIR, 'rollcloud-firefox.zip');
+  const zipPath = path.join(DIST_DIR, 'owlcloud-firefox.zip');
   await createZip(buildDir, zipPath);
   
   // Also create XPI copy for convenience (Firefox can install ZIP files directly)
-  const xpiPath = path.join(DIST_DIR, 'rollcloud-firefox.xpi');
+  const xpiPath = path.join(DIST_DIR, 'owlcloud-firefox.xpi');
   fs.copyFileSync(zipPath, xpiPath);
   console.log(`  Created: ${zipPath} (use this for Firefox installation)`);
   console.log(`  Created: ${xpiPath} (XPI format)`);
@@ -200,7 +200,7 @@ async function buildFirefox() {
 
 // Main build function
 async function build() {
-  console.log('RollCloud Extension Build Script');
+  console.log('OwlCloud Extension Build Script');
   console.log('=================================');
 
   ensureDistDir();
@@ -212,9 +212,9 @@ async function build() {
   console.log(`  Version: ${chromeVersion}`);
   console.log(`  Output directory: ${DIST_DIR}`);
   console.log('\nFiles created:');
-  console.log('  - rollcloud-chrome.zip (Chrome Web Store & local installation)');
-  console.log('  - rollcloud-firefox.zip (Firefox Add-ons - use this for installation)');
-  console.log('  - rollcloud-firefox.xpi (XPI format)');
+  console.log('  - owlcloud-chrome.zip (Chrome Web Store & local installation)');
+  console.log('  - owlcloud-firefox.zip (Firefox Add-ons - use this for installation)');
+  console.log('  - owlcloud-firefox.xpi (XPI format)');
 }
 
 build().catch(error => {

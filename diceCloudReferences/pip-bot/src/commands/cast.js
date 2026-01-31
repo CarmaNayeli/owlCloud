@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+﻿import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 
 // Supabase config - set via environment variables
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -59,7 +59,7 @@ export default {
           embeds: [new EmbedBuilder()
             .setColor(0xE74C3C)
             .setTitle('❌ Character Not Found')
-            .setDescription('You need to link your character first. Use `/rollcloud [code]` to connect your RollCloud extension.')
+            .setDescription('You need to link your character first. Use `/owlcloud [code]` to connect your OwlCloud extension.')
           ]
         });
         return;
@@ -164,9 +164,9 @@ async function getCharacterData(discordUserId) {
     throw new Error('Supabase not configured');
   }
 
-  // Find the user's RollCloud connection
+  // Find the user's OwlCloud connection
   const connectionResponse = await fetch(
-    `${SUPABASE_URL}/rest/v1/rollcloud_pairings?discord_user_id=eq.${discordUserId}&status=eq.connected&select=*`,
+    `${SUPABASE_URL}/rest/v1/owlcloud_pairings?discord_user_id=eq.${discordUserId}&status=eq.connected&select=*`,
     {
       headers: {
         'apikey': SUPABASE_SERVICE_KEY,

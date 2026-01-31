@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+﻿import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { fetchWithTimeout } from '../utils/fetch-timeout.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -57,7 +57,7 @@ export default {
 
       // Get user's pairing for command queue
       const pairingResponse = await fetchWithTimeout(
-        `${SUPABASE_URL}/rest/v1/rollcloud_pairings?discord_user_id=eq.${discordUserId}&status=eq.connected&select=*`,
+        `${SUPABASE_URL}/rest/v1/owlcloud_pairings?discord_user_id=eq.${discordUserId}&status=eq.connected&select=*`,
         {
           headers: {
             'apikey': SUPABASE_SERVICE_KEY,
@@ -78,7 +78,7 @@ export default {
 
       if (pairings.length === 0) {
         return await interaction.editReply({
-          content: '❌ No extension connection found. Use `/rollcloud <code>` to connect your extension.',
+          content: '❌ No extension connection found. Use `/owlcloud <code>` to connect your extension.',
           flags: 64
         });
       }
@@ -145,7 +145,7 @@ export default {
 async function getActiveCharacter(discordUserId) {
   try {
     const response = await fetchWithTimeout(
-      `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}&is_active=eq.true&select=*&limit=1`,
+      `${SUPABASE_URL}/rest/v1/owlcloud_characters?discord_user_id=eq.${discordUserId}&is_active=eq.true&select=*&limit=1`,
       {
         headers: {
           'apikey': SUPABASE_SERVICE_KEY,
@@ -162,7 +162,7 @@ async function getActiveCharacter(discordUserId) {
     }
 
     const fallbackResponse = await fetchWithTimeout(
-      `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}&select=*&order=updated_at.desc&limit=1`,
+      `${SUPABASE_URL}/rest/v1/owlcloud_characters?discord_user_id=eq.${discordUserId}&select=*&order=updated_at.desc&limit=1`,
       {
         headers: {
           'apikey': SUPABASE_SERVICE_KEY,

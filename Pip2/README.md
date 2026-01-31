@@ -1,4 +1,4 @@
-# Pip Bot 🎲
+﻿# Pip Bot 🎲
 
 Discord bot for the Dice Cat community server - a lightweight utility bot focused on changelogs and fun commands.
 
@@ -24,8 +24,8 @@ Discord bot for the Dice Cat community server - a lightweight utility bot focuse
 - `/ping` - Check bot responsiveness
 - `/help` - Show help information
 
-### 🎮 RollCloud Integration
-- `/rollcloud [code]` - Connect RollCloud extension to Discord
+### 🎮 OwlCloud Integration
+- `/owlcloud [code]` - Connect OwlCloud extension to Discord
 - Receive real-time turn and action economy updates from Roll20 combat
 - One-click setup: extension generates code, type it in Discord, done!
 
@@ -173,17 +173,17 @@ Key settings:
 /reactionrole delete message_id:123456789
 ```
 
-### RollCloud Integration
+### OwlCloud Integration
 ```
-# Connect RollCloud extension (use code from extension)
-/rollcloud ABC123
+# Connect OwlCloud extension (use code from extension)
+/owlcloud ABC123
 ```
 
 **Setup Flow:**
-1. Open RollCloud extension → Discord Integration → Click "Setup Discord"
+1. Open OwlCloud extension → Discord Integration → Click "Setup Discord"
 2. Extension shows a 6-character code (e.g., `ABC123`) and opens Discord
 3. Add Pip Bot to your server (if not already added)
-4. In Discord, type `/rollcloud ABC123` (your code)
+4. In Discord, type `/owlcloud ABC123` (your code)
 5. Done! Extension auto-connects, turns appear in Discord!
 
 ## Development
@@ -227,7 +227,7 @@ pip-bot/
 │   │   ├── ping.js          # Status check
 │   │   ├── reactionrole.js  # Reaction role management
 │   │   ├── roll.js          # Dice rolling
-│   │   └── rollcloud.js     # RollCloud webhook integration
+│   │   └── owlcloud.js     # OwlCloud webhook integration
 │   ├── events/              # Discord event handlers
 │   │   ├── ready.js         # Bot startup
 │   │   ├── guildMemberAdd.js        # Welcome messages
@@ -247,7 +247,7 @@ pip-bot/
 │   └── README.md            # Dashboard docs
 ├── data/                    # Bot data storage (gitignored)
 │   ├── reaction-roles.json  # Reaction role configurations
-│   └── rollcloud-webhooks.json  # RollCloud webhook URLs per server
+│   └── owlcloud-webhooks.json  # OwlCloud webhook URLs per server
 ├── .env                     # Environment variables (gitignored)
 ├── .env.example             # Example environment variables
 ├── vercel.json              # Vercel deployment config

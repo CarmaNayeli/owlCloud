@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Theme Manager Utility
  * Handles light/dark/system theme switching with persistence
  */
@@ -84,7 +84,7 @@ const ThemeManager = {
         }
       } else if (typeof localStorage !== 'undefined') {
         // Fallback to localStorage for popup windows
-        const saved = localStorage.getItem('rollcloud-theme');
+        const saved = localStorage.getItem('owlcloud-theme');
         if (saved) {
           this.currentTheme = saved;
         }
@@ -104,7 +104,7 @@ const ThemeManager = {
       if (typeof browserAPI !== 'undefined' && browserAPI.storage) {
         await browserAPI.storage.local.set({ theme: theme });
       } else if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('rollcloud-theme', theme);
+        localStorage.setItem('owlcloud-theme', theme);
       }
 
       debug.log('💾 Theme preference saved:', theme);
@@ -182,7 +182,7 @@ const ThemeManager = {
     }
 
     // Dispatch custom event for same-page listeners
-    window.dispatchEvent(new CustomEvent('rollcloud-theme-changed', {
+    window.dispatchEvent(new CustomEvent('owlcloud-theme-changed', {
       detail: { theme: theme }
     }));
   },

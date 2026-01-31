@@ -1,6 +1,6 @@
-# Contributing to RollCloud
+﻿# Contributing to OwlCloud
 
-Thank you for your interest in contributing to RollCloud! This guide will help you get started.
+Thank you for your interest in contributing to OwlCloud! This guide will help you get started.
 
 ## Table of Contents
 
@@ -17,7 +17,7 @@ Thank you for your interest in contributing to RollCloud! This guide will help y
 
 ## Code of Conduct
 
-Be respectful, inclusive, and constructive. We're all here to make RollCloud better.
+Be respectful, inclusive, and constructive. We're all here to make OwlCloud better.
 
 **Expected Behavior:**
 - Be welcoming to newcomers
@@ -53,8 +53,8 @@ Be respectful, inclusive, and constructive. We're all here to make RollCloud bet
 ```bash
 # Fork the repository on GitHub
 # Then clone your fork
-git clone https://github.com/YOUR_USERNAME/rollCloud.git
-cd rollCloud
+git clone https://github.com/YOUR_USERNAME/owlCloud.git
+cd owlCloud
 
 # Add upstream remote
 git remote add upstream https://github.com/CarmaNayeli/rollCloud.git
@@ -116,7 +116,7 @@ npm run build
 ## Project Structure
 
 ```
-rollCloud/
+owlCloud/
 ├── src/                        # Browser extension source
 │   ├── background.js          # Service worker (Chrome) / background script
 │   ├── content/               # Content scripts
@@ -211,7 +211,7 @@ npm run build:quick
 
 ### Manual Testing
 
-Currently, RollCloud uses manual testing. Test files are in `/tests/`:
+Currently, OwlCloud uses manual testing. Test files are in `/tests/`:
 
 ```bash
 # Open test files in browser
@@ -465,7 +465,7 @@ Update documentation when you:
 ✅ Good:
 ## Installation
 
-1. Download `rollcloud-chrome.zip` from [releases](releases/)
+1. Download `owlcloud-chrome.zip` from [releases](releases/)
 2. Extract to a folder
 3. Open Chrome → Extensions → Enable Developer Mode
 4. Click "Load Unpacked" and select the extracted folder
@@ -571,7 +571,7 @@ Contributors will be:
 - Credited in future CONTRIBUTORS.md
 - Thanked in PR comments
 
-Thank you for contributing to RollCloud! 🎲
+Thank you for contributing to OwlCloud! 🎲
 
 ## License
 

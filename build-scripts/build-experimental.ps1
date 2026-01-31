@@ -1,4 +1,4 @@
-# RollCloud Experimental Build Script (PowerShell)
+﻿# OwlCloud Experimental Build Script (PowerShell)
 # Builds browser distributions WITH experimental two-way sync feature
 
 param(
@@ -14,7 +14,7 @@ $EXPERIMENTAL_TAG = "-experimental"
 $manifest = Get-Content "manifest.json" | ConvertFrom-Json
 $VERSION = $manifest.version
 
-Write-Host "RollCloud Experimental Build Script v$VERSION$EXPERIMENTAL_TAG" -ForegroundColor Cyan
+Write-Host "OwlCloud Experimental Build Script v$VERSION$EXPERIMENTAL_TAG" -ForegroundColor Cyan
 Write-Host "WARNING: This build includes experimental two-way DiceCloud sync" -ForegroundColor Yellow
 Write-Host ""
 

@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+﻿import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 
 // Supabase config
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -26,9 +26,9 @@ export default {
 
     try {
       if (action === 'status') {
-        // Get the user's RollCloud pairing
+        // Get the user's OwlCloud pairing
         const pairingResponse = await fetch(
-          `${SUPABASE_URL}/rest/v1/rollcloud_pairings?discord_user_id=eq.${interaction.user.id}&status=eq.connected&select=*`,
+          `${SUPABASE_URL}/rest/v1/owlcloud_pairings?discord_user_id=eq.${interaction.user.id}&status=eq.connected&select=*`,
           {
             headers: {
               'apikey': SUPABASE_SERVICE_KEY,
@@ -42,7 +42,7 @@ export default {
             embeds: [new EmbedBuilder()
               .setColor(0xE74C3C)
               .setTitle('❌ Error')
-              .setDescription('Failed to check RollCloud connection.')
+              .setDescription('Failed to check OwlCloud connection.')
             ]
           });
           return;
@@ -55,7 +55,7 @@ export default {
             embeds: [new EmbedBuilder()
               .setColor(0xE74C3C)
               .setTitle('❌ Not Connected')
-              .setDescription('You don\'t have any RollCloud connections. Use `/rollcloud <code>` to connect your extension.')
+              .setDescription('You don\'t have any OwlCloud connections. Use `/owlcloud <code>` to connect your extension.')
             ]
           });
           return;
@@ -65,7 +65,7 @@ export default {
         
         // Get stored character options
         const optionsResponse = await fetch(
-          `${SUPABASE_URL}/rest/v1/rollcloud_character_options?pairing_id=eq.${pairing.id}&status=eq.active&select=*&order=updated_at.desc&limit=1`,
+          `${SUPABASE_URL}/rest/v1/owlcloud_character_options?pairing_id=eq.${pairing.id}&status=eq.active&select=*&order=updated_at.desc&limit=1`,
           {
             headers: {
               'apikey': SUPABASE_SERVICE_KEY,
@@ -84,7 +84,7 @@ export default {
 
         const embed = new EmbedBuilder()
           .setColor(0x3498DB)
-          .setTitle('📊 RollCloud Character Status')
+          .setTitle('📊 OwlCloud Character Status')
           .setDescription(`**Discord User:** ${interaction.user.displayName}\n**Server:** ${pairing.server_name || 'Unknown'}\n**Channel:** <#${pairing.channel_name || 'unknown'}>`)
           .addFields(
             { 
@@ -103,7 +103,7 @@ export default {
               inline: false
             }
           )
-          .setFooter({ text: 'RollCloud Integration Status' })
+          .setFooter({ text: 'OwlCloud Integration Status' })
           .setTimestamp();
 
         if (activeCharacter) {
@@ -117,9 +117,9 @@ export default {
         await interaction.editReply({ embeds: [embed] });
 
       } else if (action === 'list') {
-        // Get the user's RollCloud pairing
+        // Get the user's OwlCloud pairing
         const pairingResponse = await fetch(
-          `${SUPABASE_URL}/rest/v1/rollcloud_pairings?discord_user_id=eq.${interaction.user.id}&status=eq.connected&select=*`,
+          `${SUPABASE_URL}/rest/v1/owlcloud_pairings?discord_user_id=eq.${interaction.user.id}&status=eq.connected&select=*`,
           {
             headers: {
               'apikey': SUPABASE_SERVICE_KEY,
@@ -133,7 +133,7 @@ export default {
             embeds: [new EmbedBuilder()
               .setColor(0xE74C3C)
               .setTitle('❌ Error')
-              .setDescription('Failed to check RollCloud connection.')
+              .setDescription('Failed to check OwlCloud connection.')
             ]
           });
           return;
@@ -146,7 +146,7 @@ export default {
             embeds: [new EmbedBuilder()
               .setColor(0xE74C3C)
               .setTitle('❌ Not Connected')
-              .setDescription('You don\'t have any RollCloud connections. Use `/rollcloud <code>` to connect your extension.')
+              .setDescription('You don\'t have any OwlCloud connections. Use `/owlcloud <code>` to connect your extension.')
             ]
           });
           return;
@@ -156,7 +156,7 @@ export default {
         
         // Get all character options for this pairing
         const optionsResponse = await fetch(
-          `${SUPABASE_URL}/rest/v1/rollcloud_character_options?pairing_id=eq.${pairing.id}&select=*&order=updated_at.desc`,
+          `${SUPABASE_URL}/rest/v1/owlcloud_character_options?pairing_id=eq.${pairing.id}&select=*&order=updated_at.desc`,
           {
             headers: {
               'apikey': SUPABASE_SERVICE_KEY,
@@ -174,7 +174,7 @@ export default {
           .setColor(0x3498DB)
           .setTitle('📋 Your Characters')
           .setDescription(`**Discord User:** ${interaction.user.displayName}\n**Server:** ${pairing.server_name || 'Unknown'}\n**Total Characters:** ${characters.length}`)
-          .setFooter({ text: 'RollCloud Character List' })
+          .setFooter({ text: 'OwlCloud Character List' })
           .setTimestamp();
 
         if (characters.length === 0) {

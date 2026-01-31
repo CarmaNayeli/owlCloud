@@ -1,4 +1,4 @@
-# 🚀 Pip2 Bot Remote Deployment Checklist
+﻿# 🚀 Pip2 Bot Remote Deployment Checklist
 
 ## ✅ Pre-Deployment Checklist
 
@@ -10,7 +10,7 @@
 - [ ] Invite bot to server with proper permissions
 - [ ] Copy Server ID → `DISCORD_GUILD_ID`
 
-### 2. Supabase Setup (for RollCloud)
+### 2. Supabase Setup (for OwlCloud)
 - [ ] Create Supabase project
 - [ ] Copy Project URL → `SUPABASE_URL`
 - [ ] Copy service_role key → `SUPABASE_SERVICE_KEY`
@@ -66,8 +66,8 @@ npm run deploy
 - [ ] Test `/ping` command
 - [ ] Test `/help` command
 
-### 3. Verify RollCloud Integration
-- [ ] Test `/rollcloud` with a pairing code
+### 3. Verify OwlCloud Integration
+- [ ] Test `/owlcloud` with a pairing code
 - [ ] Check Supabase for data storage
 - [ ] Test webhook creation
 
@@ -94,7 +94,7 @@ npm run deploy
 - Wait up to 1 hour for Discord sync
 - Check if commands are registered in Discord
 
-### RollCloud Issues
+### OwlCloud Issues
 - Verify Supabase credentials
 - Check webhook permissions
 - Test pairing code generation

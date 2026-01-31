@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+﻿import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 
 // Supabase config
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -26,9 +26,9 @@ export default {
     try {
       const action = interaction.options.getString('action') || 'status';
 
-      // Get the user's RollCloud pairing
+      // Get the user's OwlCloud pairing
       const pairingResponse = await fetch(
-        `${SUPABASE_URL}/rest/v1/rollcloud_pairings?discord_user_id=eq.${interaction.user.id}&status=eq.connected&select=*`,
+        `${SUPABASE_URL}/rest/v1/owlcloud_pairings?discord_user_id=eq.${interaction.user.id}&status=eq.connected&select=*`,
         {
           headers: {
             'apikey': SUPABASE_SERVICE_KEY,
@@ -42,7 +42,7 @@ export default {
           embeds: [new EmbedBuilder()
             .setColor(0xE74C3C)
             .setTitle('❌ Connection Error')
-            .setDescription('Failed to check RollCloud connection status.')
+            .setDescription('Failed to check OwlCloud connection status.')
           ]
         });
         return;
@@ -55,7 +55,7 @@ export default {
           embeds: [new EmbedBuilder()
             .setColor(0xE74C3C)
             .setTitle('❌ Not Connected')
-            .setDescription('You don\'t have any RollCloud connections. Use `/rollcloud <code>` to connect your extension.')
+            .setDescription('You don\'t have any OwlCloud connections. Use `/owlcloud <code>` to connect your extension.')
           ]
         });
         return;
@@ -72,7 +72,7 @@ export default {
           .addFields(
             { 
               name: 'Connection Status', 
-              value: `✅ Connected to RollCloud`, 
+              value: `✅ Connected to OwlCloud`, 
               inline: true 
             },
             { 
@@ -96,7 +96,7 @@ export default {
               inline: true
             }
           )
-          .setFooter({ text: 'RollCloud Discord Integration' })
+          .setFooter({ text: 'OwlCloud Discord Integration' })
           .setTimestamp();
 
         if (pairing.webhook_url) {
@@ -108,7 +108,7 @@ export default {
         } else {
           embed.addFields({
             name: '⚠️ Setup Required',
-            value: 'No webhook URL configured. Use the RollCloud extension to set up Discord integration, or configure manually in the extension settings.',
+            value: 'No webhook URL configured. Use the OwlCloud extension to set up Discord integration, or configure manually in the extension settings.',
             inline: false
           });
         }
@@ -122,7 +122,7 @@ export default {
             embeds: [new EmbedBuilder()
               .setColor(0xE74C3C)
               .setTitle('❌ No Webhook URL')
-              .setDescription('No webhook URL is configured for this connection.\n\nUse the RollCloud extension to set up Discord integration.')
+              .setDescription('No webhook URL is configured for this connection.\n\nUse the OwlCloud extension to set up Discord integration.')
             ]
           });
           return;
@@ -144,7 +144,7 @@ export default {
               inline: false
             }
           )
-          .setFooter({ text: 'RollCloud Discord Integration' })
+          .setFooter({ text: 'OwlCloud Discord Integration' })
           .setTimestamp();
 
         await interaction.editReply({ embeds: [embed] });
@@ -156,7 +156,7 @@ export default {
             embeds: [new EmbedBuilder()
               .setColor(0xE74C3C)
               .setTitle('❌ Cannot Test')
-              .setDescription('No webhook URL is configured to test.\n\nUse the RollCloud extension to set up Discord integration.')
+              .setDescription('No webhook URL is configured to test.\n\nUse the OwlCloud extension to set up Discord integration.')
             ]
           });
           return;
@@ -173,8 +173,8 @@ export default {
         try {
           const testMessage = {
             embeds: [{
-              title: '🧪 RollCloud Webhook Test',
-              description: 'This is a test message from RollCloud to verify your Discord webhook is working correctly.',
+              title: '🧪 OwlCloud Webhook Test',
+              description: 'This is a test message from OwlCloud to verify your Discord webhook is working correctly.',
               color: 0x00FF00,
               fields: [
                 {
@@ -189,7 +189,7 @@ export default {
                 }
               ],
               footer: {
-                text: 'RollCloud Webhook Test'
+                text: 'OwlCloud Webhook Test'
               },
               timestamp: new Date().toISOString()
             }]
@@ -216,7 +216,7 @@ export default {
                     inline: false
                   }
                 )
-                .setFooter({ text: 'RollCloud Discord Integration' })
+                .setFooter({ text: 'OwlCloud Discord Integration' })
                 .setTimestamp()
               ]
             });
@@ -233,7 +233,7 @@ export default {
                     inline: false
                   }
                 )
-                .setFooter({ text: 'RollCloud Discord Integration' })
+                .setFooter({ text: 'OwlCloud Discord Integration' })
                 .setTimestamp()
               ]
             });
@@ -251,7 +251,7 @@ export default {
                   inline: false
                 }
               )
-              .setFooter({ text: 'RollCloud Discord Integration' })
+              .setFooter({ text: 'OwlCloud Discord Integration' })
               .setTimestamp()
             ]
           });

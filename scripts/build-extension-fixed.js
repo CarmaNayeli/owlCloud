@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 
 /**
  * Fixed Extension Build Script
@@ -150,7 +150,7 @@ async function buildChrome() {
   const version = prepareBuildDir(buildDir);
 
   // Create ZIP file
-  const zipPath = path.join(DIST_DIR, 'rollcloud-chrome.zip');
+  const zipPath = path.join(DIST_DIR, 'owlcloud-chrome.zip');
   await createZip(buildDir, zipPath);
 
   console.log(`  Created: ${zipPath} (use this for Chrome installation)`);
@@ -172,7 +172,7 @@ async function buildFirefox() {
     // Firefox uses browser_specific_settings
     browser_specific_settings: {
       gecko: {
-        id: 'rollcloud@dicecat.dev',
+        id: 'owlcloud@dicecat.dev',
         strict_min_version: '109.0'
       }
     }
@@ -181,7 +181,7 @@ async function buildFirefox() {
   const version = prepareBuildDir(buildDir, firefoxOverrides);
 
   // Create ZIP file
-  const zipPath = path.join(DIST_DIR, 'rollcloud-firefox.zip');
+  const zipPath = path.join(DIST_DIR, 'owlcloud-firefox.zip');
   await createZip(buildDir, zipPath);
 
   console.log(`  Created: ${zipPath} (use this for Firefox installation)`);
@@ -194,7 +194,7 @@ async function buildFirefox() {
 
 // Main build function
 async function build() {
-  console.log('RollCloud Extension Build Script (Fixed)');
+  console.log('OwlCloud Extension Build Script (Fixed)');
   console.log('==========================================');
 
   ensureDistDir();
@@ -206,8 +206,8 @@ async function build() {
   console.log(`  Version: ${chromeVersion}`);
   console.log(`  Output directory: ${DIST_DIR}`);
   console.log('\nFiles created:');
-  console.log('  - rollcloud-chrome.zip (Chrome - use ZIP file directly)');
-  console.log('  - rollcloud-firefox.zip (Firefox - use ZIP file directly)');
+  console.log('  - owlcloud-chrome.zip (Chrome - use ZIP file directly)');
+  console.log('  - owlcloud-firefox.zip (Firefox - use ZIP file directly)');
   console.log('\nInstallation Instructions:');
   console.log('Chrome: Load unpacked extension from ZIP contents');
   console.log('Firefox: Load temporary add-on from ZIP file');

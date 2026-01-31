@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Background Script - Chrome & Firefox Support
  * Handles data storage, API authentication, and communication between Dice Cloud and Discord
  */
@@ -17,7 +17,7 @@ if (typeof importScripts === 'function' && (typeof chrome !== 'undefined' || typ
   importScripts('./modules/action-executor.js');
 }
 
-debug.log('RollCloud: Background script starting...');
+debug.log('OwlCloud: Background script starting...');
 
 // Detect browser and use appropriate API
 // For Firefox, use the native Promise-based 'browser' API
@@ -152,7 +152,7 @@ if (browserAPI && browserAPI.storage && browserAPI.storage.onChanged) {
 
 // Detect which browser we're running on
 const isFirefox = typeof browser !== 'undefined';
-debug.log('RollCloud: Background script initialized on', isFirefox ? 'Firefox' : 'Chrome');
+debug.log('OwlCloud: Background script initialized on', isFirefox ? 'Firefox' : 'Chrome');
 
 // Add service worker lifecycle listeners for Chrome
 if (!isFirefox && chrome.runtime && chrome.runtime.onSuspend) {
@@ -519,7 +519,7 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
             if (stored.discordPairingId && isSupabaseConfigured()) {
               try {
                 const pairingResponse = await fetch(
-                  `${SUPABASE_URL}/rest/v1/rollcloud_pairings?id=eq.${stored.discordPairingId}&select=discord_user_id,discord_username,discord_global_name`,
+                  `${SUPABASE_URL}/rest/v1/owlcloud_pairings?id=eq.${stored.discordPairingId}&select=discord_user_id,discord_username,discord_global_name`,
                   {
                     headers: {
                       'apikey': SUPABASE_ANON_KEY,
@@ -1363,7 +1363,7 @@ async function getAllCharacterProfiles() {
         if (currentDicecloudUserId) {
           // Get all characters for this user from database
           const response = await fetch(
-            `${supabase.supabaseUrl}/rest/v1/rollcloud_characters?user_id_dicecloud=eq.${currentDicecloudUserId}&select=*`,
+            `${supabase.supabaseUrl}/rest/v1/owlcloud_characters?user_id_dicecloud=eq.${currentDicecloudUserId}&select=*`,
             {
               headers: {
                 'apikey': supabase.supabaseKey,
@@ -1620,7 +1620,7 @@ async function getCharacterDataFromDatabase(characterId) {
     // a storage key, or a DB primary key. Query order: exact dicecloud_character_id,
     // dicecloud_character_id prefixed with/without `db-`, then primary `id`.
     const tryQuery = async (field, value) => {
-      const url = `${supabase.supabaseUrl}/rest/v1/rollcloud_characters?${field}=eq.${encodeURIComponent(value)}${userFilter}&select=*&order=updated_at.desc&limit=1`;
+      const url = `${supabase.supabaseUrl}/rest/v1/owlcloud_characters?${field}=eq.${encodeURIComponent(value)}${userFilter}&select=*&order=updated_at.desc&limit=1`;
       const resp = await fetch(url, {
         headers: {
           'apikey': supabase.supabaseKey,
@@ -1843,7 +1843,7 @@ async function markCharacterActiveInSupabase(characterId, characterName) {
 
     // First, get the Discord user ID for this character
     const pairingResponse = await fetch(
-      `${SUPABASE_URL}/rest/v1/rollcloud_characters?dicecloud_character_id=eq.${characterId}&select=discord_user_id`,
+      `${SUPABASE_URL}/rest/v1/owlcloud_characters?dicecloud_character_id=eq.${characterId}&select=discord_user_id`,
       {
         headers: {
           'apikey': SUPABASE_ANON_KEY,
@@ -1860,7 +1860,7 @@ async function markCharacterActiveInSupabase(characterId, characterName) {
         if (discordUserId && discordUserId !== 'not_linked') {
           // Deactivate all other characters for this user
           await fetch(
-            `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}`,
+            `${SUPABASE_URL}/rest/v1/owlcloud_characters?discord_user_id=eq.${discordUserId}`,
             {
               method: 'PATCH',
               headers: {
@@ -1874,7 +1874,7 @@ async function markCharacterActiveInSupabase(characterId, characterName) {
 
           // Activate this character
           const updateResponse = await fetch(
-            `${SUPABASE_URL}/rest/v1/rollcloud_characters?dicecloud_character_id=eq.${characterId}`,
+            `${SUPABASE_URL}/rest/v1/owlcloud_characters?dicecloud_character_id=eq.${characterId}`,
             {
               method: 'PATCH',
               headers: {
@@ -1988,7 +1988,7 @@ async function deleteCharacterFromCloud(characterId) {
     let deleted = false;
     for (const idToDelete of idsToTry) {
       const response = await fetch(
-        `${SUPABASE_URL}/rest/v1/rollcloud_characters?dicecloud_character_id=eq.${encodeURIComponent(idToDelete)}`,
+        `${SUPABASE_URL}/rest/v1/owlcloud_characters?dicecloud_character_id=eq.${encodeURIComponent(idToDelete)}`,
         {
           method: 'DELETE',
           headers: {
@@ -2189,7 +2189,7 @@ async function setDiscordWebhookSettings(webhookUrl, enabled = true, serverName 
         if (stored.discordPairingId) {
           debug.log('☁️ Syncing webhook URL to pairing record:', stored.discordPairingId);
           await fetch(
-            `${SUPABASE_URL}/rest/v1/rollcloud_pairings?id=eq.${stored.discordPairingId}`,
+            `${SUPABASE_URL}/rest/v1/owlcloud_pairings?id=eq.${stored.discordPairingId}`,
             {
               method: 'PATCH',
               headers: {
@@ -2246,11 +2246,11 @@ async function testDiscordWebhook(webhookUrl) {
 
     const testEmbed = {
       embeds: [{
-        title: '🎲 RollCloud Connected!',
+        title: '🎲 OwlCloud Connected!',
         description: 'Discord webhook integration is working correctly.',
         color: 0x4ECDC4, // Teal color matching the extension theme
         footer: {
-          text: 'RollCloud - Dice Cloud → Discord Bridge'
+          text: 'OwlCloud - Dice Cloud → Discord Bridge'
         },
         timestamp: new Date().toISOString()
       }]
@@ -2601,7 +2601,7 @@ async function linkDiscordUserToCharacters(discordUserId, diceCloudUserId) {
 
     // Update characters that have user_id_dicecloud matching but discord_user_id is 'not_linked'
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/rollcloud_characters?user_id_dicecloud=eq.${diceCloudUserId}&discord_user_id=eq.not_linked`,
+      `${SUPABASE_URL}/rest/v1/owlcloud_characters?user_id_dicecloud=eq.${diceCloudUserId}&discord_user_id=eq.not_linked`,
       {
         method: 'PATCH',
         headers: {
@@ -2856,7 +2856,7 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
     // If pairing code provided, look up the pairing to link
     if (pairingCode) {
       const pairingResponse = await fetch(
-        `${SUPABASE_URL}/rest/v1/rollcloud_pairings?pairing_code=eq.${pairingCode}&select=id,discord_user_id`,
+        `${SUPABASE_URL}/rest/v1/owlcloud_pairings?pairing_code=eq.${pairingCode}&select=id,discord_user_id`,
         {
           headers: {
             'apikey': SUPABASE_ANON_KEY,
@@ -2903,7 +2903,7 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
       if (!discordUserId && payload.user_id_dicecloud) {
         try {
           const pairingResponse = await fetch(
-            `${SUPABASE_URL}/rest/v1/rollcloud_pairings?dicecloud_user_id=eq.${payload.user_id_dicecloud}&status=eq.connected&select=id,discord_user_id,discord_username,discord_global_name,webhook_url`,
+            `${SUPABASE_URL}/rest/v1/owlcloud_pairings?dicecloud_user_id=eq.${payload.user_id_dicecloud}&status=eq.connected&select=id,discord_user_id,discord_username,discord_global_name,webhook_url`,
             {
               headers: {
                 'apikey': SUPABASE_ANON_KEY,
@@ -2946,7 +2946,7 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
           const stored = await browserAPI.storage.local.get(['discordPairingId']);
           if (stored.discordPairingId) {
             const pairingResponse = await fetch(
-              `${SUPABASE_URL}/rest/v1/rollcloud_pairings?id=eq.${stored.discordPairingId}&select=id,discord_user_id,discord_username,discord_global_name,webhook_url`,
+              `${SUPABASE_URL}/rest/v1/owlcloud_pairings?id=eq.${stored.discordPairingId}&select=id,discord_user_id,discord_username,discord_global_name,webhook_url`,
               {
                 headers: {
                   'apikey': SUPABASE_ANON_KEY,
@@ -3022,7 +3022,7 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
     // This handles cases where the same character was stored with different IDs
     try {
       const deleteResponse = await fetch(
-        `${SUPABASE_URL}/rest/v1/rollcloud_characters?user_id_dicecloud=eq.${encodeURIComponent(payload.user_id_dicecloud)}&character_name=eq.${encodeURIComponent(payload.character_name)}`,
+        `${SUPABASE_URL}/rest/v1/owlcloud_characters?user_id_dicecloud=eq.${encodeURIComponent(payload.user_id_dicecloud)}&character_name=eq.${encodeURIComponent(payload.character_name)}`,
         {
           method: 'DELETE',
           headers: {
@@ -3042,7 +3042,7 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
 
     // Insert the new character record
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/rollcloud_characters`,
+      `${SUPABASE_URL}/rest/v1/owlcloud_characters`,
       {
         method: 'POST',
         headers: {
@@ -3061,7 +3061,7 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
 
       // Try PATCH (update) instead
       const updateResponse = await fetch(
-        `${SUPABASE_URL}/rest/v1/rollcloud_characters?dicecloud_character_id=eq.${characterData.id}`,
+        `${SUPABASE_URL}/rest/v1/owlcloud_characters?dicecloud_character_id=eq.${characterData.id}`,
         {
           method: 'PATCH',
           headers: {
@@ -3117,7 +3117,7 @@ async function syncCharacterColorToSupabase(characterId, color) {
 
     // Update only the notification_color field
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/rollcloud_characters?dicecloud_character_id=eq.${characterId}`,
+      `${SUPABASE_URL}/rest/v1/owlcloud_characters?dicecloud_character_id=eq.${characterId}`,
       {
         method: 'PATCH',
         headers: {
@@ -3336,7 +3336,7 @@ function subscribeToRealtimePairing(pairingCode) {
 
       // Send join message to subscribe to pairing updates
       const joinMessage = {
-        topic: `realtime:public:rollcloud_pairings:pairing_code=eq.${pairingCode}`,
+        topic: `realtime:public:owlcloud_pairings:pairing_code=eq.${pairingCode}`,
         event: 'phx_join',
         payload: {
           config: {
@@ -3345,7 +3345,7 @@ function subscribeToRealtimePairing(pairingCode) {
             postgres_changes: [{
               event: 'UPDATE',
               schema: 'public',
-              table: 'rollcloud_pairings',
+              table: 'owlcloud_pairings',
               filter: `pairing_code=eq.${pairingCode}`
             }]
           }
@@ -3464,14 +3464,14 @@ function unsubscribeFromRealtimePairing() {
 async function createPairing(code, username, userId) {
   // Clean up old pairings for this user
   await supabase
-    .from('rollcloud_pairings')
+    .from('owlcloud_pairings')
     .update({ status: 'expired' })
     .eq('dicecloud_user_id', userId)
     .eq('status', 'connected');
   
   // NOW create the new one
   const { data } = await supabase
-    .from('rollcloud_pairings')
+    .from('owlcloud_pairings')
     .insert({
       pairing_code: code,
       dicecloud_username: username,
@@ -3500,7 +3500,7 @@ async function createDiscordPairing(code, diceCloudUsername, diceCloudUserId) {
     if (diceCloudUserId) {
       try {
         const expireResponse = await fetch(
-          `${SUPABASE_URL}/rest/v1/rollcloud_pairings?dicecloud_user_id=eq.${diceCloudUserId}&status=in.(pending,connected)`,
+          `${SUPABASE_URL}/rest/v1/owlcloud_pairings?dicecloud_user_id=eq.${diceCloudUserId}&status=in.(pending,connected)`,
           {
             method: 'PATCH',
             headers: {
@@ -3521,7 +3521,7 @@ async function createDiscordPairing(code, diceCloudUsername, diceCloudUserId) {
       }
     }
 
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/rollcloud_pairings`, {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/owlcloud_pairings`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -3567,7 +3567,7 @@ async function checkDiscordPairing(code) {
 
   try {
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/rollcloud_pairings?pairing_code=eq.${code}&select=*`,
+      `${SUPABASE_URL}/rest/v1/owlcloud_pairings?pairing_code=eq.${code}&select=*`,
       {
         headers: {
           'apikey': SUPABASE_ANON_KEY,
@@ -3622,7 +3622,7 @@ async function getUserCharactersFromCloud(pairingId = null) {
     if (pairingId) {
       // Get characters for specific pairing
       const response = await fetch(
-        `${SUPABASE_URL}/rest/v1/rollcloud_pairings?id=eq.${pairingId}&select=discord_user_id`,
+        `${SUPABASE_URL}/rest/v1/owlcloud_pairings?id=eq.${pairingId}&select=discord_user_id`,
         {
           headers: {
             'apikey': SUPABASE_ANON_KEY,
@@ -3638,7 +3638,7 @@ async function getUserCharactersFromCloud(pairingId = null) {
           
           // Get characters for this Discord user
           const charsResponse = await fetch(
-            `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}&select=character_name,level,race,class,is_active,updated_at&order=updated_at.desc`,
+            `${SUPABASE_URL}/rest/v1/owlcloud_characters?discord_user_id=eq.${discordUserId}&select=character_name,level,race,class,is_active,updated_at&order=updated_at.desc`,
             {
               headers: {
                 'apikey': SUPABASE_ANON_KEY,
@@ -3720,8 +3720,8 @@ async function subscribeToCommandRealtime(pairingId) {
     commandRealtimeSocket.onopen = () => {
       debug.log('✅ Command Realtime WebSocket connected');
 
-      // CORRECTED: Subscribe to postgres_changes for INSERT events on rollcloud_commands
-      const topic = `realtime:public:rollcloud_commands`;
+      // CORRECTED: Subscribe to postgres_changes for INSERT events on owlcloud_commands
+      const topic = `realtime:public:owlcloud_commands`;
       const joinMessage = {
         topic: topic,
         event: 'phx_join',
@@ -3730,7 +3730,7 @@ async function subscribeToCommandRealtime(pairingId) {
             postgres_changes: [{
               event: 'INSERT',  // ✅ Listen for new commands being inserted
               schema: 'public',
-              table: 'rollcloud_commands',  // ✅ Correct table
+              table: 'owlcloud_commands',  // ✅ Correct table
               filter: `pairing_id=eq.${pairingId}`  // ✅ Only this pairing's commands
             }]
           }
@@ -3881,7 +3881,7 @@ async function drainPendingCommands() {
 
   try {
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/rollcloud_commands?pairing_id=eq.${currentPairingId}&status=eq.pending&order=created_at.asc&limit=10`,
+      `${SUPABASE_URL}/rest/v1/owlcloud_commands?pairing_id=eq.${currentPairingId}&status=eq.pending&order=created_at.asc&limit=10`,
       {
         headers: {
           'apikey': SUPABASE_ANON_KEY,
@@ -4265,7 +4265,7 @@ async function updateCommandStatus(commandId, status, result = null, errorMessag
     }
 
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/rollcloud_commands?id=eq.${commandId}`,
+      `${SUPABASE_URL}/rest/v1/owlcloud_commands?id=eq.${commandId}`,
       {
         method: 'PATCH',
         headers: {
@@ -4463,7 +4463,7 @@ async function postTurnToSupabase(payload) {
       status: 'pending'
     };
 
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/rollcloud_turns`, {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/owlcloud_turns`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -4551,7 +4551,7 @@ async function connectToInstaller() {
     }
 
     // Try to connect to the installer native messaging host
-    installerPort = browserAPI.runtime.connectNative('com.rollcloud.installer');
+    installerPort = browserAPI.runtime.connectNative('com.owlcloud.installer');
     
     installerPort.onMessage.addListener((message) => {
       debug.log('Received message from installer:', message);

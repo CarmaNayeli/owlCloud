@@ -1,9 +1,9 @@
-export default function Home() {
+﻿export default function Home() {
   return (
     <div className="space-y-8">
       {/* Hero Section */}
       <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg shadow-xl p-8">
-        <h1 className="text-4xl font-bold mb-4">RollCloud</h1>
+        <h1 className="text-4xl font-bold mb-4">OwlCloud</h1>
         <p className="text-xl opacity-90">
           Sync your DiceCloud V2 characters to Roll20 with Discord turn notifications
         </p>
@@ -48,7 +48,7 @@ export default function Home() {
             rel="noopener noreferrer"
             className="inline-flex items-center bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"
           >
-            Download RollCloud
+            Download OwlCloud
           </a>
           <a
             href="https://github.com/CarmaNayeli/rollCloud"
@@ -73,10 +73,10 @@ export default function Home() {
         <h2 className="text-2xl font-bold mb-4">Discord Commands</h2>
         <div className="grid md:grid-cols-2 gap-6">
           <div>
-            <h3 className="font-semibold text-lg mb-2 text-green-600 dark:text-green-400">RollCloud</h3>
+            <h3 className="font-semibold text-lg mb-2 text-green-600 dark:text-green-400">OwlCloud</h3>
             <ul className="space-y-2 text-sm font-mono">
-              <li><code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">/rollcloud pair</code> - Link channel to character</li>
-              <li><code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">/rollcloud status</code> - Check pairing status</li>
+              <li><code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">/owlcloud pair</code> - Link channel to character</li>
+              <li><code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">/owlcloud status</code> - Check pairing status</li>
               <li><code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">/roll [dice]</code> - Roll dice (e.g., 2d6+3)</li>
             </ul>
           </div>

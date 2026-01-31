@@ -1,6 +1,6 @@
-# RollCloud Build Instructions
+﻿# OwlCloud Build Instructions
 
-RollCloud supports multiple browsers through browser-specific builds.
+OwlCloud supports multiple browsers through browser-specific builds.
 
 ## Supported Browsers
 
@@ -40,7 +40,7 @@ This builds both Chrome and Firefox packages to `dist/chrome/` and `dist/firefox
 ## Directory Structure
 
 ```
-rollCloud/
+owlCloud/
 ├── manifest.json          # Chrome manifest (MV3)
 ├── manifest_firefox.json  # Firefox manifest (MV2)
 ├── src/                   # Shared source code
@@ -51,8 +51,8 @@ rollCloud/
 ├── dist/                  # Build output
 │   ├── chrome/            # Chrome build
 │   ├── firefox/           # Firefox build
-│   ├── rollcloud-chrome.zip
-│   └── rollcloud-firefox.zip
+│   ├── owlcloud-chrome.zip
+│   └── owlcloud-firefox.zip
 ```
 
 ## Installing in Browsers
@@ -71,8 +71,8 @@ rollCloud/
 4. Select the `manifest.json` file from `dist/firefox/`
 
 ### Installing ZIP Packages
-- **Chrome**: Upload `rollcloud-chrome.zip` to Chrome Web Store
-- **Firefox**: Upload `rollcloud-firefox.zip` to Firefox Add-ons
+- **Chrome**: Upload `owlcloud-chrome.zip` to Chrome Web Store
+- **Firefox**: Upload `owlcloud-firefox.zip` to Firefox Add-ons
 
 ## Browser Compatibility Notes
 
@@ -165,7 +165,7 @@ npm run build              # Build both browsers + create ZIPs
 
 **"zip command not found" (Linux/macOS)**
 - The build script will still create the dist directories
-- Manually zip with: `cd dist/chrome && zip -r ../rollcloud-chrome.zip .`
+- Manually zip with: `cd dist/chrome && zip -r ../owlcloud-chrome.zip .`
 
 **PowerShell execution policy error (Windows)**
 - Run: `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`
@@ -190,12 +190,12 @@ npm run build              # Build both browsers + create ZIPs
 
 ### Chrome Web Store
 1. Build: `npm run build`
-2. Upload `dist/rollcloud-chrome.zip` to Chrome Web Store Developer Dashboard
+2. Upload `dist/owlcloud-chrome.zip` to Chrome Web Store Developer Dashboard
 3. Fill out listing details and submit for review
 
 ### Firefox Add-ons (AMO)
 1. Build: `npm run build`
-2. Upload `dist/rollcloud-firefox.zip` to Firefox Add-ons Developer Hub
+2. Upload `dist/owlcloud-firefox.zip` to Firefox Add-ons Developer Hub
 3. Fill out listing details and submit for review
 4. Note: May need to use `web-ext` tool for signing
 

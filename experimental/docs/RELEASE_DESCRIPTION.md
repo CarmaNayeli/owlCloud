@@ -1,4 +1,4 @@
-# RollCloud v1.1.0 - Complete Sheet Update
+﻿# OwlCloud v1.1.0 - Complete Sheet Update
 
 ## 🎨 Complete Character Sheet Redesign
 
@@ -35,9 +35,9 @@ The character sheet has been completely rebuilt from scratch with a new layout, 
 ## 📦 Installation
 
 ### Quick Download Links
-- **Firefox**: [rollcloud-firefox.zip](dist/rollcloud-firefox.zip) *(200 KB)*
-- **Chrome/Edge**: [rollcloud-chrome.zip](dist/rollcloud-chrome.zip) *(200 KB)*
-- **Safari**: [rollcloud-safari.zip](dist/rollcloud-safari.zip) *(200 KB)*
+- **Firefox**: [owlcloud-firefox.zip](dist/owlcloud-firefox.zip) *(200 KB)*
+- **Chrome/Edge**: [owlcloud-chrome.zip](dist/owlcloud-chrome.zip) *(200 KB)*
+- **Safari**: [owlcloud-safari.zip](dist/owlcloud-safari.zip) *(200 KB)*
 
 ### Installation
 1. Download the package for your browser
@@ -79,8 +79,8 @@ The character sheet has been completely rebuilt from scratch with a new layout, 
 
 ## 📦 Download
 
-- `dist/rollcloud-chrome.zip` - Chrome/Edge/Brave
-- `dist/rollcloud-firefox.zip` - Firefox  
-- `dist/rollcloud-safari.zip` - Safari
+- `dist/owlcloud-chrome.zip` - Chrome/Edge/Brave
+- `dist/owlcloud-firefox.zip` - Firefox  
+- `dist/owlcloud-safari.zip` - Safari
 
 *Built January 22, 2026*

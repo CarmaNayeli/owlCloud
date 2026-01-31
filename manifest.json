@@ -1,6 +1,6 @@
-{
+﻿{
   "manifest_version": 3,
-  "name": "RollCloud: DiceCloud + Owlbear Rodeo + Discord Integration",
+  "name": "OwlCloud: DiceCloud + Owlbear Rodeo + Discord Integration",
   "version": "2.0.0",
   "description": "Sync DiceCloud V2 characters to Owlbear Rodeo with Discord integration via Pip 2",
   "permissions": [

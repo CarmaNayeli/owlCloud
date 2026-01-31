@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+﻿import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -116,7 +116,7 @@ export default {
       } else {
         embed.addFields({
           name: '⚠️ Status',
-          value: 'Discord linking is configured but your account is not linked yet.\nUse `/rollcloud <code>` to link your account.',
+          value: 'Discord linking is configured but your account is not linked yet.\nUse `/owlcloud <code>` to link your account.',
           inline: false
         });
       }

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Optimized Character Cache and Fetching System
  * Prevents duplicate database calls and improves performance
  */
@@ -36,7 +36,7 @@ async function getActiveCharacter(discordUserId) {
   try {
     // Optimized query - only fetch essential fields
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}&is_active=eq.true&select=character_name,class,level,race,alignment,hit_points,armor_class,speed,attributes,attribute_mods&limit=1`,
+      `${SUPABASE_URL}/rest/v1/owlcloud_characters?discord_user_id=eq.${discordUserId}&is_active=eq.true&select=character_name,class,level,race,alignment,hit_points,armor_class,speed,attributes,attribute_mods&limit=1`,
       {
         headers: {
           'apikey': SUPABASE_SERVICE_KEY,
@@ -82,7 +82,7 @@ async function setActiveCharacter(discordUserId, characterName) {
   try {
     // First, get all characters for this user
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}&select=id,character_name,class,level,race,alignment,hit_points,armor_class,speed,attributes,attribute_mods`,
+      `${SUPABASE_URL}/rest/v1/owlcloud_characters?discord_user_id=eq.${discordUserId}&select=id,character_name,class,level,race,alignment,hit_points,armor_class,speed,attributes,attribute_mods`,
       {
         headers: {
           'apikey': SUPABASE_SERVICE_KEY,
@@ -111,7 +111,7 @@ async function setActiveCharacter(discordUserId, characterName) {
       const isActive = char.character_name.toLowerCase() === characterName.toLowerCase();
 
       return fetch(
-        `${SUPABASE_URL}/rest/v1/rollcloud_characters?id=eq.${char.id}`,
+        `${SUPABASE_URL}/rest/v1/owlcloud_characters?id=eq.${char.id}`,
         {
           method: 'PATCH',
           headers: {

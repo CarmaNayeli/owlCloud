@@ -1,5 +1,5 @@
-/**
- * Pip 2 - Discord bot for RollCloud
+﻿/**
+ * Pip 2 - Discord bot for OwlCloud
  */
 
 import { Client, Collection, GatewayIntentBits, Events } from 'discord.js';

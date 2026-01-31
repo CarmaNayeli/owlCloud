@@ -1,6 +1,6 @@
-# Safari Extension Guide
+﻿# Safari Extension Guide
 
-This guide covers building, converting, and testing the RollCloud extension for Safari.
+This guide covers building, converting, and testing the OwlCloud extension for Safari.
 
 ## Prerequisites
 
@@ -31,11 +31,11 @@ Safari requires web extensions to be converted into Safari App Extensions using 
 2. Run the Safari Web Extension Converter:
 
 ```bash
-xcrun safari-web-extension-converter dist/safari --app-name RollCloud
+xcrun safari-web-extension-converter dist/safari --app-name OwlCloud
 ```
 
 3. Follow the prompts:
-   - **Bundle Identifier**: Enter something like `com.yourname.rollcloud`
+   - **Bundle Identifier**: Enter something like `com.yourname.owlcloud`
    - **Language**: Select Swift or Objective-C (Swift recommended)
    - **Create new Xcode project**: Yes
 
@@ -46,7 +46,7 @@ xcrun safari-web-extension-converter dist/safari --app-name RollCloud
 If you already have an Xcode project:
 
 ```bash
-xcrun safari-web-extension-converter dist/safari --app-name RollCloud --project-location /path/to/existing/project --rebuild-project
+xcrun safari-web-extension-converter dist/safari --app-name OwlCloud --project-location /path/to/existing/project --rebuild-project
 ```
 
 ### 3. Open and Build in Xcode
@@ -73,15 +73,15 @@ xcrun safari-web-extension-converter dist/safari --app-name RollCloud --project-
    - Open Safari's Extension Preferences
 
 3. In Safari Preferences → Extensions:
-   - Check the box next to "RollCloud"
+   - Check the box next to "OwlCloud"
    - Click "Always Allow on Every Website" for both dicecloud.com and roll20.net
 
 ### Verify Installation
 
 1. Navigate to https://dicecloud.com and https://app.roll20.net
 2. Open Safari's Web Inspector (Option+Command+I)
-3. Check the Console for RollCloud initialization messages
-4. Look for the RollCloud toolbar button
+3. Check the Console for OwlCloud initialization messages
+4. Look for the OwlCloud toolbar button
 5. Open the extension popup to verify it loads correctly
 
 ## Debugging
@@ -91,10 +91,10 @@ xcrun safari-web-extension-converter dist/safari --app-name RollCloud --project-
 **For Content Scripts:**
 1. Right-click on a webpage → Inspect Element
 2. Go to Console tab
-3. Look for RollCloud messages (🌐, 🎲, ✅, etc.)
+3. Look for OwlCloud messages (🌐, 🎲, ✅, etc.)
 
 **For Background Script:**
-1. Go to Develop → Web Extension Background Pages → RollCloud
+1. Go to Develop → Web Extension Background Pages → OwlCloud
 2. Check the Console tab
 
 **For Popup:**

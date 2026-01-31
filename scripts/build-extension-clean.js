@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 
 /**
  * Clean Extension Build Script
@@ -97,7 +97,7 @@ async function buildChrome() {
   prepareBuildDir(buildDir, manifestPath);
 
   // Create ZIP file
-  const zipPath = path.join(DIST_DIR, 'rollcloud-chrome.zip');
+  const zipPath = path.join(DIST_DIR, 'owlcloud-chrome.zip');
   await createZip(buildDir, zipPath);
 
   // Cleanup build directory
@@ -127,7 +127,7 @@ async function buildFirefox() {
   // Add Firefox-specific settings
   manifest.browser_specific_settings = {
     gecko: {
-      id: 'rollcloud@dicecat.dev',
+      id: 'owlcloud@dicecat.dev',
       strict_min_version: '109.0'
     }
   };
@@ -136,11 +136,11 @@ async function buildFirefox() {
   fs.writeFileSync(path.join(buildDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
 
   // Create ZIP file
-  const zipPath = path.join(DIST_DIR, 'rollcloud-firefox.zip');
+  const zipPath = path.join(DIST_DIR, 'owlcloud-firefox.zip');
   await createZip(buildDir, zipPath);
 
   // Also create XPI copy for convenience
-  const xpiPath = path.join(DIST_DIR, 'rollcloud-firefox.xpi');
+  const xpiPath = path.join(DIST_DIR, 'owlcloud-firefox.xpi');
   fs.copyFileSync(zipPath, xpiPath);
   console.log(`  Created: ${xpiPath} (XPI format)`);
 
@@ -152,7 +152,7 @@ async function buildFirefox() {
 
 // Main build function
 async function buildAll() {
-  console.log('RollCloud Extension Build Script');
+  console.log('OwlCloud Extension Build Script');
   console.log('=================================');
 
   try {
@@ -165,9 +165,9 @@ async function buildAll() {
     console.log(`  Version: ${chromeVersion}`);
     console.log(`  Output directory: ${DIST_DIR}`);
     console.log('\nFiles created:');
-    console.log('  - rollcloud-chrome.zip (Chrome Web Store & local installation)');
-    console.log('  - rollcloud-firefox.zip (Firefox Add-ons - use this for installation)');
-    console.log('  - rollcloud-firefox.xpi (XPI format)');
+    console.log('  - owlcloud-chrome.zip (Chrome Web Store & local installation)');
+    console.log('  - owlcloud-firefox.zip (Firefox Add-ons - use this for installation)');
+    console.log('  - owlcloud-firefox.xpi (XPI format)');
 
   } catch (error) {
     console.error('Build failed:', error.message);

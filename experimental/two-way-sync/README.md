@@ -1,8 +1,8 @@
-# Two-Way Sync Experimental Feature
+﻿# Two-Way Sync Experimental Feature
 
 ## Overview
 
-This experimental feature attempts to implement two-way synchronization between RollCloud and DiceCloud, allowing rolls made in the extension to update tracking values (uses, resources, HP) on the DiceCloud character sheet.
+This experimental feature attempts to implement two-way synchronization between OwlCloud and DiceCloud, allowing rolls made in the extension to update tracking values (uses, resources, HP) on the DiceCloud character sheet.
 
 ## Technical Approach
 

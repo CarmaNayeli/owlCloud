@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+﻿import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -38,13 +38,13 @@ export default {
           inline: false
         },
         {
-          name: '🎮 RollCloud Integration',
+          name: '🎮 OwlCloud Integration',
           value:
-            '`/rollcloud [code]` - Connect RollCloud extension\n' +
+            '`/owlcloud [code]` - Connect OwlCloud extension\n' +
             '`/sheet [section]` - View character sheet information\n' +
             '`/cast [spell]` - Cast a spell from your character\n' +
             '`/use [ability]` - Use abilities, features, or items\n' +
-            '*Get the code from your RollCloud extension*',
+            '*Get the code from your OwlCloud extension*',
           inline: false
         },
         {

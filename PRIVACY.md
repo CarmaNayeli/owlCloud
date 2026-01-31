@@ -1,18 +1,18 @@
-# Privacy Policy for RollCloud
+﻿# Privacy Policy for OwlCloud
 
 **Last Updated:** January 27, 2026
 **Effective Date:** January 27, 2026
 
 ## Introduction
 
-RollCloud is a browser extension that integrates DiceCloud V2 character sheets with Roll20 and Discord. This privacy policy explains what data we collect, how we use it, and your rights regarding your data.
+OwlCloud is a browser extension that integrates DiceCloud V2 character sheets with Roll20 and Discord. This privacy policy explains what data we collect, how we use it, and your rights regarding your data.
 
 ## Data We Collect
 
 ### 1. Authentication Data
 
 **DiceCloud Tokens:**
-- When you log in to DiceCloud through RollCloud, we store your authentication token
+- When you log in to DiceCloud through OwlCloud, we store your authentication token
 - Stored locally in your browser's storage
 - Used to authenticate API requests to DiceCloud on your behalf
 - Token expiry dates are stored to validate session validity
@@ -79,7 +79,7 @@ RollCloud is a browser extension that integrates DiceCloud V2 character sheets w
 
 ### 1. Browser Local Storage
 - **Location:** Your local device
-- **Access:** Only RollCloud extension
+- **Access:** Only OwlCloud extension
 - **Data:** Auth tokens, character cache, settings
 - **Encrypted:** By browser (browser-level encryption)
 
@@ -135,7 +135,7 @@ RollCloud is a browser extension that integrates DiceCloud V2 character sheets w
 - Contact support for Supabase data export (JSON format)
 
 ### 4. Opt-Out of Discord Integration
-- Simply don't use the `/rollcloud pair` command
+- Simply don't use the `/owlcloud pair` command
 - Your data stays local if you don't pair with Discord
 
 ## Data Retention
@@ -198,7 +198,7 @@ RollCloud is a browser extension that integrates DiceCloud V2 character sheets w
 
 ## Children's Privacy
 
-RollCloud is not directed at children under 13. We do not knowingly collect data from children under 13. If you believe a child has provided data, contact us to delete it.
+OwlCloud is not directed at children under 13. We do not knowingly collect data from children under 13. If you believe a child has provided data, contact us to delete it.
 
 ## Changes to This Policy
 
@@ -268,7 +268,7 @@ Contact us via GitHub issues with `CCPA` label.
 
 ## Open Source Transparency
 
-RollCloud is open source (MIT License). You can:
+OwlCloud is open source (MIT License). You can:
 - Review all code: https://github.com/CarmaNayeli/rollCloud
 - Audit data collection practices
 - Contribute improvements
@@ -276,7 +276,7 @@ RollCloud is open source (MIT License). You can:
 
 ## Consent
 
-By using RollCloud, you consent to this privacy policy.
+By using OwlCloud, you consent to this privacy policy.
 
 **To withdraw consent:**
 1. Uninstall the extension

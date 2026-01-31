@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
+﻿import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 
 // Supabase config - set via environment variables
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -7,11 +7,11 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 export default {
   data: new SlashCommandBuilder()
     .setName('disconnect')
-    .setDescription('Disconnect RollCloud from this channel')
+    .setDescription('Disconnect OwlCloud from this channel')
     .addBooleanOption(option =>
       option
         .setName('delete_webhook')
-        .setDescription('Also delete the RollCloud webhook (default: true)')
+        .setDescription('Also delete the OwlCloud webhook (default: true)')
         .setRequired(false)
     ),
 
@@ -19,7 +19,7 @@ export default {
     // Check permissions
     if (!interaction.member.permissions.has(PermissionFlagsBits.ManageWebhooks)) {
       await interaction.reply({
-        content: '❌ You need the **Manage Webhooks** permission to disconnect RollCloud.',
+        content: '❌ You need the **Manage Webhooks** permission to disconnect OwlCloud.',
         flags: 64 // ephemeral
       });
       return;
@@ -46,9 +46,9 @@ export default {
       if (deleteWebhook) {
         try {
           const webhooks = await interaction.channel.fetchWebhooks();
-          const rollcloudWebhook = webhooks.find(wh => wh.name === '🎲 RollCloud');
-          if (rollcloudWebhook) {
-            await rollcloudWebhook.delete('RollCloud disconnect');
+          const owlcloudWebhook = webhooks.find(wh => wh.name === '🎲 OwlCloud');
+          if (owlcloudWebhook) {
+            await owlcloudWebhook.delete('OwlCloud disconnect');
             webhookDeleted = true;
           }
         } catch (webhookError) {
@@ -58,22 +58,22 @@ export default {
 
       const embed = new EmbedBuilder()
         .setColor(0x4ECDC4)
-        .setTitle('✅ RollCloud Disconnected')
+        .setTitle('✅ OwlCloud Disconnected')
         .setDescription(
-          `This channel is no longer connected to RollCloud.\n\n` +
+          `This channel is no longer connected to OwlCloud.\n\n` +
           '**Cleaned up:**\n' +
           `• Instance record: ${instanceResult.deleted ? 'Removed' : 'Not found'}\n` +
           `• Pairing records: ${pairingResult.count > 0 ? `${pairingResult.count} removed` : 'None found'}\n` +
           `• Webhook: ${webhookDeleted ? 'Deleted' : (deleteWebhook ? 'Not found' : 'Kept')}\n\n` +
-          'You can run `/rollcloud` again to reconnect.'
+          'You can run `/owlcloud` again to reconnect.'
         )
-        .setFooter({ text: 'Pip 2 • RollCloud Integration' })
+        .setFooter({ text: 'Pip 2 • OwlCloud Integration' })
         .setTimestamp();
 
       await interaction.editReply({ embeds: [embed] });
 
     } catch (error) {
-      console.error('RollCloud disconnect error:', error);
+      console.error('OwlCloud disconnect error:', error);
 
       await interaction.editReply({
         embeds: [new EmbedBuilder()
@@ -126,7 +126,7 @@ async function deletePairingRecords(guildId, channelId) {
   }
 
   const response = await fetch(
-    `${SUPABASE_URL}/rest/v1/rollcloud_pairings?discord_guild_id=eq.${guildId}&discord_channel_id=eq.${channelId}`,
+    `${SUPABASE_URL}/rest/v1/owlcloud_pairings?discord_guild_id=eq.${guildId}&discord_channel_id=eq.${channelId}`,
     {
       method: 'DELETE',
       headers: {
@@ -139,7 +139,7 @@ async function deletePairingRecords(guildId, channelId) {
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('Supabase rollcloud_pairings DELETE error:', response.status, errorText);
+    console.error('Supabase owlcloud_pairings DELETE error:', response.status, errorText);
     // Don't throw - we want to continue
     return { count: 0, error: errorText };
   }

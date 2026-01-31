@@ -1,4 +1,4 @@
-# RollCloud Application Audit Report
+﻿# OwlCloud Application Audit Report
 **Date:** January 27, 2026
 **Auditor:** Claude (Sonnet 4.5)
 **Version Audited:** 1.2.4
@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-RollCloud is a comprehensive browser extension that integrates DiceCloud V2 with Roll20 and Discord. The application consists of multiple components including Chrome/Firefox extensions, a Discord bot (Pip2), a Next.js dashboard, and an Electron-based installer. This audit reviews the overall application state, architecture, security posture, and code quality.
+OwlCloud is a comprehensive browser extension that integrates DiceCloud V2 with Roll20 and Discord. The application consists of multiple components including Chrome/Firefox extensions, a Discord bot (Pip2), a Next.js dashboard, and an Electron-based installer. This audit reviews the overall application state, architecture, security posture, and code quality.
 
 **Overall Assessment:** ✅ **HEALTHY**
 - No critical security vulnerabilities detected
@@ -55,7 +55,7 @@ RollCloud is a comprehensive browser extension that integrates DiceCloud V2 with
 ### 1.2 Directory Structure
 
 ```
-rollCloud/
+owlCloud/
 ├── src/                        # Browser extension source
 │   ├── background.js          # Service worker
 │   ├── content/               # Content scripts
@@ -134,13 +134,13 @@ rollCloud/
 5. Copy artifacts to `/releases/`
 
 **Output Artifacts:**
-- `rollcloud-chrome.zip` - Unpacked Chrome extension
-- `rollcloud-firefox.zip` - Unpacked Firefox extension
-- `rollcloud-chrome-signed.crx` - Signed Chrome extension
-- `rollcloud-firefox-signed.xpi` - Signed Firefox extension
-- `RollCloud-Setup.exe` - Windows installer
-- `RollCloud-Setup.dmg` - macOS installer
-- `RollCloud-Setup.AppImage` - Linux installer
+- `owlcloud-chrome.zip` - Unpacked Chrome extension
+- `owlcloud-firefox.zip` - Unpacked Firefox extension
+- `owlcloud-chrome-signed.crx` - Signed Chrome extension
+- `owlcloud-firefox-signed.xpi` - Signed Firefox extension
+- `OwlCloud-Setup.exe` - Windows installer
+- `OwlCloud-Setup.dmg` - macOS installer
+- `OwlCloud-Setup.AppImage` - Linux installer
 
 ---
 
@@ -156,7 +156,7 @@ rollCloud/
 - ✅ No password storage (only API tokens)
 
 **Supabase Integration:**
-- ✅ Row-Level Security (RLS) enabled on `rollcloud_characters` table
+- ✅ Row-Level Security (RLS) enabled on `owlcloud_characters` table
 - ✅ Anon key used (public key, not service key)
 - ✅ Users can only access their own characters
 - ⚠️ **FINDING:** Supabase anon key is hardcoded in `/src/lib/supabase-client.js:8`
@@ -293,19 +293,19 @@ rollCloud/
 - Token expiry management
 - Row-level security enabled
 
-**`rollcloud_characters` Table:**
+**`owlcloud_characters` Table:**
 - Comprehensive D&D character data storage
 - JSONB fields for flexible data (hit points, spell slots, resources)
 - Discord integration via user ID linking
 - Pairing system for bot commands
 - Indexes on key lookup fields
 
-**`rollcloud_pairings` Table:**
+**`owlcloud_pairings` Table:**
 - Links extension sessions to Discord channels
 - Connection code system
 - Timestamp tracking
 
-**`rollcloud_commands` Table:**
+**`owlcloud_commands` Table:**
 - Discord command queue
 - Real-time subscriptions
 - Command status tracking
@@ -374,7 +374,7 @@ rollCloud/
 - Clear installation instructions
 
 **Web Dashboard:**
-- Hosted on Vercel: `rollcloud.vercel.app`
+- Hosted on Vercel: `owlcloud.vercel.app`
 - Discord integration management
 - Real-time status monitoring
 
@@ -385,7 +385,7 @@ rollCloud/
 ### 8.1 Bot Architecture
 
 **Command System:**
-- Slash commands (`/rollcloud`, `/character`, `/roll20`, etc.)
+- Slash commands (`/owlcloud`, `/character`, `/roll20`, etc.)
 - Event-driven architecture
 - Supabase integration for data persistence
 - Real-time combat notifications
@@ -561,7 +561,7 @@ rollCloud/
 
 ## 13. Conclusion
 
-RollCloud is a well-architected browser extension with solid security practices and good code organization. The project demonstrates:
+OwlCloud is a well-architected browser extension with solid security practices and good code organization. The project demonstrates:
 
 **Strengths:**
 - Clean separation of concerns
@@ -611,7 +611,7 @@ RollCloud is a well-architected browser extension with solid security practices 
 - `/src/lib/supabase-client.js` - Authentication
 - `/src/common/html-utils.js` - XSS prevention
 - `/scripts/build-all.js` - Build system
-- `/supabase/rollcloud_characters_schema.sql` - Database schema
+- `/supabase/owlcloud_characters_schema.sql` - Database schema
 - `/Pip2/src/index.js` - Discord bot
 - `/Pip2/dashboard/package.json` - Web dashboard
 

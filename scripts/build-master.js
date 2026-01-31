@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 
 /**
  * Master Build Script - Builds Everything at Once
@@ -106,7 +106,7 @@ async function buildChrome() {
   prepareBuildDir(buildDir, manifestPath);
 
   // Create ZIP file
-  const zipPath = path.join(DIST_DIR, 'rollcloud-chrome.zip');
+  const zipPath = path.join(DIST_DIR, 'owlcloud-chrome.zip');
   await createZip(buildDir, zipPath);
 
   // Cleanup build directory
@@ -136,7 +136,7 @@ async function buildFirefox() {
   // Add Firefox-specific settings
   manifest.browser_specific_settings = {
     gecko: {
-      id: 'rollcloud@dicecat.dev',
+      id: 'owlcloud@dicecat.dev',
       strict_min_version: '109.0'
     }
   };
@@ -145,11 +145,11 @@ async function buildFirefox() {
   fs.writeFileSync(path.join(buildDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
 
   // Create ZIP file
-  const zipPath = path.join(DIST_DIR, 'rollcloud-firefox.zip');
+  const zipPath = path.join(DIST_DIR, 'owlcloud-firefox.zip');
   await createZip(buildDir, zipPath);
 
   // Also create XPI copy for convenience
-  const xpiPath = path.join(DIST_DIR, 'rollcloud-firefox.xpi');
+  const xpiPath = path.join(DIST_DIR, 'owlcloud-firefox.xpi');
   fs.copyFileSync(zipPath, xpiPath);
   console.log(`  Created: ${xpiPath} (XPI format)`);
 
@@ -166,8 +166,8 @@ async function buildSignedChrome() {
   try {
     // Use crx3 to create signed CRX
     const crx3 = require('crx3');
-    const manifestPath = path.join(DIST_DIR, 'rollcloud-chrome.zip');
-    const crxPath = path.join(DIST_DIR, 'rollcloud-chrome.crx');
+    const manifestPath = path.join(DIST_DIR, 'owlcloud-chrome.zip');
+    const crxPath = path.join(DIST_DIR, 'owlcloud-chrome.crx');
     const privateKeyPath = path.join(ROOT_DIR, 'keys', 'private.pem');
     
     if (!fs.existsSync(privateKeyPath)) {
@@ -185,7 +185,7 @@ async function buildSignedChrome() {
     const extensionId = crypto.createHash('sha256').update(publicKeyDer).digest('hex').slice(0, 32);
     
     // Save extension ID
-    fs.writeFileSync(path.join(DIST_DIR, 'rollcloud-chrome.id'), extensionId);
+    fs.writeFileSync(path.join(DIST_DIR, 'owlcloud-chrome.id'), extensionId);
     console.log(`  Extension ID: ${extensionId}`);
     
   } catch (error) {
@@ -193,7 +193,7 @@ async function buildSignedChrome() {
     console.log(`  Creating unsigned CRX instead...`);
     
     // Copy ZIP as CRX fallback
-    fs.copyFileSync(path.join(DIST_DIR, 'rollcloud-chrome.zip'), path.join(DIST_DIR, 'rollcloud-chrome.crx'));
+    fs.copyFileSync(path.join(DIST_DIR, 'owlcloud-chrome.zip'), path.join(DIST_DIR, 'owlcloud-chrome.crx'));
   }
 }
 
@@ -203,8 +203,8 @@ async function buildSignedFirefox() {
   
   try {
     // Copy the XPI as signed (Firefox requires manual signing)
-    const xpiPath = path.join(DIST_DIR, 'rollcloud-firefox.xpi');
-    const signedXpiPath = path.join(DIST_DIR, 'rollcloud-firefox-signed.xpi');
+    const xpiPath = path.join(DIST_DIR, 'owlcloud-firefox.xpi');
+    const signedXpiPath = path.join(DIST_DIR, 'owlcloud-firefox-signed.xpi');
     
     fs.copyFileSync(xpiPath, signedXpiPath);
     console.log(`  ✅ Firefox XPI created: ${signedXpiPath}`);
@@ -221,17 +221,17 @@ async function buildEnterpriseInstaller() {
   
   try {
     // Ensure installer has the latest extensions
-    const chromeCrx = path.join(DIST_DIR, 'rollcloud-chrome.crx');
-    const firefoxXpi = path.join(DIST_DIR, 'rollcloud-firefox-signed.xpi');
+    const chromeCrx = path.join(DIST_DIR, 'owlcloud-chrome.crx');
+    const firefoxXpi = path.join(DIST_DIR, 'owlcloud-firefox-signed.xpi');
     
     if (fs.existsSync(chromeCrx)) {
-      const installerChromeCrx = path.join(INSTALLER_DIR, 'dist', 'rollcloud-chrome.crx');
+      const installerChromeCrx = path.join(INSTALLER_DIR, 'dist', 'owlcloud-chrome.crx');
       fs.copyFileSync(chromeCrx, installerChromeCrx);
       console.log(`  Copied Chrome CRX to installer`);
     }
     
     if (fs.existsSync(firefoxXpi)) {
-      const installerFirefoxXpi = path.join(INSTALLER_DIR, 'dist', 'rollcloud-firefox.xpi');
+      const installerFirefoxXpi = path.join(INSTALLER_DIR, 'dist', 'owlcloud-firefox.xpi');
       fs.copyFileSync(firefoxXpi, installerFirefoxXpi);
       console.log(`  Copied Firefox XPI to installer`);
     }
@@ -242,8 +242,8 @@ async function buildEnterpriseInstaller() {
     process.chdir(ROOT_DIR);
     
     // Copy installer to dist
-    const installerExe = path.join(INSTALLER_DIR, 'dist', 'RollCloud Setup v2 Setup 1.2.2.exe');
-    const distInstallerExe = path.join(DIST_DIR, 'RollCloud-Enterprise-Setup.exe');
+    const installerExe = path.join(INSTALLER_DIR, 'dist', 'OwlCloud Setup v2 Setup 1.2.2.exe');
+    const distInstallerExe = path.join(DIST_DIR, 'OwlCloud-Enterprise-Setup.exe');
     
     if (fs.existsSync(installerExe)) {
       fs.copyFileSync(installerExe, distInstallerExe);
@@ -266,9 +266,9 @@ async function createEnterprisePackage() {
   
   // Copy all enterprise files
   const files = [
-    'RollCloud-Enterprise-Setup.exe',
-    'rollcloud-chrome.crx',
-    'rollcloud-firefox-signed.xpi'
+    'OwlCloud-Enterprise-Setup.exe',
+    'owlcloud-chrome.crx',
+    'owlcloud-firefox-signed.xpi'
   ];
   
   for (const file of files) {
@@ -293,7 +293,7 @@ async function createEnterprisePackage() {
 
 // Main build function
 async function buildAll() {
-  console.log('🚀 RollCloud Master Build Script');
+  console.log('🚀 OwlCloud Master Build Script');
   console.log('================================');
   console.log('Building all components in one pass...\n');
   

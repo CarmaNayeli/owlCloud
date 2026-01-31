@@ -1,9 +1,9 @@
-/**
- * Owlbear Rodeo Content Script for RollCloud Extension
+﻿/**
+ * Owlbear Rodeo Content Script for OwlCloud Extension
  *
  * This content script runs on Owlbear Rodeo pages and:
  * 1. Detects when the browser extension is active
- * 2. Adds a RollCloud button to the Owlbear UI
+ * 2. Adds a OwlCloud button to the Owlbear UI
  * 3. Opens a character sheet overlay using the extension's popup modules
  * 4. Integrates with Owlbear Rodeo through the SDK
  *
@@ -21,7 +21,7 @@ let characterSheetWindow = null;
 let currentCharacter = null;
 let isOwlbearReady = false;
 
-debug.log('🦉 RollCloud Owlbear content script loaded');
+debug.log('🦉 OwlCloud Owlbear content script loaded');
 
 // ============== Owlbear Detection ==============
 
@@ -48,18 +48,18 @@ function waitForOwlbear() {
 // ============== UI Injection ==============
 
 /**
- * Create and inject the RollCloud button into Owlbear's UI
+ * Create and inject the OwlCloud button into Owlbear's UI
  */
-function injectRollCloudButton() {
+function injectOwlCloudButton() {
   // Check if button already exists
-  if (document.getElementById('rollcloud-button')) {
-    debug.log('🦉 RollCloud button already exists');
+  if (document.getElementById('owlcloud-button')) {
+    debug.log('🦉 OwlCloud button already exists');
     return;
   }
 
   // Create button container
   const buttonContainer = document.createElement('div');
-  buttonContainer.id = 'rollcloud-button';
+  buttonContainer.id = 'owlcloud-button';
   buttonContainer.style.cssText = `
     position: fixed;
     top: 20px;
@@ -70,9 +70,9 @@ function injectRollCloudButton() {
 
   // Create button
   const button = document.createElement('button');
-  button.id = 'rollcloud-toggle';
-  button.innerHTML = '🎲 RollCloud';
-  button.title = 'Open RollCloud Character Sheet';
+  button.id = 'owlcloud-toggle';
+  button.innerHTML = '🎲 OwlCloud';
+  button.title = 'Open OwlCloud Character Sheet';
   button.style.cssText = `
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
@@ -108,7 +108,7 @@ function injectRollCloudButton() {
   buttonContainer.appendChild(button);
   document.body.appendChild(buttonContainer);
 
-  debug.log('🦉 RollCloud button injected into Owlbear UI');
+  debug.log('🦉 OwlCloud button injected into Owlbear UI');
 }
 
 // ============== Character Sheet Window ==============
@@ -137,7 +137,7 @@ async function openCharacterSheet() {
     });
 
     if (!response || !response.success) {
-      showNotification('No active character selected. Please select a character in the RollCloud popup.', 'error');
+      showNotification('No active character selected. Please select a character in the OwlCloud popup.', 'error');
       return;
     }
 
@@ -160,14 +160,14 @@ async function openCharacterSheet() {
  */
 function createCharacterSheetOverlay() {
   // Remove existing overlay if present
-  const existingOverlay = document.getElementById('rollcloud-character-sheet');
+  const existingOverlay = document.getElementById('owlcloud-character-sheet');
   if (existingOverlay) {
     existingOverlay.remove();
   }
 
   // Create overlay container
   const overlay = document.createElement('div');
-  overlay.id = 'rollcloud-character-sheet';
+  overlay.id = 'owlcloud-character-sheet';
   overlay.style.cssText = `
     position: fixed;
     top: 0;
@@ -255,7 +255,7 @@ function createCharacterSheetOverlay() {
     <div style="text-align: center; padding: 40px;">
       <h3 style="color: #667eea; margin-bottom: 16px;">Character Sheet Integration</h3>
       <p style="color: #666; margin-bottom: 20px;">
-        This will display your DiceCloud character sheet using the RollCloud extension modules.
+        This will display your DiceCloud character sheet using the OwlCloud extension modules.
       </p>
       <p style="color: #999; font-size: 14px;">
         TODO: Integrate popup modules (sheet-builder.js, action-display.js, etc.)
@@ -314,8 +314,8 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     case 'closeCharacterSheet':
       // Close character sheet
-      if (document.getElementById('rollcloud-character-sheet')) {
-        document.getElementById('rollcloud-character-sheet').remove();
+      if (document.getElementById('owlcloud-character-sheet')) {
+        document.getElementById('owlcloud-character-sheet').remove();
       }
       sendResponse({ success: true });
       break;
@@ -346,7 +346,7 @@ window.addEventListener('message', async (event) => {
   debug.log('📨 Message from Owlbear extension:', type);
 
   switch (type) {
-    case 'ROLLCLOUD_GET_ACTIVE_CHARACTER': {
+    case 'OWLCLOUD_GET_ACTIVE_CHARACTER': {
       // Get active character from extension storage
       try {
         const response = await browserAPI.runtime.sendMessage({
@@ -355,7 +355,7 @@ window.addEventListener('message', async (event) => {
 
         // Send response back to Owlbear extension
         event.source.postMessage({
-          type: 'ROLLCLOUD_ACTIVE_CHARACTER_RESPONSE',
+          type: 'OWLCLOUD_ACTIVE_CHARACTER_RESPONSE',
           data: {
             character: response?.character || null
           }
@@ -363,20 +363,20 @@ window.addEventListener('message', async (event) => {
       } catch (error) {
         debug.error('Error getting active character:', error);
         event.source.postMessage({
-          type: 'ROLLCLOUD_ERROR',
+          type: 'OWLCLOUD_ERROR',
           data: { message: 'Failed to get active character' }
         }, event.origin);
       }
       break;
     }
 
-    case 'ROLLCLOUD_OPEN_CHARACTER_SHEET': {
+    case 'OWLCLOUD_OPEN_CHARACTER_SHEET': {
       // Open character sheet overlay
       openCharacterSheet();
       break;
     }
 
-    case 'ROLLCLOUD_SYNC_CHARACTER': {
+    case 'OWLCLOUD_SYNC_CHARACTER': {
       // Request character sync from DiceCloud
       try {
         await browserAPI.runtime.sendMessage({
@@ -384,20 +384,20 @@ window.addEventListener('message', async (event) => {
         });
 
         event.source.postMessage({
-          type: 'ROLLCLOUD_SYNC_COMPLETE',
+          type: 'OWLCLOUD_SYNC_COMPLETE',
           data: { success: true }
         }, event.origin);
       } catch (error) {
         debug.error('Error syncing character:', error);
         event.source.postMessage({
-          type: 'ROLLCLOUD_ERROR',
+          type: 'OWLCLOUD_ERROR',
           data: { message: 'Failed to sync character' }
         }, event.origin);
       }
       break;
     }
 
-    case 'ROLLCLOUD_OPEN_POPUP': {
+    case 'OWLCLOUD_OPEN_POPUP': {
       // Request to open browser extension popup
       // This will open the action popup programmatically
       try {
@@ -478,8 +478,8 @@ document.head.appendChild(style);
 // Wait for Owlbear to load, then inject button
 waitForOwlbear().then(() => {
   isOwlbearReady = true;
-  injectRollCloudButton();
-  debug.log('🦉 RollCloud initialized on Owlbear Rodeo');
+  injectOwlCloudButton();
+  debug.log('🦉 OwlCloud initialized on Owlbear Rodeo');
 });
 
-debug.log('🦉 RollCloud Owlbear content script initialized');
+debug.log('🦉 OwlCloud Owlbear content script initialized');

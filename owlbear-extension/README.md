@@ -1,10 +1,10 @@
-# RollCloud Owlbear Rodeo Extension
+﻿# OwlCloud Owlbear Rodeo Extension
 
-This is the Owlbear Rodeo extension component of RollCloud, which integrates DiceCloud V2 characters into Owlbear Rodeo.
+This is the Owlbear Rodeo extension component of OwlCloud, which integrates DiceCloud V2 characters into Owlbear Rodeo.
 
 ## Architecture
 
-RollCloud uses a **two-part architecture** to integrate DiceCloud with Owlbear Rodeo:
+OwlCloud uses a **two-part architecture** to integrate DiceCloud with Owlbear Rodeo:
 
 ### 1. Browser Extension (in `src/` directory)
 - Syncs character data from DiceCloud
@@ -28,20 +28,20 @@ RollCloud uses a **two-part architecture** to integrate DiceCloud with Owlbear R
 ## Installation
 
 ### 1. Install Browser Extension
-First, install the RollCloud browser extension in Chrome/Firefox/Edge/Safari.
+First, install the OwlCloud browser extension in Chrome/Firefox/Edge/Safari.
 
 ### 2. Install Owlbear Extension
 1. Open Owlbear Rodeo ([owlbear.rodeo](https://www.owlbear.rodeo))
 2. Click the Extensions menu
 3. Click "Install Extension"
 4. Upload this `owlbear-extension` folder (or provide URL if hosted)
-5. The RollCloud button will appear in your Owlbear extensions bar
+5. The OwlCloud button will appear in your Owlbear extensions bar
 
 ### 3. Connect the Two
-1. Open the RollCloud browser extension popup
+1. Open the OwlCloud browser extension popup
 2. Select your active character from DiceCloud
 3. Navigate to Owlbear Rodeo
-4. Click the RollCloud extension button in Owlbear
+4. Click the OwlCloud extension button in Owlbear
 5. Your character will be displayed!
 
 ## Features
@@ -94,4 +94,4 @@ This extension requires the following Owlbear permissions:
 
 ## Support
 
-For issues or questions, please visit the main RollCloud repository.
+For issues or questions, please visit the main OwlCloud repository.

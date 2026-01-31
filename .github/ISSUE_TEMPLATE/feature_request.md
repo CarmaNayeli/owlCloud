@@ -1,6 +1,6 @@
----
+﻿---
 name: Feature Request
-about: Suggest an idea or enhancement for RollCloud
+about: Suggest an idea or enhancement for OwlCloud
 title: '[FEATURE] '
 labels: enhancement
 assignees: ''

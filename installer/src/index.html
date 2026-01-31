@@ -1,16 +1,16 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self';">
-  <title>RollCloud Installation Wizard</title>
+  <title>OwlCloud Installation Wizard</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div class="container">
     <header>
-      <h1>RollCloud Installation Wizard</h1>
+      <h1>OwlCloud Installation Wizard</h1>
       <p class="subtitle">Dice Cloud + Roll20 + Discord</p>
     </header>
 
@@ -40,10 +40,10 @@
     <section id="stepUpdaterConfig" class="step">
       <div class="step-header">
         <span class="step-number">⚙</span>
-        <h2>Configure RollCloud Updater</h2>
+        <h2>Configure OwlCloud Updater</h2>
       </div>
       <div class="step-content">
-        <p style="margin-bottom: 20px;">The RollCloud Updater was installed. Configure how it should run:</p>
+        <p style="margin-bottom: 20px;">The OwlCloud Updater was installed. Configure how it should run:</p>
 
         <div style="margin: 20px 0;">
           <label style="display: flex; align-items: center; cursor: pointer; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 10px;">
@@ -86,7 +86,7 @@
         <h2>Install Extension</h2>
       </div>
       <div class="step-content">
-        <p>Installing RollCloud extension for <strong id="selectedBrowserName">Browser</strong>...</p>
+        <p>Installing OwlCloud extension for <strong id="selectedBrowserName">Browser</strong>...</p>
         <div id="installProgress" class="progress-container">
           <div class="spinner"></div>
           <p id="installStatus">Preparing installation...</p>
@@ -99,10 +99,10 @@
           <div id="updaterInstallStatus" class="hidden" style="margin: 20px 0; padding: 15px; background: rgba(96, 165, 250, 0.1); border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 8px;">
             <div id="updaterInstallProgress" style="display: flex; align-items: center; gap: 10px;">
               <div class="spinner" style="width: 20px; height: 20px; border-width: 2px;"></div>
-              <span>Installing RollCloud Updater...</span>
+              <span>Installing OwlCloud Updater...</span>
             </div>
             <div id="updaterInstallSuccess" class="hidden" style="color: #4ade80;">
-              ✅ RollCloud Updater installed successfully!
+              ✅ OwlCloud Updater installed successfully!
             </div>
             <div id="updaterInstallError" class="hidden" style="color: #f87171;">
               ❌ Failed to install updater: <span id="updaterErrorText"></span>
@@ -161,13 +161,13 @@
       <div class="step-content">
         <div class="success-box">
           <p class="big-check">[OK]</p>
-          <p>RollCloud is ready to use!</p>
+          <p>OwlCloud is ready to use!</p>
         </div>
         <div class="next-steps">
           <h3>What's Next?</h3>
           <ol>
             <li>Open <strong>Roll20</strong> in your browser</li>
-            <li>Click the RollCloud extension icon</li>
+            <li>Click the OwlCloud extension icon</li>
             <li>Sync your character from Dice Cloud</li>
             <li>Combat turns will appear in Discord!</li>
           </ol>
@@ -176,7 +176,7 @@
           <label style="display:flex; align-items:center; gap:12px; cursor:pointer;">
             <input type="checkbox" id="installUpdaterCheckbox" style="width:18px; height:18px;">
             <div>
-              <strong>Install and run RollCloud Updater</strong>
+              <strong>Install and run OwlCloud Updater</strong>
               <div style="font-size:0.9em; opacity:0.8;">Installs the updater utility and optionally launches it</div>
             </div>
           </label>
@@ -190,12 +190,12 @@
     <section id="step5" class="step hidden">
       <div class="step-header">
         <span class="step-number">5</span>
-        <h2>RollCloud Updater Installed</h2>
+        <h2>OwlCloud Updater Installed</h2>
       </div>
       <div class="step-content">
         <div class="success-box">
           <p class="big-check">🔔</p>
-          <p>The RollCloud Updater has been installed!</p>
+          <p>The OwlCloud Updater has been installed!</p>
         </div>
         <div class="info-box">
           <p>The updater runs in your system tray and notifies you when new versions are available.</p>
@@ -205,7 +205,7 @@
           <label style="display:flex; align-items:center; gap:12px; cursor:pointer;">
             <input type="checkbox" id="runUpdaterCheckbox" style="width:18px; height:18px;" checked>
             <div>
-              <strong>Launch RollCloud Updater now</strong>
+              <strong>Launch OwlCloud Updater now</strong>
               <div style="font-size:0.9em; opacity:0.8;">The updater will run in your system tray</div>
             </div>
           </label>
@@ -227,7 +227,7 @@
     </section>
 
     <footer>
-      <p>RollCloud v1.2.7 | <a href="#" id="helpLink">Need help?</a></p>
+      <p>OwlCloud v1.2.7 | <a href="#" id="helpLink">Need help?</a></p>
     </footer>
   </div>
 

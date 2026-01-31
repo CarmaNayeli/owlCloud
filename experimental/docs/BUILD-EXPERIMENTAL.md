@@ -1,12 +1,12 @@
-# Building RollCloud with Experimental Two-Way Sync
+﻿# Building OwlCloud with Experimental Two-Way Sync
 
-This document explains how to build RollCloud with the experimental DiceCloud two-way sync feature.
+This document explains how to build OwlCloud with the experimental DiceCloud two-way sync feature.
 
 ## What is the Experimental Build?
 
 The experimental build includes:
 - **Meteor DDP client** - For real-time communication with DiceCloud's backend
-- **Two-way sync** - Changes made in RollCloud automatically update DiceCloud
+- **Two-way sync** - Changes made in OwlCloud automatically update DiceCloud
 - **Property tracking** - Syncs action uses, resource consumption, HP, and more
 
 ⚠️ **Status:** Experimental - not integrated into main extension yet. Files are copied to `src/lib/` during build but not yet used by the extension code.

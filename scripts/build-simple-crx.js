@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 
 /**
  * Build simple unsigned CRX for testing
@@ -45,8 +45,8 @@ async function build() {
     console.log('🔧 Building Simple Unsigned CRX');
     console.log('================================');
     
-    const zipPath = path.join(DIST_DIR, 'rollcloud-chrome.zip');
-    const crxPath = path.join(DIST_DIR, 'rollcloud-chrome-unsigned.crx');
+    const zipPath = path.join(DIST_DIR, 'owlcloud-chrome.zip');
+    const crxPath = path.join(DIST_DIR, 'owlcloud-chrome-unsigned.crx');
     
     if (!fs.existsSync(zipPath)) {
       console.error('❌ ZIP file not found:', zipPath);

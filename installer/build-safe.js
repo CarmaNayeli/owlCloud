@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 
 /**
  * Wrapper script to suppress deprecation warnings during electron-builder build
@@ -44,7 +44,7 @@ async function safeRmDir(dirPath, maxRetries = 5, delayMs = 1000) {
 }
 
 async function buildUpdater() {
-  console.log('🔄 Building RollCloud Updater...');
+  console.log('🔄 Building OwlCloud Updater...');
   
   const updaterPath = path.join(__dirname, 'updater');
   
@@ -103,8 +103,8 @@ async function buildUpdater() {
     }
     
     // Copy Windows updater
-    const winUpdaterPath = path.join(updaterDistPath, 'RollCloud Updater 1.0.0.exe');
-    const winDestPath = path.join(installerResourcesPath, 'RollCloud-Updater.exe');
+    const winUpdaterPath = path.join(updaterDistPath, 'OwlCloud Updater 1.0.0.exe');
+    const winDestPath = path.join(installerResourcesPath, 'OwlCloud-Updater.exe');
     
     if (fs.existsSync(winUpdaterPath)) {
       fs.copyFileSync(winUpdaterPath, winDestPath);
@@ -113,9 +113,9 @@ async function buildUpdater() {
       console.log('⚠️ Windows updater not found, checking alternative names...');
       // Check for alternative naming patterns
       const altPaths = [
-        path.join(updaterDistPath, 'RollCloud Updater.exe'),
-        path.join(updaterDistPath, 'RollCloud-Updater.exe'),
-        path.join(updaterDistPath, 'rollcloud-updater.exe')
+        path.join(updaterDistPath, 'OwlCloud Updater.exe'),
+        path.join(updaterDistPath, 'OwlCloud-Updater.exe'),
+        path.join(updaterDistPath, 'owlcloud-updater.exe')
       ];
       
       for (const altPath of altPaths) {

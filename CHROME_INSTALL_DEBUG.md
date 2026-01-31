@@ -1,4 +1,4 @@
-# Chrome Extension Installation Debugging Guide
+﻿# Chrome Extension Installation Debugging Guide
 
 ## 🔍 Issue: CRX File Not Installing
 
@@ -20,7 +20,7 @@ The CRX is signed with ID: `mkckngoemfjdkhcpaomdndlecolckgdj`
 **Verification:**
 ```bash
 # Check the ID in the signed CRX
-cat dist/rollcloud-chrome-signed.id
+cat dist/owlcloud-chrome-signed.id
 # Should output: mkckngoemfjdkhcpaomdndlecolckgdj
 ```
 
@@ -64,7 +64,7 @@ The manifest.json contains a specific key that must match the CRX signature.
 - **Usage**: Load as developer extension
 
 ### Extension ID Verification
-- **File**: `dist/rollcloud-chrome-signed.id`
+- **File**: `dist/owlcloud-chrome-signed.id`
 - **Content**: `mkckngoemfjdkhcpaomdndlecolckgdj`
 - **Purpose**: Verify CRX signature matches
 
@@ -85,7 +85,7 @@ The manifest.json contains a specific key that must match the CRX signature.
 ## 📞 Expected Results
 
 **Working Extension Should Show:**
-- RollCloud icon in Chrome toolbar
+- OwlCloud icon in Chrome toolbar
 - Popup when clicked
 - Content scripts running on DiceCloud/Roll20
 - No console errors

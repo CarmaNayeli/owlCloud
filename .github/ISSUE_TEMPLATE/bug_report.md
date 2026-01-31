@@ -1,6 +1,6 @@
----
+﻿---
 name: Bug Report
-about: Report a bug or issue with RollCloud
+about: Report a bug or issue with OwlCloud
 title: '[BUG] '
 labels: bug
 assignees: ''

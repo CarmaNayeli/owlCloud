@@ -1,7 +1,7 @@
-{
+﻿{
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
-  "name": "rollcloud",
+  "name": "owlcloud",
   "public": true,
   "rewrites": [
     {

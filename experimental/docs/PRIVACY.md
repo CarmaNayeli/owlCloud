@@ -1,10 +1,10 @@
-# Privacy Policy for RollCloud
+﻿# Privacy Policy for OwlCloud
 
 *Last updated: January 19, 2026*
 
 ## Data Collection
 
-RollCloud does not collect, transmit, or store any personal data on external servers. All data handling occurs locally in your browser.
+OwlCloud does not collect, transmit, or store any personal data on external servers. All data handling occurs locally in your browser.
 
 ## Data Usage
 
@@ -14,7 +14,7 @@ RollCloud does not collect, transmit, or store any personal data on external ser
 
 ## Third-Party Services
 
-RollCloud interacts with:
+OwlCloud interacts with:
 - DiceCloud v2 (dicecloud.com) - to retrieve character information
 - Roll20 (roll20.net) - to post game actions
 
@@ -22,7 +22,7 @@ These services have their own privacy policies which govern their data handling.
 
 ## Data Security
 
-All data remains in your browser. No information is sent to external servers operated by RollCloud.
+All data remains in your browser. No information is sent to external servers operated by OwlCloud.
 
 ## Contact
 

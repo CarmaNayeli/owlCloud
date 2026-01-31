@@ -1,8 +1,8 @@
-/**
+﻿/**
  * Integration Example for DiceCloud Two-Way Sync
  *
  * This file demonstrates how to integrate the DDP client and DiceCloud sync
- * into the RollCloud extension.
+ * into the OwlCloud extension.
  *
  * USAGE:
  * 1. Include meteor-ddp-client.js and dicecloud-sync.js in your manifest

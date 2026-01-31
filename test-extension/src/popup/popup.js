@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Popup UI Script
  * Handles user interactions in the extension popup
  */
@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <p><strong>Steps to fix:</strong></p>
         <ol>
           <li>Go to chrome://extensions/</li>
-          <li>Click "Remove" on RollCloud</li>
+          <li>Click "Remove" on OwlCloud</li>
           <li>Reload the extension fresh</li>
         </ol>
         <p style="font-size: 12px; color: #666;">
@@ -353,7 +353,7 @@ function initializePopup() {
 
       // Populate character dropdown (exclude GM player data)
       const characterIds = Object.keys(profiles).filter(id =>
-        profiles[id].type !== 'rollcloudPlayer'
+        profiles[id].type !== 'owlcloudPlayer'
       );
       if (characterIds.length > 0) {
         characterSelect.innerHTML = '';
@@ -587,9 +587,9 @@ function initializePopup() {
       // Check if there's any synced character data (excluding GM player data)
       const profilesResponse = await browserAPI.runtime.sendMessage({ action: 'getAllCharacterProfiles' });
       const profiles = profilesResponse.success ? profilesResponse.profiles : {};
-      // Only count actual character slots, not rollcloudPlayer entries
+      // Only count actual character slots, not owlcloudPlayer entries
       const hasCharacters = Object.keys(profiles).some(key =>
-        profiles[key].type !== 'rollcloudPlayer'
+        profiles[key].type !== 'owlcloudPlayer'
       );
 
       if (!hasCharacters) {

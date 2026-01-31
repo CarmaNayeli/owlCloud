@@ -1,6 +1,6 @@
-#!/bin/bash
+﻿#!/bin/bash
 
-# RollCloud Build Script
+# OwlCloud Build Script
 # Builds browser-specific distributions
 
 set -e
@@ -8,7 +8,7 @@ set -e
 BUILD_DIR="dist"
 VERSION=$(grep '"version"' manifest.json | head -1 | sed 's/.*: "\(.*\)".*/\1/')
 
-echo "🚀 RollCloud Build Script v$VERSION"
+echo "🚀 OwlCloud Build Script v$VERSION"
 echo ""
 
 build_chrome() {
@@ -45,8 +45,8 @@ build_firefox() {
 package_chrome() {
     echo "📦 Packaging Chrome extension..."
     cd "$BUILD_DIR"
-    zip -r "rollcloud-chrome-$VERSION.zip" chrome/
-    echo "✅ Chrome package: $BUILD_DIR/rollcloud-chrome-$VERSION.zip"
+    zip -r "owlcloud-chrome-$VERSION.zip" chrome/
+    echo "✅ Chrome package: $BUILD_DIR/owlcloud-chrome-$VERSION.zip"
     cd ..
     echo ""
 }
@@ -54,8 +54,8 @@ package_chrome() {
 package_firefox() {
     echo "📦 Packaging Firefox add-on..."
     cd "$BUILD_DIR"
-    zip -r "rollcloud-firefox-$VERSION.zip" firefox/
-    echo "✅ Firefox package: $BUILD_DIR/rollcloud-firefox-$VERSION.zip"
+    zip -r "owlcloud-firefox-$VERSION.zip" firefox/
+    echo "✅ Firefox package: $BUILD_DIR/owlcloud-firefox-$VERSION.zip"
     cd ..
     echo ""
 }

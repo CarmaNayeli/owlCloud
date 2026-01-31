@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+﻿import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 
 // Supabase config - set via environment variables
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -39,7 +39,7 @@ export default {
 
       if (action === 'create') {
         const response = await fetch(
-          `${SUPABASE_URL}/rest/v1/rollcloud_pairings`,
+          `${SUPABASE_URL}/rest/v1/owlcloud_pairings`,
           {
             method: 'POST',
             headers: {
@@ -76,7 +76,7 @@ export default {
 
       } else if (action === 'lookup') {
         const response = await fetch(
-          `${SUPABASE_URL}/rest/v1/rollcloud_pairings?pairing_code=eq.${code}&select=*`,
+          `${SUPABASE_URL}/rest/v1/owlcloud_pairings?pairing_code=eq.${code}&select=*`,
           {
             headers: {
               'apikey': SUPABASE_SERVICE_KEY,
@@ -116,7 +116,7 @@ export default {
 
       } else if (action === 'delete') {
         const response = await fetch(
-          `${SUPABASE_URL}/rest/v1/rollcloud_pairings?pairing_code=eq.${code}`,
+          `${SUPABASE_URL}/rest/v1/owlcloud_pairings?pairing_code=eq.${code}`,
           {
             method: 'DELETE',
             headers: {

@@ -1,6 +1,6 @@
-import { Events, ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } from 'discord.js';
+﻿import { Events, ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } from 'discord.js';
 
-// Supabase config for RollCloud commands
+// Supabase config for OwlCloud commands
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
@@ -51,8 +51,8 @@ async function handleButtonInteraction(interaction) {
     await handleCreateTicket(interaction, params);
   } else if (interaction.customId === 'close_ticket') {
     await handleCloseTicket(interaction);
-  } else if (action === 'rollcloud') {
-    await handleRollCloudButton(interaction, params);
+  } else if (action === 'owlcloud') {
+    await handleOwlCloudButton(interaction, params);
   }
 }
 
@@ -193,21 +193,21 @@ async function handleCreateTicket(interaction, params) {
 }
 
 // ============================================================================
-// RollCloud Button Handlers
+// OwlCloud Button Handlers
 // ============================================================================
 
 /**
- * Handle RollCloud button interactions
- * Button customId format: rollcloud:<command_type>:<action_name>:<extra_data>
+ * Handle OwlCloud button interactions
+ * Button customId format: owlcloud:<command_type>:<action_name>:<extra_data>
  *
  * Examples:
- * - rollcloud:roll:Attack:1d20+5
- * - rollcloud:use_action:Longsword
- * - rollcloud:use_bonus:Healing Word
- * - rollcloud:end_turn
- * - rollcloud:use_ability:Fireball:spell
+ * - owlcloud:roll:Attack:1d20+5
+ * - owlcloud:use_action:Longsword
+ * - owlcloud:use_bonus:Healing Word
+ * - owlcloud:end_turn
+ * - owlcloud:use_ability:Fireball:spell
  */
-async function handleRollCloudButton(interaction, params) {
+async function handleOwlCloudButton(interaction, params) {
   const [commandType, actionName, ...extraData] = params;
 
   // Acknowledge immediately
@@ -219,13 +219,13 @@ async function handleRollCloudButton(interaction, params) {
 
     if (!pairing) {
       await interaction.editReply({
-        content: '❌ RollCloud is not connected to this channel. Use `/rollcloud <code>` to connect.'
+        content: '❌ OwlCloud is not connected to this channel. Use `/owlcloud <code>` to connect.'
       });
       return;
     }
 
     // Create command in Supabase
-    const command = await createRollCloudCommand({
+    const command = await createOwlCloudCommand({
       pairingId: pairing.id,
       discordUserId: interaction.user.id,
       discordUsername: interaction.user.username,
@@ -255,10 +255,10 @@ async function handleRollCloudButton(interaction, params) {
       content: responseMessages[commandType] || `📤 Sent: ${commandType}`
     });
 
-    console.log(`✅ RollCloud command sent: ${commandType} ${actionName} by ${interaction.user.tag}`);
+    console.log(`✅ OwlCloud command sent: ${commandType} ${actionName} by ${interaction.user.tag}`);
 
   } catch (error) {
-    console.error('RollCloud button error:', error);
+    console.error('OwlCloud button error:', error);
     await interaction.editReply({
       content: '❌ Something went wrong. Please try again.'
     });
@@ -266,7 +266,7 @@ async function handleRollCloudButton(interaction, params) {
 }
 
 /**
- * Find a RollCloud pairing for a channel
+ * Find a OwlCloud pairing for a channel
  */
 async function findPairingForChannel(channelId) {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
@@ -276,7 +276,7 @@ async function findPairingForChannel(channelId) {
 
   try {
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/rollcloud_pairings?discord_channel_id=eq.${channelId}&status=eq.connected&select=*`,
+      `${SUPABASE_URL}/rest/v1/owlcloud_pairings?discord_channel_id=eq.${channelId}&status=eq.connected&select=*`,
       {
         headers: {
           'apikey': SUPABASE_SERVICE_KEY,
@@ -301,20 +301,20 @@ async function findPairingForChannel(channelId) {
 /**
  * Create a command in Supabase for the extension to pick up
  */
-async function createRollCloudCommand(options) {
+async function createOwlCloudCommand(options) {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
     return { success: false, error: 'Supabase not configured' };
   }
 
   try {
-    console.log(`[RollCloud] Creating command:`, {
+    console.log(`[OwlCloud] Creating command:`, {
       pairingId: options.pairingId,
       commandType: options.commandType,
       actionName: options.actionName,
       discordUserId: options.discordUserId
     });
 
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/rollcloud_commands`, {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/owlcloud_commands`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -336,11 +336,11 @@ async function createRollCloudCommand(options) {
 
     if (response.ok) {
       const data = await response.json();
-      console.log(`[RollCloud] Command created successfully:`, data[0]?.id);
+      console.log(`[OwlCloud] Command created successfully:`, data[0]?.id);
       return { success: true, command: data[0] };
     } else {
       const errorText = await response.text();
-      console.error(`[RollCloud] Failed to create command (${response.status}):`, errorText);
+      console.error(`[OwlCloud] Failed to create command (${response.status}):`, errorText);
       
       // Provide more specific error messages
       if (response.status === 400) {
@@ -356,7 +356,7 @@ async function createRollCloudCommand(options) {
       }
     }
   } catch (error) {
-    console.error('[RollCloud] Error creating command:', error);
+    console.error('[OwlCloud] Error creating command:', error);
     return { success: false, error: `Network error: ${error.message}` };
   }
 }

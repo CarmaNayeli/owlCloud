@@ -1,5 +1,5 @@
-/**
- * RollCloud Turn Poller
+﻿/**
+ * OwlCloud Turn Poller
  * Polls Supabase for pending turns and posts them to Discord with buttons
  */
 
@@ -23,7 +23,7 @@ export function startTurnPoller(discordClient) {
     return;
   }
 
-  console.log('🎲 Starting RollCloud turn poller...');
+  console.log('🎲 Starting OwlCloud turn poller...');
   pollInterval = setInterval(pollForTurns, POLL_INTERVAL_MS);
 
   // Poll immediately
@@ -37,7 +37,7 @@ export function stopTurnPoller() {
   if (pollInterval) {
     clearInterval(pollInterval);
     pollInterval = null;
-    console.log('🎲 Stopped RollCloud turn poller');
+    console.log('🎲 Stopped OwlCloud turn poller');
   }
 }
 
@@ -52,7 +52,7 @@ async function pollForTurns() {
   try {
     // Get pending turns with their pairing info
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/rollcloud_turns?status=eq.pending&order=created_at.asc&limit=10&select=*,rollcloud_pairings(*)`,
+      `${SUPABASE_URL}/rest/v1/owlcloud_turns?status=eq.pending&order=created_at.asc&limit=10&select=*,owlcloud_pairings(*)`,
       {
         headers: {
           'apikey': SUPABASE_SERVICE_KEY,
@@ -80,7 +80,7 @@ async function pollForTurns() {
  * Post a turn to Discord with buttons
  */
 async function postTurnToDiscord(turn) {
-  const pairing = turn.rollcloud_pairings;
+  const pairing = turn.owlcloud_pairings;
 
   if (!pairing || !pairing.discord_channel_id) {
     console.error('No pairing found for turn:', turn.id);
@@ -210,7 +210,7 @@ function buildActionButtons(availableActions, characterName) {
     return [
       new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId(`rollcloud:end_turn:${characterName}`)
+          .setCustomId(`owlcloud:end_turn:${characterName}`)
           .setLabel('End Turn')
           .setStyle(ButtonStyle.Secondary)
           .setEmoji('⏭️')
@@ -228,7 +228,7 @@ function buildActionButtons(availableActions, characterName) {
     const rollString = attack.roll || '1d20';
     currentRow.addComponents(
       new ButtonBuilder()
-        .setCustomId(`rollcloud:roll:${attack.name}:${rollString}`)
+        .setCustomId(`owlcloud:roll:${attack.name}:${rollString}`)
         .setLabel(attack.name)
         .setStyle(ButtonStyle.Primary)
         .setEmoji('⚔️')
@@ -247,7 +247,7 @@ function buildActionButtons(availableActions, characterName) {
   for (const spell of spells.slice(0, 2)) {
     currentRow.addComponents(
       new ButtonBuilder()
-        .setCustomId(`rollcloud:use_ability:${spell.name}:spell:${spell.level}`)
+        .setCustomId(`owlcloud:use_ability:${spell.name}:spell:${spell.level}`)
         .setLabel(spell.name)
         .setStyle(ButtonStyle.Success)
         .setEmoji('🔮')
@@ -270,7 +270,7 @@ function buildActionButtons(availableActions, characterName) {
   rows.push(
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId(`rollcloud:end_turn:${characterName}`)
+        .setCustomId(`owlcloud:end_turn:${characterName}`)
         .setLabel('End Turn')
         .setStyle(ButtonStyle.Secondary)
         .setEmoji('⏭️')
@@ -298,7 +298,7 @@ async function markTurnPosted(turnId, messageId, error = null) {
     }
 
     await fetch(
-      `${SUPABASE_URL}/rest/v1/rollcloud_turns?id=eq.${turnId}`,
+      `${SUPABASE_URL}/rest/v1/owlcloud_turns?id=eq.${turnId}`,
       {
         method: 'PATCH',
         headers: {

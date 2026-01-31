@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
+﻿import { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 
 // Supabase config - set via environment variables
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -6,12 +6,12 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
 export default {
   data: new SlashCommandBuilder()
-    .setName('rollcloud')
-    .setDescription('Connect your RollCloud extension to Discord')
+    .setName('owlcloud')
+    .setDescription('Connect your OwlCloud extension to Discord')
     .addStringOption(option =>
       option
         .setName('code')
-        .setDescription('The 6-character pairing code from your RollCloud extension')
+        .setDescription('The 6-character pairing code from your OwlCloud extension')
         .setRequired(true)
         .setMinLength(6)
         .setMaxLength(6)
@@ -36,7 +36,7 @@ export default {
             .setDescription(
               `The code **${code}** was not found or has expired.\n\n` +
               '**To get a new code:**\n' +
-              '1. Open RollCloud extension\n' +
+              '1. Open OwlCloud extension\n' +
               '2. Expand "Discord Integration"\n' +
               '3. Click "Setup Discord"\n' +
               '4. Copy the new code shown'
@@ -53,7 +53,7 @@ export default {
             .setTitle('⚠️ Already Used')
             .setDescription(
               `This code has already been used by another user.\n\n` +
-              'Generate a new code in the RollCloud extension.'
+              'Generate a new code in the OwlCloud extension.'
             )
           ]
         });
@@ -63,19 +63,19 @@ export default {
       // 2. Check if we need to create a webhook (first user in channel)
       let webhookUrl = null;
       try {
-        // Check for existing RollCloud webhook in channel
+        // Check for existing OwlCloud webhook in channel
         if (interaction.channel.permissionsFor(interaction.guild.members.me).has(PermissionFlagsBits.ManageWebhooks)) {
           const webhooks = await interaction.channel.fetchWebhooks();
-          let rollcloudWebhook = webhooks.find(wh => wh.name === '🎲 RollCloud');
+          let owlcloudWebhook = webhooks.find(wh => wh.name === '🎲 OwlCloud');
 
-          if (!rollcloudWebhook) {
+          if (!owlcloudWebhook) {
             // Create new webhook
-            rollcloudWebhook = await interaction.channel.createWebhook({
-              name: '🎲 RollCloud',
-              reason: `RollCloud pairing by ${interaction.user.tag}`
+            owlcloudWebhook = await interaction.channel.createWebhook({
+              name: '🎲 OwlCloud',
+              reason: `OwlCloud pairing by ${interaction.user.tag}`
             });
           }
-          webhookUrl = rollcloudWebhook.url;
+          webhookUrl = owlcloudWebhook.url;
         }
       } catch (webhookError) {
         console.log('Could not create/get webhook (no permission):', webhookError.message);
@@ -98,9 +98,9 @@ export default {
       // 4. Send success message
       const embed = new EmbedBuilder()
         .setColor(0x4ECDC4)
-        .setTitle('✅ RollCloud Connected!')
+        .setTitle('✅ OwlCloud Connected!')
         .setDescription(
-          `Your account is now linked to RollCloud!\n\n` +
+          `Your account is now linked to OwlCloud!\n\n` +
           '**Next steps:**\n' +
           '• Open a DiceCloud character sheet\n' +
           '• Click "Sync Character" in the extension\n' +
@@ -116,7 +116,7 @@ export default {
           { name: 'DiceCloud User', value: pairing.dicecloud_username || 'Unknown', inline: true },
           { name: 'Discord User', value: interaction.user.tag, inline: true }
         )
-        .setFooter({ text: 'Pip 2 • RollCloud Integration' })
+        .setFooter({ text: 'Pip 2 • OwlCloud Integration' })
         .setTimestamp();
 
       await interaction.editReply({ embeds: [embed] });
@@ -130,7 +130,7 @@ export default {
           const webhook = await interaction.client.fetchWebhook(webhookId);
           await webhook.send({
             embeds: [{
-              description: `🎭 **${interaction.user.tag}** connected their RollCloud account!`,
+              description: `🎭 **${interaction.user.tag}** connected their OwlCloud account!`,
               color: 0x4ECDC4
             }]
           });
@@ -141,7 +141,7 @@ export default {
       }
 
     } catch (error) {
-      console.error('RollCloud setup error:', error);
+      console.error('OwlCloud setup error:', error);
 
       // Handle Discord interaction timeouts/expired errors
       if (error.code === 10062 || error.message.includes('Unknown interaction') || error.message.includes('already acknowledged')) {
@@ -178,7 +178,7 @@ async function lookupPairingCode(code) {
 
   try {
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/rollcloud_pairings?pairing_code=eq.${code}&select=*`,
+      `${SUPABASE_URL}/rest/v1/owlcloud_pairings?pairing_code=eq.${code}&select=*`,
       {
         headers: {
           'apikey': SUPABASE_SERVICE_KEY,
@@ -215,7 +215,7 @@ async function completePairing(code, discordInfo) {
 
   // First, update the pairing table
   const pairingResponse = await fetch(
-    `${SUPABASE_URL}/rest/v1/rollcloud_pairings?pairing_code=eq.${code}`,
+    `${SUPABASE_URL}/rest/v1/owlcloud_pairings?pairing_code=eq.${code}`,
     {
       method: 'PATCH',
       headers: {

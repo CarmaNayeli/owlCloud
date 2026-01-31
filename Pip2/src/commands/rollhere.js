@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+﻿import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
@@ -84,7 +84,7 @@ function parseDiceNotation(notation) {
 async function getActiveCharacter(discordUserId) {
   try {
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}&is_active=eq.true&select=*`,
+      `${SUPABASE_URL}/rest/v1/owlcloud_characters?discord_user_id=eq.${discordUserId}&is_active=eq.true&select=*`,
       {
         headers: {
           'apikey': SUPABASE_SERVICE_KEY,
@@ -110,7 +110,7 @@ async function sendRollHereToExtension(interaction, rollData) {
   try {
     // Get the pairing for this Discord user
     const pairingResponse = await fetch(
-      `${SUPABASE_URL}/rest/v1/rollcloud_pairings?discord_user_id=eq.${interaction.user.id}&status=eq.connected&select=id`,
+      `${SUPABASE_URL}/rest/v1/owlcloud_pairings?discord_user_id=eq.${interaction.user.id}&status=eq.connected&select=id`,
       {
         headers: {
           'apikey': SUPABASE_SERVICE_KEY,
@@ -126,7 +126,7 @@ async function sendRollHereToExtension(interaction, rollData) {
     const pairings = await pairingResponse.json();
     if (pairings.length === 0) {
       return await interaction.reply({
-        content: '❌ No active RollCloud connection. Use `/connect` first.',
+        content: '❌ No active OwlCloud connection. Use `/connect` first.',
         flags: 64 // ephemeral
       });
     }
@@ -151,7 +151,7 @@ async function sendRollHereToExtension(interaction, rollData) {
       created_at: new Date().toISOString()
     };
 
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/rollcloud_commands`, {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/owlcloud_commands`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

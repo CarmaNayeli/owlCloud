@@ -1,4 +1,4 @@
-# Pip2 Bot Setup Guide
+﻿# Pip2 Bot Setup Guide
 
 ## 🚀 Quick Setup
 
@@ -28,7 +28,7 @@
 4. Copy the generated URL and invite to your server
 5. Get your **Server ID** (right-click server icon → Copy Server ID) → `DISCORD_GUILD_ID`
 
-### 3. Set Up Supabase (for RollCloud integration)
+### 3. Set Up Supabase (for OwlCloud integration)
 1. Go to [Supabase](https://supabase.com)
 2. Create new project
 3. Go to Settings → API
@@ -73,7 +73,7 @@ npm run dev
 2. **Check intents**: Ensure Message Content Intent is enabled
 3. **Check console**: Look for error messages
 
-### RollCloud Integration Issues
+### OwlCloud Integration Issues
 1. **Check Supabase**: Verify URL and service key are correct
 2. **Check permissions**: Bot needs Manage Webhooks permission
 3. **Check pairing codes**: Codes expire after 15 minutes
@@ -85,7 +85,7 @@ Once deployed, the bot will have these commands:
 - `/help` - Show all commands
 - `/roll 2d6` - Roll dice
 - `/coin 5` - Flip coins  
-- `/rollcloud ABC123` - Connect RollCloud
+- `/owlcloud ABC123` - Connect OwlCloud
 - `/ping` - Check bot latency
 - `/changelog view` - View app updates
 - `/ticket setup` - Create support system
@@ -96,6 +96,6 @@ Once deployed, the bot will have these commands:
 1. Run `/ping` to test basic functionality
 2. Run `/help` to see all commands
 3. Try `/roll 1d20` to test dice rolling
-4. Set up RollCloud integration with `/rollcloud`
+4. Set up OwlCloud integration with `/owlcloud`
 
 The bot should now be fully functional!

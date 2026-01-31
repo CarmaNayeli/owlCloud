@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Dice Cloud Content Script
  * Extracts character data from Dice Cloud using the REST API
  */
@@ -6,7 +6,7 @@
 (function() {
   'use strict';
 
-  debug.log('🎲 RollCloud: DiceCloud content script loaded');
+  debug.log('🎲 OwlCloud: DiceCloud content script loaded');
   debug.log('📍 Current URL:', window.location.href);
 
   // DiceCloud API endpoint
@@ -3590,7 +3590,7 @@
         try {
           // Create a simple overlay to guide the user
           const hintOverlay = document.createElement('div');
-          hintOverlay.id = 'rollcloud-login-hint';
+          hintOverlay.id = 'owlcloud-login-hint';
           hintOverlay.style.cssText = `
             position: fixed;
             top: 20px;
@@ -3608,7 +3608,7 @@
           hintOverlay.innerHTML = `
             <div style="display: flex; align-items: center; margin-bottom: 8px;">
               <span style="font-size: 18px; margin-right: 8px;">🎲</span>
-              <strong>RollCloud Extension</strong>
+              <strong>OwlCloud Extension</strong>
             </div>
             <div>Please log in to DiceCloud (Google Sign-In or username/password), then click the "Connect with DiceCloud" button again.</div>
             <button onclick="this.parentElement.remove()" style="
@@ -3623,7 +3623,7 @@
           `;
           
           // Remove any existing hint
-          const existingHint = document.getElementById('rollcloud-login-hint');
+          const existingHint = document.getElementById('owlcloud-login-hint');
           if (existingHint) {
             existingHint.remove();
           }
@@ -5281,11 +5281,11 @@
       e.preventDefault();
 
       // Create context menu
-      const existingMenu = document.getElementById('rollcloud-sync-context-menu');
+      const existingMenu = document.getElementById('owlcloud-sync-context-menu');
       if (existingMenu) existingMenu.remove();
 
       const menu = document.createElement('div');
-      menu.id = 'rollcloud-sync-context-menu';
+      menu.id = 'owlcloud-sync-context-menu';
       
       // Get adjusted position within viewport bounds
       const position = getPopupPosition(e.clientX, e.clientY, 200, 150);
@@ -5572,7 +5572,7 @@
 
     const button = document.createElement('button');
     button.id = 'dc-sync-btn';
-    button.innerHTML = '🔄 Sync to RollCloud';
+    button.innerHTML = '🔄 Sync to OwlCloud';
     button.style.cssText = `
       position: fixed;
       bottom: 20px;
@@ -5641,7 +5641,7 @@
           debug.error('❌ No character data found to sync');
           showNotification('No character data found. Make sure you have a character open.', 'error');
           if (button) {
-            button.innerHTML = '🔄 Sync to RollCloud';
+            button.innerHTML = '🔄 Sync to OwlCloud';
             button.disabled = false;
           }
           throw new Error('No character data found');
@@ -5665,7 +5665,7 @@
                     debug.error('❌ Storage also failed:', browserAPI.runtime.lastError);
                     showNotification('Extension context error. Please refresh the page.', 'error');
                     if (button) {
-                      button.innerHTML = '🔄 Sync to RollCloud';
+                      button.innerHTML = '🔄 Sync to OwlCloud';
                       button.disabled = false;
                     }
                     reject(new Error('Extension context error'));
@@ -5680,18 +5680,18 @@
                       debug.error('❌ Direct storage failed:', browserAPI.runtime.lastError);
                       showNotification('Storage error. Please refresh the page.', 'error');
                       if (button) {
-                        button.innerHTML = '🔄 Sync to RollCloud';
+                        button.innerHTML = '🔄 Sync to OwlCloud';
                         button.disabled = false;
                       }
                       reject(new Error('Storage error'));
                     } else {
                       debug.log('✅ Character data synced via direct storage:', characterData.name);
-                      showNotification(`✅ ${characterData.name} synced to RollCloud! 🎲`, 'success');
+                      showNotification(`✅ ${characterData.name} synced to OwlCloud! 🎲`, 'success');
                       if (button) {
                         button.innerHTML = '✅ Synced!';
                         button.disabled = false;
                         setTimeout(() => {
-                          button.innerHTML = '🔄 Sync to RollCloud';
+                          button.innerHTML = '🔄 Sync to OwlCloud';
                         }, 2000);
                       }
                       
@@ -5719,12 +5719,12 @@
                 });
               } else {
                 debug.log('✅ Character data synced to extension:', characterData.name);
-                showNotification(`✅ ${characterData.name} synced to RollCloud! 🎲`, 'success');
+                showNotification(`✅ ${characterData.name} synced to OwlCloud! 🎲`, 'success');
                 if (button) {
                   button.innerHTML = '✅ Synced!';
                   button.disabled = false;
                   setTimeout(() => {
-                    button.innerHTML = '🔄 Sync to RollCloud';
+                    button.innerHTML = '🔄 Sync to OwlCloud';
                   }, 2000);
                 }
                 resolve();
@@ -5740,7 +5740,7 @@
 
         // Check if this is a login error
         if (error.message && error.message.includes('Not logged in')) {
-          showNotification('⚠️ Please login to DiceCloud first! Click the RollCloud extension icon to login.', 'error', 5000);
+          showNotification('⚠️ Please login to DiceCloud first! Click the OwlCloud extension icon to login.', 'error', 5000);
         } else if (error.message && error.message.includes('Extension reloaded')) {
           showNotification('Extension context error. Please refresh the page.', 'error');
         } else {
@@ -5748,7 +5748,7 @@
         }
 
         if (button) {
-          button.innerHTML = '🔄 Sync to RollCloud';
+          button.innerHTML = '🔄 Sync to OwlCloud';
           button.disabled = false;
         }
 

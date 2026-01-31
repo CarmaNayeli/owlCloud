@@ -1,4 +1,4 @@
--- Safe Scheduled Cleanup for rollcloud_commands (NO DROPPING)
+﻿-- Safe Scheduled Cleanup for owlcloud_commands (NO DROPPING)
 -- This creates cleanup functions and monitoring without dropping existing objects
 
 -- Step 1: Create a function that can be called from the extension for cleanup
@@ -26,7 +26,7 @@ BEGIN
     
     -- Get total remaining commands
     SELECT COUNT(*) INTO total_remaining 
-    FROM public.rollcloud_commands;
+    FROM public.owlcloud_commands;
     
     -- Log comprehensive results
     RAISE NOTICE 'Command maintenance completed: timeout_marked=%, expired_deleted=%, old_pending_deleted=%, old_failed_deleted=%, total_remaining=%', 
@@ -53,7 +53,7 @@ BEGIN
         ) THEN
             -- Create new scheduled job
             SELECT cron.schedule(
-                'rollcloud-command-cleanup',
+                'owlcloud-command-cleanup',
                 '*/10 * * * *', -- Every 10 minutes
                 'SELECT cleanup_and_maintain_commands();'
             );
@@ -71,7 +71,7 @@ EXCEPTION
 END $$;
 
 -- Step 3: Create or replace view for monitoring command status
-CREATE OR REPLACE VIEW rollcloud_command_stats AS
+CREATE OR REPLACE VIEW owlcloud_command_stats AS
 SELECT 
     status,
     COUNT(*) as count,
@@ -81,7 +81,7 @@ SELECT
         WHEN status = 'pending' THEN COUNT(*) FILTER (WHERE expires_at < NOW())
         ELSE 0
     END as expired_count
-FROM public.rollcloud_commands 
+FROM public.owlcloud_commands 
 GROUP BY status
 UNION ALL
 SELECT 
@@ -90,7 +90,7 @@ SELECT
     MIN(created_at) as oldest_created,
     MAX(created_at) as newest_created,
     COUNT(*) FILTER (WHERE expires_at < NOW() AND status = 'pending') as expired_count
-FROM public.rollcloud_commands;
+FROM public.owlcloud_commands;
 
 -- Step 4: Create or replace function to get command health metrics
 CREATE OR REPLACE FUNCTION get_command_health_metrics()
@@ -119,7 +119,7 @@ BEGIN
                 THEN processed_at - created_at 
                 ELSE NULL 
             END))) as avg_processing_time
-        FROM public.rollcloud_commands
+        FROM public.owlcloud_commands
     )
     SELECT 
         total,
@@ -136,13 +136,13 @@ $$ LANGUAGE plpgsql;
 
 -- Step 5: Add comments for documentation
 COMMENT ON FUNCTION public.cleanup_and_maintain_commands() IS 'Comprehensive cleanup and maintenance function for commands';
-COMMENT ON VIEW public.rollcloud_command_stats IS 'Statistics view for monitoring command status';
+COMMENT ON VIEW public.owlcloud_command_stats IS 'Statistics view for monitoring command status';
 COMMENT ON FUNCTION public.get_command_health_metrics() IS 'Returns health metrics for command processing';
 
 -- Step 6: Test the functions (optional - uncomment to test)
 -- SELECT * FROM cleanup_and_maintain_commands();
--- SELECT * FROM rollcloud_command_stats;
+-- SELECT * FROM owlcloud_command_stats;
 -- SELECT * FROM get_command_health_metrics();
 
 -- Step 7: Show current status
-RAISE NOTICE 'Safe cleanup migration completed. Current command count: %', (SELECT COUNT(*) FROM public.rollcloud_commands);
+RAISE NOTICE 'Safe cleanup migration completed. Current command count: %', (SELECT COUNT(*) FROM public.owlcloud_commands);

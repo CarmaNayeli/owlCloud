@@ -1,4 +1,4 @@
-debug.log('✅ Popup HTML loaded');
+﻿debug.log('✅ Popup HTML loaded');
 
 // Import all D&D logic from centralized action executor
 import {
@@ -6919,7 +6919,7 @@ function createThemedModal() {
   modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000;';
   
   const modalContent = document.createElement('div');
-  modalContent.className = 'rollcloud-modal-content';
+  modalContent.className = 'owlcloud-modal-content';
   
   // Check for system theme preference
   const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -11176,7 +11176,7 @@ function initShowToGM() {
       try {
         // Create character broadcast message with ENTIRE sheet data
         const broadcastData = {
-          type: 'ROLLCLOUD_CHARACTER_BROADCAST',
+          type: 'OWLCLOUD_CHARACTER_BROADCAST',
           character: characterData,
           // Include ALL character data for complete sheet
           fullSheet: {
@@ -11214,7 +11214,7 @@ function initShowToGM() {
         // Encode the data for safe transmission (handle UTF-8 properly)
         const jsonString = JSON.stringify(broadcastData);
         const encodedData = btoa(unescape(encodeURIComponent(jsonString)));
-        const broadcastMessage = `👑[ROLLCLOUD:CHARACTER:${encodedData}]👑`;
+        const broadcastMessage = `👑[OWLCLOUD:CHARACTER:${encodedData}]👑`;
 
         // Send to Roll20 chat via parent window
         if (window.opener && !window.opener.closed) {

@@ -1,8 +1,8 @@
-# RollCloud Enterprise Deployment Guide
+﻿# OwlCloud Enterprise Deployment Guide
 
 ## 🔐 Enterprise Deployment Overview
 
-This guide covers deploying RollCloud extensions in enterprise environments using Chrome Enterprise Policies and Firefox Group Policies.
+This guide covers deploying OwlCloud extensions in enterprise environments using Chrome Enterprise Policies and Firefox Group Policies.
 
 ## 📋 Prerequisites
 
@@ -14,7 +14,7 @@ This guide covers deploying RollCloud extensions in enterprise environments usin
 ### Firefox Enterprise
 - Firefox ESR (Extended Support Release)
 - Administrative access to Group Policy
-- Extension ID: `rollcloud@dicecat.dev`
+- Extension ID: `owlcloud@dicecat.dev`
 
 ## 🚀 Chrome Enterprise Deployment
 
@@ -30,7 +30,7 @@ This guide covers deploying RollCloud extensions in enterprise environments usin
      - **Property Name**: `1` (or next available number)
      - **Property Value**: `mkckngoemfjdkhcpaomdndlecolckgdj`
      - **Property Value Name**: `update_url`
-     - **Property Value**: `https://your-company.com/rollcloud-chrome-signed.crx`
+     - **Property Value**: `https://your-company.com/owlcloud-chrome-signed.crx`
 
 3. **Deploy Extension**
    - Group Policy will automatically install the extension
@@ -45,7 +45,7 @@ For manual registry deployment:
 Windows Registry Editor Version 5.00
 
 [HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Google\Chrome\ExtensionInstallForcelist]
-"1"="mkckngoemfjdkhcpaomdndlecolckgdj|https://your-company.com/rollcloud-chrome-signed.crx"
+"1"="mkckngoemfjdkhcpaomdndlecolckgdj|https://your-company.com/owlcloud-chrome-signed.crx"
 ```
 
 ### Method 3: JSON Configuration File
@@ -57,7 +57,7 @@ Create `C:\Program Files\Google\Chrome\master_preferences\managed_policies.json`
   "ExtensionInstallForcelist": [
     {
       "id": "mkckngoemfjdkhcpaomdndlecolckgdj",
-      "update_url": "https://your-company.com/rollcloud-chrome-signed.crx"
+      "update_url": "https://your-company.com/owlcloud-chrome-signed.crx"
     }
   ]
 }
@@ -82,13 +82,13 @@ Create `C:\Program Files\Google\Chrome\master_preferences\managed_policies.json`
     "Extensions": {
       "Install": [
         {
-          "id": "rollcloud@dicecat.dev",
-          "update_url": "https://your-company.com/rollcloud-firefox-signed.xpi",
+          "id": "owlcloud@dicecat.dev",
+          "update_url": "https://your-company.com/owlcloud-firefox-signed.xpi",
           "installation_mode": "force_installed"
         }
       ],
       "Allowed": [
-        "rollcloud@dicecat.dev"
+        "owlcloud@dicecat.dev"
       ],
       "Blocked": []
     }
@@ -102,24 +102,24 @@ Create `autoconfig.js` in Firefox installation directory:
 
 ```javascript
 lockPref("extensions.installOrigins", JSON.stringify({
-  "rollcloud@dicecat.dev": "https://your-company.com/rollcloud-firefox-signed.xpi"
+  "owlcloud@dicecat.dev": "https://your-company.com/owlcloud-firefox-signed.xpi"
 }));
 
 lockPref("extensions.autoDisableScopes", JSON.stringify([
-  "rollcloud@dicecat.dev"
+  "owlcloud@dicecat.dev"
 ]));
 ```
 
 ## 📦 Files Required for Enterprise
 
 ### Chrome Enterprise
-- **Signed CRX**: `rollcloud-chrome-signed.crx`
+- **Signed CRX**: `owlcloud-chrome-signed.crx`
 - **Extension ID**: `mkckngoemfjdkhcpaomdndlecolckgdj`
 - **Update URL**: Host the CRX file on internal server
 
 ### Firefox Enterprise  
-- **Signed XPI**: `rollcloud-firefox-signed.xpi`
-- **Extension ID**: `rollcloud@dicecat.dev`
+- **Signed XPI**: `owlcloud-firefox-signed.xpi`
+- **Extension ID**: `owlcloud@dicecat.dev`
 - **Update URL**: Host the XPI file on internal server
 
 ## 🔧 Update Manifest for Enterprise
@@ -130,7 +130,7 @@ The manifest.json is already configured for enterprise deployment with the publi
 {
   "key": "-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----",
   "manifest_version": 3,
-  "name": "RollCloud: DiceCloud + Roll20 + Discord Integration",
+  "name": "OwlCloud: DiceCloud + Roll20 + Discord Integration",
   "version": "1.2.4",
   // ... rest of manifest
 }
@@ -142,11 +142,11 @@ The manifest.json is already configured for enterprise deployment with the publi
 
 1. **Create internal web server** to host extension files
 2. **Upload signed files** to server:
-   - `rollcloud-chrome-signed.crx`
-   - `rollcloud-firefox-signed.xpi`
+   - `owlcloud-chrome-signed.crx`
+   - `owlcloud-firefox-signed.xpi`
 3. **Generate update URLs**:
-   - Chrome: `https://your-company.com/rollcloud-chrome-signed.crx`
-   - Firefox: `https://your-company.com/rollcloud-firefox-signed.xpi`
+   - Chrome: `https://your-company.com/owlcloud-chrome-signed.crx`
+   - Firefox: `https://your-company.com/owlcloud-firefox-signed.xpi`
 
 ### Update URLs in Policies
 
@@ -174,7 +174,7 @@ When you deploy to different servers, update the `update_url` in your policies t
 
 ### Extension Verification
 - **Chrome**: Extension ID `mkckngoemfjdkhcpaomdndlecolckgdj` is unique to your key pair
-- **Firefox**: Extension ID `rollcloud@dicecat.dev` is hardcoded in manifest
+- **Firefox**: Extension ID `owlcloud@dicecat.dev` is hardcoded in manifest
 - **Verify signatures**: Both browsers validate the digital signatures
 
 ## 🎯 Testing Enterprise Deployment
@@ -204,14 +204,14 @@ When you deploy to different servers, update the `update_url` in your policies t
 - **Firefox**: Check `about:policies` for policy status
 - **Logs**: Check browser console for extension errors
 
-## 📚 RollCloud Enterprise Features
+## 📚 OwlCloud Enterprise Features
 
 With enterprise deployment, users get:
 - ✅ **Automatic installation** - No user action required
 - ✅ **Automatic updates** - Always latest version
 - ✅ **Cannot disable** - Extension stays active
 - ✅ **Centralized control** - IT admin manages all extensions
-- ✅ **RollCloud integration** - DiceCloud + Roll20 + Discord
+- ✅ **OwlCloud integration** - DiceCloud + Roll20 + Discord
 - ✅ **Enterprise security** - Signed and verified
 
 ## 🎉 Next Steps
@@ -222,4 +222,4 @@ With enterprise deployment, users get:
 4. **Deploy to users**: Group Policy will handle installation
 5. **Monitor and maintain**: Update as needed using the same process
 
-Your RollCloud extension is now ready for enterprise deployment! 🏢
+Your OwlCloud extension is now ready for enterprise deployment! 🏢

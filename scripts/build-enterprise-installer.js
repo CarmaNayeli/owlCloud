@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 
 /**
  * Build Enterprise Installer with Signed Extensions
@@ -35,18 +35,18 @@ async function buildEnterpriseInstaller() {
     // Update extraResources to use signed files
     installerPackage.build.extraResources = [
       {
-        "from": "../dist/rollcloud-chrome-signed.crx",
-        "to": "extension/rollcloud-chrome.crx"
+        "from": "../dist/owlcloud-chrome-signed.crx",
+        "to": "extension/owlcloud-chrome.crx"
       },
       {
-        "from": "../dist/rollcloud-firefox-signed.xpi",
-        "to": "extension/rollcloud-firefox.xpi"
+        "from": "../dist/owlcloud-firefox-signed.xpi",
+        "to": "extension/owlcloud-firefox.xpi"
       }
     ];
 
     // Update installer name for enterprise
-    installerPackage.productName = "RollCloud Enterprise Setup";
-    installerPackage.description = "RollCloud Enterprise Extension Installer";
+    installerPackage.productName = "OwlCloud Enterprise Setup";
+    installerPackage.description = "OwlCloud Enterprise Extension Installer";
 
     fs.writeFileSync(installerPackagePath, JSON.stringify(installerPackage, null, 2));
 
@@ -108,13 +108,13 @@ async function buildEnterpriseInstaller() {
 
     // Copy signed extensions
     fs.copyFileSync(
-      path.join(DIST_DIR, 'rollcloud-chrome-signed.crx'),
-      path.join(enterpriseDir, 'rollcloud-chrome.crx')
+      path.join(DIST_DIR, 'owlcloud-chrome-signed.crx'),
+      path.join(enterpriseDir, 'owlcloud-chrome.crx')
     );
     
     fs.copyFileSync(
-      path.join(DIST_DIR, 'rollcloud-firefox-signed.xpi'),
-      path.join(enterpriseDir, 'rollcloud-firefox.xpi')
+      path.join(DIST_DIR, 'owlcloud-firefox-signed.xpi'),
+      path.join(enterpriseDir, 'owlcloud-firefox.xpi')
     );
 
     // Copy enterprise deployment guide
@@ -135,13 +135,13 @@ async function buildEnterpriseInstaller() {
     );
 
     // Create enterprise README
-    const enterpriseReadme = `# RollCloud Enterprise Installer
+    const enterpriseReadme = `# OwlCloud Enterprise Installer
 
 ## 📦 Package Contents
 
-- **RollCloud Enterprise Setup.exe** - Enterprise installer
-- **rollcloud-chrome.crx** - Signed Chrome extension
-- **rollcloud-firefox.xpi** - Signed Firefox extension
+- **OwlCloud Enterprise Setup.exe** - Enterprise installer
+- **owlcloud-chrome.crx** - Signed Chrome extension
+- **owlcloud-firefox.xpi** - Signed Firefox extension
 - **keys/public.pem** - Public key for verification
 - **ENTERPRISE_DEPLOYMENT.md** - Full deployment guide
 
@@ -149,17 +149,17 @@ async function buildEnterpriseInstaller() {
 
 ### Chrome Extension
 - **Extension ID**: mkckngoemfjdkhcpaomdndlecolckgdj
-- **File**: rollcloud-chrome.crx (signed)
+- **File**: owlcloud-chrome.crx (signed)
 - **Deployment**: Chrome Enterprise Policy
 
 ### Firefox Extension
-- **Extension ID**: rollcloud@dicecat.dev
-- **File**: rollcloud-firefox.xpi (signed)
+- **Extension ID**: owlcloud@dicecat.dev
+- **File**: owlcloud-firefox.xpi (signed)
 - **Deployment**: Firefox Group Policy
 
 ## 🚀 Quick Start
 
-1. **Run the installer**: \`RollCloud Enterprise Setup.exe\`
+1. **Run the installer**: \`OwlCloud Enterprise Setup.exe\`
 2. **Follow enterprise deployment guide**: See \`ENTERPRISE_DEPLOYMENT.md\`
 3. **Configure policies**: Use Group Policy Editor
 4. **Deploy to users**: Automatic installation
@@ -179,7 +179,7 @@ Version: ${require(path.join(ROOT_DIR, 'package.json')).version}
     console.log('\n✅ Enterprise installer built successfully!');
     console.log('\n📁 Enterprise package created:');
     console.log(`   - ${enterpriseDir}`);
-    console.log(`   - RollCloud Enterprise Setup.exe`);
+    console.log(`   - OwlCloud Enterprise Setup.exe`);
     console.log(`   - Signed extensions (CRX/XPI)`);
     console.log(`   - Enterprise deployment guide`);
     console.log(`   - Public key for verification`);

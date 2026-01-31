@@ -1,7 +1,7 @@
-{
-  "name": "rollcloud-dashboard",
+﻿{
+  "name": "owlcloud-dashboard",
   "version": "1.2.0",
-  "description": "Web dashboard for RollCloud",
+  "description": "Web dashboard for OwlCloud",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

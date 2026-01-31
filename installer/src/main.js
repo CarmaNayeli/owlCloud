@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
+﻿const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
 const https = require('https');
 const fs = require('fs');
@@ -12,12 +12,12 @@ const INSTALLER_VERSION = require('../package.json').version;
 // Extension and bot configuration
 const CONFIG = {
   extensionId: 'mkckngoemfjdkhcpaomdndlecolckgdj', // Actual Chrome extension ID from signed CRX
-  chromeUpdateUrl: 'https://raw.githubusercontent.com/CarmaNayeli/rollCloud/main/updates/update_manifest.xml',
+  chromeUpdateUrl: 'https://raw.githubusercontent.com/CarmaNayeli/owlCloud/main/updates/update_manifest.xml',
   firefoxUpdateUrl: 'https://github.com/CarmaNayeli/rollCloud/releases/latest/download/rollcloud-firefox-signed.xpi',
   pip2InviteUrl: 'https://discord.com/api/oauth2/authorize?client_id=1464771468452827380&permissions=536870912&scope=bot%20applications.commands',
   supabaseUrl: 'https://gkfpxwvmumaylahtxqrk.supabase.co',
   supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdrZnB4d3ZtdW1heWxhaHR4cXJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ0NDA4MDIsImV4cCI6MjA4MDAxNjgwMn0.P4a17PQ7i1ZgUvLnFdQGupOtKxx8-CWvPhIaFOl2i7g',
-  updateManifestUrl: 'https://raw.githubusercontent.com/CarmaNayeli/rollCloud/main/updates/update_manifest.xml'
+  updateManifestUrl: 'https://raw.githubusercontent.com/CarmaNayeli/owlCloud/main/updates/update_manifest.xml'
 };
 
 let mainWindow;
@@ -29,11 +29,11 @@ let mainWindow;
 async function checkVersionMismatch() {
   return new Promise((resolve) => {
     const options = {
-      name: 'RollCloud Installation Wizard',
+      name: 'OwlCloud Installation Wizard',
       hostname: 'api.github.com',
-      path: '/repos/CarmaNayeli/rollCloud/releases/latest',
+      path: '/repos/CarmaNayeli/owlCloud/releases/latest',
       headers: {
-        'User-Agent': 'RollCloud-Installer'
+        'User-Agent': 'OwlCloud-Installer'
       }
     };
 
@@ -271,10 +271,10 @@ ipcMain.handle('launch-updater', async () => {
 
     if (updaterDirArg) {
       const updaterDir = updaterDirArg.split('=')[1].replace(/"/g, '');
-      updaterPath = path.join(updaterDir, 'RollCloud-Updater.exe');
+      updaterPath = path.join(updaterDir, 'OwlCloud-Updater.exe');
     } else {
       // Fallback to default path
-      updaterPath = path.join('C:', 'Program Files', 'RollCloud', 'RollCloud-Updater.exe');
+      updaterPath = path.join('C:', 'Program Files', 'OwlCloud', 'OwlCloud-Updater.exe');
     }
 
     console.log('Attempting to launch updater at:', updaterPath);
@@ -301,21 +301,21 @@ ipcMain.handle('launch-updater', async () => {
   }
 });
 
-// Launch the RollCloud Wizard if present (best-effort)
+// Launch the OwlCloud Wizard if present (best-effort)
 ipcMain.handle('launch-wizard', async () => {
   try {
     const { exec } = require('child_process');
     // Common install locations - try Program Files first, then resources
     const candidates = [
-      path.join('C:', 'Program Files', 'RollCloud', 'RollCloudWizard.exe'),
-      path.join(process.resourcesPath || __dirname, '..', 'resources', 'RollCloudWizard.exe')
+      path.join('C:', 'Program Files', 'OwlCloud', 'OwlCloudWizard.exe'),
+      path.join(process.resourcesPath || __dirname, '..', 'resources', 'OwlCloudWizard.exe')
     ];
 
     const found = candidates.find(p => fs.existsSync(p));
-    if (!found) throw new Error('RollCloud Wizard executable not found');
+    if (!found) throw new Error('OwlCloud Wizard executable not found');
 
     exec(`"${found}"`, (error) => {
-      if (error) console.error('Failed to launch RollCloud Wizard:', error);
+      if (error) console.error('Failed to launch OwlCloud Wizard:', error);
     });
 
     return { success: true };
@@ -337,13 +337,13 @@ async function installUpdaterUtility(options = {}) {
 
     // Determine installation directory
     if (installDir === 'appdata') {
-      targetDir = path.join(os.homedir(), 'AppData', 'Local', 'RollCloud');
+      targetDir = path.join(os.homedir(), 'AppData', 'Local', 'OwlCloud');
     } else if (typeof installDir === 'string' && installDir.includes(':')) {
       // Custom full path
       targetDir = installDir;
     } else {
       // Default to Program Files
-      targetDir = path.join('C:', 'Program Files', 'RollCloud');
+      targetDir = path.join('C:', 'Program Files', 'OwlCloud');
     }
 
     // Create installation directory
@@ -353,10 +353,10 @@ async function installUpdaterUtility(options = {}) {
 
     // Get updater from extraResources (packaged with installer)
     const updaterSource = process.env.NODE_ENV === 'development'
-      ? path.join(__dirname, '..', 'resources', 'RollCloud-Updater.exe')
-      : path.join(process.resourcesPath, 'RollCloud-Updater.exe');
+      ? path.join(__dirname, '..', 'resources', 'OwlCloud-Updater.exe')
+      : path.join(process.resourcesPath, 'OwlCloud-Updater.exe');
 
-    const updaterDest = path.join(targetDir, 'RollCloud-Updater.exe');
+    const updaterDest = path.join(targetDir, 'OwlCloud-Updater.exe');
 
     // Copy updater executable
     if (fs.existsSync(updaterSource)) {
@@ -364,7 +364,7 @@ async function installUpdaterUtility(options = {}) {
       console.log('✅ Copied updater to:', targetDir);
     } else {
       // If not found in resources, try to build path relative to installer directory
-      const altSource = path.join(__dirname, '..', 'updater', 'dist', 'RollCloud-Updater.exe');
+      const altSource = path.join(__dirname, '..', 'updater', 'dist', 'OwlCloud-Updater.exe');
       if (fs.existsSync(altSource)) {
         fs.copyFileSync(altSource, updaterDest);
         console.log('✅ Copied updater from alt path to:', targetDir);
@@ -386,7 +386,7 @@ async function installUpdaterUtility(options = {}) {
 
     // Create Start Menu shortcut using PowerShell
     const startMenuDir = path.join(os.homedir(), 'AppData', 'Roaming', 'Microsoft', 'Windows', 'Start Menu', 'Programs');
-    const shortcutPath = path.join(startMenuDir, 'RollCloud Updater.lnk');
+    const shortcutPath = path.join(startMenuDir, 'OwlCloud Updater.lnk');
 
     try {
       // Use PowerShell to create a proper .lnk shortcut
@@ -395,7 +395,7 @@ async function installUpdaterUtility(options = {}) {
         $Shortcut = $WshShell.CreateShortcut("${shortcutPath.replace(/\\/g, '\\\\')}")
         $Shortcut.TargetPath = "${updaterDest.replace(/\\/g, '\\\\')}"
         $Shortcut.WorkingDirectory = "${targetDir.replace(/\\/g, '\\\\')}"
-        $Shortcut.Description = "RollCloud Updater - Check for extension updates"
+        $Shortcut.Description = "OwlCloud Updater - Check for extension updates"
         $Shortcut.Save()
       `;
       execSync(`powershell -Command "${psScript.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`, { stdio: 'pipe' });
@@ -408,7 +408,7 @@ async function installUpdaterUtility(options = {}) {
     if (startWithWindows) {
       try {
         const startupDir = path.join(os.homedir(), 'AppData', 'Roaming', 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup');
-        const startupShortcutPath = path.join(startupDir, 'RollCloud Updater.lnk');
+        const startupShortcutPath = path.join(startupDir, 'OwlCloud Updater.lnk');
 
         const psStartupScript = `
           $WshShell = New-Object -ComObject WScript.Shell
@@ -416,7 +416,7 @@ async function installUpdaterUtility(options = {}) {
           $Shortcut.TargetPath = "${updaterDest.replace(/\\/g, '\\\\')}"
           $Shortcut.WorkingDirectory = "${targetDir.replace(/\\/g, '\\\\')}"
           $Shortcut.Arguments = "--minimized"
-          $Shortcut.Description = "RollCloud Updater - Auto-start"
+          $Shortcut.Description = "OwlCloud Updater - Auto-start"
           $Shortcut.Save()
         `;
         execSync(`powershell -Command "${psStartupScript.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`, { stdio: 'pipe' });
@@ -426,7 +426,7 @@ async function installUpdaterUtility(options = {}) {
       }
     }
 
-    return `RollCloud Updater installed successfully to ${targetDir}!`;
+    return `OwlCloud Updater installed successfully to ${targetDir}!`;
   } catch (error) {
     throw new Error(`Failed to install updater: ${error.message}`);
   }

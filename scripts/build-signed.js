@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 
 /**
  * Build properly signed extensions for distribution
@@ -37,7 +37,7 @@ async function buildSignedChrome() {
   console.log('\n📦 Building extension...');
   execSync('node scripts/build-extension-fixed.js', { stdio: 'inherit', cwd: ROOT_DIR });
 
-  const zipPath = path.join(DIST_DIR, 'rollcloud-chrome.zip');
+  const zipPath = path.join(DIST_DIR, 'owlcloud-chrome.zip');
   if (!fs.existsSync(zipPath)) {
     throw new Error('Extension ZIP not found');
   }
@@ -53,7 +53,7 @@ async function buildSignedChrome() {
   console.log('🔑 Creating CRX3 with proper signed proofs...');
 
   // Use crx3 to create properly signed CRX3 file
-  const crxPath = path.join(DIST_DIR, 'rollcloud-chrome.crx');
+  const crxPath = path.join(DIST_DIR, 'owlcloud-chrome.crx');
   const manifestPath = path.join(tempDir, 'manifest.json');
 
   await crx3([manifestPath], {
@@ -62,7 +62,7 @@ async function buildSignedChrome() {
   });
 
   // Also copy to signed name for compatibility
-  fs.copyFileSync(crxPath, path.join(DIST_DIR, 'rollcloud-chrome-signed.crx'));
+  fs.copyFileSync(crxPath, path.join(DIST_DIR, 'owlcloud-chrome-signed.crx'));
 
   // Read the private key to generate extension ID
   const privateKeyPem = fs.readFileSync(privateKeyPath, 'utf8');
@@ -81,8 +81,8 @@ async function buildSignedChrome() {
   }
 
   // Save extension ID
-  fs.writeFileSync(path.join(DIST_DIR, 'rollcloud-chrome-signed.id'), extensionId);
-  fs.writeFileSync(path.join(DIST_DIR, 'rollcloud-chrome.id'), extensionId);
+  fs.writeFileSync(path.join(DIST_DIR, 'owlcloud-chrome-signed.id'), extensionId);
+  fs.writeFileSync(path.join(DIST_DIR, 'owlcloud-chrome.id'), extensionId);
 
   // Update manifest with key (base64 DER)
   const manifest = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'manifest.json'), 'utf8'));
@@ -110,8 +110,8 @@ async function buildSignedFirefox() {
   console.log('==============================');
 
   // Firefox XPI is created by build-extension-fixed.js
-  const srcZip = path.join(DIST_DIR, 'rollcloud-firefox.zip');
-  const destXpi = path.join(DIST_DIR, 'rollcloud-firefox-signed.xpi');
+  const srcZip = path.join(DIST_DIR, 'owlcloud-firefox.zip');
+  const destXpi = path.join(DIST_DIR, 'owlcloud-firefox-signed.xpi');
 
   if (!fs.existsSync(srcZip)) {
     throw new Error('Firefox ZIP not found. Run build-extension-fixed.js first.');
@@ -137,8 +137,8 @@ async function buildAll() {
 
     console.log('\n🎉 All signed extensions built successfully!');
     console.log('\n📋 Output files:');
-    console.log('   - dist/rollcloud-chrome-signed.crx (Chrome)');
-    console.log('   - dist/rollcloud-firefox-signed.xpi (Firefox)');
+    console.log('   - dist/owlcloud-chrome-signed.crx (Chrome)');
+    console.log('   - dist/owlcloud-firefox-signed.xpi (Firefox)');
 
   } catch (error) {
     console.error('❌ Build failed:', error.message);

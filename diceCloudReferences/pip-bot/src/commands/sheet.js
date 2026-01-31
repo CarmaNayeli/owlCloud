@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+﻿import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 
 // Supabase config - set via environment variables
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -48,10 +48,10 @@ export default {
             .setDescription(
               'Could not find a character for your Discord account.\n\n' +
               '**To link your character:**\n' +
-              '1. Open RollCloud extension\n' +
+              '1. Open OwlCloud extension\n' +
               '2. Expand "Discord Integration"\n' +
               '3. Click "Setup Discord"\n' +
-              '4. Use `/rollcloud <code>` in Discord'
+              '4. Use `/owlcloud <code>` in Discord'
             )
           ]
         });
@@ -79,7 +79,7 @@ export default {
                 inline: false
               }
             )
-            .setFooter({ text: 'RollCloud Character Sheet' })
+            .setFooter({ text: 'OwlCloud Character Sheet' })
             .setTimestamp()
           ]
         });
@@ -185,9 +185,9 @@ async function getCharacterData(discordUserId, characterName = null) {
   }
 
   try {
-    // First, find the user's RollCloud connection
+    // First, find the user's OwlCloud connection
     const connectionResponse = await fetch(
-      `${SUPABASE_URL}/rest/v1/rollcloud_pairings?discord_user_id=eq.${discordUserId}&status=eq.connected&select=*`,
+      `${SUPABASE_URL}/rest/v1/owlcloud_pairings?discord_user_id=eq.${discordUserId}&status=eq.connected&select=*`,
       {
         headers: {
           'apikey': SUPABASE_SERVICE_KEY,
@@ -568,9 +568,9 @@ function formatEquipment(equipment) {
  */
 async function checkRoll20Status(discordUserId, characterName) {
   try {
-    // Get the user's RollCloud pairing
+    // Get the user's OwlCloud pairing
     const pairingResponse = await fetch(
-      `${SUPABASE_URL}/rest/v1/rollcloud_pairings?discord_user_id=eq.${discordUserId}&status=eq.connected&select=*`,
+      `${SUPABASE_URL}/rest/v1/owlcloud_pairings?discord_user_id=eq.${discordUserId}&status=eq.connected&select=*`,
       {
         headers: {
           'apikey': SUPABASE_SERVICE_KEY,
@@ -594,7 +594,7 @@ async function checkRoll20Status(discordUserId, characterName) {
 
     // Get stored character options to see what's currently active
     const optionsResponse = await fetch(
-      `${SUPABASE_URL}/rest/v1/rollcloud_character_options?pairing_id=eq.${pairing.id}&status=eq.active&select=*&order=updated_at.desc&limit=1`,
+      `${SUPABASE_URL}/rest/v1/owlcloud_character_options?pairing_id=eq.${pairing.id}&status=eq.active&select=*&order=updated_at.desc&limit=1`,
       {
         headers: {
           'apikey': SUPABASE_SERVICE_KEY,

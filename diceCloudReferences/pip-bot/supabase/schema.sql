@@ -1,7 +1,7 @@
--- RollCloud Discord Pairing Table
+﻿-- OwlCloud Discord Pairing Table
 -- Links DiceCloud users to Discord webhooks via short pairing codes
 
-CREATE TABLE IF NOT EXISTS rollcloud_pairings (
+CREATE TABLE IF NOT EXISTS owlcloud_pairings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Pairing code (6 chars, shown in extension, typed in Discord)
@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS rollcloud_pairings (
   dicecloud_user_id VARCHAR(50),
   dicecloud_username VARCHAR(100),
 
-  -- Discord info (filled in by Pip Bot after /setupmyrollcloud)
+  -- Discord info (filled in by Pip Bot after /setupmyowlcloud)
   discord_guild_id VARCHAR(20),
   discord_guild_name VARCHAR(100),
   discord_channel_id VARCHAR(20),
@@ -30,49 +30,49 @@ CREATE TABLE IF NOT EXISTS rollcloud_pairings (
 );
 
 -- Fast lookups by pairing code
-CREATE INDEX IF NOT EXISTS idx_pairing_code ON rollcloud_pairings(pairing_code);
+CREATE INDEX IF NOT EXISTS idx_pairing_code ON owlcloud_pairings(pairing_code);
 
 -- Fast lookups by DiceCloud user (for reconnection)
-CREATE INDEX IF NOT EXISTS idx_dicecloud_user ON rollcloud_pairings(dicecloud_user_id);
+CREATE INDEX IF NOT EXISTS idx_dicecloud_user ON owlcloud_pairings(dicecloud_user_id);
 
 -- Fast lookups by Discord guild (one webhook per guild)
-CREATE INDEX IF NOT EXISTS idx_discord_guild ON rollcloud_pairings(discord_guild_id);
+CREATE INDEX IF NOT EXISTS idx_discord_guild ON owlcloud_pairings(discord_guild_id);
 
 -- RLS Policies
-ALTER TABLE rollcloud_pairings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE owlcloud_pairings ENABLE ROW LEVEL SECURITY;
 
 -- Allow anonymous reads (extension needs to poll for webhook_url)
-CREATE POLICY "Allow anonymous read" ON rollcloud_pairings
+CREATE POLICY "Allow anonymous read" ON owlcloud_pairings
   FOR SELECT USING (true);
 
 -- Allow anonymous inserts (extension creates pairing codes)
-CREATE POLICY "Allow anonymous insert" ON rollcloud_pairings
+CREATE POLICY "Allow anonymous insert" ON owlcloud_pairings
   FOR INSERT WITH CHECK (true);
 
 -- Allow anonymous updates (Pip Bot updates with webhook_url)
-CREATE POLICY "Allow anonymous update" ON rollcloud_pairings
+CREATE POLICY "Allow anonymous update" ON owlcloud_pairings
   FOR UPDATE USING (true);
 
 -- Cleanup expired pairings (run periodically)
 CREATE OR REPLACE FUNCTION cleanup_expired_pairings()
 RETURNS void AS $$
 BEGIN
-  DELETE FROM rollcloud_pairings
+  DELETE FROM owlcloud_pairings
   WHERE status = 'pending' AND expires_at < NOW();
 END;
 $$ LANGUAGE plpgsql;
 
 
 -- ============================================================================
--- RollCloud Commands Table
+-- OwlCloud Commands Table
 -- Enables Discord → Extension communication (button clicks, etc.)
 -- ============================================================================
 
-CREATE TABLE IF NOT EXISTS rollcloud_commands (
+CREATE TABLE IF NOT EXISTS owlcloud_commands (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Link to the pairing (identifies which extension should receive this)
-  pairing_id UUID REFERENCES rollcloud_pairings(id) ON DELETE CASCADE,
+  pairing_id UUID REFERENCES owlcloud_pairings(id) ON DELETE CASCADE,
 
   -- Discord context
   discord_user_id VARCHAR(20) NOT NULL,
@@ -102,48 +102,48 @@ CREATE TABLE IF NOT EXISTS rollcloud_commands (
 
 -- Fast lookups for extension polling (pending commands for a pairing)
 CREATE INDEX IF NOT EXISTS idx_commands_pending
-  ON rollcloud_commands(pairing_id, status, created_at)
+  ON owlcloud_commands(pairing_id, status, created_at)
   WHERE status = 'pending';
 
 -- Fast lookups by Discord message (for updating button states)
 CREATE INDEX IF NOT EXISTS idx_commands_message
-  ON rollcloud_commands(discord_message_id);
+  ON owlcloud_commands(discord_message_id);
 
 -- RLS Policies
-ALTER TABLE rollcloud_commands ENABLE ROW LEVEL SECURITY;
+ALTER TABLE owlcloud_commands ENABLE ROW LEVEL SECURITY;
 
 -- Allow anonymous read (extension polls for pending commands)
-CREATE POLICY "Allow anonymous read commands" ON rollcloud_commands
+CREATE POLICY "Allow anonymous read commands" ON owlcloud_commands
   FOR SELECT USING (true);
 
 -- Allow anonymous insert (Pip Bot creates commands from button clicks)
-CREATE POLICY "Allow anonymous insert commands" ON rollcloud_commands
+CREATE POLICY "Allow anonymous insert commands" ON owlcloud_commands
   FOR INSERT WITH CHECK (true);
 
 -- Allow anonymous update (extension marks commands as completed)
-CREATE POLICY "Allow anonymous update commands" ON rollcloud_commands
+CREATE POLICY "Allow anonymous update commands" ON owlcloud_commands
   FOR UPDATE USING (true);
 
 -- Cleanup expired commands (run periodically)
 CREATE OR REPLACE FUNCTION cleanup_expired_commands()
 RETURNS void AS $$
 BEGIN
-  DELETE FROM rollcloud_commands
+  DELETE FROM owlcloud_commands
   WHERE status = 'pending' AND expires_at < NOW();
 END;
 $$ LANGUAGE plpgsql;
 
 
 -- ============================================================================
--- RollCloud Turns Table
+-- OwlCloud Turns Table
 -- Extension writes turn data here, Pip Bot posts to Discord with buttons
 -- ============================================================================
 
-CREATE TABLE IF NOT EXISTS rollcloud_turns (
+CREATE TABLE IF NOT EXISTS owlcloud_turns (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Link to the pairing (identifies which Discord channel to post to)
-  pairing_id UUID REFERENCES rollcloud_pairings(id) ON DELETE CASCADE,
+  pairing_id UUID REFERENCES owlcloud_pairings(id) ON DELETE CASCADE,
 
   -- Turn event type
   event_type VARCHAR(30) NOT NULL, -- 'turn_start', 'turn_end', 'round_change', 'combat_start', 'combat_end'
@@ -180,44 +180,44 @@ CREATE TABLE IF NOT EXISTS rollcloud_turns (
 
 -- Fast lookups for Pip Bot polling (pending turns to post)
 CREATE INDEX IF NOT EXISTS idx_turns_pending
-  ON rollcloud_turns(pairing_id, status, created_at)
+  ON owlcloud_turns(pairing_id, status, created_at)
   WHERE status = 'pending';
 
 -- RLS Policies
-ALTER TABLE rollcloud_turns ENABLE ROW LEVEL SECURITY;
+ALTER TABLE owlcloud_turns ENABLE ROW LEVEL SECURITY;
 
 -- Allow anonymous read (Pip Bot reads pending turns)
-CREATE POLICY "Allow anonymous read turns" ON rollcloud_turns
+CREATE POLICY "Allow anonymous read turns" ON owlcloud_turns
   FOR SELECT USING (true);
 
 -- Allow anonymous insert (extension creates turn events)
-CREATE POLICY "Allow anonymous insert turns" ON rollcloud_turns
+CREATE POLICY "Allow anonymous insert turns" ON owlcloud_turns
   FOR INSERT WITH CHECK (true);
 
 -- Allow anonymous update (Pip Bot marks as posted)
-CREATE POLICY "Allow anonymous update turns" ON rollcloud_turns
+CREATE POLICY "Allow anonymous update turns" ON owlcloud_turns
   FOR UPDATE USING (true);
 
 -- Cleanup old turns (run periodically)
 CREATE OR REPLACE FUNCTION cleanup_old_turns()
 RETURNS void AS $$
 BEGIN
-  DELETE FROM rollcloud_turns
+  DELETE FROM owlcloud_turns
   WHERE created_at < NOW() - INTERVAL '1 hour';
 END;
 $$ LANGUAGE plpgsql;
 
 
 -- ============================================================================
--- RollCloud Character Options Table
+-- OwlCloud Character Options Table
 -- Stores autocomplete options for Discord commands
 -- ============================================================================
 
-CREATE TABLE IF NOT EXISTS rollcloud_character_options (
+CREATE TABLE IF NOT EXISTS owlcloud_character_options (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Link to the pairing
-  pairing_id UUID REFERENCES rollcloud_pairings(id) ON DELETE CASCADE,
+  pairing_id UUID REFERENCES owlcloud_pairings(id) ON DELETE CASCADE,
 
   -- Character identification
   character_id VARCHAR(50) NOT NULL,
@@ -240,34 +240,34 @@ CREATE TABLE IF NOT EXISTS rollcloud_character_options (
 
 -- Fast lookups for autocomplete
 CREATE INDEX IF NOT EXISTS idx_character_options_pairing 
-  ON rollcloud_character_options(pairing_id, status);
+  ON owlcloud_character_options(pairing_id, status);
 
 -- RLS Policies
-ALTER TABLE rollcloud_character_options ENABLE ROW LEVEL SECURITY;
+ALTER TABLE owlcloud_character_options ENABLE ROW LEVEL SECURITY;
 
 -- Allow anonymous read (extension needs to read options)
-CREATE POLICY "Allow anonymous read character options" ON rollcloud_character_options
+CREATE POLICY "Allow anonymous read character options" ON owlcloud_character_options
   FOR SELECT USING (true);
 
 -- Allow anonymous insert (Pip Bot creates options when pairing)
-CREATE POLICY "Allow anonymous insert character options" ON rollcloud_character_options
+CREATE POLICY "Allow anonymous insert character options" ON owlcloud_character_options
   FOR INSERT WITH CHECK (true);
 
 -- Allow anonymous update (Pip Bot updates options when character changes)
-CREATE POLICY "Allow anonymous update character options" ON rollcloud_character_options
+CREATE POLICY "Allow anonymous update character options" ON owlcloud_character_options
   FOR UPDATE USING (true);
 
 
 -- ============================================================================
--- RollCloud Rolls Table
+-- OwlCloud Rolls Table
 -- Enables Discord → Extension roll communication for real-time Roll20 integration
 -- ============================================================================
 
-CREATE TABLE IF NOT EXISTS rollcloud_rolls (
+CREATE TABLE IF NOT EXISTS owlcloud_rolls (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
   -- Link to the pairing (identifies which extension should receive this)
-  pairing_id UUID REFERENCES rollcloud_pairings(id) ON DELETE CASCADE,
+  pairing_id UUID REFERENCES owlcloud_pairings(id) ON DELETE CASCADE,
 
   -- Discord context
   discord_user_id VARCHAR(20) NOT NULL,
@@ -303,29 +303,29 @@ CREATE TABLE IF NOT EXISTS rollcloud_rolls (
 
 -- Fast lookups for extension polling (pending rolls for a pairing)
 CREATE INDEX IF NOT EXISTS idx_rolls_pending
-  ON rollcloud_rolls(pairing_id, status, created_at)
+  ON owlcloud_rolls(pairing_id, status, created_at)
   WHERE status = 'pending';
 
 -- RLS Policies
-ALTER TABLE rollcloud_rolls ENABLE ROW LEVEL SECURITY;
+ALTER TABLE owlcloud_rolls ENABLE ROW LEVEL SECURITY;
 
 -- Allow anonymous read (extension polls for pending rolls)
-CREATE POLICY "Allow anonymous read rolls" ON rollcloud_rolls
+CREATE POLICY "Allow anonymous read rolls" ON owlcloud_rolls
   FOR SELECT USING (true);
 
 -- Allow anonymous insert (Pip Bot creates rolls from Discord commands)
-CREATE POLICY "Allow anonymous insert rolls" ON rollcloud_rolls
+CREATE POLICY "Allow anonymous insert rolls" ON owlcloud_rolls
   FOR INSERT WITH CHECK (true);
 
 -- Allow anonymous update (extension marks rolls as delivered)
-CREATE POLICY "Allow anonymous update rolls" ON rollcloud_rolls
+CREATE POLICY "Allow anonymous update rolls" ON owlcloud_rolls
   FOR UPDATE USING (true);
 
 -- Cleanup expired rolls (run periodically)
 CREATE OR REPLACE FUNCTION cleanup_expired_rolls()
 RETURNS void AS $$
 BEGIN
-  DELETE FROM rollcloud_rolls
+  DELETE FROM owlcloud_rolls
   WHERE status = 'pending' AND expires_at < NOW();
 END;
 $$ LANGUAGE plpgsql;
@@ -336,7 +336,7 @@ $$ LANGUAGE plpgsql;
 -- ============================================================================
 
 -- Enable realtime for the turns table so Pip Bot can subscribe
-ALTER PUBLICATION supabase_realtime ADD TABLE rollcloud_turns;
-ALTER PUBLICATION supabase_realtime ADD TABLE rollcloud_commands;
-ALTER PUBLICATION supabase_realtime ADD TABLE rollcloud_rolls;
-ALTER PUBLICATION supabase_realtime ADD TABLE rollcloud_character_options;
+ALTER PUBLICATION supabase_realtime ADD TABLE owlcloud_turns;
+ALTER PUBLICATION supabase_realtime ADD TABLE owlcloud_commands;
+ALTER PUBLICATION supabase_realtime ADD TABLE owlcloud_rolls;
+ALTER PUBLICATION supabase_realtime ADD TABLE owlcloud_character_options;

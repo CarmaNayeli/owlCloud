@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 
 /**
  * Unified Build Script
@@ -90,7 +90,7 @@ function printStep(step, description) {
 async function buildAll() {
   const startTime = Date.now();
 
-  console.log('\n🚀 RollCloud Unified Build');
+  console.log('\n🚀 OwlCloud Unified Build');
   console.log('==========================');
   console.log(`   Version: ${require(path.join(ROOT_DIR, 'package.json')).version}`);
   console.log(`   Platform: ${process.platform}`);
@@ -174,7 +174,7 @@ async function buildAll() {
         console.log('   ✅ Chrome CRX signed');
 
         // Read and display extension ID
-        const idFile = path.join(DIST_DIR, 'rollcloud-chrome-signed.id');
+        const idFile = path.join(DIST_DIR, 'owlcloud-chrome-signed.id');
         if (fs.existsSync(idFile)) {
           const extensionId = fs.readFileSync(idFile, 'utf8').trim();
           console.log(`   Extension ID: ${extensionId}`);
@@ -182,8 +182,8 @@ async function buildAll() {
       }
 
       printStep('2.2', 'Creating Firefox XPI...');
-      const xpiSrc = path.join(DIST_DIR, 'rollcloud-firefox.zip');
-      const xpiDest = path.join(DIST_DIR, 'rollcloud-firefox-signed.xpi');
+      const xpiSrc = path.join(DIST_DIR, 'owlcloud-firefox.zip');
+      const xpiDest = path.join(DIST_DIR, 'owlcloud-firefox-signed.xpi');
 
       if (fs.existsSync(xpiSrc)) {
         fs.copyFileSync(xpiSrc, xpiDest);
@@ -203,8 +203,8 @@ async function buildAll() {
     printSection('Step 3: Building Installer');
 
     // Verify signed extensions exist for installer
-    const chromeCrx = path.join(DIST_DIR, 'rollcloud-chrome-signed.crx');
-    const firefoxXpi = path.join(DIST_DIR, 'rollcloud-firefox-signed.xpi');
+    const chromeCrx = path.join(DIST_DIR, 'owlcloud-chrome-signed.crx');
+    const firefoxXpi = path.join(DIST_DIR, 'owlcloud-firefox-signed.xpi');
 
     if (!fs.existsSync(chromeCrx)) {
       console.log('   ⚠️ Chrome CRX not found, installer may not work properly');
@@ -250,12 +250,12 @@ async function buildAll() {
 
   // Files to copy to releases (ONLY GitHub release assets)
   const releaseFiles = [
-    { src: 'rollcloud-chrome-signed.crx', dest: 'rollcloud-chrome-signed.crx' },
-    { src: 'rollcloud-chrome-signed.id', dest: 'rollcloud-chrome-signed.id' },
-    { src: 'rollcloud-firefox-signed.xpi', dest: 'rollcloud-firefox-signed.xpi' },
-    { src: 'rollcloud-chrome.zip', dest: 'rollcloud-chrome.zip' },
-    { src: 'rollcloud-firefox.zip', dest: 'rollcloud-firefox.zip' },
-    { src: 'rollcloud-safari.zip', dest: 'rollcloud-safari.zip' },
+    { src: 'owlcloud-chrome-signed.crx', dest: 'owlcloud-chrome-signed.crx' },
+    { src: 'owlcloud-chrome-signed.id', dest: 'owlcloud-chrome-signed.id' },
+    { src: 'owlcloud-firefox-signed.xpi', dest: 'owlcloud-firefox-signed.xpi' },
+    { src: 'owlcloud-chrome.zip', dest: 'owlcloud-chrome.zip' },
+    { src: 'owlcloud-firefox.zip', dest: 'owlcloud-firefox.zip' },
+    { src: 'owlcloud-safari.zip', dest: 'owlcloud-safari.zip' },
   ];
 
   let copiedCount = 0;
@@ -289,7 +289,7 @@ async function buildAll() {
       for (const file of installerFiles) {
         const srcPath = path.join(installerDistDir, file);
         // Standardize name: replace spaces with dashes, remove version number
-        // e.g., "RollCloud Setup 1.2.4.exe" -> "RollCloud-Setup.exe"
+        // e.g., "OwlCloud Setup 1.2.4.exe" -> "OwlCloud-Setup.exe"
         let destName = file.replace(/\s+/g, '-').replace(/-\d+\.\d+\.\d+/, '');
         const destPath = path.join(RELEASES_DIR, destName);
 
@@ -319,11 +319,11 @@ async function buildAll() {
 
   // List generated files
   const distFiles = [
-    'rollcloud-chrome.zip',
-    'rollcloud-firefox.zip',
-    'rollcloud-chrome-signed.crx',
-    'rollcloud-firefox-signed.xpi',
-    'rollcloud-chrome-signed.id'
+    'owlcloud-chrome.zip',
+    'owlcloud-firefox.zip',
+    'owlcloud-chrome-signed.crx',
+    'owlcloud-firefox-signed.xpi',
+    'owlcloud-chrome-signed.id'
   ];
 
   for (const file of distFiles) {
@@ -375,18 +375,18 @@ async function buildAll() {
   console.log('\n📋 GitHub Release Upload Checklist:');
   console.log(`     Upload these files from releases/ folder:`);
   console.log(`       Extensions:`);
-  console.log(`         - rollcloud-chrome-signed.crx (for enterprise policy install)`);
-  console.log(`         - rollcloud-firefox-signed.xpi (for Firefox install)`);
-  console.log(`         - rollcloud-chrome.zip (for manual Chrome install)`);
-  console.log(`         - rollcloud-firefox.zip (for manual Firefox install)`);
-  if (fs.existsSync(path.join(RELEASES_DIR, 'rollcloud-safari.zip'))) {
-    console.log(`         - rollcloud-safari.zip (for Safari)`);
+  console.log(`         - owlcloud-chrome-signed.crx (for enterprise policy install)`);
+  console.log(`         - owlcloud-firefox-signed.xpi (for Firefox install)`);
+  console.log(`         - owlcloud-chrome.zip (for manual Chrome install)`);
+  console.log(`         - owlcloud-firefox.zip (for manual Firefox install)`);
+  if (fs.existsSync(path.join(RELEASES_DIR, 'owlcloud-safari.zip'))) {
+    console.log(`         - owlcloud-safari.zip (for Safari)`);
   }
   if (!skipInstaller && canBuildInstaller()) {
     console.log(`       Installers:`);
-    console.log(`         - RollCloud-Setup.exe (Windows installer)`);
-    console.log(`         - RollCloud-Setup.dmg (macOS installer)`);
-    console.log(`         - RollCloud-Setup.AppImage (Linux installer)`);
+    console.log(`         - OwlCloud-Setup.exe (Windows installer)`);
+    console.log(`         - OwlCloud-Setup.dmg (macOS installer)`);
+    console.log(`         - OwlCloud-Setup.AppImage (Linux installer)`);
   }
 
   const now = new Date();

@@ -1,4 +1,4 @@
-// Edge Function to insert command and broadcast to Realtime channel
+﻿// Edge Function to insert command and broadcast to Realtime channel
 // This replaces the DB trigger approach for more reliability
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
     // Insert command into database with retry logic
     const data = await retryOperation(async () => {
       const { data, error: insertError } = await supabase
-        .from('rollcloud_commands')
+        .from('owlcloud_commands')
         .insert(command)
         .select()
         .single()
@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
 
     // Broadcast to the pairing-specific channel using Supabase Realtime
     // The extension expects: message.event === 'broadcast' with message.payload.record
-    const channelName = `rollcloud_commands:pairing:${command.pairing_id}`
+    const channelName = `owlcloud_commands:pairing:${command.pairing_id}`
 
     const channel = supabase.channel(channelName)
 

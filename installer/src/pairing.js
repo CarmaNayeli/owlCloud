@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Pairing Module
  * Handles pairing code generation and Supabase communication
  * Extension polls Supabase for pairing codes
@@ -44,7 +44,7 @@ async function createPairingAndSend(browser, config) {
  * Create a pairing entry in Supabase
  */
 async function createPairing(code, config) {
-  const response = await fetch(`${config.supabaseUrl}/rest/v1/rollcloud_pairings`, {
+  const response = await fetch(`${config.supabaseUrl}/rest/v1/owlcloud_pairings`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -72,7 +72,7 @@ async function createPairing(code, config) {
  */
 async function checkPairing(code, config) {
   const response = await fetch(
-    `${config.supabaseUrl}/rest/v1/rollcloud_pairings?pairing_code=eq.${code}&select=*`,
+    `${config.supabaseUrl}/rest/v1/owlcloud_pairings?pairing_code=eq.${code}&select=*`,
     {
       headers: {
         'apikey': config.supabaseAnonKey,

@@ -1,4 +1,4 @@
--- Safe Migration: Add missing columns with proper checks and type casting
+﻿-- Safe Migration: Add missing columns with proper checks and type casting
 -- This script handles existing columns gracefully
 
 -- 1. Add user_id_dicecloud column if it doesn't exist
@@ -6,11 +6,11 @@ DO $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'rollcloud_characters' AND column_name = 'user_id_dicecloud'
+        WHERE table_name = 'owlcloud_characters' AND column_name = 'user_id_dicecloud'
     ) THEN
-        ALTER TABLE public.rollcloud_characters ADD COLUMN user_id_dicecloud VARCHAR(255);
-        CREATE INDEX IF NOT EXISTS idx_rollcloud_characters_user_id_dicecloud ON public.rollcloud_characters(user_id_dicecloud);
-        COMMENT ON COLUMN public.rollcloud_characters.user_id_dicecloud IS 'DiceCloud user ID (Meteor ID) for character ownership';
+        ALTER TABLE public.owlcloud_characters ADD COLUMN user_id_dicecloud VARCHAR(255);
+        CREATE INDEX IF NOT EXISTS idx_owlcloud_characters_user_id_dicecloud ON public.owlcloud_characters(user_id_dicecloud);
+        COMMENT ON COLUMN public.owlcloud_characters.user_id_dicecloud IS 'DiceCloud user ID (Meteor ID) for character ownership';
         RAISE NOTICE 'Added user_id_dicecloud column';
     ELSE
         RAISE NOTICE 'user_id_dicecloud column already exists';
@@ -22,10 +22,10 @@ DO $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'rollcloud_characters' AND column_name = 'created_at'
+        WHERE table_name = 'owlcloud_characters' AND column_name = 'created_at'
     ) THEN
-        ALTER TABLE public.rollcloud_characters ADD COLUMN created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
-        COMMENT ON COLUMN public.rollcloud_characters.created_at IS 'When the character was first stored';
+        ALTER TABLE public.owlcloud_characters ADD COLUMN created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+        COMMENT ON COLUMN public.owlcloud_characters.created_at IS 'When the character was first stored';
         RAISE NOTICE 'Added created_at column';
     ELSE
         RAISE NOTICE 'created_at column already exists';
@@ -37,10 +37,10 @@ DO $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'rollcloud_characters' AND column_name = 'updated_at'
+        WHERE table_name = 'owlcloud_characters' AND column_name = 'updated_at'
     ) THEN
-        ALTER TABLE public.rollcloud_characters ADD COLUMN updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
-        COMMENT ON COLUMN public.rollcloud_characters.updated_at IS 'When the character was last updated';
+        ALTER TABLE public.owlcloud_characters ADD COLUMN updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+        COMMENT ON COLUMN public.owlcloud_characters.updated_at IS 'When the character was last updated';
         RAISE NOTICE 'Added updated_at column';
     ELSE
         RAISE NOTICE 'updated_at column already exists';
@@ -48,7 +48,7 @@ BEGIN
 END $$;
 
 -- 4. Update existing rows with user_id_dicecloud from auth_tokens (with proper type casting)
-UPDATE public.rollcloud_characters
+UPDATE public.owlcloud_characters
 SET user_id_dicecloud = (
     SELECT user_id_dicecloud 
     FROM public.auth_tokens 
@@ -58,11 +58,11 @@ SET user_id_dicecloud = (
 WHERE user_id_dicecloud IS NULL;
 
 -- 5. Update existing rows with timestamps if null
-UPDATE public.rollcloud_characters
+UPDATE public.owlcloud_characters
 SET created_at = COALESCE(created_at, CURRENT_TIMESTAMP)
 WHERE created_at IS NULL;
 
-UPDATE public.rollcloud_characters
+UPDATE public.owlcloud_characters
 SET updated_at = COALESCE(updated_at, CURRENT_TIMESTAMP)
 WHERE updated_at IS NULL;
 
@@ -71,9 +71,9 @@ DO $$
 BEGIN
     IF EXISTS (
         SELECT 1 FROM information_schema.columns 
-        WHERE table_name = 'rollcloud_characters' AND column_name = 'discord_user_id'
+        WHERE table_name = 'owlcloud_characters' AND column_name = 'discord_user_id'
     ) THEN
-        UPDATE public.rollcloud_characters
+        UPDATE public.owlcloud_characters
         SET discord_user_id = 'not_linked'
         WHERE discord_user_id IS NULL;
         RAISE NOTICE 'Updated discord_user_id placeholders';
@@ -85,9 +85,9 @@ DO $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM pg_tables 
-        WHERE tablename = 'rollcloud_characters' AND rowsecurity = true
+        WHERE tablename = 'owlcloud_characters' AND rowsecurity = true
     ) THEN
-        ALTER TABLE public.rollcloud_characters ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE public.owlcloud_characters ENABLE ROW LEVEL SECURITY;
         RAISE NOTICE 'Enabled Row Level Security';
     ELSE
         RAISE NOTICE 'Row Level Security already enabled';
@@ -98,34 +98,34 @@ END $$;
 DO $$
 BEGIN
     -- Drop existing policies
-    DROP POLICY IF EXISTS "Users can view own characters" ON public.rollcloud_characters;
-    DROP POLICY IF EXISTS "Users can insert own characters" ON public.rollcloud_characters;
-    DROP POLICY IF EXISTS "Users can update own characters" ON public.rollcloud_characters;
-    DROP POLICY IF EXISTS "Users can delete own characters" ON public.rollcloud_characters;
-    DROP POLICY IF EXISTS "Service role full access" ON public.rollcloud_characters;
+    DROP POLICY IF EXISTS "Users can view own characters" ON public.owlcloud_characters;
+    DROP POLICY IF EXISTS "Users can insert own characters" ON public.owlcloud_characters;
+    DROP POLICY IF EXISTS "Users can update own characters" ON public.owlcloud_characters;
+    DROP POLICY IF EXISTS "Users can delete own characters" ON public.owlcloud_characters;
+    DROP POLICY IF EXISTS "Service role full access" ON public.owlcloud_characters;
     
     -- Create RLS policies that use user_id_dicecloud
-    CREATE POLICY "Users can view own characters" ON public.rollcloud_characters
+    CREATE POLICY "Users can view own characters" ON public.owlcloud_characters
         FOR SELECT USING (
             auth.uid()::text = (SELECT user_id_dicecloud FROM public.auth_tokens WHERE user_id::text = user_id_dicecloud)
         );
 
-    CREATE POLICY "Users can insert own characters" ON public.rollcloud_characters
+    CREATE POLICY "Users can insert own characters" ON public.owlcloud_characters
         FOR INSERT WITH CHECK (
             auth.uid()::text = (SELECT user_id_dicecloud FROM public.auth_tokens WHERE user_id::text = user_id_dicecloud)
         );
 
-    CREATE POLICY "Users can update own characters" ON public.rollcloud_characters
+    CREATE POLICY "Users can update own characters" ON public.owlcloud_characters
         FOR UPDATE USING (
             auth.uid()::text = (SELECT user_id_dicecloud FROM public.auth_tokens WHERE user_id::text = user_id_dicecloud)
         );
 
-    CREATE POLICY "Users can delete own characters" ON public.rollcloud_characters
+    CREATE POLICY "Users can delete own characters" ON public.owlcloud_characters
         FOR DELETE USING (
             auth.uid()::text = (SELECT user_id_dicecloud FROM public.auth_tokens WHERE user_id::text = user_id_dicecloud)
         );
 
-    CREATE POLICY "Service role full access" ON public.rollcloud_characters
+    CREATE POLICY "Service role full access" ON public.owlcloud_characters
         FOR ALL USING (
             auth.jwt() ->> 'role' = 'service_role'
         );

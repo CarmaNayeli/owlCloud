@@ -1,7 +1,7 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 
 /**
- * Build Script for RollCloud Extension
+ * Build Script for OwlCloud Extension
  * Generates browser-specific packages for Chrome and Firefox
  *
  * Usage:
@@ -47,10 +47,10 @@ const EXCLUDE = [
 ];
 
 if (isExperimental) {
-  console.log('🧪 Building RollCloud extension packages (EXPERIMENTAL with two-way sync)...\n');
+  console.log('🧪 Building OwlCloud extension packages (EXPERIMENTAL with two-way sync)...\n');
   console.log('⚠️  This build includes experimental DiceCloud sync via Meteor DDP');
 } else {
-  console.log('🏗️  Building RollCloud extension packages...\n');
+  console.log('🏗️  Building OwlCloud extension packages...\n');
 }
 
 console.log(`🔧 Build mode: ${isDev ? 'DEVELOPMENT (DEBUG = true)' : 'PRODUCTION (DEBUG = false)'}\n`);
@@ -170,7 +170,7 @@ function buildChrome() {
 
     // Modify manifest for experimental build
     const manifest = JSON.parse(fs.readFileSync(manifestDest, 'utf8'));
-    manifest.name = 'RollCloud: EXPERIMENTAL';
+    manifest.name = 'OwlCloud: EXPERIMENTAL';
     manifest.version = manifest.version.split('.').slice(0, 3).join('.') + '.1';
     manifest.description = manifest.description + ' - EXPERIMENTAL: Includes two-way sync features for testing';
 
@@ -260,7 +260,7 @@ function buildFirefox() {
 
     // Modify manifest for experimental build
     const manifest = JSON.parse(fs.readFileSync(manifestDest, 'utf8'));
-    manifest.name = 'RollCloud: EXPERIMENTAL';
+    manifest.name = 'OwlCloud: EXPERIMENTAL';
     manifest.version = manifest.version.split('.').slice(0, 3).join('.') + '.1';
     manifest.description = manifest.description + ' - EXPERIMENTAL: Includes two-way sync features for testing';
 
@@ -346,18 +346,18 @@ function createZips() {
 
     // Create Chrome zip
     process.chdir(BUILD_CHROME);
-    execSync(`zip -r ../rollcloud-chrome${suffix}.zip . -x "*.DS_Store"`, { stdio: 'inherit' });
-    console.log(`   ✅ Chrome zip: ${distPath}/rollcloud-chrome${suffix}.zip`);
+    execSync(`zip -r ../owlcloud-chrome${suffix}.zip . -x "*.DS_Store"`, { stdio: 'inherit' });
+    console.log(`   ✅ Chrome zip: ${distPath}/owlcloud-chrome${suffix}.zip`);
 
     // Create Firefox zip
     process.chdir(BUILD_FIREFOX);
-    execSync(`zip -r ../rollcloud-firefox${suffix}.zip . -x "*.DS_Store"`, { stdio: 'inherit' });
-    console.log(`   ✅ Firefox zip: ${distPath}/rollcloud-firefox${suffix}.zip`);
+    execSync(`zip -r ../owlcloud-firefox${suffix}.zip . -x "*.DS_Store"`, { stdio: 'inherit' });
+    console.log(`   ✅ Firefox zip: ${distPath}/owlcloud-firefox${suffix}.zip`);
 
     // Create Safari zip
     process.chdir(BUILD_SAFARI);
-    execSync(`zip -r ../rollcloud-safari${suffix}.zip . -x "*.DS_Store"`, { stdio: 'inherit' });
-    console.log(`   ✅ Safari zip: ${distPath}/rollcloud-safari${suffix}.zip`);
+    execSync(`zip -r ../owlcloud-safari${suffix}.zip . -x "*.DS_Store"`, { stdio: 'inherit' });
+    console.log(`   ✅ Safari zip: ${distPath}/owlcloud-safari${suffix}.zip`);
 
     process.chdir(ROOT);
   } catch (error) {
@@ -387,11 +387,11 @@ function showSummary() {
   console.log(`   Firefox (MV2): ${distPath}/firefox/`);
   console.log(`   Safari (MV2):  ${distPath}/safari/`);
 
-  if (fs.existsSync(path.join(DIST, `rollcloud-chrome${suffix}.zip`))) {
+  if (fs.existsSync(path.join(DIST, `owlcloud-chrome${suffix}.zip`))) {
     console.log('\n📦 Zip files:');
-    console.log(`   ${distPath}/rollcloud-chrome${suffix}.zip`);
-    console.log(`   ${distPath}/rollcloud-firefox${suffix}.zip`);
-    console.log(`   ${distPath}/rollcloud-safari${suffix}.zip`);
+    console.log(`   ${distPath}/owlcloud-chrome${suffix}.zip`);
+    console.log(`   ${distPath}/owlcloud-firefox${suffix}.zip`);
+    console.log(`   ${distPath}/owlcloud-safari${suffix}.zip`);
   }
 
   console.log('\n🚀 Next steps:');

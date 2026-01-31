@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 
 /**
  * GitHub Release Creator
@@ -21,8 +21,8 @@ function getVersion() {
 // Get release info from production build
 function getReleaseInfo() {
   const version = getVersion();
-  const chromeCRX = path.join(RELEASE_DIR, `rollcloud-chrome-${version}.crx`);
-  const firefoxXPI = path.join(RELEASE_DIR, `rollcloud-firefox-${version}.xpi`);
+  const chromeCRX = path.join(RELEASE_DIR, `owlcloud-chrome-${version}.crx`);
+  const firefoxXPI = path.join(RELEASE_DIR, `owlcloud-firefox-${version}.xpi`);
   
   if (!fs.existsSync(chromeCRX) || !fs.existsSync(firefoxXPI)) {
     console.error('Production files not found. Run build:production first.');
@@ -32,7 +32,7 @@ function getReleaseInfo() {
   return {
     version,
     tag: `v${version}`,
-    name: `RollCloud ${version}`,
+    name: `OwlCloud ${version}`,
     chrome: chromeCRX,
     firefox: firefoxXPI
   };
@@ -40,7 +40,7 @@ function getReleaseInfo() {
 
 // Create release notes
 function createReleaseNotes(version) {
-  return `# RollCloud ${version}
+  return `# OwlCloud ${version}
 
 ## 🚀 Features
 - DiceCloud V2 character synchronization
@@ -52,18 +52,18 @@ function createReleaseNotes(version) {
 
 ### Option 1: Automatic Installer (Recommended)
 Download and run the installer executable for your platform:
-- \`RollCloud Setup Setup ${version}.exe\` (Windows)
+- \`OwlCloud Setup Setup ${version}.exe\` (Windows)
 - Installer automatically detects and installs browser extensions
 
 ### Option 2: Manual Extension Installation
 **Chrome:**
-1. Download \`rollcloud-chrome-${version}.crx\`
+1. Download \`owlcloud-chrome-${version}.crx\`
 2. Open Chrome and go to \`chrome://extensions/\`
 3. Enable "Developer mode"
 4. Drag and drop the CRX file
 
 **Firefox:**
-1. Download \`rollcloud-firefox-${version}.xpi\`
+1. Download \`owlcloud-firefox-${version}.xpi\`
 2. Open Firefox and go to \`about:debugging\`
 3. Click "This Firefox" → "Load Temporary Add-on"
 4. Select the XPI file
@@ -149,12 +149,12 @@ function updateInstaller(releaseInfo) {
   // Update extraResources to use production files
   installerPackage.build.extraResources = [
     {
-      "from": "../releases/rollcloud-chrome-" + version + ".crx",
-      "to": "extension/rollcloud-chrome.crx"
+      "from": "../releases/owlcloud-chrome-" + version + ".crx",
+      "to": "extension/owlcloud-chrome.crx"
     },
     {
-      "from": "../releases/rollcloud-firefox-" + version + ".xpi", 
-      "to": "extension/rollcloud-firefox.xpi"
+      "from": "../releases/owlcloud-firefox-" + version + ".xpi", 
+      "to": "extension/owlcloud-firefox.xpi"
     }
   ];
   
@@ -199,7 +199,7 @@ function buildProductionInstaller() {
 
 // Main release function
 async function createRelease() {
-  console.log('RollCloud Release Creator');
+  console.log('OwlCloud Release Creator');
   console.log('========================');
   
   const releaseInfo = getReleaseInfo();

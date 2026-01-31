@@ -1,4 +1,4 @@
-# Release Notes: RollCloud v1.1.2
+﻿# Release Notes: OwlCloud v1.1.2
 
 ## 🔐 Enhanced Authentication & Auto-Connect
 
@@ -45,9 +45,9 @@
 ## 📦 Downloads
 
 Choose your browser:
-- **Firefox**: rollcloud-firefox.zip
-- **Chrome/Edge**: rollcloud-chrome.zip  
-- **Safari**: rollcloud-safari.zip
+- **Firefox**: owlcloud-firefox.zip
+- **Chrome/Edge**: owlcloud-chrome.zip  
+- **Safari**: owlcloud-safari.zip
 
 ## 🎮 Quick Start
 

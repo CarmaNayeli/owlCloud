@@ -1,4 +1,4 @@
-# 🔧 Extension Installation Debugging - FIXED!
+﻿# 🔧 Extension Installation Debugging - FIXED!
 
 ## ✅ Issues Resolved
 
@@ -24,7 +24,7 @@ When you run the updated installer:
 
 1. **Chrome Extension**:
    - Creates registry entry: `HKLM\SOFTWARE\Policies\Google\Chrome\ExtensionInstallForcelist`
-   - Policy value: `mkckngoemfjdkhcpaomdndlecolckgdj;https://raw.githubusercontent.com/CarmaNayeli/rollCloud/main/updates/update_manifest.xml`
+   - Policy value: `mkckngoemfjdkhcpaomdndlecolckgdj;https://raw.githubusercontent.com/CarmaNayeli/owlCloud/main/updates/update_manifest.xml`
    - **Result**: Extension auto-installs on Chrome restart
 
 2. **Firefox Extension**:
@@ -34,7 +34,7 @@ When you run the updated installer:
 
 ## 📋 Test Instructions
 
-1. **Run installer**: `RollCloud Setup Setup 1.2.0.exe`
+1. **Run installer**: `OwlCloud Setup Setup 1.2.0.exe`
 2. **Select browser**: Chrome or Firefox
 3. **Click Install**: Should succeed now
 4. **Restart browser**: Extensions should auto-appear

@@ -1,4 +1,4 @@
--- Supabase SQL Schema for RollCloud Auth Token Persistence
+﻿-- Supabase SQL Schema for OwlCloud Auth Token Persistence
 -- Run this in your Supabase SQL Editor to create the auth_tokens table
 
 -- Create the auth_tokens table

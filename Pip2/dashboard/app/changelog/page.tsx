@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 
@@ -26,7 +26,7 @@ export default function ChangelogPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">📋 RollCloud Changelog</h1>
+        <h1 className="text-3xl font-bold">📋 OwlCloud Changelog</h1>
         <button
           onClick={fetchChangelog}
           className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition"
@@ -38,7 +38,7 @@ export default function ChangelogPage() {
       <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
         <h3 className="font-semibold mb-2">ℹ️ About Changelog</h3>
         <p className="text-sm">
-          This page displays the latest updates from RollCloud.
+          This page displays the latest updates from OwlCloud.
           Use <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">/changelog post</code> in Discord
           to post these updates to your announcement channel.
         </p>
