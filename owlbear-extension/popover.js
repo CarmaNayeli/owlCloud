@@ -20,10 +20,38 @@ const statusText = document.getElementById('status-text');
 const characterSection = document.getElementById('character-section');
 const noCharacterSection = document.getElementById('no-character-section');
 const characterInfo = document.getElementById('character-info');
-const openSheetBtn = document.getElementById('open-sheet-btn');
 const syncCharacterBtn = document.getElementById('sync-character-btn');
 const openExtensionBtn = document.getElementById('open-extension-btn');
 const linkExtensionBtn = document.getElementById('link-extension-btn');
+
+// ============== Tab Management ==============
+
+/**
+ * Initialize tab switching functionality
+ */
+function initializeTabs() {
+  const tabButtons = document.querySelectorAll('.tab-button');
+  const tabContents = document.querySelectorAll('.tab-content');
+
+  tabButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      const tabName = button.getAttribute('data-tab');
+
+      // Remove active class from all tabs and contents
+      tabButtons.forEach(btn => btn.classList.remove('active'));
+      tabContents.forEach(content => content.classList.remove('active'));
+
+      // Add active class to clicked tab and corresponding content
+      button.classList.add('active');
+      document.getElementById(`tab-${tabName}`).classList.add('active');
+
+      console.log(`📑 Switched to tab: ${tabName}`);
+    });
+  });
+}
+
+// Initialize tabs when DOM is ready
+initializeTabs();
 
 // ============== Owlbear SDK Initialization ==============
 
@@ -85,14 +113,412 @@ function displayCharacter(character) {
   characterSection.style.display = 'block';
   noCharacterSection.style.display = 'none';
 
-  // Populate character info
+  // Populate character info in Settings tab
   characterInfo.innerHTML = `
     <div class="character-name">${character.name || 'Unknown Character'}</div>
     <div class="character-detail">Level ${character.level || '?'} ${character.race || ''} ${character.class || ''}</div>
     <div class="character-detail">HP: ${character.hitPoints?.current || 0} / ${character.hitPoints?.max || 0}</div>
   `;
 
+  // Populate other tabs
+  populateStatsTab(character);
+  populateResourcesTab(character);
+  populateAbilitiesTab(character);
+  populateActionsTab(character);
+  populateSpellsTab(character);
+  populateInventoryTab(character);
+
   console.log('🎭 Displaying character:', character.name);
+}
+
+/**
+ * Populate Stats/Overview tab
+ */
+function populateStatsTab(character) {
+  const statsContent = document.getElementById('stats-content');
+
+  const hp = character.hitPoints || {};
+  const tempHP = character.temporaryHP || 0;
+  const ac = character.armorClass || 10;
+  const speed = character.speed || 30;
+  const initiative = character.initiative || 0;
+  const proficiencyBonus = character.proficiencyBonus || Math.floor((character.level || 1) / 4) + 2;
+
+  // Build core stats section
+  let html = `
+    <div class="character-name" style="margin-bottom: 8px;">
+      ${character.name || 'Unknown Character'}
+    </div>
+    <div class="character-detail" style="margin-bottom: 20px;">
+      Level ${character.level || '?'} ${character.race || ''} ${character.class || ''}
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat-box" style="cursor: pointer;" title="Click to adjust HP">
+        <div class="stat-label">HP</div>
+        <div class="stat-value">${hp.current || 0}</div>
+        <div class="stat-modifier">/ ${hp.max || 0}</div>
+      </div>
+
+      ${tempHP > 0 ? `
+      <div class="stat-box">
+        <div class="stat-label">Temp HP</div>
+        <div class="stat-value" style="color: #60A5FA;">${tempHP}</div>
+      </div>
+      ` : ''}
+
+      <div class="stat-box">
+        <div class="stat-label">AC</div>
+        <div class="stat-value">${ac}</div>
+      </div>
+
+      <div class="stat-box">
+        <div class="stat-label">Speed</div>
+        <div class="stat-value">${speed}</div>
+        <div class="stat-modifier">ft</div>
+      </div>
+
+      <div class="stat-box">
+        <div class="stat-label">Initiative</div>
+        <div class="stat-value">${initiative >= 0 ? '+' : ''}${initiative}</div>
+      </div>
+
+      <div class="stat-box">
+        <div class="stat-label">Prof Bonus</div>
+        <div class="stat-value">+${proficiencyBonus}</div>
+      </div>
+    </div>
+  `;
+
+  // Hit Dice section
+  if (character.hitDice) {
+    const hitDice = character.hitDice;
+    html += `
+      <div class="section-header">Hit Dice</div>
+      <div class="stat-grid">
+        <div class="stat-box">
+          <div class="stat-label">Hit Dice</div>
+          <div class="stat-value">${hitDice.current || 0}</div>
+          <div class="stat-modifier">/ ${hitDice.max || 0} d${hitDice.type || '8'}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Death Saves section (if character is unconscious)
+  if (character.deathSaves && (character.deathSaves.successes > 0 || character.deathSaves.failures > 0)) {
+    html += `
+      <div class="section-header">Death Saves</div>
+      <div class="stat-grid">
+        <div class="stat-box" style="border-color: #10B981;">
+          <div class="stat-label">Successes</div>
+          <div class="stat-value" style="color: #10B981;">${character.deathSaves.successes || 0}</div>
+        </div>
+        <div class="stat-box" style="border-color: #EF4444;">
+          <div class="stat-label">Failures</div>
+          <div class="stat-value" style="color: #EF4444;">${character.deathSaves.failures || 0}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  statsContent.innerHTML = html;
+}
+
+/**
+ * Populate Action Economy & Resources tab
+ */
+function populateResourcesTab(character) {
+  const resourcesContent = document.getElementById('resources-content');
+
+  let html = '';
+
+  // Spell Slots Section
+  const hasSpellSlots = character.spellSlots && Object.keys(character.spellSlots).some(key =>
+    key.includes('Max') && character.spellSlots[key] > 0
+  );
+
+  if (hasSpellSlots) {
+    html += '<div class="section-header">Spell Slots</div>';
+    html += '<div class="spell-slots-grid">';
+
+    // Regular spell slots (levels 1-9)
+    for (let level = 1; level <= 9; level++) {
+      const current = character.spellSlots[`level${level}SpellSlots`] || 0;
+      const max = character.spellSlots[`level${level}SpellSlotsMax`] || 0;
+
+      if (max > 0) {
+        html += `
+          <div class="slot-card ${current === 0 ? 'empty' : ''}">
+            <div class="slot-level">Level ${level}</div>
+            <div class="slot-count">${current}/${max}</div>
+          </div>
+        `;
+      }
+    }
+
+    // Pact Magic slots (Warlock)
+    const pactCurrent = character.spellSlots.pactMagicSlots || 0;
+    const pactMax = character.spellSlots.pactMagicSlotsMax || 0;
+    const pactLevel = character.spellSlots.pactMagicSlotLevel || 1;
+
+    if (pactMax > 0) {
+      html += `
+        <div class="slot-card pact-magic ${pactCurrent === 0 ? 'empty' : ''}">
+          <div class="slot-level">Pact ${pactLevel}</div>
+          <div class="slot-count">${pactCurrent}/${pactMax}</div>
+        </div>
+      `;
+    }
+
+    html += '</div>';
+  }
+
+  // Class Resources Section
+  if (character.resources && character.resources.length > 0) {
+    const filteredResources = character.resources.filter(r => {
+      if (r.max === 0) return false;
+      const lowerName = r.name.toLowerCase().trim();
+      if (lowerName.includes('lucky point') || lowerName === 'lucky') return false;
+      if (lowerName.includes('hit point') || lowerName === 'hp') return false;
+      if (lowerName === 'spell level') return false;
+      return true;
+    });
+
+    if (filteredResources.length > 0) {
+      html += '<div class="section-header">Class Resources</div>';
+      html += '<div class="resource-grid">';
+
+      filteredResources.forEach(resource => {
+        html += `
+          <div class="resource-card">
+            <div class="resource-name">${resource.name}</div>
+            <div class="resource-value">${resource.current || 0}</div>
+            <div class="resource-max">/ ${resource.max || 0}</div>
+          </div>
+        `;
+      });
+
+      html += '</div>';
+    }
+  }
+
+  // Rest Buttons
+  html += `
+    <div class="rest-buttons">
+      <button class="rest-btn" onclick="alert('Short rest functionality coming soon!')">
+        ⏸️ Short Rest
+      </button>
+      <button class="rest-btn" onclick="alert('Long rest functionality coming soon!')">
+        🛌 Long Rest
+      </button>
+    </div>
+  `;
+
+  if (!hasSpellSlots && (!character.resources || character.resources.length === 0)) {
+    html = '<div class="empty-state">No resources or spell slots available</div>';
+  }
+
+  resourcesContent.innerHTML = html;
+}
+
+/**
+ * Populate Abilities & Saves tab
+ */
+function populateAbilitiesTab(character) {
+  const abilitiesContent = document.getElementById('abilities-content');
+
+  // Ability scores and modifiers
+  const abilityNames = ['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma'];
+  const abilityShortNames = { strength: 'STR', dexterity: 'DEX', constitution: 'CON', intelligence: 'INT', wisdom: 'WIS', charisma: 'CHA' };
+
+  let html = '<div class="section-header">Ability Scores & Saving Throws</div>';
+  html += '<div class="ability-grid">';
+
+  abilityNames.forEach(abilityName => {
+    const score = character.attributes?.[abilityName] || 10;
+    const modifier = character.attributeMods?.[abilityName] || Math.floor((score - 10) / 2);
+    const saveMod = character.savingThrows?.[abilityName] || modifier;
+    const isProficient = saveMod !== modifier;
+
+    html += `
+      <div class="ability-box ${isProficient ? 'save-proficient' : ''}" title="${isProficient ? 'Proficient in this save' : ''}">
+        <div class="ability-name">${abilityShortNames[abilityName]}</div>
+        <div class="ability-modifier">${modifier >= 0 ? '+' : ''}${modifier}</div>
+        <div class="ability-score">${score}</div>
+        ${isProficient ? `<div class="ability-score" style="color: #10B981;">Save: ${saveMod >= 0 ? '+' : ''}${saveMod}</div>` : ''}
+      </div>
+    `;
+  });
+
+  html += '</div>';
+
+  // Skills Section
+  if (character.skills && Object.keys(character.skills).length > 0) {
+    html += '<div class="section-header">Skills</div>';
+    html += '<div class="skill-list">';
+
+    const skillNames = {
+      acrobatics: 'Acrobatics', animalHandling: 'Animal Handling', arcana: 'Arcana',
+      athletics: 'Athletics', deception: 'Deception', history: 'History',
+      insight: 'Insight', intimidation: 'Intimidation', investigation: 'Investigation',
+      medicine: 'Medicine', nature: 'Nature', perception: 'Perception',
+      performance: 'Performance', persuasion: 'Persuasion', religion: 'Religion',
+      sleightOfHand: 'Sleight of Hand', stealth: 'Stealth', survival: 'Survival'
+    };
+
+    Object.entries(character.skills).forEach(([skillKey, bonus]) => {
+      const skillName = skillNames[skillKey] || skillKey;
+
+      // Determine proficiency level by comparing to base ability modifier
+      const skillAbilityMap = {
+        acrobatics: 'dexterity', animalHandling: 'wisdom', arcana: 'intelligence',
+        athletics: 'strength', deception: 'charisma', history: 'intelligence',
+        insight: 'wisdom', intimidation: 'charisma', investigation: 'intelligence',
+        medicine: 'wisdom', nature: 'intelligence', perception: 'wisdom',
+        performance: 'charisma', persuasion: 'charisma', religion: 'intelligence',
+        sleightOfHand: 'dexterity', stealth: 'dexterity', survival: 'wisdom'
+      };
+
+      const baseAbility = skillAbilityMap[skillKey] || 'strength';
+      const baseMod = character.attributeMods?.[baseAbility] || 0;
+      const profBonus = character.proficiencyBonus || 2;
+
+      let proficiencyClass = '';
+      if (bonus === baseMod + profBonus) {
+        proficiencyClass = 'skill-proficient';
+      } else if (bonus === baseMod + (profBonus * 2)) {
+        proficiencyClass = 'skill-expert';
+      }
+
+      html += `
+        <div class="skill-item ${proficiencyClass}">
+          <span class="skill-name">${skillName}</span>
+          <span class="skill-bonus">${bonus >= 0 ? '+' : ''}${bonus}</span>
+        </div>
+      `;
+    });
+
+    html += '</div>';
+  }
+
+  // Features Section
+  if (character.features && character.features.length > 0) {
+    html += '<div class="section-header">Features & Traits</div>';
+    html += '<div class="feature-list">';
+
+    character.features.slice(0, 10).forEach(feature => {
+      html += `
+        <div class="feature-card">
+          <div class="feature-name">${feature.name || 'Unknown Feature'}</div>
+          ${feature.description ? `<div class="feature-description">${feature.description.substring(0, 150)}${feature.description.length > 150 ? '...' : ''}</div>` : ''}
+        </div>
+      `;
+    });
+
+    html += '</div>';
+
+    if (character.features.length > 10) {
+      html += `<div class="empty-state">...and ${character.features.length - 10} more features</div>`;
+    }
+  }
+
+  abilitiesContent.innerHTML = html;
+}
+
+/**
+ * Populate Actions & Attacks tab
+ */
+function populateActionsTab(character) {
+  const actionsContent = document.getElementById('actions-content');
+
+  // TODO: Get actual actions from character data
+  actionsContent.innerHTML = `
+    <div style="color: #c0c0c0; text-align: center; padding: 40px;">
+      Actions and attacks will be displayed here
+    </div>
+  `;
+}
+
+/**
+ * Populate Spells tab
+ */
+function populateSpellsTab(character) {
+  const spellsContent = document.getElementById('spells-content');
+
+  // TODO: Get actual spells from character data
+  spellsContent.innerHTML = `
+    <div style="color: #c0c0c0; text-align: center; padding: 40px;">
+      Spells will be displayed here
+    </div>
+  `;
+}
+
+/**
+ * Populate Inventory tab
+ */
+function populateInventoryTab(character) {
+  const inventoryContent = document.getElementById('inventory-content');
+
+  if (!character.inventory || character.inventory.length === 0) {
+    inventoryContent.innerHTML = '<div class="empty-state">No items in inventory</div>';
+    return;
+  }
+
+  // Filter out coins
+  const coinPatterns = ['platinum piece', 'gold piece', 'silver piece', 'copper piece', 'electrum piece',
+                        'platinum coin', 'gold coin', 'silver coin', 'copper coin', 'electrum coin',
+                        'pp', 'gp', 'sp', 'cp', 'ep'];
+
+  const filteredInventory = character.inventory.filter(item => {
+    const lowerName = (item.name || '').toLowerCase();
+    const isCoin = coinPatterns.some(pattern => {
+      if (pattern.length <= 2) {
+        return lowerName === pattern || lowerName === pattern + 's' || lowerName.match(new RegExp(`^\\d+\\s*${pattern}s?$`));
+      }
+      return lowerName.includes(pattern);
+    });
+    return !isCoin;
+  });
+
+  if (filteredInventory.length === 0) {
+    inventoryContent.innerHTML = '<div class="empty-state">No items in inventory</div>';
+    return;
+  }
+
+  // Sort: equipped first, then alphabetically
+  filteredInventory.sort((a, b) => {
+    if (a.equipped && !b.equipped) return -1;
+    if (!a.equipped && b.equipped) return 1;
+    return (a.name || '').localeCompare(b.name || '');
+  });
+
+  let html = '<div class="inventory-grid">';
+
+  filteredInventory.forEach(item => {
+    const itemClass = item.equipped ? 'equipped' : (item.attuned ? 'attuned' : '');
+    const tags = [];
+
+    if (item.equipped) tags.push('Equipped');
+    if (item.attuned) tags.push('Attuned');
+    if (item.type) tags.push(item.type);
+
+    html += `
+      <div class="item-card ${itemClass}">
+        <div class="item-info">
+          <div class="item-name">
+            ${item.name || 'Unknown Item'}
+            ${item.quantity > 1 ? `<span class="item-quantity">×${item.quantity}</span>` : ''}
+          </div>
+          ${tags.length > 0 ? `<div class="item-tags">${tags.join(' • ')}</div>` : ''}
+        </div>
+      </div>
+    `;
+  });
+
+  html += '</div>';
+
+  inventoryContent.innerHTML = html;
 }
 
 /**
@@ -105,24 +531,6 @@ function showNoCharacter() {
 }
 
 // ============== Event Handlers ==============
-
-/**
- * Open character sheet in browser extension
- */
-openSheetBtn.addEventListener('click', () => {
-  // Send message to browser extension content script to open character sheet
-  const message = {
-    type: 'OWLCLOUD_OPEN_CHARACTER_SHEET',
-    source: 'owlbear-extension'
-  };
-
-  window.parent.postMessage(message, 'https://www.owlbear.rodeo');
-
-  // Show notification in Owlbear
-  if (isOwlbearReady) {
-    OBR.notification.show('Opening character sheet...', 'INFO');
-  }
-});
 
 /**
  * Sync character from DiceCloud
