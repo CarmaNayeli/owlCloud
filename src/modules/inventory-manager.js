@@ -13,6 +13,12 @@
 (function() {
   'use strict';
 
+  // Inventory filter state
+  const inventoryFilters = {
+    filter: 'all',  // 'all', 'equipped', 'attuned', 'container'
+    search: ''
+  };
+
   /**
    * Rebuild inventory display with current character data
    */
