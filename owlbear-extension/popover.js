@@ -542,12 +542,71 @@ function deduplicateActions(actions) {
 function populateSpellsTab(character) {
   const spellsContent = document.getElementById('spells-content');
 
-  // TODO: Get actual spells from character data
-  spellsContent.innerHTML = `
-    <div style="color: #c0c0c0; text-align: center; padding: 40px;">
-      Spells will be displayed here
-    </div>
-  `;
+  if (!character.spells || character.spells.length === 0) {
+    spellsContent.innerHTML = '<div class="empty-state">No spells available</div>';
+    return;
+  }
+
+  // Filter out Divine Smite duplicates
+  const filteredSpells = character.spells.filter(spell => {
+    const spellName = (spell.name || '').toLowerCase();
+    if (spellName.includes('divine smite') && spellName !== 'divine smite') {
+      return false;
+    }
+    return true;
+  });
+
+  // Group spells by level
+  const spellsByLevel = {};
+  filteredSpells.forEach(spell => {
+    const spellLevel = parseInt(spell.level) || 0;
+    const levelKey = spellLevel === 0 ? 'Cantrips' : `Level ${spellLevel}`;
+
+    if (!spellsByLevel[levelKey]) {
+      spellsByLevel[levelKey] = [];
+    }
+    spellsByLevel[levelKey].push(spell);
+  });
+
+  // Build HTML
+  let html = '';
+
+  // Order levels properly (Cantrips, then 1-9)
+  const levelOrder = ['Cantrips', 'Level 1', 'Level 2', 'Level 3', 'Level 4', 'Level 5', 'Level 6', 'Level 7', 'Level 8', 'Level 9'];
+
+  levelOrder.forEach(levelKey => {
+    if (!spellsByLevel[levelKey]) return;
+
+    const spells = spellsByLevel[levelKey];
+    html += `<div class="spell-level-group">`;
+    html += `<div class="spell-level-header">${levelKey} (${spells.length})</div>`;
+    html += `<div class="spell-list">`;
+
+    spells.forEach(spell => {
+      const isConcentration = spell.concentration || false;
+      const castingTime = spell.castingTime || '';
+      const range = spell.range || '';
+
+      let metaInfo = [];
+      if (castingTime) metaInfo.push(castingTime);
+      if (range) metaInfo.push(range);
+
+      html += `
+        <div class="spell-card ${isConcentration ? 'concentration' : ''}" title="Click to cast spell">
+          <div class="spell-card-header">
+            <span class="spell-name">${spell.name || 'Unknown Spell'}</span>
+            ${isConcentration ? '<span class="spell-concentration-badge">Concentration</span>' : ''}
+          </div>
+          ${metaInfo.length > 0 ? `<div class="spell-meta">${metaInfo.join(' • ')}</div>` : ''}
+          ${spell.description ? `<div class="spell-description">${spell.description.substring(0, 100)}${spell.description.length > 100 ? '...' : ''}</div>` : ''}
+        </div>
+      `;
+    });
+
+    html += `</div></div>`;
+  });
+
+  spellsContent.innerHTML = html;
 }
 
 /**
