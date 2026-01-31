@@ -418,7 +418,7 @@ function populateStatsTab(character) {
 
       if (max > 0) {
         html += `
-          <div class="slot-card ${current === 0 ? 'empty' : ''}">
+          <div class="slot-card ${current === 0 ? 'empty' : ''}" style="cursor: pointer;" onclick="adjustSpellSlot(${level})" title="Click to adjust spell slots">
             <div class="slot-level">Level ${level}</div>
             <div class="slot-count">${current}/${max}</div>
           </div>
@@ -433,7 +433,7 @@ function populateStatsTab(character) {
 
     if (pactMax > 0) {
       html += `
-        <div class="slot-card pact-magic ${pactCurrent === 0 ? 'empty' : ''}">
+        <div class="slot-card pact-magic ${pactCurrent === 0 ? 'empty' : ''}" style="cursor: pointer;" onclick="adjustSpellSlot(null, true)" title="Click to adjust pact magic slots">
           <div class="slot-level">Pact ${pactLevel}</div>
           <div class="slot-count">${pactCurrent}/${pactMax}</div>
         </div>
@@ -460,7 +460,7 @@ function populateStatsTab(character) {
 
       filteredResources.forEach(resource => {
         html += `
-          <div class="resource-card">
+          <div class="resource-card" style="cursor: pointer;" onclick="adjustResource('${resource.name.replace(/'/g, "\\'")}')  title="Click to adjust ${resource.name}">
             <div class="resource-name">${resource.name}</div>
             <div class="resource-value">${resource.current || 0}</div>
             <div class="resource-max">/ ${resource.max || 0}</div>
@@ -1452,6 +1452,66 @@ window.adjustHP = async function() {
   // Note: HP changes are kept local during gameplay. They persist in the extension state
   // until the user syncs the character or switches characters. This avoids constantly
   // hitting Supabase for every stat change during play.
+};
+
+/**
+ * Adjust spell slot count
+ */
+window.adjustSpellSlot = function(level, isPactMagic = false) {
+  if (!currentCharacter || !currentCharacter.spellSlots) return;
+
+  const slotKey = isPactMagic ? 'pactMagicSlots' : `level${level}SpellSlots`;
+  const maxKey = isPactMagic ? 'pactMagicSlotsMax' : `level${level}SpellSlotsMax`;
+  const current = currentCharacter.spellSlots[slotKey] || 0;
+  const max = currentCharacter.spellSlots[maxKey] || 0;
+
+  const slotName = isPactMagic ? `Pact Magic` : `Level ${level} Spell Slot`;
+  const adjustment = prompt(`${slotName}: ${current}/${max}\n\nEnter adjustment (negative to use, positive to restore):`);
+  if (adjustment === null) return;
+
+  const amount = parseInt(adjustment);
+  if (isNaN(amount)) return;
+
+  const newCount = Math.max(0, Math.min(max, current + amount));
+  currentCharacter.spellSlots[slotKey] = newCount;
+
+  // Re-render stats tab
+  populateStatsTab(currentCharacter);
+
+  if (isOwlbearReady) {
+    const message = amount > 0 ? `Restored ${amount} ${slotName}` : `Used ${Math.abs(amount)} ${slotName}`;
+    OBR.notification.show(message, 'INFO');
+  }
+};
+
+/**
+ * Adjust class resource (like Channel Divinity, Ki Points, etc.)
+ */
+window.adjustResource = function(resourceName) {
+  if (!currentCharacter || !currentCharacter.resources) return;
+
+  const resource = currentCharacter.resources.find(r => r.name === resourceName);
+  if (!resource) return;
+
+  const current = resource.current || 0;
+  const max = resource.max || 0;
+
+  const adjustment = prompt(`${resourceName}: ${current}/${max}\n\nEnter adjustment (negative to use, positive to restore):`);
+  if (adjustment === null) return;
+
+  const amount = parseInt(adjustment);
+  if (isNaN(amount)) return;
+
+  const newCount = Math.max(0, Math.min(max, current + amount));
+  resource.current = newCount;
+
+  // Re-render stats tab
+  populateStatsTab(currentCharacter);
+
+  if (isOwlbearReady) {
+    const message = amount > 0 ? `Restored ${amount} ${resourceName}` : `Used ${Math.abs(amount)} ${resourceName}`;
+    OBR.notification.show(message, 'INFO');
+  }
 };
 
 // ============== Rest System ==============
