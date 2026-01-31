@@ -327,26 +327,41 @@
     // Remove old event listeners by cloning and replacing elements
     // This prevents duplicate listeners when buildSheet() is called multiple times
     const hpDisplayOld = document.getElementById('hp-display');
-    const hpDisplayNew = hpDisplayOld.cloneNode(true);
-    hpDisplayOld.parentNode.replaceChild(hpDisplayNew, hpDisplayOld);
+    let hpDisplayNew = null;
+    if (hpDisplayOld) {
+      hpDisplayNew = hpDisplayOld.cloneNode(true);
+      hpDisplayOld.parentNode.replaceChild(hpDisplayNew, hpDisplayOld);
+    }
 
     const initiativeOld = document.getElementById('initiative-button');
-    const initiativeNew = initiativeOld.cloneNode(true);
-    initiativeOld.parentNode.replaceChild(initiativeNew, initiativeOld);
+    let initiativeNew = null;
+    if (initiativeOld) {
+      initiativeNew = initiativeOld.cloneNode(true);
+      initiativeOld.parentNode.replaceChild(initiativeNew, initiativeOld);
+    }
 
     const deathSavesOld = document.getElementById('death-saves-display');
-    const deathSavesNew = deathSavesOld.cloneNode(true);
-    deathSavesOld.parentNode.replaceChild(deathSavesNew, deathSavesOld);
+    let deathSavesNew = null;
+    if (deathSavesOld) {
+      deathSavesNew = deathSavesOld.cloneNode(true);
+      deathSavesOld.parentNode.replaceChild(deathSavesNew, deathSavesOld);
+    }
 
     const inspirationOld = document.getElementById('inspiration-display');
-    const inspirationNew = inspirationOld.cloneNode(true);
-    inspirationOld.parentNode.replaceChild(inspirationNew, inspirationOld);
+    let inspirationNew = null;
+    if (inspirationOld) {
+      inspirationNew = inspirationOld.cloneNode(true);
+      inspirationOld.parentNode.replaceChild(inspirationNew, inspirationOld);
+    }
 
     // Add click handler for HP display
-    hpDisplayNew.addEventListener('click', showHPModal);
+    if (hpDisplayNew) {
+      hpDisplayNew.addEventListener('click', showHPModal);
+    }
 
     // Add click handler for initiative button
-    initiativeNew.addEventListener('click', () => {
+    if (initiativeNew) {
+      initiativeNew.addEventListener('click', () => {
       const initiativeBonus = data.initiative || 0;
 
       // Announce initiative roll
@@ -366,23 +381,30 @@
       }
 
       roll('Initiative', `1d20+${initiativeBonus}`);
-    });
+      });
+    }
 
     // Add click handler for death saves display
-    deathSavesNew.addEventListener('click', showDeathSavesModal);
+    if (deathSavesNew) {
+      deathSavesNew.addEventListener('click', showDeathSavesModal);
+    }
 
     // Add click handler for inspiration display
-    inspirationNew.addEventListener('click', toggleInspiration);
+    if (inspirationNew) {
+      inspirationNew.addEventListener('click', toggleInspiration);
+    }
 
     // Update HP display color based on percentage
-    const hpPercent = data.hitPoints && data.hitPoints.max > 0 ? (data.hitPoints.current / data.hitPoints.max) * 100 : 0;
-    // Use the new hpDisplayNew element we just created above
-    if (hpPercent > 50) {
-      hpDisplayNew.style.background = 'var(--accent-success)';
-    } else if (hpPercent > 25) {
-      hpDisplayNew.style.background = 'var(--accent-warning)';
-    } else {
-      hpDisplayNew.style.background = 'var(--accent-danger)';
+    if (hpDisplayNew) {
+      const hpPercent = data.hitPoints && data.hitPoints.max > 0 ? (data.hitPoints.current / data.hitPoints.max) * 100 : 0;
+      // Use the new hpDisplayNew element we just created above
+      if (hpPercent > 50) {
+        hpDisplayNew.style.background = 'var(--accent-success)';
+      } else if (hpPercent > 25) {
+        hpDisplayNew.style.background = 'var(--accent-warning)';
+      } else {
+        hpDisplayNew.style.background = 'var(--accent-danger)';
+      }
     }
 
     // Resources
