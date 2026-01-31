@@ -547,7 +547,9 @@ async function loadSheetBuilderAndPopulate() {
       'src/common/debug.js', // Load debug first - required by all other modules
       'src/modules/color-utils.js', // Color utilities (getColorEmoji, getColoredBanner)
       'src/modules/card-creator.js', // UI card creation (createCard)
-      'src/modules/ui-utilities.js', // UI utilities (createColorPalette, initColorPalette)
+      'src/modules/ui-utilities.js', // UI utilities (createColorPalette, initColorPalette, expandSectionByContainerId, etc.)
+      'src/modules/dice-roller.js', // Dice rolling (roll)
+      'src/modules/hp-management.js', // HP and character stats (initializeHitDice, showHPModal, calculateTotalAC, etc.)
       'src/modules/action-display.js',
       'src/modules/spell-display.js',
       'src/modules/inventory-manager.js',
