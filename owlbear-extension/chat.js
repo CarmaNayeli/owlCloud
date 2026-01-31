@@ -48,6 +48,16 @@ OBR.onReady(async () => {
       loadNewMessages(messages);
     }
   });
+
+  // Listen for roll mode changes from popover
+  OBR.player.onChange(async (player) => {
+    const rollMode = player.metadata?.['owlcloud.rollMode'];
+    updateRollModeIndicator(rollMode || 'normal');
+  });
+
+  // Set initial roll mode
+  const player = await OBR.player.getMetadata();
+  updateRollModeIndicator(player['owlcloud.rollMode'] || 'normal');
 });
 
 // ============== Character Management ==============
@@ -328,5 +338,30 @@ window.owlcloudChat = {
     await addChatMessageToMetadata(text, 'combat', characterName);
   }
 };
+
+// ============== Roll Mode Indicator ==============
+
+/**
+ * Update the roll mode indicator badge
+ */
+function updateRollModeIndicator(mode) {
+  const indicator = document.getElementById('roll-mode-indicator');
+  if (!indicator) return;
+
+  // Remove all mode classes
+  indicator.classList.remove('advantage', 'disadvantage');
+
+  // Set appropriate class and text
+  if (mode === 'advantage') {
+    indicator.classList.add('advantage');
+    indicator.textContent = 'ADV';
+  } else if (mode === 'disadvantage') {
+    indicator.classList.add('disadvantage');
+    indicator.textContent = 'DIS';
+  } else {
+    // Normal mode - hide indicator
+    indicator.textContent = '';
+  }
+}
 
 console.log('💬 Chat window initialized');

@@ -334,10 +334,19 @@ function setupPortraitDrag(portraitElement, character, portraitUrl) {
   portraitElement.addEventListener('dragstart', (e) => {
     portraitElement.style.cursor = 'grabbing';
     e.dataTransfer.effectAllowed = 'copy';
-    // Set image URL so Owlbear can import it
+
+    // Set multiple data formats for compatibility
     e.dataTransfer.setData('text/uri-list', portraitUrl);
-    e.dataTransfer.setData('text/plain', character.name);
-    console.log('🎨 Dragging portrait for', character.name);
+    e.dataTransfer.setData('text/plain', portraitUrl);
+    e.dataTransfer.setData('text/html', `<img src="${portraitUrl}" alt="${character.name}">`);
+    e.dataTransfer.setData('DownloadURL', `image/png:${character.name}.png:${portraitUrl}`);
+
+    // Set drag image
+    const img = new Image();
+    img.src = portraitUrl;
+    e.dataTransfer.setDragImage(portraitElement, 50, 50);
+
+    console.log('🎨 Dragging portrait for', character.name, '- URL:', portraitUrl);
   });
 
   portraitElement.addEventListener('dragend', () => {
@@ -713,8 +722,9 @@ function populateFeaturesTab(character) {
 
       filteredFeatures.forEach((feature, index) => {
         const featureId = `feature-${index}`;
+        const uses = feature.uses;
 
-        // Infer resource usage from feature name
+        // Infer resource usage from feature name (for class resources)
         let resourceName = null;
         const featureName = (feature.name || '').toLowerCase();
         if (featureName.includes('channel divinity')) {
@@ -729,8 +739,15 @@ function populateFeaturesTab(character) {
           resourceName = 'Sorcery Points';
         }
 
-        const useButtonHtml = resourceName ?
-          `<button class="rest-btn" style="margin-top: 8px; width: 100%;" onclick="event.stopPropagation(); useFeature('${(feature.name || 'Feature').replace(/'/g, "\\'")}', '${resourceName}')">✨ Use</button>` : '';
+        // Create Use button if feature has uses OR matches a known resource
+        let useButtonHtml = '';
+        if (uses && uses.value !== undefined) {
+          // Feature has its own uses tracking
+          useButtonHtml = `<button class="rest-btn" style="margin-top: 8px; width: 100%;" onclick="event.stopPropagation(); useFeatureWithUses('${(feature.name || 'Feature').replace(/'/g, "\\'")}')">✨ Use (${uses.value}/${uses.max || uses.value})</button>`;
+        } else if (resourceName) {
+          // Feature uses a class resource
+          useButtonHtml = `<button class="rest-btn" style="margin-top: 8px; width: 100%;" onclick="event.stopPropagation(); useFeature('${(feature.name || 'Feature').replace(/'/g, "\\'")}', '${resourceName}')">✨ Use</button>`;
+        }
 
         // Combine summary and description
         let featureText = '';
@@ -1469,7 +1486,7 @@ async function addChatMessage(text, type = 'system', author = null, details = nu
 /**
  * Set roll mode (advantage, normal, disadvantage)
  */
-window.setRollMode = function(mode) {
+window.setRollMode = async function(mode) {
   rollMode = mode;
 
   // Update button active states
@@ -1480,6 +1497,17 @@ window.setRollMode = function(mode) {
     document.getElementById('roll-disadvantage-btn')?.classList.add('active');
   } else {
     document.getElementById('roll-normal-btn')?.classList.add('active');
+  }
+
+  // Store roll mode in player metadata so chat window can access it
+  if (isOwlbearReady) {
+    try {
+      await OBR.player.setMetadata({
+        'owlcloud.rollMode': mode
+      });
+    } catch (error) {
+      console.error('Failed to set roll mode metadata:', error);
+    }
   }
 };
 
@@ -1968,6 +1996,48 @@ window.useFeature = async function(featureName, resourceName = null) {
 
   // Announce in chat
   const message = `✨ Uses <strong>${featureName}</strong>${resourceName ? ` (${resourceName})` : ''}`;
+  await addChatMessage(message, 'action', currentCharacter.name);
+
+  if (isOwlbearReady) {
+    OBR.notification.show(`${currentCharacter.name} uses ${featureName}`, 'INFO');
+  }
+};
+
+/**
+ * Use a feature that has its own uses tracking
+ */
+window.useFeatureWithUses = async function(featureName) {
+  if (!currentCharacter || !currentCharacter.features) return;
+
+  // Find the feature by name
+  const feature = currentCharacter.features.find(f => f.name === featureName);
+  if (!feature) {
+    console.warn(`Feature "${featureName}" not found`);
+    return;
+  }
+
+  // Check if feature has uses
+  if (!feature.uses || feature.uses.value === undefined) {
+    console.warn(`Feature "${featureName}" has no uses tracking`);
+    return;
+  }
+
+  // Check if uses remaining
+  if (feature.uses.value <= 0) {
+    if (isOwlbearReady) {
+      OBR.notification.show(`No uses of ${featureName} remaining!`, 'ERROR');
+    }
+    return;
+  }
+
+  // Decrement uses
+  feature.uses.value -= 1;
+
+  // Refresh the features tab to show updated uses
+  populateFeaturesTab(currentCharacter);
+
+  // Announce in chat
+  const message = `✨ Uses <strong>${featureName}</strong> (${feature.uses.value}/${feature.uses.max || feature.uses.value + 1} remaining)`;
   await addChatMessage(message, 'action', currentCharacter.name);
 
   if (isOwlbearReady) {
