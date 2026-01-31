@@ -355,7 +355,7 @@ function populateStatsTab(character) {
         <div class="stat-modifier">ft</div>
       </div>
 
-      <div class="stat-box">
+      <div class="stat-box" style="cursor: pointer;" onclick="rollInitiative(${initiative})" title="Click to roll initiative">
         <div class="stat-label">Initiative</div>
         <div class="stat-value">${initiative >= 0 ? '+' : ''}${initiative}</div>
       </div>
@@ -396,6 +396,7 @@ function populateStatsTab(character) {
           <div class="stat-value" style="color: #EF4444;">${character.deathSaves.failures || 0}</div>
         </div>
       </div>
+      <button class="rest-btn" onclick="rollDeathSave()" style="margin-top: 8px;">💀 Roll Death Save</button>
     `;
   }
 
@@ -1284,6 +1285,52 @@ window.rollSkillCheck = async function(skillName, bonus) {
   const result = rollDice('1d20');
   const total = result.total + bonus;
   await showRollResult(`${skillName} (${bonus >= 0 ? '+' : ''}${bonus})`, {...result, total, modifier: bonus});
+};
+
+/**
+ * Roll initiative
+ */
+window.rollInitiative = async function(initiativeBonus) {
+  const result = rollDice('1d20');
+  const total = result.total + initiativeBonus;
+  await showRollResult(`Initiative (${initiativeBonus >= 0 ? '+' : ''}${initiativeBonus})`, {...result, total, modifier: initiativeBonus});
+};
+
+/**
+ * Roll death save
+ */
+window.rollDeathSave = async function() {
+  if (!currentCharacter) return;
+
+  const result = rollDice('1d20');
+  const roll = result.total;
+
+  let message = '';
+  let messageType = 'combat';
+
+  if (roll === 20) {
+    message = `💀 Death Save: <strong>20 (Natural 20!)</strong> - Regain 1 HP!`;
+    // Automatically heal 1 HP on nat 20
+    if (!currentCharacter.hitPoints) {
+      currentCharacter.hitPoints = { current: 0, max: 0 };
+    }
+    currentCharacter.hitPoints.current = 1;
+    populateStatsTab(currentCharacter);
+  } else if (roll === 1) {
+    message = `💀 Death Save: <strong>1 (Natural 1!)</strong> - Two failures!`;
+  } else if (roll >= 10) {
+    message = `💀 Death Save: <strong>${roll}</strong> - Success`;
+  } else {
+    message = `💀 Death Save: <strong>${roll}</strong> - Failure`;
+  }
+
+  if (isOwlbearReady) {
+    OBR.notification.show(`${currentCharacter.name}: Death Save = ${roll}`, roll >= 10 ? 'SUCCESS' : 'ERROR');
+  }
+  console.log('💀', message);
+
+  // Send to persistent chat
+  await addChatMessage(message, messageType, currentCharacter.name);
 };
 
 /**
