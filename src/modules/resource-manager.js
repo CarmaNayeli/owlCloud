@@ -2,7 +2,7 @@
  * Resource Manager Module
  *
  * Handles class resource tracking, consumption, and conversion.
- * Loaded as a plain script (no ES6 modules) to export to globalThis.
+ * Loaded as a plain script (no ES6 modules) to export to window.
  *
  * Functions exported to globalThis:
  * - buildResourcesDisplay()
@@ -774,18 +774,18 @@
 
   // ===== EXPORTS =====
 
-  globalThis.buildResourcesDisplay = buildResourcesDisplay;
-  globalThis.adjustResource = adjustResource;
-  globalThis.getSorceryPointsResource = getSorceryPointsResource;
-  globalThis.getKiPointsResource = getKiPointsResource;
-  globalThis.findResourceByVariableName = findResourceByVariableName;
-  globalThis.getResourceCostsFromAction = getResourceCostsFromAction;
-  globalThis.getKiCostFromAction = getKiCostFromAction;
-  globalThis.getSorceryPointCostFromAction = getSorceryPointCostFromAction;
-  globalThis.decrementActionResources = decrementActionResources;
-  globalThis.showConvertSlotToPointsModal = showConvertSlotToPointsModal;
-  globalThis.showFontOfMagicModal = showFontOfMagicModal;
-  globalThis.showSpellSlotRestorationModal = showSpellSlotRestorationModal;
-  globalThis.restoreSpellSlot = restoreSpellSlot;
+  window.buildResourcesDisplay = buildResourcesDisplay;
+  window.adjustResource = adjustResource;
+  window.getSorceryPointsResource = getSorceryPointsResource;
+  window.getKiPointsResource = getKiPointsResource;
+  window.findResourceByVariableName = findResourceByVariableName;
+  window.getResourceCostsFromAction = getResourceCostsFromAction;
+  window.getKiCostFromAction = getKiCostFromAction;
+  window.getSorceryPointCostFromAction = getSorceryPointCostFromAction;
+  window.decrementActionResources = decrementActionResources;
+  window.showConvertSlotToPointsModal = showConvertSlotToPointsModal;
+  window.showFontOfMagicModal = showFontOfMagicModal;
+  window.showSpellSlotRestorationModal = showSpellSlotRestorationModal;
+  window.restoreSpellSlot = restoreSpellSlot;
 
 })();

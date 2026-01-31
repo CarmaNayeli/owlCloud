@@ -6,7 +6,7 @@
  * - Applies filters (level, category, casting time, search)
  * - Categorizes spells (damage/healing/utility)
  *
- * Loaded as a plain script (no ES6 modules) to export to globalThis.
+ * Loaded as a plain script (no ES6 modules) to export to window.
  */
 
 (function() {

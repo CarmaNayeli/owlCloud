@@ -563,12 +563,12 @@ async function loadSheetBuilderAndPopulate() {
       debug.log(`✅ Loaded: ${modulePath}`);
     }
 
-    // Call buildSheet if it's available
-    if (typeof globalThis.buildSheet === 'function') {
+    // Call buildSheet if it's available (check window, as scripts run in page context)
+    if (typeof window.buildSheet === 'function') {
       debug.log('🎨 Calling buildSheet with character data...');
-      globalThis.buildSheet(currentCharacter);
+      window.buildSheet(currentCharacter);
     } else {
-      debug.error('❌ buildSheet function not found on globalThis');
+      debug.error('❌ buildSheet function not found on window');
     }
   } catch (error) {
     debug.error('❌ Error loading sheet builder:', error);

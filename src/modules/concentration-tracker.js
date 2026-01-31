@@ -138,18 +138,18 @@
 
   // ===== EXPORTS =====
 
-  // Export concentratingSpell state variable
-  Object.defineProperty(globalThis, 'concentratingSpell', {
+  // Export concentratingSpell state variable to window (for access from content script context)
+  Object.defineProperty(window, 'concentratingSpell', {
     get: () => concentratingSpell,
     set: (value) => { concentratingSpell = value; },
     configurable: true
   });
 
-  // Export functions to globalThis
-  globalThis.updateConcentrationDisplay = updateConcentrationDisplay;
-  globalThis.initConcentrationTracker = initConcentrationTracker;
-  globalThis.setConcentration = setConcentration;
-  globalThis.dropConcentration = dropConcentration;
+  // Export functions to window
+  window.updateConcentrationDisplay = updateConcentrationDisplay;
+  window.initConcentrationTracker = initConcentrationTracker;
+  window.setConcentration = setConcentration;
+  window.dropConcentration = dropConcentration;
 
   debug.log('✅ Concentration Tracker module loaded');
 

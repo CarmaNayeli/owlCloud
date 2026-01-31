@@ -2,7 +2,7 @@
  * Inventory Manager Module
  *
  * Handles inventory display and item card creation.
- * Loaded as a plain script (no ES6 modules) to export to globalThis.
+ * Loaded as a plain script (no ES6 modules) to export to window.
  *
  * Functions exported to globalThis:
  * - rebuildInventory()
@@ -226,8 +226,8 @@
   }
 
   // Export to globalThis for use across all scripts
-  globalThis.rebuildInventory = rebuildInventory;
-  globalThis.buildInventoryDisplay = buildInventoryDisplay;
-  globalThis.createInventoryCard = createInventoryCard;
+  window.rebuildInventory = rebuildInventory;
+  window.buildInventoryDisplay = buildInventoryDisplay;
+  window.createInventoryCard = createInventoryCard;
 
 })();

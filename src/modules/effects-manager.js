@@ -2,7 +2,7 @@
  * Effects Manager Module
  *
  * Handles buffs, debuffs, and conditions tracking.
- * Loaded as a plain script (no ES6 modules) to export to globalThis.
+ * Loaded as a plain script (no ES6 modules) to export to window.
  *
  * Functions exported to globalThis:
  * - initConditionsManager()
@@ -712,19 +712,19 @@
 
   // ===== EXPORTS =====
 
-  globalThis.initConditionsManager = initConditionsManager;
-  globalThis.showEffectsModal = showEffectsModal;
-  globalThis.addEffect = addEffect;
-  globalThis.removeEffect = removeEffect;
-  globalThis.addCondition = addCondition;
-  globalThis.removeCondition = removeCondition;
-  globalThis.updateEffectsDisplay = updateEffectsDisplay;
-  globalThis.updateConditionsDisplay = updateConditionsDisplay;
-  globalThis.calculateTotalAC = calculateTotalAC;
+  window.initConditionsManager = initConditionsManager;
+  window.showEffectsModal = showEffectsModal;
+  window.addEffect = addEffect;
+  window.removeEffect = removeEffect;
+  window.addCondition = addCondition;
+  window.removeCondition = removeCondition;
+  window.updateEffectsDisplay = updateEffectsDisplay;
+  window.updateConditionsDisplay = updateConditionsDisplay;
+  window.calculateTotalAC = calculateTotalAC;
 
   // Export constants
-  globalThis.POSITIVE_EFFECTS = POSITIVE_EFFECTS;
-  globalThis.NEGATIVE_EFFECTS = NEGATIVE_EFFECTS;
+  window.POSITIVE_EFFECTS = POSITIVE_EFFECTS;
+  window.NEGATIVE_EFFECTS = NEGATIVE_EFFECTS;
 
   // Export state variables with getters and setters
   Object.defineProperty(globalThis, 'activeBuffs', {

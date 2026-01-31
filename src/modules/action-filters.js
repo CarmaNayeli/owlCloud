@@ -2,7 +2,7 @@
  * Action Filters Module
  *
  * Handles action filtering, categorization, and rebuilding.
- * Loaded as a plain script (no ES6 modules) to export to globalThis.
+ * Loaded as a plain script (no ES6 modules) to export to window.
  *
  * Functions exported to globalThis:
  * - categorizeAction(action)
@@ -130,9 +130,9 @@
 
   // ===== EXPORTS =====
 
-  globalThis.categorizeAction = categorizeAction;
-  globalThis.initializeActionFilters = initializeActionFilters;
-  globalThis.rebuildActions = rebuildActions;
+  window.categorizeAction = categorizeAction;
+  window.initializeActionFilters = initializeActionFilters;
+  window.rebuildActions = rebuildActions;
 
   // Export state variable with getter and setter
   Object.defineProperty(globalThis, 'actionFilters', {

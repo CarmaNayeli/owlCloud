@@ -571,8 +571,8 @@
 
   // ===== EXPORTS =====
 
-  // Export function to globalThis
-  globalThis.buildSheet = buildSheet;
+  // Export function to window (for access from content script context)
+  window.buildSheet = buildSheet;
 
   debug.log('✅ Sheet Builder module loaded');
 

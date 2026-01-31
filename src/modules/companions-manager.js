@@ -5,7 +5,7 @@
  * - Displays companion stats, abilities, and actions
  * - Provides attack and damage roll buttons for companion actions
  *
- * Loaded as a plain script (no ES6 modules) to export to globalThis.
+ * Loaded as a plain script (no ES6 modules) to export to window.
  */
 
 (function() {

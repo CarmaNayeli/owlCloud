@@ -6,7 +6,7 @@
  * - Shows total slots summary
  * - Manual slot adjustment via click
  *
- * Loaded as a plain script (no ES6 modules) to export to globalThis.
+ * Loaded as a plain script (no ES6 modules) to export to window.
  */
 
 (function() {

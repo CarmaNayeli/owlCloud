@@ -2,7 +2,7 @@
  * Action Display Module
  *
  * Handles rendering of actions and action cards.
- * Loaded as a plain script (no ES6 modules) to export to globalThis.
+ * Loaded as a plain script (no ES6 modules) to export to window.
  *
  * Functions exported to globalThis:
  * - buildActionsDisplay(container, actions)
@@ -1508,8 +1508,8 @@ function decrementActionUses(action) {
 
   // ===== EXPORTS =====
 
-  globalThis.buildActionsDisplay = buildActionsDisplay;
-  globalThis.decrementActionUses = decrementActionUses;
+  window.buildActionsDisplay = buildActionsDisplay;
+  window.decrementActionUses = decrementActionUses;
 
   console.log('✅ Action Display module loaded');
 
