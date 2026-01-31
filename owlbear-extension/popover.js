@@ -623,6 +623,15 @@ function populateFeaturesTab(character) {
         const useButtonHtml = resourceName ?
           `<button class="rest-btn" style="margin-top: 8px; width: 100%;" onclick="event.stopPropagation(); useFeature('${(feature.name || 'Feature').replace(/'/g, "\\'")}', '${resourceName}')">✨ Use</button>` : '';
 
+        // Combine summary and description
+        let featureText = '';
+        if (feature.summary) {
+          featureText += `<div class="feature-description">${feature.summary}</div>`;
+        }
+        if (feature.description) {
+          featureText += `<div class="feature-description">${feature.description}</div>`;
+        }
+
         html += `
           <div class="feature-card">
             <div class="feature-header" onclick="toggleFeatureCard('${featureId}')" style="cursor: pointer;">
@@ -630,7 +639,7 @@ function populateFeaturesTab(character) {
               <span class="expand-icon">▼</span>
             </div>
             <div id="${featureId}" class="feature-details">
-              ${feature.description ? `<div class="feature-description">${feature.description}</div>` : ''}
+              ${featureText}
               ${feature.source ? `<div class="feature-metadata"><div class="feature-meta-item"><span class="feature-meta-label">Source:</span> ${feature.source}</div></div>` : ''}
               ${useButtonHtml}
             </div>
@@ -708,6 +717,15 @@ function populateActionsTab(character) {
       const attackTypePrefix = hasRollAction ? 'attack' : 'utility';
       const fullActionType = `${attackTypePrefix} | ${actionType.toLowerCase()}`;
 
+      // Combine summary and description
+      let actionText = '';
+      if (action.summary) {
+        actionText += `<div class="feature-description">${action.summary}</div>`;
+      }
+      if (action.description) {
+        actionText += `<div class="feature-description">${action.description}</div>`;
+      }
+
       html += `
         <div class="feature-card">
           <div class="feature-header" onclick="toggleFeatureCard('${actionId}')" style="cursor: pointer;">
@@ -721,7 +739,7 @@ function populateActionsTab(character) {
               ${damage ? `<div class="feature-meta-item"><span class="feature-meta-label">Damage:</span> ${damage}</div>` : ''}
               ${uses && uses.value !== undefined ? `<div class="feature-meta-item"><span class="feature-meta-label">Uses:</span> ${uses.value}/${uses.max || uses.value}</div>` : ''}
             </div>
-            ${action.description ? `<div class="feature-description">${action.description}</div>` : ''}
+            ${actionText}
             ${rollButtonHtml}
           </div>
         </div>
@@ -860,6 +878,15 @@ function populateSpellsTab(character) {
 
       const castButtonHtml = `<button class="rest-btn" style="margin-top: 8px; width: 100%; display: block;" onclick="event.stopPropagation(); castSpell('${(spell.name || 'Unknown Spell').replace(/'/g, "\\'")}', ${spellLevel})">✨ Cast Spell</button>`;
 
+      // Combine summary and description
+      let spellText = '';
+      if (spell.summary) {
+        spellText += `<div class="spell-description">${spell.summary}</div>`;
+      }
+      if (spell.description) {
+        spellText += `<div class="spell-description">${spell.description}</div>`;
+      }
+
       html += `
         <div class="spell-card ${isConcentration ? 'concentration' : ''} ${isRitual ? 'ritual' : ''}">
           <div class="spell-card-header" onclick="toggleFeatureCard('${spellCardId}')" style="cursor: pointer;">
@@ -879,7 +906,7 @@ function populateSpellsTab(character) {
               ${isConcentration ? '<div class="feature-meta-item"><span class="feature-meta-label">Concentration:</span> Yes</div>' : ''}
               ${isRitual ? '<div class="feature-meta-item"><span class="feature-meta-label">Ritual:</span> Yes</div>' : ''}
             </div>
-            ${spell.description ? `<div class="spell-description">${spell.description}</div>` : ''}
+            ${spellText}
             ${castButtonHtml}
           </div>
         </div>
