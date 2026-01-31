@@ -630,6 +630,7 @@ async function loadSheetBuilderAndPopulate() {
     const modulesToLoad = [
       // Core utilities
       'src/common/debug.js',
+      'src/common/theme-manager.js',
 
       // UI and display utilities
       'src/modules/color-utils.js',
@@ -705,6 +706,18 @@ async function loadSheetBuilderAndPopulate() {
         ? cloneInto(currentCharacter, pageWindow)
         : currentCharacter;
       pageWindow.buildSheet(characterDataForPage);
+
+      // Initialize theme manager
+      if (typeof pageWindow.ThemeManager !== 'undefined' && pageWindow.ThemeManager.init) {
+        debug.log('🎨 Initializing ThemeManager...');
+        pageWindow.ThemeManager.init();
+      }
+
+      // Initialize settings button
+      if (typeof pageWindow.initSettingsButton === 'function') {
+        debug.log('⚙️ Initializing settings button...');
+        pageWindow.initSettingsButton();
+      }
     } else {
       debug.error('❌ buildSheet function not found on page window');
       debug.log('Available properties on pageWindow:', Object.keys(pageWindow).filter(k => k.includes('build')));
