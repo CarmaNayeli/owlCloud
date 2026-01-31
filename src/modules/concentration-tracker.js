@@ -38,7 +38,7 @@
     const concentrationIndicator = document.getElementById('concentration-indicator');
     const concentrationSpell = document.getElementById('concentration-spell');
 
-    if (!concentrationIndicator) return;
+    if (!concentrationIndicator || !concentrationSpell) return;
 
     // Hide concentration row if character has no spell slots (e.g., rogues)
     if (characterData && characterData.spellSlots) {

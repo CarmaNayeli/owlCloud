@@ -15,7 +15,8 @@
       "Bash(git merge:*)",
       "Read(//c/Users/c_dow/owlCloud/**)",
       "Bash(bash:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(xargs:*)"
     ]
   }
 }

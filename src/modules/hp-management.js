@@ -87,6 +87,12 @@
     const tempBtn = document.getElementById('hp-toggle-temp');
     const amountInput = document.getElementById('hp-amount');
 
+    // Return early if modal elements don't exist
+    if (!healBtn || !damageBtn || !tempBtn || !amountInput) {
+      debug.warn('⚠️ HP modal elements not found');
+      return;
+    }
+
     // Helper function to reset all buttons
     const resetButtons = () => {
       healBtn.style.background = 'var(--bg-tertiary)';

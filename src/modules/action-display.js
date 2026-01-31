@@ -21,6 +21,8 @@ function buildActionsDisplay(container, actions) {
   // Class feature toggle states
   let sneakAttackEnabled = false;
   let sneakAttackDamage = null;
+  let elementalWeaponEnabled = false;
+  let elementalWeaponDamage = null;
 
   // DEBUG: Log all actions to see what we have
   debug.log('🔍 buildActionsDisplay called with actions:', actions.map(a => ({ name: a.name, damage: a.damage, actionType: a.actionType })));
@@ -241,6 +243,8 @@ function buildActionsDisplay(container, actions) {
 
   if (hasElementalWeapon) {
     debug.log(`⚔️ Elemental Weapon spell found, adding toggle`);
+    // Set default elemental weapon damage (typically 1d4, but can vary by spell slot)
+    elementalWeaponDamage = '1d4';
 
     // Add toggle section for Elemental Weapon
     const elementalToggleSection = document.createElement('div');

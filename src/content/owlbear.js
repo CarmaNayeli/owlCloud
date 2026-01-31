@@ -545,8 +545,26 @@ function createCharacterSheetOverlay() {
 
   // Spells section
   const spellsSection = createSection('Spells');
+
+  // Search/filter bar for spells
+  const spellsSearch = document.createElement('input');
+  spellsSearch.id = 'spells-search';
+  spellsSearch.type = 'text';
+  spellsSearch.placeholder = '🔍 Search spells...';
+  spellsSearch.style.cssText = `
+    width: 100%;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    box-sizing: border-box;
+  `;
+
   const spellsContainer = document.createElement('div');
   spellsContainer.id = 'spells-container';
+
+  spellsSection.appendChild(spellsSearch);
   spellsSection.appendChild(spellsContainer);
 
   // Inventory section
