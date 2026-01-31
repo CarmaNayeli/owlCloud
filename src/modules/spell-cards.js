@@ -7,6 +7,11 @@
  * - Generates spell options (attack, damage, healing, etc.)
  *
  * Loaded as a plain script (no ES6 modules) to export to globalThis.
+ *
+ * TODO: Refactor inline styles to CSS classes to fix CSP warnings
+ * - Replace element.style assignments with classList.add()
+ * - Replace inline event handlers with addEventListener()
+ * - This will eliminate ~100+ CSP warnings in the browser console
  */
 
 (function() {
