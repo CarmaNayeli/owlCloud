@@ -41,38 +41,17 @@ OBR.onReady(async () => {
 // ============== Character Management ==============
 
 /**
- * Check if there's an active character from Supabase
+ * Check if there's an active character from browser extension
  */
 async function checkForActiveCharacter() {
   try {
-    // Get pairing code from OBR metadata (stored when user pairs)
-    const metadata = await OBR.room.getMetadata();
-    const pairingCode = metadata['owlcloud/pairing_code'];
+    // Request active character from browser extension content script
+    window.parent.postMessage({
+      type: 'OWLCLOUD_GET_ACTIVE_CHARACTER',
+      source: 'owlbear-extension'
+    }, 'https://www.owlbear.rodeo');
 
-    if (!pairingCode) {
-      console.log('ℹ️ No pairing code found, showing setup instructions');
-      showNoCharacter();
-      return;
-    }
-
-    // Call Supabase Edge Function to get active character
-    const response = await fetch(
-      `https://gkfpxwvmumaylahtxqrk.supabase.co/functions/v1/get-active-character?pairing_code=${encodeURIComponent(pairingCode)}`
-    );
-
-    if (!response.ok) {
-      console.error('Failed to get character:', response.statusText);
-      showNoCharacter();
-      return;
-    }
-
-    const data = await response.json();
-
-    if (data.success && data.character) {
-      displayCharacter(data.character);
-    } else {
-      showNoCharacter();
-    }
+    console.log('ℹ️ Requested active character from browser extension');
   } catch (error) {
     console.error('Error checking for active character:', error);
     showNoCharacter();

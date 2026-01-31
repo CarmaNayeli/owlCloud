@@ -101,7 +101,7 @@ main {
 .character-info h3 {
   font-size: 16px;
   margin-bottom: 12px;
-  color: #2e7d32;
+  color: #66BB6A;
 }
 
 .info-row {
@@ -113,7 +113,7 @@ main {
 
 .info-row .label {
   font-weight: 600;
-  color: #555;
+  color: #A78BFA;
 }
 
 .hidden {
@@ -186,13 +186,13 @@ main {
 .instructions h3 {
   font-size: 14px;
   margin-bottom: 10px;
-  color: #e65100;
+  color: #FFA726;
 }
 
 .instructions ol {
   font-size: 13px;
   padding-left: 20px;
-  color: #666;
+  color: #FCD34D;
   line-height: 1.6;
 }
 
