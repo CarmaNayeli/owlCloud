@@ -108,6 +108,13 @@
     // Store character data globally for other modules to access
     globalThis.characterData = data;
 
+    // Helper function to safely set element properties
+    const safeSet = (id, prop, value) => {
+      const el = document.getElementById(id);
+      if (el) el[prop] = value;
+      return el;
+    };
+
     // Initialize concentration from saved data
     if (data.concentration) {
       if (typeof window.concentratingSpell !== 'undefined') {
@@ -240,20 +247,20 @@
     }
 
     // Layer 1: Class, Level, Race, Hit Dice
-    document.getElementById('char-class').textContent = data.class || 'Unknown';
-    document.getElementById('char-level').textContent = data.level || 1;
-    document.getElementById('char-race').textContent = raceName;
+    safeSet('char-class', 'textContent', data.class || 'Unknown');
+    safeSet('char-level', 'textContent', data.level || 1);
+    safeSet('char-race', 'textContent', raceName);
     // Defensive initialization for hitDice
     if (!data.hitDice) {
       data.hitDice = { current: 0, max: 0, type: 'd6' };
     }
 
-    document.getElementById('char-hit-dice').textContent = `${data.hitDice.current || 0}/${data.hitDice.max || 0} ${data.hitDice.type || 'd6'}`;
+    safeSet('char-hit-dice', 'textContent', `${data.hitDice.current || 0}/${data.hitDice.max || 0} ${data.hitDice.type || 'd6'}`);
 
     // Layer 2: AC, Speed, Proficiency, Death Saves, Inspiration
-    document.getElementById('char-ac').textContent = calculateTotalAC(data);
-    document.getElementById('char-speed').textContent = `${data.speed || 30} ft`;
-    document.getElementById('char-proficiency').textContent = `+${data.proficiencyBonus || 0}`;
+    safeSet('char-ac', 'textContent', calculateTotalAC(data));
+    safeSet('char-speed', 'textContent', `${data.speed || 30} ft`);
+    safeSet('char-proficiency', 'textContent', `+${data.proficiencyBonus || 0}`);
 
     // Death Saves
     const deathSavesDisplay = document.getElementById('death-saves-display');
@@ -318,11 +325,15 @@
 
     debug.log('💚 HP display values:', { current: data.hitPoints.current, max: data.hitPoints.max, tempHP: data.temporaryHP });
 
-    hpValue.textContent = `${data.hitPoints.current}${data.temporaryHP > 0 ? `+${data.temporaryHP}` : ''} / ${data.hitPoints.max}`;
+    if (hpValue) {
+      hpValue.textContent = `${data.hitPoints.current}${data.temporaryHP > 0 ? `+${data.temporaryHP}` : ''} / ${data.hitPoints.max}`;
+    }
 
     // Initiative
     const initiativeValue = document.getElementById('initiative-value');
-    initiativeValue.textContent = `+${data.initiative || 0}`;
+    if (initiativeValue) {
+      initiativeValue.textContent = `+${data.initiative || 0}`;
+    }
 
     // Remove old event listeners by cloning and replacing elements
     // This prevents duplicate listeners when buildSheet() is called multiple times
@@ -415,9 +426,10 @@
 
     // Abilities
     const abilitiesGrid = document.getElementById('abilities-grid');
-    abilitiesGrid.innerHTML = ''; // Clear existing
-    const abilities = ['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma'];
-    abilities.forEach(ability => {
+    if (abilitiesGrid) {
+      abilitiesGrid.innerHTML = ''; // Clear existing
+      const abilities = ['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma'];
+      abilities.forEach(ability => {
       const score = data.attributes?.[ability] || 10;
       const mod = data.attributeMods?.[ability] || 0;
       const card = createCard(ability.substring(0, 3).toUpperCase(), score, `+${mod}`, () => {
@@ -439,13 +451,16 @@
 
         roll(`${ability.charAt(0).toUpperCase() + ability.slice(1)} Check`, `1d20+${mod}`);
       });
-      abilitiesGrid.appendChild(card);
-    });
+        abilitiesGrid.appendChild(card);
+      });
+    }
 
     // Saves
     const savesGrid = document.getElementById('saves-grid');
-    savesGrid.innerHTML = ''; // Clear existing
-    abilities.forEach(ability => {
+    if (savesGrid) {
+      savesGrid.innerHTML = ''; // Clear existing
+      const abilities = ['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma'];
+      abilities.forEach(ability => {
       const bonus = data.savingThrows?.[ability] || 0;
       const card = createCard(`${ability.substring(0, 3).toUpperCase()}`, `+${bonus}`, '', () => {
         // Announce saving throw
@@ -466,12 +481,14 @@
 
         roll(`${ability.toUpperCase()} Save`, `1d20+${bonus}`);
       });
-      savesGrid.appendChild(card);
-    });
+        savesGrid.appendChild(card);
+      });
+    }
 
     // Skills - deduplicate and show unique skills only
     const skillsGrid = document.getElementById('skills-grid');
-    skillsGrid.innerHTML = ''; // Clear existing
+    if (skillsGrid) {
+      skillsGrid.innerHTML = ''; // Clear existing
 
     // Create a map to deduplicate skills (in case data has duplicates)
     const uniqueSkills = new Map();
@@ -509,22 +526,25 @@
 
         roll(displayName, `1d20${bonus >= 0 ? '+' : ''}${bonus}`);
       });
-      skillsGrid.appendChild(card);
-    });
+        skillsGrid.appendChild(card);
+      });
+    }
 
     // Actions & Attacks
     const actionsContainer = document.getElementById('actions-container');
-    debug.log('🎬 Actions display check:', {
-      has_actions: !!data.actions,
-      is_array: Array.isArray(data.actions),
-      length: data.actions?.length,
-      sample_names: data.actions?.slice(0, 5).map(a => a.name)
-    });
-    if (data.actions && Array.isArray(data.actions) && data.actions.length > 0) {
-      buildActionsDisplay(actionsContainer, data.actions);
-    } else {
-      actionsContainer.innerHTML = '<p style="text-align: center; color: #666;">No actions available</p>';
-      debug.warn('⚠️ No actions to display - showing placeholder');
+    if (actionsContainer) {
+      debug.log('🎬 Actions display check:', {
+        has_actions: !!data.actions,
+        is_array: Array.isArray(data.actions),
+        length: data.actions?.length,
+        sample_names: data.actions?.slice(0, 5).map(a => a.name)
+      });
+      if (data.actions && Array.isArray(data.actions) && data.actions.length > 0) {
+        buildActionsDisplay(actionsContainer, data.actions);
+      } else {
+        actionsContainer.innerHTML = '<p style="text-align: center; color: #666;">No actions available</p>';
+        debug.warn('⚠️ No actions to display - showing placeholder');
+      }
     }
 
     // Companions (Animal Companions, Familiars, Summons, etc.)
@@ -540,28 +560,32 @@
 
     // Inventory & Equipment
     const inventoryContainer = document.getElementById('inventory-container');
-    if (data.inventory && Array.isArray(data.inventory) && data.inventory.length > 0) {
-      buildInventoryDisplay(inventoryContainer, data.inventory);
-    } else {
-      inventoryContainer.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No items in inventory</p>';
+    if (inventoryContainer) {
+      if (data.inventory && Array.isArray(data.inventory) && data.inventory.length > 0) {
+        buildInventoryDisplay(inventoryContainer, data.inventory);
+      } else {
+        inventoryContainer.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No items in inventory</p>';
+      }
     }
 
     // Spells - organized by source then level
     const spellsContainer = document.getElementById('spells-container');
-    debug.log('✨ Spells display check:', {
-      has_spells: !!data.spells,
-      is_array: Array.isArray(data.spells),
-      length: data.spells?.length,
-      sample_names: data.spells?.slice(0, 5).map(s => s.name)
-    });
-    if (data.spells && Array.isArray(data.spells) && data.spells.length > 0) {
-      buildSpellsBySource(spellsContainer, data.spells);
-      expandSectionByContainerId('spells-container');
-    } else {
-      spellsContainer.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No spells prepared</p>';
-      debug.warn('⚠️ No spells to display - showing placeholder');
-      // Collapse the section when empty
-      collapseSectionByContainerId('spells-container');
+    if (spellsContainer) {
+      debug.log('✨ Spells display check:', {
+        has_spells: !!data.spells,
+        is_array: Array.isArray(data.spells),
+        length: data.spells?.length,
+        sample_names: data.spells?.slice(0, 5).map(s => s.name)
+      });
+      if (data.spells && Array.isArray(data.spells) && data.spells.length > 0) {
+        buildSpellsBySource(spellsContainer, data.spells);
+        expandSectionByContainerId('spells-container');
+      } else {
+        spellsContainer.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No spells prepared</p>';
+        debug.warn('⚠️ No spells to display - showing placeholder');
+        // Collapse the section when empty
+        collapseSectionByContainerId('spells-container');
+      }
     }
 
     // Restore active effects from character data
