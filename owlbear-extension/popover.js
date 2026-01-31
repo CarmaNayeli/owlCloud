@@ -272,6 +272,13 @@ function displayCharacter(character) {
   // Set character portrait if available
   // Try Picture URL first (main image), then Avatar picture URL (fallback)
   // DiceCloud stores these as pictureUrl and avatarPictureUrl
+  console.log('🖼️ Checking for portrait in character data:');
+  console.log('  pictureUrl:', character.pictureUrl);
+  console.log('  picture:', character.picture);
+  console.log('  avatarPictureUrl:', character.avatarPictureUrl);
+  console.log('  avatarPicture:', character.avatarPicture);
+  console.log('  avatar:', character.avatar);
+
   const portraitUrl = character.pictureUrl ||
                       character.picture_url ||
                       character.picture?.url ||
@@ -286,10 +293,10 @@ function displayCharacter(character) {
     if (portraitUrl) {
       characterPortrait.src = portraitUrl;
       characterPortrait.style.display = 'block';
-      console.log('Portrait loaded from:', portraitUrl);
+      console.log('✅ Portrait loaded from:', portraitUrl);
     } else {
       characterPortrait.style.display = 'none';
-      console.log('No portrait found. Available character fields:', Object.keys(character).join(', '));
+      console.log('❌ No portrait found. Available character fields:', Object.keys(character).join(', '));
     }
   }
 
