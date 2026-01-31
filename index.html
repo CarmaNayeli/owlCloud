@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RollCloud - DiceCloud + Owlbear Rodeo Integration</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 900px;
+      background: white;
+      border-radius: 20px;
+      padding: 60px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 50px;
+    }
+
+    .logo {
+      font-size: 72px;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      font-size: 48px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      font-size: 20px;
+      color: #666;
+      margin-bottom: 30px;
+    }
+
+    .description {
+      font-size: 18px;
+      color: #555;
+      text-align: center;
+      margin-bottom: 40px;
+      line-height: 1.8;
+    }
+
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 30px;
+      margin-bottom: 50px;
+    }
+
+    .feature {
+      text-align: center;
+      padding: 30px;
+      background: #f8f9fa;
+      border-radius: 12px;
+      transition: transform 0.2s;
+    }
+
+    .feature:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    .feature-icon {
+      font-size: 48px;
+      margin-bottom: 15px;
+    }
+
+    .feature-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: #667eea;
+      margin-bottom: 10px;
+    }
+
+    .feature-description {
+      font-size: 14px;
+      color: #666;
+    }
+
+    .installation {
+      background: #fff3cd;
+      border: 2px solid #ffeaa7;
+      border-radius: 12px;
+      padding: 30px;
+      margin-bottom: 40px;
+    }
+
+    .installation h2 {
+      color: #856404;
+      margin-bottom: 20px;
+      font-size: 24px;
+    }
+
+    .installation-steps {
+      list-style: none;
+    }
+
+    .installation-steps li {
+      padding: 12px 0;
+      padding-left: 30px;
+      position: relative;
+      color: #856404;
+    }
+
+    .installation-steps li::before {
+      content: attr(data-step);
+      position: absolute;
+      left: 0;
+      background: #667eea;
+      color: white;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .cta-buttons {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 32px;
+      font-size: 16px;
+      font-weight: 600;
+      text-decoration: none;
+      border-radius: 12px;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+
+    .button-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .button-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(102, 126, 234, 0.6);
+    }
+
+    .button-secondary {
+      background: white;
+      color: #667eea;
+      border: 2px solid #667eea;
+    }
+
+    .button-secondary:hover {
+      background: #f8f9fa;
+      transform: translateY(-2px);
+    }
+
+    .extension-url {
+      background: #f8f9fa;
+      border: 2px solid #e9ecef;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin: 20px 0;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      word-break: break-all;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .copy-button {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      transition: background 0.2s;
+      margin-left: 10px;
+      white-space: nowrap;
+    }
+
+    .copy-button:hover {
+      background: #5568d3;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 50px;
+      padding-top: 30px;
+      border-top: 1px solid #e9ecef;
+      color: #666;
+      font-size: 14px;
+    }
+
+    .footer a {
+      color: #667eea;
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        padding: 40px 30px;
+      }
+
+      h1 {
+        font-size: 36px;
+      }
+
+      .features {
+        grid-template-columns: 1fr;
+      }
+
+      .cta-buttons {
+        flex-direction: column;
+      }
+
+      .button {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="logo">🎲</div>
+      <h1>RollCloud</h1>
+      <p class="subtitle">DiceCloud + Owlbear Rodeo + Discord</p>
+    </div>
+
+    <p class="description">
+      Seamlessly integrate your DiceCloud V2 characters into Owlbear Rodeo with full Discord support.
+      Sync character data, display character sheets in-game, and roll dice—all while keeping everything in sync.
+    </p>
+
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon">📋</div>
+        <div class="feature-title">Character Sync</div>
+        <div class="feature-description">Automatically sync your DiceCloud characters to Owlbear Rodeo</div>
+      </div>
+
+      <div class="feature">
+        <div class="feature-icon">🦉</div>
+        <div class="feature-title">Owlbear Integration</div>
+        <div class="feature-description">Native extension using the Owlbear Rodeo SDK</div>
+      </div>
+
+      <div class="feature">
+        <div class="feature-icon">💬</div>
+        <div class="feature-title">Discord Bot</div>
+        <div class="feature-description">Turn notifications and dice rolling via Discord commands</div>
+      </div>
+    </div>
+
+    <div class="installation">
+      <h2>📦 Installation</h2>
+      <ol class="installation-steps">
+        <li data-step="1">Install the RollCloud browser extension (Chrome/Firefox/Edge/Safari)</li>
+        <li data-step="2">Open Owlbear Rodeo and click the Extensions menu</li>
+        <li data-step="3">Click "Add Extension" and paste the URL below</li>
+        <li data-step="4">Your DiceCloud characters will appear in Owlbear!</li>
+      </ol>
+
+      <div class="extension-url">
+        <code id="extension-url">Loading...</code>
+        <button class="copy-button" onclick="copyExtensionUrl()">Copy</button>
+      </div>
+    </div>
+
+    <div class="cta-buttons">
+      <a href="https://github.com/CarmaNayeli/rollCloud" class="button button-primary" target="_blank">
+        <span>🔗</span>
+        <span>View on GitHub</span>
+      </a>
+      <a href="https://www.owlbear.rodeo" class="button button-secondary" target="_blank">
+        <span>🦉</span>
+        <span>Open Owlbear Rodeo</span>
+      </a>
+      <a href="https://dicecloud.com" class="button button-secondary" target="_blank">
+        <span>🎲</span>
+        <span>Open DiceCloud</span>
+      </a>
+    </div>
+
+    <div class="footer">
+      <p>Built with ❤️ using the Owlbear Rodeo SDK</p>
+      <p style="margin-top: 10px;">
+        <a href="https://github.com/CarmaNayeli/rollCloud/issues" target="_blank">Report Issues</a> •
+        <a href="https://github.com/CarmaNayeli/rollCloud/blob/main/owlbear-extension/README.md" target="_blank">Documentation</a>
+      </p>
+    </div>
+  </div>
+
+  <script>
+    // Update extension URL after page load
+    window.addEventListener('load', () => {
+      const url = window.location.protocol + '//' + window.location.host + '/extension/manifest.json';
+      document.getElementById('extension-url').textContent = url;
+    });
+
+    function copyExtensionUrl() {
+      const urlElement = document.getElementById('extension-url');
+      const url = urlElement.textContent;
+
+      navigator.clipboard.writeText(url).then(() => {
+        const button = event.target;
+        const originalText = button.textContent;
+        button.textContent = '✓ Copied!';
+        button.style.background = '#2ecc71';
+
+        setTimeout(() => {
+          button.textContent = originalText;
+          button.style.background = '#667eea';
+        }, 2000);
+      }).catch(err => {
+        console.error('Failed to copy:', err);
+        alert('Failed to copy URL. Please copy manually.');
+      });
+    }
+  </script>
+</body>
+</html>
