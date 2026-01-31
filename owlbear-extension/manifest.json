@@ -1,6 +1,5 @@
 {
   "manifest_version": 1,
-  "id": "com.owlcloud.owlbear-integration",
   "name": "OwlCloud - DiceCloud Integration",
   "version": "2.0.0",
   "description": "Sync DiceCloud V2 characters to Owlbear Rodeo with Discord integration",
