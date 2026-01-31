@@ -270,24 +270,18 @@ function displayCharacter(character) {
   }
 
   // Set character portrait if available
-  // Try Picture URL first (main image), then Avatar picture URL (fallback)
-  // DiceCloud stores these as pictureUrl and avatarPictureUrl
+  // Portrait data is stored in rawDiceCloudData
   console.log('🖼️ Checking for portrait in character data:');
-  console.log('  pictureUrl:', character.pictureUrl);
-  console.log('  picture:', character.picture);
-  console.log('  avatarPictureUrl:', character.avatarPictureUrl);
-  console.log('  avatarPicture:', character.avatarPicture);
-  console.log('  avatar:', character.avatar);
+  console.log('  character.picture:', character.picture);
+  console.log('  character.avatarPicture:', character.avatarPicture);
+  console.log('  character.rawDiceCloudData?.picture:', character.rawDiceCloudData?.picture);
+  console.log('  character.rawDiceCloudData?.avatarPicture:', character.rawDiceCloudData?.avatarPicture);
 
-  const portraitUrl = character.pictureUrl ||
-                      character.picture_url ||
-                      character.picture?.url ||
-                      character.picture ||
-                      character.avatarPictureUrl ||
-                      character.avatar_picture_url ||
-                      character.avatarPicture?.url ||
+  // Try top-level fields first, then check inside rawDiceCloudData
+  const portraitUrl = character.picture ||
                       character.avatarPicture ||
-                      character.avatar;
+                      character.rawDiceCloudData?.picture ||
+                      character.rawDiceCloudData?.avatarPicture;
 
   if (characterPortrait) {
     if (portraitUrl) {
@@ -296,7 +290,7 @@ function displayCharacter(character) {
       console.log('✅ Portrait loaded from:', portraitUrl);
     } else {
       characterPortrait.style.display = 'none';
-      console.log('❌ No portrait found. Available character fields:', Object.keys(character).join(', '));
+      console.log('❌ No portrait found');
     }
   }
 
