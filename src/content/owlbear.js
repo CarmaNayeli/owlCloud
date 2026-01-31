@@ -387,8 +387,8 @@ window.addEventListener('message', async (event) => {
   const { type, source } = event.data;
 
   // Only process messages from our Owlbear extension
+  // Silently ignore messages without the expected source field (likely SDK internal messages)
   if (source !== 'owlbear-extension') {
-    console.log('❌ OwlCloud rejected: wrong source', source);
     return;
   }
 
