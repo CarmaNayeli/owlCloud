@@ -320,6 +320,46 @@ function displayCharacter(character) {
 }
 
 /**
+ * Create a circular version of an image using Canvas
+ */
+async function createCircularImage(imageUrl, size) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous'; // Handle CORS
+
+    img.onload = () => {
+      // Create canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      // Draw circular clip
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+
+      // Draw image centered and scaled to fill circle
+      const scale = Math.max(size / img.width, size / img.height);
+      const x = (size / 2) - (img.width / 2) * scale;
+      const y = (size / 2) - (img.height / 2) * scale;
+      ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+
+      // Convert to data URL
+      resolve(canvas.toDataURL('image/png'));
+    };
+
+    img.onerror = () => {
+      console.warn('Failed to load image for circular crop, using original');
+      resolve(imageUrl); // Fallback to original if loading fails
+    };
+
+    img.src = imageUrl;
+  });
+}
+
+/**
  * Set up click handler for character portrait to create tokens
  */
 function setupPortraitDrag(portraitElement, character, portraitUrl) {
@@ -364,15 +404,19 @@ function setupPortraitDrag(portraitElement, character, portraitUrl) {
       // Get grid DPI for sizing (1 grid square)
       const dpi = await OBR.scene.grid.getDpi();
 
+      // Create circular version of the portrait
+      console.log('🎨 Creating circular image...');
+      const circularImageUrl = await createCircularImage(portraitUrl, dpi * 2); // Use 2x size for better quality
+
       // Get current player ID to set ownership
       const playerId = await OBR.player.getId();
 
-      // Build token using buildImage
+      // Build token using buildImage with circular image
       const token = buildImage(
         {
           height: dpi,
           width: dpi,
-          url: portraitUrl,
+          url: circularImageUrl,
           mime: 'image/png'
         },
         {
