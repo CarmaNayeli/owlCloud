@@ -24,6 +24,15 @@
     const statusBarBtn = document.getElementById('status-bar-btn');
     if (statusBarBtn) {
       statusBarBtn.addEventListener('click', () => {
+        // Check if browserAPI is available
+        if (typeof browserAPI === 'undefined' || !browserAPI) {
+          if (typeof showNotification !== 'undefined') {
+            showNotification('❌ Extension API not available', 'error');
+          }
+          debug.warn('⚠️ browserAPI not available');
+          return;
+        }
+
         // Open status bar window
         const width = 350;
         const height = 500;

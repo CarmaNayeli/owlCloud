@@ -124,6 +124,12 @@
    * Sets up the color picker dropdown for notification colors
    */
   function initColorPalette() {
+    // Check if characterData is available
+    if (typeof characterData === 'undefined' || !characterData) {
+      debug.warn('⚠️ characterData not available for color palette initialization');
+      return;
+    }
+
     // Set default color if not set
     if (!characterData.notificationColor) {
       characterData.notificationColor = '#3498db';
@@ -203,6 +209,12 @@
    */
   async function syncColorToSupabase(color) {
     try {
+      // Check if browserAPI is available
+      if (typeof browserAPI === 'undefined' || !browserAPI) {
+        debug.warn('⚠️ browserAPI not available, cannot sync color to Supabase');
+        return;
+      }
+
       // Send message to background script to sync to Supabase
       const response = await browserAPI.runtime.sendMessage({
         action: 'syncCharacterColor',
