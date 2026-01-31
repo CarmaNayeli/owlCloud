@@ -1,4 +1,4 @@
-﻿{
+{
   "manifest_version": 1,
   "id": "com.owlcloud.owlbear-integration",
   "name": "OwlCloud - DiceCloud Integration",
@@ -12,12 +12,5 @@
     "popover": "/popover.html",
     "height": 600,
     "width": 400
-  },
-  "permissions": [
-    "scene.items",
-    "scene.grid",
-    "player",
-    "room",
-    "notification"
-  ]
+  }
 }
