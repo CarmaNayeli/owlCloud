@@ -93,8 +93,10 @@
     if (!charNameEl) {
       debug.error('❌ Critical DOM elements not found! DOM may not be ready yet.');
       debug.log('⏳ Queuing buildSheet for when DOM is ready...');
-      if (!domReady) {
-        pendingOperations.push(() => buildSheet(data));
+      if (typeof domReady !== 'undefined' && !domReady) {
+        if (typeof pendingOperations !== 'undefined') {
+          pendingOperations.push(() => buildSheet(data));
+        }
       } else {
         // DOM claims to be ready but elements aren't there - retry after a short delay
         debug.log('⏱️ DOM ready but elements missing - retrying in 100ms...');
@@ -105,19 +107,27 @@
 
     // Initialize concentration from saved data
     if (data.concentration) {
-      concentratingSpell = data.concentration;
-      updateConcentrationDisplay();
-      debug.log(`🧠 Restored concentration: ${concentratingSpell}`);
+      if (typeof window.concentratingSpell !== 'undefined') {
+        window.concentratingSpell = data.concentration;
+      }
+      if (typeof updateConcentrationDisplay === 'function') {
+        updateConcentrationDisplay();
+      }
+      debug.log(`🧠 Restored concentration: ${data.concentration}`);
     } else {
-      concentratingSpell = null;
-      updateConcentrationDisplay();
+      if (typeof window.concentratingSpell !== 'undefined') {
+        window.concentratingSpell = null;
+      }
+      if (typeof updateConcentrationDisplay === 'function') {
+        updateConcentrationDisplay();
+      }
     }
 
     // Character name with source badge
     const characterName = data.name || 'Character';
     const isCloudCharacter = data.source === 'database' ||
                              data.hasCloudVersion === true ||
-                             (currentSlotId && currentSlotId.startsWith('db-')) ||
+                             (typeof currentSlotId !== 'undefined' && currentSlotId && currentSlotId.startsWith('db-')) ||
                              data.id?.startsWith('db-');
 
     if (isCloudCharacter) {
@@ -520,41 +530,50 @@
     }
 
     // Restore active effects from character data
-    if (data.activeEffects) {
-      activeBuffs = data.activeEffects.buffs || [];
-      activeConditions = data.activeEffects.debuffs || [];
-      debug.log('✅ Restored active effects:', { buffs: activeBuffs, debuffs: activeConditions });
-    } else {
-      activeBuffs = [];
-      activeConditions = [];
-    }
+    if (typeof window.activeBuffs !== 'undefined' && typeof window.activeConditions !== 'undefined') {
+      if (data.activeEffects) {
+        window.activeBuffs = data.activeEffects.buffs || [];
+        window.activeConditions = data.activeEffects.debuffs || [];
+        debug.log('✅ Restored active effects:', { buffs: window.activeBuffs, debuffs: window.activeConditions });
+      } else {
+        window.activeBuffs = [];
+        window.activeConditions = [];
+      }
 
-    // Sync conditions from Dicecloud (if any were detected as active)
-    if (data.conditions && Array.isArray(data.conditions) && data.conditions.length > 0) {
-      debug.log('✨ Syncing conditions from Dicecloud:', data.conditions);
-      data.conditions.forEach(condition => {
-        // Map Dicecloud condition names to our effect names
-        const conditionName = condition.name;
-        const isPositive = POSITIVE_EFFECTS.some(e => e.name === conditionName);
-        const isNegative = NEGATIVE_EFFECTS.some(e => e.name === conditionName);
+      // Sync conditions from Dicecloud (if any were detected as active)
+      if (data.conditions && Array.isArray(data.conditions) && data.conditions.length > 0 &&
+          typeof window.POSITIVE_EFFECTS !== 'undefined' && typeof window.NEGATIVE_EFFECTS !== 'undefined') {
+        debug.log('✨ Syncing conditions from Dicecloud:', data.conditions);
+        data.conditions.forEach(condition => {
+          // Map Dicecloud condition names to our effect names
+          const conditionName = condition.name;
+          const isPositive = window.POSITIVE_EFFECTS.some(e => e.name === conditionName);
+          const isNegative = window.NEGATIVE_EFFECTS.some(e => e.name === conditionName);
 
-        if (isPositive && !activeBuffs.includes(conditionName)) {
-          activeBuffs.push(conditionName);
-          debug.log(`  ✅ Added buff from Dicecloud: ${conditionName}`);
-        } else if (isNegative && !activeConditions.includes(conditionName)) {
-          activeConditions.push(conditionName);
-          debug.log(`  ✅ Added debuff from Dicecloud: ${conditionName}`);
+          if (isPositive && !window.activeBuffs.includes(conditionName)) {
+            window.activeBuffs.push(conditionName);
+            debug.log(`  ✅ Added buff from Dicecloud: ${conditionName}`);
+          } else if (isNegative && !window.activeConditions.includes(conditionName)) {
+            window.activeConditions.push(conditionName);
+            debug.log(`  ✅ Added debuff from Dicecloud: ${conditionName}`);
         }
       });
+      }
     }
 
-    updateEffectsDisplay();
+    if (typeof updateEffectsDisplay === 'function') {
+      updateEffectsDisplay();
+    }
 
     // Initialize color palette after sheet is built
-    initColorPalette();
+    if (typeof initColorPalette === 'function') {
+      initColorPalette();
+    }
 
     // Initialize filter event listeners
-    initializeFilters();
+    if (typeof initializeFilters === 'function') {
+      initializeFilters();
+    }
 
     // Hide loading overlay and show the sheet with fade-in effect
     const loadingOverlay = document.getElementById('loading-overlay');
