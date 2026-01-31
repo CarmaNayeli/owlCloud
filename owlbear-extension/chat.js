@@ -10,6 +10,8 @@
 
 let currentCharacter = null;
 let isOwlbearReady = false;
+let currentPlayerId = null;
+let lastLoadedMessageId = null;
 
 // ============== DOM Elements ==============
 
@@ -24,14 +26,26 @@ OBR.onReady(async () => {
   isOwlbearReady = true;
   console.log('🦉 Owlbear SDK ready in chat window');
 
+  // Get player ID
+  currentPlayerId = await OBR.player.getId();
+
   // Check for active character
   await checkForActiveCharacter();
+
+  // Load chat history from metadata
+  await loadChatHistory();
 
   // Listen for messages from character sheet
   OBR.room.onMetadataChange((metadata) => {
     const message = metadata['com.owlcloud.chat/latest-message'];
     if (message && message.timestamp) {
       handleCharacterSheetMessage(message);
+    }
+
+    // Listen for new chat messages
+    const messages = metadata['com.owlcloud.chat/messages'];
+    if (messages && Array.isArray(messages)) {
+      loadNewMessages(messages);
     }
   });
 });
@@ -88,14 +102,14 @@ function handleCharacterSheetMessage(message) {
         const rollsText = rolls.join(' + ');
         const modText = modifier !== 0 ? ` ${modifier >= 0 ? '+' : ''}${modifier}` : '';
         const text = `🎲 ${name}: ${rollsText}${modText} = <strong>${total}</strong>`;
-        addChatMessage(text, 'roll', characterName);
+        addChatMessageToMetadata(text, 'roll', characterName);
       }
       break;
 
     case 'action':
       if (message.data) {
         const { actionName, details } = message.data;
-        addChatMessage(`⚔️ ${actionName} - ${details}`, 'action', characterName);
+        addChatMessageToMetadata(`⚔️ ${actionName} - ${details}`, 'action', characterName);
       }
       break;
 
@@ -103,18 +117,58 @@ function handleCharacterSheetMessage(message) {
       if (message.data) {
         const { spellName, level } = message.data;
         const levelText = level === 0 ? 'Cantrip' : `Level ${level}`;
-        addChatMessage(`✨ ${spellName} (${levelText})`, 'spell', characterName);
+        addChatMessageToMetadata(`✨ ${spellName} (${levelText})`, 'spell', characterName);
       }
       break;
 
     case 'combat':
       if (message.data && message.data.text) {
-        addChatMessage(message.data.text, 'combat', characterName);
+        addChatMessageToMetadata(message.data.text, 'combat', characterName);
       }
       break;
 
     default:
       console.warn('Unknown message type:', message.type);
+  }
+}
+
+/**
+ * Load chat history from room metadata
+ */
+async function loadChatHistory() {
+  try {
+    const metadata = await OBR.room.getMetadata();
+    const messages = metadata['com.owlcloud.chat/messages'];
+
+    if (messages && Array.isArray(messages)) {
+      messages.forEach(msg => {
+        displayChatMessage(msg.text, msg.type, msg.author, msg.timestamp);
+        lastLoadedMessageId = msg.id;
+      });
+      scrollChatToBottom();
+    }
+  } catch (error) {
+    console.error('Error loading chat history:', error);
+  }
+}
+
+/**
+ * Load new messages from metadata
+ */
+function loadNewMessages(messages) {
+  if (!Array.isArray(messages)) return;
+
+  const newMessages = messages.filter(msg =>
+    !lastLoadedMessageId || msg.id > lastLoadedMessageId
+  );
+
+  newMessages.forEach(msg => {
+    displayChatMessage(msg.text, msg.type, msg.author, msg.timestamp);
+    lastLoadedMessageId = msg.id;
+  });
+
+  if (newMessages.length > 0) {
+    scrollChatToBottom();
   }
 }
 
@@ -130,16 +184,17 @@ function scrollChatToBottom() {
 }
 
 /**
- * Add a message to the chat
+ * Display a message in the chat UI (local only, doesn't save to metadata)
  * @param {string} text - Message text
  * @param {string} type - Message type: 'system', 'roll', 'action', 'spell', 'combat', 'user'
  * @param {string} author - Message author (optional)
+ * @param {number} timestamp - Message timestamp (optional)
  */
-function addChatMessage(text, type = 'system', author = null) {
+function displayChatMessage(text, type = 'system', author = null, timestamp = null) {
   const messageDiv = document.createElement('div');
   messageDiv.className = `chat-message ${type}`;
 
-  const now = new Date();
+  const now = timestamp ? new Date(timestamp) : new Date();
   const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
   if (author) {
@@ -157,7 +212,6 @@ function addChatMessage(text, type = 'system', author = null) {
   }
 
   chatMessages.appendChild(messageDiv);
-  scrollChatToBottom();
 
   // Limit chat history to last 100 messages
   const messages = chatMessages.querySelectorAll('.chat-message');
@@ -167,20 +221,48 @@ function addChatMessage(text, type = 'system', author = null) {
 }
 
 /**
+ * Add a message to chat and save to room metadata (shared with all players)
+ * @param {string} text - Message text
+ * @param {string} type - Message type: 'system', 'roll', 'action', 'spell', 'combat', 'user'
+ * @param {string} author - Message author (optional)
+ */
+async function addChatMessageToMetadata(text, type = 'system', author = null) {
+  if (!isOwlbearReady) return;
+
+  try {
+    const metadata = await OBR.room.getMetadata();
+    const messages = metadata['com.owlcloud.chat/messages'] || [];
+
+    const newMessage = {
+      id: Date.now() + Math.random(), // Unique ID
+      text: text,
+      type: type,
+      author: author,
+      playerId: currentPlayerId,
+      timestamp: Date.now()
+    };
+
+    // Add to metadata (limit to last 100 messages)
+    const updatedMessages = [...messages, newMessage].slice(-100);
+
+    await OBR.room.setMetadata({
+      'com.owlcloud.chat/messages': updatedMessages
+    });
+  } catch (error) {
+    console.error('Error adding message to metadata:', error);
+  }
+}
+
+/**
  * Send a user message
  */
-function sendChatMessage() {
+async function sendChatMessage() {
   const text = chatInput.value.trim();
   if (!text) return;
 
-  // Add user message to chat
+  // Add user message to shared chat
   const characterName = currentCharacter?.name || 'You';
-  addChatMessage(text, 'user', characterName);
-
-  // Send message to Owlbear via notification (placeholder - you can customize this)
-  if (isOwlbearReady) {
-    OBR.notification.show(`${characterName}: ${text}`, 'INFO');
-  }
+  await addChatMessageToMetadata(text, 'user', characterName);
 
   // Clear input
   chatInput.value = '';
@@ -200,26 +282,26 @@ chatInput.addEventListener('keypress', (e) => {
 
 // Expose chat functions for other windows to call
 window.owlcloudChat = {
-  addMessage: addChatMessage,
-  announceRoll: (rollName, formula, result) => {
+  addMessage: addChatMessageToMetadata,
+  announceRoll: async (rollName, formula, result) => {
     const characterName = currentCharacter?.name || 'Character';
     const text = `🎲 ${rollName}: ${formula} = <strong>${result}</strong>`;
-    addChatMessage(text, 'roll', characterName);
+    await addChatMessageToMetadata(text, 'roll', characterName);
   },
-  announceAction: (actionName, details = '') => {
+  announceAction: async (actionName, details = '') => {
     const characterName = currentCharacter?.name || 'Character';
     const text = details ? `⚔️ ${actionName} - ${details}` : `⚔️ ${actionName}`;
-    addChatMessage(text, 'action', characterName);
+    await addChatMessageToMetadata(text, 'action', characterName);
   },
-  announceSpell: (spellName, level, details = '') => {
+  announceSpell: async (spellName, level, details = '') => {
     const characterName = currentCharacter?.name || 'Character';
     const levelText = level === 0 ? 'Cantrip' : `Level ${level}`;
     const text = details ? `✨ ${spellName} (${levelText}) - ${details}` : `✨ ${spellName} (${levelText})`;
-    addChatMessage(text, 'spell', characterName);
+    await addChatMessageToMetadata(text, 'spell', characterName);
   },
-  announceCombat: (text) => {
+  announceCombat: async (text) => {
     const characterName = currentCharacter?.name || 'Character';
-    addChatMessage(text, 'combat', characterName);
+    await addChatMessageToMetadata(text, 'combat', characterName);
   }
 };
 
