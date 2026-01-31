@@ -1,0 +1,26 @@
+# Ignore build artifacts and dev files
+node_modules
+.git
+.github
+.windsurf
+.claude
+
+# Ignore development directories  
+Pip2/dashboard/.next
+Pip2/node_modules
+installer
+build-scripts
+scripts
+test-extension
+tests
+experimental
+diceCloudReferences
+firefox-dependencies
+keys
+updates
+
+# Keep only what's needed for the landing page and extension
+# - index.html (landing page)
+# - owlbear-extension/ (extension files)
+# - icons/ (for extension icon references if needed)
+# - vercel.json (configuration)
