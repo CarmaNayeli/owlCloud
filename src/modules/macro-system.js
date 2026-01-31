@@ -28,6 +28,9 @@
 
   // ===== STATE =====
 
+  // Setting to show/hide custom macro buttons on spells
+  let showCustomMacroButtons = false;
+
   let customMacros = [];
 
 /**
@@ -789,8 +792,9 @@ function initSettingsButton() {
   globalThis.initCustomMacros = initCustomMacros;
   globalThis.initSettingsButton = initSettingsButton;
 
-  // Export state variable to globalThis
+  // Export state variables to globalThis
   globalThis.customMacros = customMacros;
+  globalThis.showCustomMacroButtons = showCustomMacroButtons;
 
   debug.log('✅ Macro System module loaded');
 
