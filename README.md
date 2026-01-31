@@ -117,4 +117,4 @@ SOFTWARE.
 
 ---
 
-Built with ❤️ for the Owlbear Rodeo community
+Made with ❤️ for the D&D community
