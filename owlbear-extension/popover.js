@@ -74,7 +74,8 @@ OBR.onReady(async () => {
   statusText.textContent = 'Connected to Owlbear Rodeo';
 
   // Set character sheet height to half viewport minus action bar
-  // Standard height that works well on most screens
+  // TODO: Make this dynamic based on actual viewport height
+  // Currently using fixed 460px as workaround since window.innerHeight doesn't work in popovers
   const sheetHeight = 460;
 
   try {
@@ -962,6 +963,8 @@ openChatWindowBtn.addEventListener('click', async () => {
     openChatWindowBtn.textContent = '💬 Open Chat Window';
   } else {
     // Set chat height to match sheet height (half viewport minus action bar)
+    // TODO: Make this dynamic based on actual viewport height
+    // Currently using fixed 460px as workaround since window.innerHeight doesn't work in popovers
     const chatHeight = 460;
 
     // Open chat as a persistent popover at bottom-left
