@@ -469,6 +469,12 @@ function createCharacterSheetOverlay() {
   actionsContainer.id = 'actions-container';
   actionsSection.appendChild(actionsContainer);
 
+  // Spell Slots section
+  const spellSlotsSection = createSection('Spell Slots');
+  const spellSlotsContainer = document.createElement('div');
+  spellSlotsContainer.id = 'spell-slots-container';
+  spellSlotsSection.appendChild(spellSlotsContainer);
+
   // Spells section
   const spellsSection = createSection('Spells');
   const spellsContainer = document.createElement('div');
@@ -508,6 +514,7 @@ function createCharacterSheetOverlay() {
   sheetContent.appendChild(skillsSection);
   sheetContent.appendChild(resourcesSection);
   sheetContent.appendChild(actionsSection);
+  sheetContent.appendChild(spellSlotsSection);
   sheetContent.appendChild(spellsSection);
   sheetContent.appendChild(inventorySection);
   sheetContent.appendChild(companionsSection);

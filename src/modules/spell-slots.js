@@ -19,6 +19,11 @@
     const container = document.getElementById('spell-slots-container');
     const debug = window.debug || console;
 
+    if (!container) {
+      debug.warn('⚠️ Spell slots container not found in DOM');
+      return;
+    }
+
     if (!characterData || !characterData.spellSlots) {
       container.innerHTML = '<p style="text-align: center; color: #666;">No spell slots available</p>';
       debug.log('⚠️ No spell slots in character data');
