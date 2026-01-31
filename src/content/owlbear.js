@@ -545,6 +545,9 @@ async function loadSheetBuilderAndPopulate() {
     // Load required modules in order
     const modulesToLoad = [
       'src/common/debug.js', // Load debug first - required by all other modules
+      'src/modules/color-utils.js', // Color utilities (getColorEmoji, getColoredBanner)
+      'src/modules/card-creator.js', // UI card creation (createCard)
+      'src/modules/ui-utilities.js', // UI utilities (createColorPalette, initColorPalette)
       'src/modules/action-display.js',
       'src/modules/spell-display.js',
       'src/modules/inventory-manager.js',
