@@ -361,14 +361,8 @@ function setupPortraitDrag(portraitElement, character, portraitUrl) {
     try {
       console.log('🎨 Creating token for', character.name);
 
-      // Get viewport to place token at center
-      const viewport = await OBR.viewport.getViewport();
-
-      // Calculate center position
-      const position = {
-        x: viewport.position.x + (viewport.width / 2),
-        y: viewport.position.y + (viewport.height / 2)
-      };
+      // Place token at origin (0, 0) - user can drag it to desired location
+      const position = { x: 0, y: 0 };
 
       // Get grid DPI for sizing (1 grid square)
       const dpi = await OBR.scene.grid.getDpi();
