@@ -50,6 +50,26 @@
       margin-bottom: 24px;
     }
 
+    .character-header-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .character-header-text {
+      flex: 1;
+    }
+
+    .character-portrait {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      border: 3px solid #8B5CF6;
+      object-fit: cover;
+      box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+    }
+
     .status {
       background: rgba(138, 92, 246, 0.1);
       border-left: 4px solid #8B5CF6;
@@ -827,8 +847,13 @@
     </div>
 
     <div id="character-header" style="display: none;">
-      <h1 id="character-header-name">Character Name</h1>
-      <p class="subtitle" id="character-header-details">Level ? Class</p>
+      <div class="character-header-content">
+        <div class="character-header-text">
+          <h1 id="character-header-name">Character Name</h1>
+          <p class="subtitle" id="character-header-details">Level ? Class</p>
+        </div>
+        <img id="character-portrait" class="character-portrait" src="" alt="Character Portrait" style="display: none;">
+      </div>
     </div>
 
     <div class="tabs-container">

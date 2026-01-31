@@ -263,9 +263,19 @@ function displayCharacter(character) {
   // Update character header for other tabs
   const characterHeaderName = document.getElementById('character-header-name');
   const characterHeaderDetails = document.getElementById('character-header-details');
+  const characterPortrait = document.getElementById('character-portrait');
+
   if (characterHeaderName && characterHeaderDetails) {
     characterHeaderName.textContent = character.name || 'Unknown Character';
     characterHeaderDetails.textContent = `Level ${character.level || '?'} ${character.race || ''} ${character.class || ''}`;
+  }
+
+  // Set character portrait if available
+  if (characterPortrait && character.picture) {
+    characterPortrait.src = character.picture;
+    characterPortrait.style.display = 'block';
+  } else if (characterPortrait) {
+    characterPortrait.style.display = 'none';
   }
 
   // Populate other tabs
