@@ -495,7 +495,7 @@ class SupabaseTokenManager {
       
       // Get all characters for this user
       const response = await fetch(
-        `${this.supabaseUrl}/rest/v1/owlcloud_characters?user_id_dicecloud=eq.${diceCloudUserId}&select=*`,
+        `${this.supabaseUrl}/rest/v1/rollcloud_characters?user_id_dicecloud=eq.${diceCloudUserId}&select=*`,
         {
           headers: {
             'apikey': this.supabaseKey,
@@ -570,7 +570,7 @@ class SupabaseTokenManager {
       // If pairing code provided, look up the pairing to link
       if (pairingCode) {
         const pairingResponse = await fetch(
-          `${this.supabaseUrl}/rest/v1/owlcloud_pairings?pairing_code=eq.${pairingCode}&select=id,discord_user_id`,
+          `${this.supabaseUrl}/rest/v1/rollcloud_pairings?pairing_code=eq.${pairingCode}&select=id,discord_user_id`,
           {
             headers: {
               'apikey': this.supabaseKey,
@@ -617,7 +617,7 @@ class SupabaseTokenManager {
         if (!discordUserId && payload.user_id_dicecloud) {
           try {
             const pairingResponse = await fetch(
-              `${this.supabaseUrl}/rest/v1/owlcloud_pairings?dicecloud_user_id=eq.${payload.user_id_dicecloud}&status=eq.connected&select=discord_user_id`,
+              `${this.supabaseUrl}/rest/v1/rollcloud_pairings?dicecloud_user_id=eq.${payload.user_id_dicecloud}&status=eq.connected&select=discord_user_id`,
               {
                 headers: {
                   'apikey': this.supabaseKey,
@@ -648,7 +648,7 @@ class SupabaseTokenManager {
 
       // Try to upsert (insert or update on conflict)
       const response = await fetch(
-        `${this.supabaseUrl}/rest/v1/owlcloud_characters`,
+        `${this.supabaseUrl}/rest/v1/rollcloud_characters`,
         {
           method: 'POST',
           headers: {
@@ -667,7 +667,7 @@ class SupabaseTokenManager {
 
         // Try update instead
         const updateResponse = await fetch(
-          `${this.supabaseUrl}/rest/v1/owlcloud_characters?dicecloud_character_id=eq.${characterData.id}`,
+          `${this.supabaseUrl}/rest/v1/rollcloud_characters?dicecloud_character_id=eq.${characterData.id}`,
           {
             method: 'PATCH',
             headers: {
@@ -700,7 +700,7 @@ class SupabaseTokenManager {
   async getCharacter(diceCloudCharacterId) {
     try {
       const response = await fetch(
-        `${this.supabaseUrl}/rest/v1/owlcloud_characters?dicecloud_character_id=eq.${diceCloudCharacterId}&select=*`,
+        `${this.supabaseUrl}/rest/v1/rollcloud_characters?dicecloud_character_id=eq.${diceCloudCharacterId}&select=*`,
         {
           headers: {
             'apikey': this.supabaseKey,
@@ -730,7 +730,7 @@ class SupabaseTokenManager {
   async getCharacterByDiscordUser(discordUserId) {
     try {
       const response = await fetch(
-        `${this.supabaseUrl}/rest/v1/owlcloud_characters?discord_user_id=eq.${discordUserId}&select=*&order=updated_at.desc&limit=1`,
+        `${this.supabaseUrl}/rest/v1/rollcloud_characters?discord_user_id=eq.${discordUserId}&select=*&order=updated_at.desc&limit=1`,
         {
           headers: {
             'apikey': this.supabaseKey,

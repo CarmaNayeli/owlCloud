@@ -525,7 +525,7 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
             if (stored.discordPairingId && isSupabaseConfigured()) {
               try {
                 const pairingResponse = await fetch(
-                  `${SUPABASE_URL}/rest/v1/owlcloud_pairings?id=eq.${stored.discordPairingId}&select=discord_user_id,discord_username,discord_global_name`,
+                  `${SUPABASE_URL}/rest/v1/rollcloud_pairings?id=eq.${stored.discordPairingId}&select=discord_user_id,discord_username,discord_global_name`,
                   {
                     headers: {
                       'apikey': SUPABASE_ANON_KEY,
@@ -2224,7 +2224,7 @@ async function setDiscordWebhookSettings(webhookUrl, enabled = true, serverName 
         if (stored.discordPairingId) {
           debug.log('☁️ Syncing webhook URL to pairing record:', stored.discordPairingId);
           await fetch(
-            `${SUPABASE_URL}/rest/v1/owlcloud_pairings?id=eq.${stored.discordPairingId}`,
+            `${SUPABASE_URL}/rest/v1/rollcloud_pairings?id=eq.${stored.discordPairingId}`,
             {
               method: 'PATCH',
               headers: {
@@ -2891,7 +2891,7 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
     // If pairing code provided, look up the pairing to link
     if (pairingCode) {
       const pairingResponse = await fetch(
-        `${SUPABASE_URL}/rest/v1/owlcloud_pairings?pairing_code=eq.${pairingCode}&select=id,discord_user_id`,
+        `${SUPABASE_URL}/rest/v1/rollcloud_pairings?pairing_code=eq.${pairingCode}&select=id,discord_user_id`,
         {
           headers: {
             'apikey': SUPABASE_ANON_KEY,
@@ -2938,7 +2938,7 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
       if (!discordUserId && payload.user_id_dicecloud) {
         try {
           const pairingResponse = await fetch(
-            `${SUPABASE_URL}/rest/v1/owlcloud_pairings?dicecloud_user_id=eq.${payload.user_id_dicecloud}&status=eq.connected&select=id,discord_user_id,discord_username,discord_global_name,webhook_url`,
+            `${SUPABASE_URL}/rest/v1/rollcloud_pairings?dicecloud_user_id=eq.${payload.user_id_dicecloud}&status=eq.connected&select=id,discord_user_id,discord_username,discord_global_name,webhook_url`,
             {
               headers: {
                 'apikey': SUPABASE_ANON_KEY,
@@ -2981,7 +2981,7 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
           const stored = await browserAPI.storage.local.get(['discordPairingId']);
           if (stored.discordPairingId) {
             const pairingResponse = await fetch(
-              `${SUPABASE_URL}/rest/v1/owlcloud_pairings?id=eq.${stored.discordPairingId}&select=id,discord_user_id,discord_username,discord_global_name,webhook_url`,
+              `${SUPABASE_URL}/rest/v1/rollcloud_pairings?id=eq.${stored.discordPairingId}&select=id,discord_user_id,discord_username,discord_global_name,webhook_url`,
               {
                 headers: {
                   'apikey': SUPABASE_ANON_KEY,
@@ -3371,7 +3371,7 @@ function subscribeToRealtimePairing(pairingCode) {
 
       // Send join message to subscribe to pairing updates
       const joinMessage = {
-        topic: `realtime:public:owlcloud_pairings:pairing_code=eq.${pairingCode}`,
+        topic: `realtime:public:rollcloud_pairings:pairing_code=eq.${pairingCode}`,
         event: 'phx_join',
         payload: {
           config: {
@@ -3380,7 +3380,7 @@ function subscribeToRealtimePairing(pairingCode) {
             postgres_changes: [{
               event: 'UPDATE',
               schema: 'public',
-              table: 'owlcloud_pairings',
+              table: 'rollcloud_pairings',
               filter: `pairing_code=eq.${pairingCode}`
             }]
           }
@@ -3499,14 +3499,14 @@ function unsubscribeFromRealtimePairing() {
 async function createPairing(code, username, userId) {
   // Clean up old pairings for this user
   await supabase
-    .from('owlcloud_pairings')
+    .from('rollcloud_pairings')
     .update({ status: 'expired' })
     .eq('dicecloud_user_id', userId)
     .eq('status', 'connected');
   
   // NOW create the new one
   const { data } = await supabase
-    .from('owlcloud_pairings')
+    .from('rollcloud_pairings')
     .insert({
       pairing_code: code,
       dicecloud_username: username,
@@ -3535,7 +3535,7 @@ async function createDiscordPairing(code, diceCloudUsername, diceCloudUserId) {
     if (diceCloudUserId) {
       try {
         const expireResponse = await fetch(
-          `${SUPABASE_URL}/rest/v1/owlcloud_pairings?dicecloud_user_id=eq.${diceCloudUserId}&status=in.(pending,connected)`,
+          `${SUPABASE_URL}/rest/v1/rollcloud_pairings?dicecloud_user_id=eq.${diceCloudUserId}&status=in.(pending,connected)`,
           {
             method: 'PATCH',
             headers: {
@@ -3556,7 +3556,7 @@ async function createDiscordPairing(code, diceCloudUsername, diceCloudUserId) {
       }
     }
 
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/owlcloud_pairings`, {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/rollcloud_pairings`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -3602,7 +3602,7 @@ async function checkDiscordPairing(code) {
 
   try {
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/owlcloud_pairings?pairing_code=eq.${code}&select=*`,
+      `${SUPABASE_URL}/rest/v1/rollcloud_pairings?pairing_code=eq.${code}&select=*`,
       {
         headers: {
           'apikey': SUPABASE_ANON_KEY,
@@ -3657,7 +3657,7 @@ async function getUserCharactersFromCloud(pairingId = null) {
     if (pairingId) {
       // Get characters for specific pairing
       const response = await fetch(
-        `${SUPABASE_URL}/rest/v1/owlcloud_pairings?id=eq.${pairingId}&select=discord_user_id`,
+        `${SUPABASE_URL}/rest/v1/rollcloud_pairings?id=eq.${pairingId}&select=discord_user_id`,
         {
           headers: {
             'apikey': SUPABASE_ANON_KEY,
@@ -3755,8 +3755,8 @@ async function subscribeToCommandRealtime(pairingId) {
     commandRealtimeSocket.onopen = () => {
       debug.log('✅ Command Realtime WebSocket connected');
 
-      // CORRECTED: Subscribe to postgres_changes for INSERT events on owlcloud_commands
-      const topic = `realtime:public:owlcloud_commands`;
+      // CORRECTED: Subscribe to postgres_changes for INSERT events on rollcloud_commands
+      const topic = `realtime:public:rollcloud_commands`;
       const joinMessage = {
         topic: topic,
         event: 'phx_join',
@@ -3765,7 +3765,7 @@ async function subscribeToCommandRealtime(pairingId) {
             postgres_changes: [{
               event: 'INSERT',  // ✅ Listen for new commands being inserted
               schema: 'public',
-              table: 'owlcloud_commands',  // ✅ Correct table
+              table: 'rollcloud_commands',  // ✅ Correct table
               filter: `pairing_id=eq.${pairingId}`  // ✅ Only this pairing's commands
             }]
           }
@@ -3916,7 +3916,7 @@ async function drainPendingCommands() {
 
   try {
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/owlcloud_commands?pairing_id=eq.${currentPairingId}&status=eq.pending&order=created_at.asc&limit=10`,
+      `${SUPABASE_URL}/rest/v1/rollcloud_commands?pairing_id=eq.${currentPairingId}&status=eq.pending&order=created_at.asc&limit=10`,
       {
         headers: {
           'apikey': SUPABASE_ANON_KEY,
@@ -4285,7 +4285,7 @@ async function updateCommandStatus(commandId, status, result = null, errorMessag
     }
 
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/owlcloud_commands?id=eq.${commandId}`,
+      `${SUPABASE_URL}/rest/v1/rollcloud_commands?id=eq.${commandId}`,
       {
         method: 'PATCH',
         headers: {
@@ -4483,7 +4483,7 @@ async function postTurnToSupabase(payload) {
       status: 'pending'
     };
 
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/owlcloud_turns`, {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/rollcloud_turns`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
