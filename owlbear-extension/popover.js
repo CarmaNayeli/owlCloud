@@ -663,9 +663,26 @@ function populateActionsTab(character) {
       // Parse damage formula (like "1d8+3" or "2d6")
       let damageFormula = damage;
 
-      // Only show roll button if there's actual attack or damage data (not empty strings)
-      const hasRollAction = (attackRoll && attackRoll.trim()) || (damage && damage.trim());
-      const rollButtonHtml = hasRollAction ? `<button class="rest-btn" style="margin-top: 8px; width: 100%; display: block;" onclick="event.stopPropagation(); rollAttack('${(action.name || 'Action').replace(/'/g, "\\'")}', ${attackBonus}, '${damageFormula}')">🎲 Roll Attack</button>` : '';
+      // Create separate attack and damage buttons
+      const hasAttack = attackRoll && attackRoll.trim();
+      const hasDamage = damage && damage.trim();
+
+      let rollButtonHtml = '';
+      if (hasAttack || hasDamage) {
+        rollButtonHtml = '<div style="display: flex; gap: 8px; margin-top: 8px;">';
+
+        if (hasAttack) {
+          rollButtonHtml += `<button class="rest-btn" style="flex: 1;" onclick="event.stopPropagation(); rollAttackOnly('${(action.name || 'Action').replace(/'/g, "\\'")}', ${attackBonus})">🎯 Attack</button>`;
+        }
+
+        if (hasDamage) {
+          rollButtonHtml += `<button class="rest-btn" style="flex: 1;" onclick="event.stopPropagation(); rollDamageOnly('${(action.name || 'Action').replace(/'/g, "\\'")}', '${damageFormula}')">💥 Damage</button>`;
+        }
+
+        rollButtonHtml += '</div>';
+      }
+
+      const hasRollAction = hasAttack || hasDamage;
 
       // Determine full action type (e.g., "attack | action" or "utility | bonus action")
       const attackTypePrefix = hasRollAction ? 'attack' : 'utility';
@@ -1349,9 +1366,9 @@ window.rollDeathSave = async function() {
 };
 
 /**
- * Roll attack
+ * Roll attack only (no damage)
  */
-window.rollAttack = async function(actionName, attackBonus, damageFormula) {
+window.rollAttackOnly = async function(actionName, attackBonus) {
   const attackRoll = rollDice('1d20');
   const attackTotal = attackRoll.total + (attackBonus || 0);
 
@@ -1362,24 +1379,45 @@ window.rollAttack = async function(actionName, attackBonus, damageFormula) {
     message += ` = <strong>${attackTotal}</strong>`;
   }
 
-  let damageTotal = null;
-  if (damageFormula) {
-    const damageRoll = rollDice(damageFormula);
-    damageTotal = damageRoll.total;
-    message += ` | Damage: ${damageRoll.rolls.join(' + ')}`;
-    if (damageRoll.modifier) {
-      message += ` + ${damageRoll.modifier}`;
-    }
-    message += ` = <strong>${damageRoll.total}</strong>`;
-  }
-
   if (isOwlbearReady) {
-    OBR.notification.show(`${currentCharacter?.name || 'Character'}: ${actionName} = ${attackTotal}`, 'INFO');
+    OBR.notification.show(`${currentCharacter?.name || 'Character'}: ${actionName} Attack = ${attackTotal}`, 'INFO');
   }
   console.log('⚔️', message);
 
   // Send to persistent chat
   await addChatMessage(message, 'action', currentCharacter?.name);
+};
+
+/**
+ * Roll damage only (no attack)
+ */
+window.rollDamageOnly = async function(actionName, damageFormula) {
+  if (!damageFormula || !damageFormula.trim()) return;
+
+  const damageRoll = rollDice(damageFormula);
+  let message = `⚔️ ${actionName} Damage: ${damageRoll.rolls.join(' + ')}`;
+  if (damageRoll.modifier) {
+    message += ` + ${damageRoll.modifier}`;
+  }
+  message += ` = <strong>${damageRoll.total}</strong>`;
+
+  if (isOwlbearReady) {
+    OBR.notification.show(`${currentCharacter?.name || 'Character'}: ${actionName} Damage = ${damageRoll.total}`, 'INFO');
+  }
+  console.log('⚔️', message);
+
+  // Send to persistent chat
+  await addChatMessage(message, 'action', currentCharacter?.name);
+};
+
+/**
+ * Roll attack (kept for backwards compatibility, calls both)
+ */
+window.rollAttack = async function(actionName, attackBonus, damageFormula) {
+  await rollAttackOnly(actionName, attackBonus);
+  if (damageFormula && damageFormula.trim()) {
+    await rollDamageOnly(actionName, damageFormula);
+  }
 };
 
 // ============== Spell Casting ==============
