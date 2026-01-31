@@ -352,6 +352,55 @@ function createCharacterSheetOverlay() {
     color: #333;
   `;
 
+  // Toolbar with settings, GM mode, and share buttons
+  const toolbar = document.createElement('div');
+  toolbar.style.cssText = `
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+  `;
+
+  const settingsBtn = document.createElement('button');
+  settingsBtn.id = 'settings-btn';
+  settingsBtn.textContent = '⚙️ Settings';
+  settingsBtn.style.cssText = `
+    padding: 6px 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: white;
+    cursor: pointer;
+    font-size: 14px;
+  `;
+
+  const gmModeToggle = document.createElement('button');
+  gmModeToggle.id = 'gm-mode-toggle';
+  gmModeToggle.textContent = '👑 GM Mode';
+  gmModeToggle.style.cssText = `
+    padding: 6px 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: white;
+    cursor: pointer;
+    font-size: 14px;
+  `;
+
+  const showToGMBtn = document.createElement('button');
+  showToGMBtn.id = 'show-to-gm-btn';
+  showToGMBtn.textContent = '📤 Share to GM';
+  showToGMBtn.style.cssText = `
+    padding: 6px 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: white;
+    cursor: pointer;
+    font-size: 14px;
+  `;
+
+  toolbar.appendChild(settingsBtn);
+  toolbar.appendChild(gmModeToggle);
+  toolbar.appendChild(showToGMBtn);
+
   const charDetails = document.createElement('div');
   charDetails.style.cssText = `
     display: flex;
@@ -375,6 +424,7 @@ function createCharacterSheetOverlay() {
   charDetails.appendChild(createLabelValue('Hit Dice:', charHitDice));
 
   headerSection.appendChild(charName);
+  headerSection.appendChild(toolbar);
   headerSection.appendChild(charDetails);
 
   // Combat stats section
@@ -465,8 +515,26 @@ function createCharacterSheetOverlay() {
 
   // Actions section
   const actionsSection = createSection('Actions & Attacks');
+
+  // Search/filter bar for actions
+  const actionsSearch = document.createElement('input');
+  actionsSearch.id = 'actions-search';
+  actionsSearch.type = 'text';
+  actionsSearch.placeholder = '🔍 Search actions...';
+  actionsSearch.style.cssText = `
+    width: 100%;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    box-sizing: border-box;
+  `;
+
   const actionsContainer = document.createElement('div');
   actionsContainer.id = 'actions-container';
+
+  actionsSection.appendChild(actionsSearch);
   actionsSection.appendChild(actionsContainer);
 
   // Spell Slots section
