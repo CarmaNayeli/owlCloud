@@ -298,7 +298,12 @@ function displayCharacter(character) {
     if (portraitUrl) {
       characterPortrait.src = portraitUrl;
       characterPortrait.style.display = 'block';
+      characterPortrait.style.cursor = 'grab';
+      characterPortrait.title = 'Drag to map to create token';
       console.log('✅ Portrait loaded from:', portraitUrl);
+
+      // Set up drag-and-drop to create token
+      setupPortraitDrag(characterPortrait, character, portraitUrl);
     } else {
       characterPortrait.style.display = 'none';
       console.log('❌ No portrait found');
@@ -314,6 +319,73 @@ function displayCharacter(character) {
   populateInventoryTab(character);
 
   console.log('🎭 Displaying character:', character.name);
+}
+
+/**
+ * Set up drag-and-drop for character portrait to create tokens
+ */
+function setupPortraitDrag(portraitElement, character, portraitUrl) {
+  if (!isOwlbearReady) return;
+
+  // Remove any existing drag listener
+  portraitElement.ondragstart = null;
+  portraitElement.onmousedown = null;
+
+  // Make portrait draggable
+  portraitElement.draggable = true;
+
+  portraitElement.onmousedown = async () => {
+    if (!isOwlbearReady) return;
+
+    // Change cursor during drag
+    portraitElement.style.cursor = 'grabbing';
+
+    try {
+      // Create token data
+      const tokenData = [{
+        height: 200,  // Default size in pixels (will scale to grid)
+        width: 200,
+        position: { x: 0, y: 0 },  // Will be set by drag position
+        rotation: 0,
+        layer: "CHARACTER",
+        locked: false,
+        visible: true,
+        metadata: {
+          owlcloud: {
+            characterId: character.id,
+            characterName: character.name,
+            diceCloudId: character.diceCloudId
+          }
+        },
+        name: character.name || 'Character',
+        image: {
+          url: portraitUrl,
+          mime: 'image/png'
+        },
+        text: {
+          plainText: character.name || 'Character',
+          type: 'PLAIN'
+        },
+        attachedTo: undefined
+      }];
+
+      console.log('🎨 Starting token drag with data:', tokenData);
+
+      // Start the drag operation
+      await OBR.interaction.startItemDrag(tokenData);
+    } catch (error) {
+      console.error('❌ Error starting drag:', error);
+    }
+  };
+
+  // Reset cursor when drag ends
+  portraitElement.addEventListener('dragend', () => {
+    portraitElement.style.cursor = 'grab';
+  });
+
+  portraitElement.addEventListener('mouseup', () => {
+    portraitElement.style.cursor = 'grab';
+  });
 }
 
 /**
@@ -516,13 +588,13 @@ function populateAbilitiesTab(character) {
           <div class="ability-score" style="font-size: 18px; font-weight: bold;">${score}</div>
         </div>
         <div style="display: flex; border-top: 1px solid rgba(139, 92, 246, 0.3);">
-          <div style="flex: 1; padding: 6px; cursor: pointer; text-align: center; border-right: 1px solid rgba(139, 92, 246, 0.3);" onclick="rollAbilityCheck('${abilityLabel}', ${modifier})" title="Roll ${abilityLabel} check">
-            <div style="font-size: 11px; color: #A78BFA;">Check</div>
-            <div style="font-weight: bold;">${modifier >= 0 ? '+' : ''}${modifier}</div>
+          <div style="flex: 1; padding: 6px; cursor: pointer; text-align: center; border-right: 1px solid rgba(139, 92, 246, 0.3);" onclick="event.stopPropagation(); event.preventDefault(); rollAbilityCheck('${abilityLabel}', ${modifier})" title="Roll ${abilityLabel} check">
+            <div style="font-size: 11px; color: #A78BFA; pointer-events: none;">Check</div>
+            <div style="font-weight: bold; pointer-events: none;">${modifier >= 0 ? '+' : ''}${modifier}</div>
           </div>
-          <div style="flex: 1; padding: 6px; cursor: pointer; text-align: center;" onclick="rollSavingThrow('${abilityLabel}', ${saveMod})" title="Roll ${abilityLabel} save">
-            <div style="font-size: 11px; color: ${isProficient ? '#10B981' : '#A78BFA'};">Save</div>
-            <div style="font-weight: bold; color: ${isProficient ? '#10B981' : 'inherit'};">${saveMod >= 0 ? '+' : ''}${saveMod}</div>
+          <div style="flex: 1; padding: 6px; cursor: pointer; text-align: center;" onclick="event.stopPropagation(); event.preventDefault(); rollSavingThrow('${abilityLabel}', ${saveMod})" title="Roll ${abilityLabel} save">
+            <div style="font-size: 11px; color: ${isProficient ? '#10B981' : '#A78BFA'}; pointer-events: none;">Save</div>
+            <div style="font-weight: bold; color: ${isProficient ? '#10B981' : 'inherit'}; pointer-events: none;">${saveMod >= 0 ? '+' : ''}${saveMod}</div>
           </div>
         </div>
       </div>
@@ -712,6 +784,10 @@ function populateActionsTab(character) {
         rollButtonHtml += '</div>';
       }
 
+      // Add Use button if action has uses
+      const useButtonHtml = (uses && uses.value !== undefined) ?
+        `<button class="rest-btn" style="margin-top: 8px; width: 100%;" onclick="event.stopPropagation(); useAction('${(action.name || 'Action').replace(/'/g, "\\'")}')">✨ Use</button>` : '';
+
       const hasRollAction = hasAttack || hasDamage;
 
       // Determine full action type (e.g., "attack | action" or "utility | bonus action")
@@ -742,6 +818,7 @@ function populateActionsTab(character) {
             </div>
             ${actionText}
             ${rollButtonHtml}
+            ${useButtonHtml}
           </div>
         </div>
       `;
@@ -900,14 +977,31 @@ function populateSpellsTab(character) {
         spellButtonsHtml += `<button class="rest-btn" style="flex: 1; min-width: 100px;" onclick="event.stopPropagation(); rollAttackOnly('${(spell.name || 'Unknown Spell').replace(/'/g, "\\'")}', ${attackBonus})">🎯 Attack</button>`;
       }
 
-      // Damage button (if spell has damage)
+      // Detect if this is a healing spell by checking name and description
+      const spellNameLower = (spell.name || '').toLowerCase();
+      const spellTextLower = ((spell.summary || '') + ' ' + (spell.description || '')).toLowerCase();
+      const isHealingSpell = spellNameLower.includes('cure') ||
+                            spellNameLower.includes('heal') ||
+                            spellNameLower.includes('restoration') ||
+                            spellNameLower.includes('revivify') ||
+                            spellNameLower.includes('regenerate') ||
+                            spellTextLower.includes('regain') ||
+                            spellTextLower.includes('regains') ||
+                            spellTextLower.includes('restores') ||
+                            (spellTextLower.includes('hit points') && !spellTextLower.includes('damage'));
+
+      // Damage or Healing button (if spell has damage/healing formula)
       if (damage && damage.trim()) {
-        spellButtonsHtml += `<button class="rest-btn" style="flex: 1; min-width: 100px;" onclick="event.stopPropagation(); rollDamageOnly('${(spell.name || 'Unknown Spell').replace(/'/g, "\\'")}', '${damage}')">💥 Damage</button>`;
+        if (isHealingSpell) {
+          spellButtonsHtml += `<button class="rest-btn" style="flex: 1; min-width: 100px;" onclick="event.stopPropagation(); rollHealing('${(spell.name || 'Unknown Spell').replace(/'/g, "\\'")}', '${damage}')">💚 Healing</button>`;
+        } else {
+          spellButtonsHtml += `<button class="rest-btn" style="flex: 1; min-width: 100px;" onclick="event.stopPropagation(); rollDamageOnly('${(spell.name || 'Unknown Spell').replace(/'/g, "\\'")}', '${damage}')">💥 Damage</button>`;
+        }
       }
 
-      // Healing button (if spell has healing)
+      // Healing button (if spell has explicit healing field)
       if (healing && healing.trim()) {
-        spellButtonsHtml += `<button class="rest-btn" style="flex: 1; min-width: 100px;" onclick="event.stopPropagation(); rollDamageOnly('${(spell.name || 'Unknown Spell').replace(/'/g, "\\'")}', '${healing}')">💚 Healing</button>`;
+        spellButtonsHtml += `<button class="rest-btn" style="flex: 1; min-width: 100px;" onclick="event.stopPropagation(); rollHealing('${(spell.name || 'Unknown Spell').replace(/'/g, "\\'")}', '${healing}')">💚 Healing</button>`;
       }
 
       spellButtonsHtml += '</div>';
@@ -1401,31 +1495,67 @@ function rollDice(formula) {
  * Show roll result notification and send to chat
  */
 async function showRollResult(name, result) {
-  let rollsText = result.rolls.join(' + ');
+  let detailsHtml = '';
+  const finalTotal = result.modifier !== undefined ? result.total : result.total;
 
-  // For advantage/disadvantage, show both rolls
+  // Build detailed breakdown for expandable section
   if (result.mode === 'advantage' && result.rolls.length === 2) {
-    rollsText = `[${result.rolls[0]}, ${result.rolls[1]}] = ${result.total} (adv)`;
+    detailsHtml = `<strong>Advantage:</strong> Rolled 2d20, taking higher<br>
+                   Roll 1: ${result.rolls[0]}<br>
+                   Roll 2: ${result.rolls[1]}<br>
+                   <strong>Selected:</strong> ${result.total}`;
+    if (result.modifier !== 0) {
+      detailsHtml += `<br><strong>Modifier:</strong> ${result.modifier >= 0 ? '+' : ''}${result.modifier}`;
+    }
+    detailsHtml += `<br><strong>Formula:</strong> ${result.total}`;
+    if (result.modifier !== 0) {
+      detailsHtml += ` ${result.modifier >= 0 ? '+' : ''}${result.modifier}`;
+    }
+    detailsHtml += ` = ${finalTotal}`;
   } else if (result.mode === 'disadvantage' && result.rolls.length === 2) {
-    rollsText = `[${result.rolls[0]}, ${result.rolls[1]}] = ${result.total} (dis)`;
+    detailsHtml = `<strong>Disadvantage:</strong> Rolled 2d20, taking lower<br>
+                   Roll 1: ${result.rolls[0]}<br>
+                   Roll 2: ${result.rolls[1]}<br>
+                   <strong>Selected:</strong> ${result.total}`;
+    if (result.modifier !== 0) {
+      detailsHtml += `<br><strong>Modifier:</strong> ${result.modifier >= 0 ? '+' : ''}${result.modifier}`;
+    }
+    detailsHtml += `<br><strong>Formula:</strong> ${result.total}`;
+    if (result.modifier !== 0) {
+      detailsHtml += ` ${result.modifier >= 0 ? '+' : ''}${result.modifier}`;
+    }
+    detailsHtml += ` = ${finalTotal}`;
+  } else {
+    // Normal roll details
+    detailsHtml = `<strong>Roll:</strong> 1d20 = ${result.rolls[0]}`;
+    if (result.modifier !== 0) {
+      detailsHtml += `<br><strong>Modifier:</strong> ${result.modifier >= 0 ? '+' : ''}${result.modifier}`;
+    }
+    detailsHtml += `<br><strong>Formula:</strong> ${result.rolls[0]}`;
+    if (result.modifier !== 0) {
+      detailsHtml += ` ${result.modifier >= 0 ? '+' : ''}${result.modifier}`;
+    }
+    detailsHtml += ` = ${finalTotal}`;
   }
 
-  const modText = result.modifier !== 0 ? ` ${result.modifier >= 0 ? '+' : ''}${result.modifier}` : '';
-  const message = `🎲 ${name}: ${rollsText}${modText} = <strong>${result.total}</strong>`;
+  // Create concise message showing just the result
+  const modText = result.modifier !== 0 ? ` (${result.modifier >= 0 ? '+' : ''}${result.modifier})` : '';
+  const message = `${name}${modText}: <strong>${finalTotal}</strong>`;
 
   if (isOwlbearReady) {
-    OBR.notification.show(`${currentCharacter?.name || 'Character'}: ${name} = ${result.total}`, 'INFO');
+    OBR.notification.show(`${currentCharacter?.name || 'Character'}: ${name} = ${finalTotal}`, 'INFO');
   }
   console.log('🎲', message);
 
-  // Send to persistent chat
-  await addChatMessage(message, 'roll', currentCharacter?.name);
+  // Send to persistent chat with expandable details
+  await addChatMessage(message, 'roll', currentCharacter?.name, detailsHtml);
 }
 
 /**
  * Roll ability check
  */
 window.rollAbilityCheck = async function(abilityName, modifier) {
+  console.log('🎲 rollAbilityCheck called:', abilityName, modifier);
   const result = rollD20();
   const total = result.total + modifier;
   await showRollResult(`${abilityName} Check (${modifier >= 0 ? '+' : ''}${modifier})`, {...result, total, modifier});
@@ -1435,6 +1565,8 @@ window.rollAbilityCheck = async function(abilityName, modifier) {
  * Roll saving throw
  */
 window.rollSavingThrow = async function(abilityName, modifier) {
+  console.log('🎲 rollSavingThrow called:', abilityName, modifier);
+  console.trace('Call stack');
   const result = rollD20();
   const total = result.total + modifier;
   await showRollResult(`${abilityName} Save (${modifier >= 0 ? '+' : ''}${modifier})`, {...result, total, modifier});
@@ -1502,20 +1634,41 @@ window.rollAttackOnly = async function(actionName, attackBonus) {
   const attackRoll = rollD20();
   const attackTotal = attackRoll.total + (attackBonus || 0);
 
-  let message = `⚔️ ${actionName} Attack: ${attackRoll.rolls[0]}`;
-  if (attackBonus) {
-    message += ` + ${attackBonus} = <strong>${attackTotal}</strong>`;
+  // Create concise message
+  const bonusText = attackBonus ? ` (+${attackBonus})` : '';
+  const message = `${actionName} Attack${bonusText}: <strong>${attackTotal}</strong>`;
+
+  // Build details for expandable view
+  let detailsHtml = '';
+  if (attackRoll.mode === 'advantage' && attackRoll.rolls.length === 2) {
+    detailsHtml = `<strong>Advantage:</strong> Rolled 2d20, taking higher<br>
+                   Roll 1: ${attackRoll.rolls[0]}<br>
+                   Roll 2: ${attackRoll.rolls[1]}<br>
+                   <strong>Selected:</strong> ${attackRoll.total}`;
+  } else if (attackRoll.mode === 'disadvantage' && attackRoll.rolls.length === 2) {
+    detailsHtml = `<strong>Disadvantage:</strong> Rolled 2d20, taking lower<br>
+                   Roll 1: ${attackRoll.rolls[0]}<br>
+                   Roll 2: ${attackRoll.rolls[1]}<br>
+                   <strong>Selected:</strong> ${attackRoll.total}`;
   } else {
-    message += ` = <strong>${attackTotal}</strong>`;
+    detailsHtml = `<strong>Attack Roll:</strong> 1d20 = ${attackRoll.rolls[0]}`;
   }
+  if (attackBonus) {
+    detailsHtml += `<br><strong>Attack Bonus:</strong> +${attackBonus}`;
+  }
+  detailsHtml += `<br><strong>Formula:</strong> ${attackRoll.total}`;
+  if (attackBonus) {
+    detailsHtml += ` + ${attackBonus}`;
+  }
+  detailsHtml += ` = ${attackTotal}`;
 
   if (isOwlbearReady) {
     OBR.notification.show(`${currentCharacter?.name || 'Character'}: ${actionName} Attack = ${attackTotal}`, 'INFO');
   }
   console.log('⚔️', message);
 
-  // Send to persistent chat
-  await addChatMessage(message, 'action', currentCharacter?.name);
+  // Send to persistent chat with details
+  await addChatMessage(message, 'action', currentCharacter?.name, detailsHtml);
 };
 
 /**
@@ -1525,19 +1678,61 @@ window.rollDamageOnly = async function(actionName, damageFormula) {
   if (!damageFormula || !damageFormula.trim()) return;
 
   const damageRoll = rollDice(damageFormula);
-  let message = `⚔️ ${actionName} Damage: ${damageRoll.rolls.join(' + ')}`;
+
+  // Create concise message
+  const message = `${actionName} Damage: <strong>${damageRoll.total}</strong>`;
+
+  // Build details for expandable view
+  let detailsHtml = `<strong>Formula:</strong> ${damageFormula}<br>
+                     <strong>Rolls:</strong> ${damageRoll.rolls.join(', ')}`;
   if (damageRoll.modifier) {
-    message += ` + ${damageRoll.modifier}`;
+    detailsHtml += `<br>Modifier: ${damageRoll.modifier >= 0 ? '+' : ''}${damageRoll.modifier}`;
   }
-  message += ` = <strong>${damageRoll.total}</strong>`;
+  detailsHtml += `<br>Calculation: ${damageRoll.rolls.join(' + ')}`;
+  if (damageRoll.modifier) {
+    detailsHtml += ` ${damageRoll.modifier >= 0 ? '+' : ''}${damageRoll.modifier}`;
+  }
+  detailsHtml += ` = ${damageRoll.total}`;
 
   if (isOwlbearReady) {
     OBR.notification.show(`${currentCharacter?.name || 'Character'}: ${actionName} Damage = ${damageRoll.total}`, 'INFO');
   }
   console.log('⚔️', message);
 
-  // Send to persistent chat
-  await addChatMessage(message, 'action', currentCharacter?.name);
+  // Send to persistent chat with details
+  await addChatMessage(message, 'damage', currentCharacter?.name, detailsHtml);
+};
+
+/**
+ * Roll healing
+ */
+window.rollHealing = async function(spellName, healingFormula) {
+  if (!healingFormula || !healingFormula.trim()) return;
+
+  const healingRoll = rollDice(healingFormula);
+
+  // Create concise message
+  const message = `${spellName} Healing: <strong>${healingRoll.total}</strong>`;
+
+  // Build details for expandable view
+  let detailsHtml = `<strong>Formula:</strong> ${healingFormula}<br>
+                     <strong>Rolls:</strong> ${healingRoll.rolls.join(', ')}`;
+  if (healingRoll.modifier) {
+    detailsHtml += `<br>Modifier: ${healingRoll.modifier >= 0 ? '+' : ''}${healingRoll.modifier}`;
+  }
+  detailsHtml += `<br>Calculation: ${healingRoll.rolls.join(' + ')}`;
+  if (healingRoll.modifier) {
+    detailsHtml += ` ${healingRoll.modifier >= 0 ? '+' : ''}${healingRoll.modifier}`;
+  }
+  detailsHtml += ` = ${healingRoll.total}`;
+
+  if (isOwlbearReady) {
+    OBR.notification.show(`${currentCharacter?.name || 'Character'}: ${spellName} Healing = ${healingRoll.total}`, 'INFO');
+  }
+  console.log('💚', message);
+
+  // Send to persistent chat with details (using 'healing' type for green color)
+  await addChatMessage(message, 'healing', currentCharacter?.name, detailsHtml);
 };
 
 /**
@@ -1584,7 +1779,11 @@ window.castSpell = async function(spellName, level) {
   const message = `✨ Casts <strong>${spellName}</strong> (${levelText})`;
 
   // Create expandable details
-  const details = `<strong>${spellName}</strong><br>${levelText}<br><em>Click message to see full details in future updates</em>`;
+  let details = `<strong>${spellName}</strong><br>${levelText}`;
+  if (level > 0 && slotKey) {
+    const remaining = currentCharacter.spellSlots[slotKey] || 0;
+    details += `<br>Spell Slot Used: Level ${level}<br>Remaining Slots: ${remaining}`;
+  }
 
   if (isOwlbearReady) {
     OBR.notification.show(`${currentCharacter?.name || 'Character'} casts ${spellName}`, 'INFO');
@@ -1737,6 +1936,48 @@ window.useFeature = async function(featureName, resourceName = null) {
 
   if (isOwlbearReady) {
     OBR.notification.show(`${currentCharacter.name} uses ${featureName}`, 'INFO');
+  }
+};
+
+/**
+ * Use an action that has limited uses
+ */
+window.useAction = async function(actionName) {
+  if (!currentCharacter || !currentCharacter.actions) return;
+
+  // Find the action by name
+  const action = currentCharacter.actions.find(a => a.name === actionName);
+  if (!action) {
+    console.warn(`Action "${actionName}" not found`);
+    return;
+  }
+
+  // Check if action has uses
+  if (!action.uses || action.uses.value === undefined) {
+    console.warn(`Action "${actionName}" has no uses tracking`);
+    return;
+  }
+
+  // Check if uses remaining
+  if (action.uses.value <= 0) {
+    if (isOwlbearReady) {
+      OBR.notification.show(`No uses of ${actionName} remaining!`, 'ERROR');
+    }
+    return;
+  }
+
+  // Decrement uses
+  action.uses.value -= 1;
+
+  // Refresh the actions tab to show updated uses
+  populateActionsTab(currentCharacter);
+
+  // Announce in chat
+  const message = `✨ Uses <strong>${actionName}</strong> (${action.uses.value}/${action.uses.max || action.uses.value + 1} remaining)`;
+  await addChatMessage(message, 'action', currentCharacter.name);
+
+  if (isOwlbearReady) {
+    OBR.notification.show(`${currentCharacter.name} uses ${actionName}`, 'INFO');
   }
 };
 
