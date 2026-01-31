@@ -595,6 +595,7 @@ async function loadSheetBuilderAndPopulate() {
       // Character traits and features
       'src/modules/character-traits.js',
       'src/modules/character-trait-popups.js',
+      'src/modules/feature-modals.js',
 
       // GM and status features
       'src/modules/gm-mode.js',
