@@ -73,6 +73,18 @@ OBR.onReady(async () => {
   console.log('🦉 Owlbear SDK ready');
   statusText.textContent = 'Connected to Owlbear Rodeo';
 
+  // Resize character sheet to half of available vertical space
+  const viewportHeight = window.innerHeight;
+  const muiBoxHeight = 60; // Approximate height of bottom action bar
+  const availableHeight = viewportHeight - muiBoxHeight;
+  const sheetHeight = Math.floor(availableHeight / 2);
+
+  try {
+    await OBR.popover.setHeight(sheetHeight);
+  } catch (error) {
+    console.error('Error setting popover height:', error);
+  }
+
   // Check for active character
   checkForActiveCharacter();
 
@@ -925,14 +937,21 @@ openChatWindowBtn.addEventListener('click', async () => {
     isChatOpen = false;
     openChatWindowBtn.textContent = '💬 Open Chat Window';
   } else {
-    // Open chat as a persistent popover
+    // Calculate available height (viewport height - approximate mui box height and padding)
+    // The mui box (action bar at bottom) is approximately 60px with padding
+    const viewportHeight = window.innerHeight;
+    const muiBoxHeight = 60; // Approximate height of bottom action bar
+    const availableHeight = viewportHeight - muiBoxHeight;
+    const chatHeight = Math.floor(availableHeight / 2);
+
+    // Open chat as a persistent popover at bottom-left
     await OBR.popover.open({
       id: 'com.owlcloud.chat',
       url: '/extension/chat.html',
-      height: 600,
+      height: chatHeight,
       width: 400,
-      anchorOrigin: { horizontal: 'RIGHT', vertical: 'CENTER' },
-      transformOrigin: { horizontal: 'LEFT', vertical: 'CENTER' },
+      anchorOrigin: { horizontal: 'LEFT', vertical: 'BOTTOM' },
+      transformOrigin: { horizontal: 'LEFT', vertical: 'BOTTOM' },
       disableClickAway: true
     });
     isChatOpen = true;
