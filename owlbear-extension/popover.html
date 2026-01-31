@@ -162,7 +162,10 @@
   </div>
 
   <!-- Load Owlbear SDK -->
-  <script src="https://unpkg.com/@owlbear-rodeo/sdk/dist/index.js"></script>
+  <script type="module">
+    import OBR from 'https://esm.sh/@owlbear-rodeo/sdk@3.1.0';
+    window.OBR = OBR;
+  </script>
   <script src="./popover.js"></script>
 </body>
 </html>
