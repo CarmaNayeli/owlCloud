@@ -18,6 +18,10 @@ function buildActionsDisplay(container, actions) {
   // Clear container
   container.innerHTML = '';
 
+  // Class feature toggle states
+  let sneakAttackEnabled = false;
+  let sneakAttackDamage = null;
+
   // DEBUG: Log all actions to see what we have
   debug.log('🔍 buildActionsDisplay called with actions:', actions.map(a => ({ name: a.name, damage: a.damage, actionType: a.actionType })));
   debug.log('🔍 Total actions received:', actions.length);
