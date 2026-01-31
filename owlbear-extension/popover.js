@@ -667,6 +667,10 @@ function populateActionsTab(character) {
       const hasRollAction = (attackRoll && attackRoll.trim()) || (damage && damage.trim());
       const rollButtonHtml = hasRollAction ? `<button class="rest-btn" style="margin-top: 8px; width: 100%; display: block;" onclick="event.stopPropagation(); rollAttack('${(action.name || 'Action').replace(/'/g, "\\'")}', ${attackBonus}, '${damageFormula}')">🎲 Roll Attack</button>` : '';
 
+      // Determine full action type (e.g., "attack | action" or "utility | bonus action")
+      const attackTypePrefix = hasRollAction ? 'attack' : 'utility';
+      const fullActionType = `${attackTypePrefix} | ${actionType.toLowerCase()}`;
+
       html += `
         <div class="feature-card">
           <div class="feature-header" onclick="toggleFeatureCard('${actionId}')" style="cursor: pointer;">
@@ -675,7 +679,7 @@ function populateActionsTab(character) {
           </div>
           <div id="${actionId}" class="feature-details">
             <div class="feature-metadata">
-              ${actionType ? `<div class="feature-meta-item"><span class="feature-meta-label">Type:</span> ${actionType}</div>` : ''}
+              <div class="feature-meta-item"><span class="feature-meta-label">Type:</span> ${fullActionType}</div>
               ${attackRoll ? `<div class="feature-meta-item"><span class="feature-meta-label">Attack:</span> ${attackRoll}</div>` : ''}
               ${damage ? `<div class="feature-meta-item"><span class="feature-meta-label">Damage:</span> ${damage}</div>` : ''}
               ${uses && uses.value !== undefined ? `<div class="feature-meta-item"><span class="feature-meta-label">Uses:</span> ${uses.value}/${uses.max || uses.value}</div>` : ''}
