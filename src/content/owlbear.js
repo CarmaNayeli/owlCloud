@@ -296,7 +296,7 @@ function postRollToOwlbear(rollData) {
 /**
  * Listen for messages from the background script
  */
-browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
+browserAPI.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
   debug.log('📨 Owlbear content script received message:', request.action);
 
   switch (request.action) {
@@ -320,6 +320,49 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sendResponse({ success: true });
       break;
 
+    case 'characterSelected': {
+      // Character was selected in popup - send to Supabase with Owlbear player ID
+      try {
+        // Dynamically import OBR SDK if not already loaded
+        if (typeof OBR === 'undefined') {
+          const OBRModule = await import('https://esm.sh/@owlbear-rodeo/sdk@3.1.0');
+          window.OBR = OBRModule.default;
+        }
+
+        await OBR.onReady();
+        const playerId = await OBR.player.getId();
+
+        console.log('🎭 Sending character to Supabase with player ID:', playerId);
+
+        // Send character to Supabase
+        const response = await fetch(
+          'https://gkfpxwvmumaylahtxqrk.supabase.co/functions/v1/set-active-character',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              owlbearPlayerId: playerId,
+              character: request.character
+            })
+          }
+        );
+
+        const data = await response.json();
+
+        if (data.success) {
+          console.log('✅ Character saved to Supabase');
+          sendResponse({ success: true });
+        } else {
+          console.error('❌ Failed to save character:', data.error);
+          sendResponse({ success: false, error: data.error });
+        }
+      } catch (error) {
+        console.error('❌ Error saving character to Supabase:', error);
+        sendResponse({ success: false, error: error.message });
+      }
+      break;
+    }
+
     default:
       sendResponse({ success: false, error: 'Unknown action' });
   }
@@ -331,8 +374,11 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
  * Listen for messages from the Owlbear extension
  */
 window.addEventListener('message', async (event) => {
+  console.log('🔍 OwlCloud received message:', { origin: event.origin, data: event.data });
+
   // Only accept messages from Owlbear Rodeo domain
   if (event.origin !== 'https://www.owlbear.rodeo') {
+    console.log('❌ OwlCloud rejected: wrong origin');
     return;
   }
 
@@ -340,9 +386,11 @@ window.addEventListener('message', async (event) => {
 
   // Only process messages from our Owlbear extension
   if (source !== 'owlbear-extension') {
+    console.log('❌ OwlCloud rejected: wrong source', source);
     return;
   }
 
+  console.log('📨 OwlCloud message from Owlbear extension:', type);
   debug.log('📨 Message from Owlbear extension:', type);
 
   switch (type) {

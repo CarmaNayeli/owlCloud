@@ -41,17 +41,33 @@ OBR.onReady(async () => {
 // ============== Character Management ==============
 
 /**
- * Check if there's an active character from browser extension
+ * Check if there's an active character from Supabase using Owlbear player ID
  */
 async function checkForActiveCharacter() {
   try {
-    // Request active character from browser extension content script
-    window.parent.postMessage({
-      type: 'OWLCLOUD_GET_ACTIVE_CHARACTER',
-      source: 'owlbear-extension'
-    }, 'https://www.owlbear.rodeo');
+    // Get current player's Owlbear ID
+    const playerId = await OBR.player.getId();
 
-    console.log('ℹ️ Requested active character from browser extension');
+    console.log('🎭 Checking for character with player ID:', playerId);
+
+    // Call Supabase Edge Function to get active character by player ID
+    const response = await fetch(
+      `https://gkfpxwvmumaylahtxqrk.supabase.co/functions/v1/get-active-character?owlbear_player_id=${encodeURIComponent(playerId)}`
+    );
+
+    if (!response.ok) {
+      console.error('Failed to get character:', response.statusText);
+      showNoCharacter();
+      return;
+    }
+
+    const data = await response.json();
+
+    if (data.success && data.character) {
+      displayCharacter(data.character);
+    } else {
+      showNoCharacter();
+    }
   } catch (error) {
     console.error('Error checking for active character:', error);
     showNoCharacter();

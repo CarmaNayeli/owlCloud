@@ -17,10 +17,11 @@ serve(async (req) => {
     const url = new URL(req.url)
     const userId = url.searchParams.get('user_id')
     const pairingCode = url.searchParams.get('pairing_code')
+    const owlbearPlayerId = url.searchParams.get('owlbear_player_id')
 
-    if (!userId && !pairingCode) {
+    if (!userId && !pairingCode && !owlbearPlayerId) {
       return new Response(
-        JSON.stringify({ error: 'Either user_id or pairing_code is required' }),
+        JSON.stringify({ error: 'Either user_id, pairing_code, or owlbear_player_id is required' }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -41,7 +42,19 @@ serve(async (req) => {
 
     let characterData = null
 
-    if (pairingCode) {
+    if (owlbearPlayerId) {
+      // Get active character by Owlbear player ID
+      const { data, error } = await supabaseClient
+        .from('rollcloud_characters')
+        .select('*')
+        .eq('owlbear_player_id', owlbearPlayerId)
+        .eq('is_active', true)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      characterData = data
+    } else if (pairingCode) {
       // Get Discord user ID from pairing code
       const { data: pairing, error: pairingError } = await supabaseClient
         .from('rollcloud_pairings')

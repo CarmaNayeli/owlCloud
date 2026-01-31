@@ -1832,6 +1832,20 @@ async function setActiveCharacter(characterId) {
       }
     }
 
+    // Notify Owlbear content script if on Owlbear page
+    try {
+      const tabs = await browserAPI.tabs.query({ url: 'https://www.owlbear.rodeo/*' });
+      for (const tab of tabs) {
+        await browserAPI.tabs.sendMessage(tab.id, {
+          action: 'characterSelected',
+          character: characterData
+        });
+        debug.log(`📨 Notified Owlbear tab ${tab.id} of character selection`);
+      }
+    } catch (error) {
+      debug.log('ℹ️ No Owlbear tabs to notify (this is normal if not on Owlbear)');
+    }
+
   } catch (error) {
     debug.error('Failed to set active character:', error);
     throw error;
