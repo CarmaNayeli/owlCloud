@@ -509,11 +509,15 @@ function populateAbilitiesTab(character) {
     const abilityLabel = abilityShortNames[abilityName];
 
     html += `
-      <div class="ability-box ${isProficient ? 'save-proficient' : ''}" onclick="promptAbilityRoll('${abilityLabel}', ${modifier}, ${saveMod})" title="Click to roll ${abilityLabel} check or save">
-        <div class="ability-name">${abilityLabel}</div>
-        <div class="ability-modifier">${modifier >= 0 ? '+' : ''}${modifier}</div>
-        <div class="ability-score">${score}</div>
-        ${isProficient ? `<div class="ability-score" style="color: #10B981;">Save: ${saveMod >= 0 ? '+' : ''}${saveMod}</div>` : ''}
+      <div class="ability-box ${isProficient ? 'save-proficient' : ''}">
+        <div style="cursor: pointer; padding: 4px;" onclick="rollAbilityCheck('${abilityLabel}', ${modifier})" title="Click to roll ${abilityLabel} check">
+          <div class="ability-name">${abilityLabel}</div>
+          <div class="ability-modifier">${modifier >= 0 ? '+' : ''}${modifier}</div>
+          <div class="ability-score">${score}</div>
+        </div>
+        <div style="cursor: pointer; padding: 4px; margin-top: 4px; border-top: 1px solid rgba(139, 92, 246, 0.3);" onclick="rollSavingThrow('${abilityLabel}', ${saveMod})" title="Click to roll ${abilityLabel} save">
+          <div class="ability-score" style="color: ${isProficient ? '#10B981' : '#A78BFA'}; font-size: 11px;">Save: ${saveMod >= 0 ? '+' : ''}${saveMod}</div>
+        </div>
       </div>
     `;
   });
@@ -1259,23 +1263,6 @@ async function showRollResult(name, result) {
   // Send to persistent chat
   await addChatMessage(message, 'roll', currentCharacter?.name);
 }
-
-/**
- * Prompt user to choose between ability check or saving throw
- */
-window.promptAbilityRoll = function(abilityName, checkModifier, saveModifier) {
-  const choice = window.confirm(
-    `Roll ${abilityName}:\n\n` +
-    `OK = Ability Check (${checkModifier >= 0 ? '+' : ''}${checkModifier})\n` +
-    `Cancel = Saving Throw (${saveModifier >= 0 ? '+' : ''}${saveModifier})`
-  );
-
-  if (choice) {
-    rollAbilityCheck(abilityName, checkModifier);
-  } else {
-    rollSavingThrow(abilityName, saveModifier);
-  }
-};
 
 /**
  * Roll ability check
