@@ -259,6 +259,7 @@ function displayCharacter(character) {
   // Populate other tabs
   populateStatsTab(character);
   populateAbilitiesTab(character);
+  populateFeaturesTab(character);
   populateActionsTab(character);
   populateSpellsTab(character);
   populateInventoryTab(character);
@@ -523,10 +524,10 @@ function populateAbilitiesTab(character) {
 }
 
 /**
- * Populate Actions & Attacks tab
+ * Populate Features & Traits tab
  */
-function populateActionsTab(character) {
-  const actionsContent = document.getElementById('actions-content');
+function populateFeaturesTab(character) {
+  const featuresContent = document.getElementById('features-content');
 
   let html = '';
 
@@ -540,9 +541,6 @@ function populateActionsTab(character) {
     });
 
     if (filteredFeatures.length > 0) {
-      const featuresId = 'features-list-' + Date.now();
-      html += `<div class="section-header collapsible" onclick="toggleCollapsible('${featuresId}')">Features & Traits (${filteredFeatures.length})</div>`;
-      html += `<div id="${featuresId}" class="collapsible-content">`;
       html += '<div class="feature-list">';
 
       filteredFeatures.forEach(feature => {
@@ -555,18 +553,29 @@ function populateActionsTab(character) {
       });
 
       html += '</div>';
-      html += '</div>';
+    } else {
+      html = '<div class="empty-state">No features available</div>';
     }
+  } else {
+    html = '<div class="empty-state">No features available</div>';
   }
+
+  featuresContent.innerHTML = html;
+}
+
+/**
+ * Populate Actions & Attacks tab
+ */
+function populateActionsTab(character) {
+  const actionsContent = document.getElementById('actions-content');
+
+  let html = '';
 
   // Actions Section
   if (character.actions && character.actions.length > 0) {
     // Deduplicate and filter actions
     const deduplicatedActions = deduplicateActions(character.actions);
 
-    const actionsId = 'actions-list-' + Date.now();
-    html += `<div class="section-header collapsible" onclick="toggleCollapsible('${actionsId}')">Actions & Attacks (${deduplicatedActions.length})</div>`;
-    html += `<div id="${actionsId}" class="collapsible-content">`;
     html += '<div class="feature-list">';
 
     deduplicatedActions.forEach(action => {
@@ -606,11 +615,8 @@ function populateActionsTab(character) {
     });
 
     html += '</div>';
-    html += '</div>';
-  }
-
-  if (!character.features && !character.actions) {
-    html = '<div class="empty-state">No features or actions available</div>';
+  } else {
+    html = '<div class="empty-state">No actions available</div>';
   }
 
   actionsContent.innerHTML = html;

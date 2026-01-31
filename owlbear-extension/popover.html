@@ -226,6 +226,23 @@
     .tab-content {
       display: none;
       animation: fadeIn 0.2s ease;
+      max-height: 500px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(138, 92, 246, 0.3) transparent;
+    }
+
+    .tab-content::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .tab-content::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .tab-content::-webkit-scrollbar-thumb {
+      background: rgba(138, 92, 246, 0.3);
+      border-radius: 4px;
     }
 
     .tab-content.active {
@@ -728,6 +745,7 @@
         <button class="tab-button active" data-tab="settings">⚙️ Settings</button>
         <button class="tab-button" data-tab="stats">📊 Stats & Resources</button>
         <button class="tab-button" data-tab="abilities">🎯 Abilities</button>
+        <button class="tab-button" data-tab="features">🎭 Features</button>
         <button class="tab-button" data-tab="actions">⚔️ Actions</button>
         <button class="tab-button" data-tab="spells">✨ Spells</button>
         <button class="tab-button" data-tab="inventory">🎒 Inventory</button>
@@ -796,6 +814,15 @@
         <div id="abilities-content">
           <p style="color: #c0c0c0; text-align: center; padding: 40px;">
             Select a character to view abilities
+          </p>
+        </div>
+      </div>
+
+      <!-- Features & Traits Tab -->
+      <div class="tab-content" id="tab-features">
+        <div id="features-content">
+          <p style="color: #c0c0c0; text-align: center; padding: 40px;">
+            Select a character to view features
           </p>
         </div>
       </div>
