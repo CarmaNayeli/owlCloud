@@ -544,6 +544,7 @@ async function loadSheetBuilderAndPopulate() {
 
     // Load required modules in order
     const modulesToLoad = [
+      'src/common/debug.js', // Load debug first - required by all other modules
       'src/modules/action-display.js',
       'src/modules/spell-display.js',
       'src/modules/inventory-manager.js',
