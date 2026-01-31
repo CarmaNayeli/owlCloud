@@ -264,27 +264,37 @@
       data.deathSaves = { successes: 0, failures: 0 };
     }
 
-    deathSavesValue.innerHTML = `
-      <span style="color: var(--accent-success);">✓${data.deathSaves.successes || 0}</span> /
-      <span style="color: var(--accent-danger);">✗${data.deathSaves.failures || 0}</span>
-    `;
-    if (data.deathSaves.successes > 0 || data.deathSaves.failures > 0) {
-      deathSavesDisplay.style.background = 'var(--bg-action)';
-    } else {
-      deathSavesDisplay.style.background = 'var(--bg-tertiary)';
+    if (deathSavesValue) {
+      deathSavesValue.innerHTML = `
+        <span style="color: var(--accent-success);">✓${data.deathSaves.successes || 0}</span> /
+        <span style="color: var(--accent-danger);">✗${data.deathSaves.failures || 0}</span>
+      `;
+    }
+    if (deathSavesDisplay) {
+      if (data.deathSaves.successes > 0 || data.deathSaves.failures > 0) {
+        deathSavesDisplay.style.background = 'var(--bg-action)';
+      } else {
+        deathSavesDisplay.style.background = 'var(--bg-tertiary)';
+      }
     }
 
     // Inspiration
     const inspirationDisplay = document.getElementById('inspiration-display');
     const inspirationValue = document.getElementById('inspiration-value');
-    if (data.inspiration) {
-      inspirationValue.textContent = '⭐ Active';
-      inspirationValue.style.color = '#f57f17';
-      inspirationDisplay.style.background = '#fff9c4';
-    } else {
-      inspirationValue.textContent = '☆ None';
-      inspirationValue.style.color = 'var(--text-muted)';
-      inspirationDisplay.style.background = 'var(--bg-tertiary)';
+    if (inspirationValue) {
+      if (data.inspiration) {
+        inspirationValue.textContent = '⭐ Active';
+        inspirationValue.style.color = '#f57f17';
+        if (inspirationDisplay) {
+          inspirationDisplay.style.background = '#fff9c4';
+        }
+      } else {
+        inspirationValue.textContent = '☆ None';
+        inspirationValue.style.color = 'var(--text-muted)';
+        if (inspirationDisplay) {
+          inspirationDisplay.style.background = 'var(--bg-tertiary)';
+        }
+      }
     }
 
     // Layer 3: Hit Points
