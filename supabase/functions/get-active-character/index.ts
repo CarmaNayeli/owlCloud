@@ -53,9 +53,10 @@ serve(async (req) => {
         .limit(1)
         .maybeSingle()
 
-      // Only throw if there's a real error, not just "no rows found"
-      if (error && error.code !== 'PGRST116') {
-        throw error
+      // maybeSingle() should not throw for "no rows", but check anyway
+      if (error) {
+        console.error('Error querying by owlbear_player_id:', error)
+        // Don't throw, just set data to null
       }
 
       characterData = data
@@ -68,7 +69,11 @@ serve(async (req) => {
         .eq('status', 'connected')
         .maybeSingle()
 
-      if ((pairingError && pairingError.code !== 'PGRST116') || !pairing) {
+      if (pairingError) {
+        console.error('Error querying pairing:', pairingError)
+      }
+
+      if (!pairing) {
         return new Response(
           JSON.stringify({ error: 'Invalid or disconnected pairing code' }),
           {
@@ -88,9 +93,10 @@ serve(async (req) => {
         .limit(1)
         .maybeSingle()
 
-      // Only throw if there's a real error, not just "no rows found"
-      if (error && error.code !== 'PGRST116') {
-        throw error
+      // maybeSingle() should not throw for "no rows", but check anyway
+      if (error) {
+        console.error('Error querying by discord_user_id:', error)
+        // Don't throw, just set data to null
       }
 
       characterData = data
@@ -105,9 +111,10 @@ serve(async (req) => {
         .limit(1)
         .maybeSingle()
 
-      // Only throw if there's a real error, not just "no rows found"
-      if (error && error.code !== 'PGRST116') {
-        throw error
+      // maybeSingle() should not throw for "no rows", but check anyway
+      if (error) {
+        console.error('Error querying by user_id_dicecloud:', error)
+        // Don't throw, just set data to null
       }
 
       characterData = data
@@ -153,8 +160,9 @@ serve(async (req) => {
     )
 
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: errorMessage }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
