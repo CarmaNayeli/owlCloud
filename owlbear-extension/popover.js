@@ -7,7 +7,7 @@
  * 3. Displays character information and controls
  */
 
-/* global OBR */
+/* global OBR, buildImage */
 
 // ============== State ==============
 
@@ -361,61 +361,40 @@ function setupPortraitDrag(portraitElement, character, portraitUrl) {
     try {
       console.log('🎨 Creating token for', character.name);
 
-      // Place token at origin (0, 0) - user can drag it to desired location
-      const position = { x: 0, y: 0 };
-
       // Get grid DPI for sizing (1 grid square)
       const dpi = await OBR.scene.grid.getDpi();
 
       // Get current player ID to set ownership
       const playerId = await OBR.player.getId();
 
-      // Create token object directly
-      const tokenId = `owlcloud-${character.id}-${Date.now()}`;
-      const token = {
-        id: tokenId,
-        type: 'IMAGE',
-        position,
-        scale: { x: 1, y: 1 },
-        rotation: 0,
-        layer: 'CHARACTER',
-        locked: false,
-        visible: true,
-        disableHit: false,
-        disableAttachmentBehavior: ['VISIBLE', 'LOCKED', 'LAYER'],
-        image: {
-          url: portraitUrl,
-          width: dpi,
+      // Build token using buildImage
+      const token = buildImage(
+        {
           height: dpi,
+          width: dpi,
+          url: portraitUrl,
           mime: 'image/png'
         },
-        text: {
-          plainText: character.name || 'Character',
-          type: 'PLAIN',
-          style: {
-            fillColor: '#FFFFFF',
-            fillOpacity: 1,
-            strokeColor: '#000000',
-            strokeOpacity: 1,
-            strokeWidth: 2,
-            textAlign: 'CENTER',
-            textAlignVertical: 'BOTTOM',
-            fontWeight: 700,
-            fontSize: 48,
-            padding: 8
-          }
-        },
-        metadata: {
+        {
+          dpi: dpi,
+          offset: { x: 0, y: 0 }
+        }
+      )
+        .layer('CHARACTER')
+        .locked(false)
+        .name(character.name || 'Character')
+        .plainText(character.name || 'Character')
+        .metadata({
           owlcloud: {
             characterId: character.id,
             characterName: character.name,
             diceCloudId: character.diceCloudId,
             playerId: playerId
           }
-        }
-      };
+        })
+        .build();
 
-      console.log('🎨 Token created:', token);
+      console.log('🎨 Token built:', token);
 
       // Add to scene
       await OBR.scene.items.addItems([token]);

@@ -998,8 +998,9 @@
 
   <!-- Load Owlbear SDK -->
   <script type="module">
-    import OBR from 'https://esm.sh/@owlbear-rodeo/sdk@3.1.0';
+    import OBR, { buildImage } from 'https://esm.sh/@owlbear-rodeo/sdk@3.1.0';
     window.OBR = OBR;
+    window.buildImage = buildImage;
 
     // Load popover.js after SDK is ready
     const script = document.createElement('script');
