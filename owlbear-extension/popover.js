@@ -298,8 +298,6 @@ function displayCharacter(character) {
     if (portraitUrl) {
       characterPortrait.src = portraitUrl;
       characterPortrait.style.display = 'block';
-      characterPortrait.style.cursor = 'grab';
-      characterPortrait.title = 'Drag to map to create token';
       console.log('✅ Portrait loaded from:', portraitUrl);
 
       // Set up drag-and-drop to create token
@@ -322,70 +320,108 @@ function displayCharacter(character) {
 }
 
 /**
- * Set up drag-and-drop for character portrait to create tokens
+ * Set up click handler for character portrait to create tokens
  */
 function setupPortraitDrag(portraitElement, character, portraitUrl) {
   if (!isOwlbearReady) return;
 
-  // Remove any existing drag listener
-  portraitElement.ondragstart = null;
-  portraitElement.onmousedown = null;
-
-  // Make portrait draggable
+  // Enable HTML5 drag-and-drop for GMs to drag onto map
   portraitElement.draggable = true;
+  portraitElement.style.cursor = 'grab';
+  portraitElement.title = 'Drag to map (GM) or click to add token';
 
-  portraitElement.onmousedown = async () => {
-    if (!isOwlbearReady) return;
-
-    // Change cursor during drag
+  // Handle drag start
+  portraitElement.addEventListener('dragstart', (e) => {
     portraitElement.style.cursor = 'grabbing';
+    e.dataTransfer.effectAllowed = 'copy';
+    // Set image URL so Owlbear can import it
+    e.dataTransfer.setData('text/uri-list', portraitUrl);
+    e.dataTransfer.setData('text/plain', character.name);
+    console.log('🎨 Dragging portrait for', character.name);
+  });
 
-    try {
-      // Create token data
-      const tokenData = [{
-        height: 200,  // Default size in pixels (will scale to grid)
-        width: 200,
-        position: { x: 0, y: 0 },  // Will be set by drag position
-        rotation: 0,
-        layer: "CHARACTER",
-        locked: false,
-        visible: true,
-        metadata: {
-          owlcloud: {
-            characterId: character.id,
-            characterName: character.name,
-            diceCloudId: character.diceCloudId
-          }
-        },
-        name: character.name || 'Character',
-        image: {
-          url: portraitUrl,
-          mime: 'image/png'
-        },
-        text: {
-          plainText: character.name || 'Character',
-          type: 'PLAIN'
-        },
-        attachedTo: undefined
-      }];
-
-      console.log('🎨 Starting token drag with data:', tokenData);
-
-      // Start the drag operation
-      await OBR.interaction.startItemDrag(tokenData);
-    } catch (error) {
-      console.error('❌ Error starting drag:', error);
-    }
-  };
-
-  // Reset cursor when drag ends
   portraitElement.addEventListener('dragend', () => {
     portraitElement.style.cursor = 'grab';
   });
 
-  portraitElement.addEventListener('mouseup', () => {
-    portraitElement.style.cursor = 'grab';
-  });
+  // Also support click for programmatic creation (fallback for players)
+  portraitElement.onclick = async (e) => {
+    // Prevent drag from also triggering click
+    if (e.detail === 0) return;
+
+    try {
+      console.log('🎨 Creating token for', character.name);
+
+      // Get viewport to place token at center
+      const viewport = await OBR.viewport.getViewport();
+
+      // Calculate center position
+      const position = {
+        x: viewport.position.x + (viewport.width / 2),
+        y: viewport.position.y + (viewport.height / 2)
+      };
+
+      // Get grid DPI for sizing (1 grid square)
+      const dpi = await OBR.scene.grid.getDpi();
+
+      // Get current player ID to set ownership
+      const playerId = await OBR.player.getId();
+
+      // Build the token using Owlbear's buildImage helper
+      const token = await OBR.scene.items.buildImage({
+        height: dpi,
+        width: dpi,
+        url: portraitUrl,
+        mime: 'image/png'
+      })
+        .position(position)
+        .layer('CHARACTER')
+        .locked(false)
+        .visible(true)
+        .name(character.name || 'Character')
+        .disableHit(false)
+        .disableAttachmentBehavior(['VISIBLE', 'LOCKED', 'LAYER'])
+        .metadata({
+          owlcloud: {
+            characterId: character.id,
+            characterName: character.name,
+            diceCloudId: character.diceCloudId,
+            playerId: playerId
+          }
+        })
+        .build();
+
+      // Add text label
+      token.text = {
+        plainText: character.name || 'Character',
+        type: 'PLAIN',
+        style: {
+          fillColor: '#FFFFFF',
+          fillOpacity: 1,
+          strokeColor: '#000000',
+          strokeOpacity: 1,
+          strokeWidth: 2,
+          textAlign: 'CENTER',
+          textAlignVertical: 'BOTTOM',
+          fontWeight: 700,
+          fontSize: 48,
+          padding: 8
+        }
+      };
+
+      console.log('🎨 Token built:', token);
+
+      // Add to scene
+      await OBR.scene.items.addItems([token]);
+
+      // Notify user
+      OBR.notification.show(`Added ${character.name} to map`, 'SUCCESS');
+      console.log('✅ Token created successfully with metadata:', token.metadata);
+    } catch (error) {
+      console.error('❌ Error creating token:', error);
+      OBR.notification.show(`Failed to create token: ${error.message}`, 'ERROR');
+    }
+  };
 }
 
 /**
