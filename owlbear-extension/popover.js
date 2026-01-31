@@ -377,7 +377,8 @@ function setupPortraitDrag(portraitElement, character, portraitUrl) {
         },
         {
           dpi: dpi,
-          offset: { x: 0, y: 0 }
+          offset: { x: 0, y: 0 },
+          shape: 'CIRCLE'
         }
       )
         .layer('CHARACTER')
