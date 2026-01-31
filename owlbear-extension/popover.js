@@ -41,30 +41,38 @@ OBR.onReady(async () => {
 // ============== Character Management ==============
 
 /**
- * Check if there's an active character from the browser extension
+ * Check if there's an active character from Supabase
  */
 async function checkForActiveCharacter() {
   try {
-    // Try to communicate with the browser extension content script
-    // The content script should be running on the owlbear.rodeo page
-    const message = {
-      type: 'OWLCLOUD_GET_ACTIVE_CHARACTER',
-      source: 'owlbear-extension'
-    };
+    // Get pairing code from OBR metadata (stored when user pairs)
+    const metadata = await OBR.room.getMetadata();
+    const pairingCode = metadata['owlcloud/pairing_code'];
 
-    // Post message to parent window (where the browser extension content script is)
-    window.parent.postMessage(message, 'https://www.owlbear.rodeo');
+    if (!pairingCode) {
+      console.log('ℹ️ No pairing code found, showing setup instructions');
+      showNoCharacter();
+      return;
+    }
 
-    // Set a timeout in case we don't get a response (content script not ready)
-    setTimeout(() => {
-      // If we still haven't received character data, show no character section
-      if (!currentCharacter && characterSection.style.display === 'none' && noCharacterSection.style.display === 'none') {
-        console.warn('⚠️ No response from browser extension, showing no character section');
-        showNoCharacter();
-      }
-    }, 3000);
+    // Call Supabase Edge Function to get active character
+    const response = await fetch(
+      `https://gkfpxwvmumaylahtxqrk.supabase.co/functions/v1/get-active-character?pairing_code=${encodeURIComponent(pairingCode)}`
+    );
 
-    // The response will come via window message listener (set up below)
+    if (!response.ok) {
+      console.error('Failed to get character:', response.statusText);
+      showNoCharacter();
+      return;
+    }
+
+    const data = await response.json();
+
+    if (data.success && data.character) {
+      displayCharacter(data.character);
+    } else {
+      showNoCharacter();
+    }
   } catch (error) {
     console.error('Error checking for active character:', error);
     showNoCharacter();
