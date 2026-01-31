@@ -270,18 +270,18 @@ function displayCharacter(character) {
   }
 
   // Set character portrait if available
-  // Portrait data is stored in rawDiceCloudData
+  // Portrait data is stored in rawDiceCloudData.creature
   console.log('🖼️ Checking for portrait in character data:');
   console.log('  character.picture:', character.picture);
   console.log('  character.avatarPicture:', character.avatarPicture);
-  console.log('  character.rawDiceCloudData?.picture:', character.rawDiceCloudData?.picture);
-  console.log('  character.rawDiceCloudData?.avatarPicture:', character.rawDiceCloudData?.avatarPicture);
+  console.log('  character.rawDiceCloudData?.creature?.picture:', character.rawDiceCloudData?.creature?.picture);
+  console.log('  character.rawDiceCloudData?.creature?.avatarPicture:', character.rawDiceCloudData?.creature?.avatarPicture);
 
-  // Try top-level fields first, then check inside rawDiceCloudData
+  // Try top-level fields first, then check inside rawDiceCloudData.creature
   const portraitUrl = character.picture ||
                       character.avatarPicture ||
-                      character.rawDiceCloudData?.picture ||
-                      character.rawDiceCloudData?.avatarPicture;
+                      character.rawDiceCloudData?.creature?.picture ||
+                      character.rawDiceCloudData?.creature?.avatarPicture;
 
   if (characterPortrait) {
     if (portraitUrl) {
