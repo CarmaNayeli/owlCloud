@@ -208,6 +208,13 @@ if (browserAPI.alarms) {
     }
   });
   debug.log('🛰️ Realtime keep-alive alarm listener registered');
+
+  // Also handle the short-term keepAlive alarm
+  browserAPI.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === 'keepAlive') {
+      debug.log('💓 Keep-alive alarm triggered');
+    }
+  });
 }
 
 /**
@@ -245,15 +252,11 @@ function keepServiceWorkerAlive(durationMs = 30000) {
   }
   
   debug.log('💓 Keeping service worker alive for', durationMs, 'ms');
-  
+
   // Use chrome.alarms API if available, otherwise fallback to setInterval
   if (chrome.alarms) {
     chrome.alarms.create('keepAlive', { delayInMinutes: durationMs / 60000 });
-    chrome.alarms.onAlarm.addListener((alarm) => {
-      if (alarm.name === 'keepAlive') {
-        debug.log('💓 Keep-alive alarm triggered');
-      }
-    });
+    // Listener is set up globally, no need to add it here
   } else {
     // Fallback: ping ourselves every 25 seconds
     keepAliveInterval = setInterval(() => {
