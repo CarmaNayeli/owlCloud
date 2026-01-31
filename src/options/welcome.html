@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -6,82 +6,69 @@
   <title>Welcome to OwlCloud</title>
   <style>
     :root {
-      --bg-primary: #ffffff;
-      --bg-secondary: #f8f9fa;
-      --bg-tertiary: #e9ecef;
-      --text-primary: #333333;
-      --text-secondary: #666666;
-      --text-muted: #999999;
-      --accent-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      --accent-secondary: #667eea;
-      --accent-hover: #5a67d8;
-      --border-color: #dee2e6;
-      --warning-bg: #fff3cd;
-      --warning-border: #ffeaa7;
-      --warning-text: #856404;
-      --info-bg: #e3f2fd;
-      --info-border: #90caf9;
-      --info-text: #1565c0;
-    }
-
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg-primary: #1a1a1a;
-        --bg-secondary: #2d2d2d;
-        --bg-tertiary: #404040;
-        --text-primary: #ffffff;
-        --text-secondary: #cccccc;
-        --text-muted: #999999;
-        --accent-secondary: #7c8ff8;
-        --accent-hover: #6b7fdb;
-        --border-color: #404040;
-        --warning-bg: #3b3b00;
-        --warning-border: #666600;
-        --warning-text: #ffeb3b;
-        --info-bg: #1a3a52;
-        --info-border: #2c5282;
-        --info-text: #64b5f6;
-      }
+      /* Royal Purple Dark Mode - matching landing page */
+      --bg-primary: rgba(26, 26, 46, 0.8);
+      --bg-secondary: rgba(138, 92, 246, 0.1);
+      --bg-tertiary: rgba(138, 92, 246, 0.15);
+      --text-primary: #e0e0e0;
+      --text-secondary: #A78BFA;
+      --text-muted: #c0c0c0;
+      --accent-primary: linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%);
+      --accent-secondary: #8B5CF6;
+      --accent-hover: #A78BFA;
+      --border-color: rgba(138, 92, 246, 0.2);
+      --warning-bg: rgba(251, 191, 36, 0.1);
+      --warning-border: rgba(251, 191, 36, 0.3);
+      --warning-text: #FCD34D;
+      --info-bg: rgba(59, 130, 246, 0.1);
+      --info-border: rgba(59, 130, 246, 0.3);
+      --info-text: #60A5FA;
     }
     
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       margin: 0;
       padding: 20px;
-      background: var(--bg-secondary);
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
       color: var(--text-primary);
     }
-    
+
     .container {
       background: var(--bg-primary);
-      border-radius: 12px;
-      padding: 40px;
-      max-width: 600px;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+      border-radius: 24px;
+      padding: 60px;
+      max-width: 700px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(10px);
       text-align: center;
       border: 1px solid var(--border-color);
     }
     
     .logo {
-      width: 80px;
-      height: 80px;
-      margin: 0 auto 20px;
+      width: 100px;
+      height: 100px;
+      margin: 0 auto 30px;
+      filter: drop-shadow(0 0 20px rgba(138, 92, 246, 0.5));
     }
-    
+
     .logo img {
       width: 100%;
       height: 100%;
       border-radius: 12px;
     }
-    
+
     h1 {
-      color: var(--text-primary);
-      margin: 0 0 10px 0;
-      font-size: 28px;
+      background: linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin: 0 0 16px 0;
+      font-size: 42px;
+      font-weight: 700;
     }
     
     .subtitle {
@@ -101,8 +88,16 @@
       margin: 20px 0;
       padding: 20px;
       background: var(--bg-secondary);
-      border-radius: 8px;
-      border-left: 4px solid var(--accent-secondary);
+      border-radius: 16px;
+      border: 1px solid var(--border-color);
+      transition: all 0.3s ease;
+    }
+
+    .step:hover {
+      background: var(--bg-tertiary);
+      border-color: rgba(138, 92, 246, 0.4);
+      box-shadow: 0 8px 16px rgba(138, 92, 246, 0.2);
+      transform: translateY(-2px);
     }
     
     .step-number {
