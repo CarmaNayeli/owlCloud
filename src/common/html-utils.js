@@ -61,8 +61,7 @@ function validateMessageOrigin(event, allowedOrigins) {
  * Allowed origins for RollCloud extension
  */
 const ROLLCLOUD_ALLOWED_ORIGINS = [
-  'https://app.roll20.net',
-  'https://roll20.net',
+  'https://www.owlbear.rodeo',
   'https://dicecloud.com',
   'https://*.dicecloud.com'
 ];
@@ -71,9 +70,9 @@ const ROLLCLOUD_ALLOWED_ORIGINS = [
  * Safe wrapper for postMessage with explicit origin
  * @param {Window} target - Target window
  * @param {*} message - Message to send
- * @param {string} origin - Target origin (defaults to Roll20)
+ * @param {string} origin - Target origin (defaults to Owlbear Rodeo)
  */
-function safePostMessage(target, message, origin = 'https://app.roll20.net') {
+function safePostMessage(target, message, origin = 'https://www.owlbear.rodeo') {
   if (!target || target.closed) {
     debug.warn('⚠️ Target window is closed or invalid');
     return false;

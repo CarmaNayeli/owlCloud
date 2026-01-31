@@ -177,21 +177,7 @@
 
     debug.log('🍀 Reroll data:', rerollData);
 
-    // Send the reroll request
-    if (window.opener && !window.opener.closed) {
-      // Send via popup window opener (Roll20 content script)
-      window.opener.postMessage({
-        action: 'rollFromPopout',
-        ...rerollData
-      }, '*');
-    } else {
-      // Fallback: send directly to Roll20 via background script
-      browserAPI.runtime.sendMessage({
-        action: 'relayRollToRoll20',
-        roll: rerollData
-      });
-    }
-
+    // TODO: Add Owlbear Rodeo integration for Halfling Luck rerolls
     showNotification('🍀 Halfling Luck reroll initiated!', 'success');
   }
 
@@ -343,21 +329,7 @@
       characterName: characterData.name
     };
 
-    // Send the reroll request
-    if (window.opener && !window.opener.closed) {
-      window.opener.postMessage({
-        action: 'rollFromPopout',
-        ...rerollData
-      }, '*');
-      debug.log('🎖️ Lucky reroll sent via window.opener');
-    } else {
-      // Fallback: send directly to Roll20 via background script
-      browserAPI.runtime.sendMessage({
-        action: 'relayRollToRoll20',
-        roll: rerollData
-      });
-    }
-
+    // TODO: Add Owlbear Rodeo integration for Lucky rerolls
     showNotification('🎖️ Lucky reroll initiated!', 'success');
   }
 
@@ -650,16 +622,7 @@
       }
     });
 
-    // Also announce to Roll20 chat
-    const colorBanner = getColoredBanner(characterData);
-    const message = `&{template:default} {{name=${colorBanner}${characterData.name} - Wild Magic Surge! 🌀}} {{d100 Roll=${d100Roll}}} {{Effect=${effect}}}`;
-
-    if (window.opener && !window.opener.closed) {
-      window.opener.postMessage({
-        action: 'announceSpell',
-        message: message
-      }, '*');
-    }
+    // TODO: Add Owlbear Rodeo integration for Wild Magic Surge announcements
 
     debug.log('🌀 Wild Magic Surge popup displayed');
   }
@@ -834,14 +797,7 @@
     // Show notification
     showNotification(`🎵 Bardic Inspiration: +${inspirationRoll}!`, 'success');
 
-    // Post to Roll20 chat
-    browserAPI.runtime.sendMessage({
-      action: 'rollDice',
-      rollData: {
-        message: chatMessage,
-        characterName: characterData.name || 'Character'
-      }
-    });
+    // TODO: Add Owlbear Rodeo integration for Bardic Inspiration rolls
 
     debug.log('🎵 Bardic Inspiration roll complete');
   }
@@ -978,22 +934,7 @@
 
     debug.log('🧝 Third die roll:', thirdRoll);
 
-    // Announce the third die roll to Roll20
-    const colorBanner = getColoredBanner(characterData);
-    const message = `&{template:default} {{name=${colorBanner}${characterData.name} uses Elven Accuracy! 🧝}} {{Action=Reroll lower die}} {{Third d20=${thirdRoll}}} {{=Choose the highest of all three rolls!}}`;
-
-    if (window.opener && !window.opener.closed) {
-      window.opener.postMessage({
-        action: 'announceSpell',
-        message: message
-      }, '*');
-    } else {
-      // Fallback: send directly to Roll20 via background script
-      browserAPI.runtime.sendMessage({
-        action: 'relayRollToRoll20',
-        roll: { ...rerollData, result: thirdRoll }
-      });
-    }
+    // TODO: Add Owlbear Rodeo integration for Elven Accuracy rerolls
 
     showNotification(`🧝 Elven Accuracy! Third die: ${thirdRoll}`, 'success');
   }

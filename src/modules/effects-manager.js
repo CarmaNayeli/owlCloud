@@ -517,13 +517,7 @@
     }
     debug.log(`✅ Effect added: ${effectName} (${type})`);
 
-    // Announce to Roll20 chat
-    const message = type === 'positive'
-      ? `${effect.icon} ${characterData.name} gains ${effectName}!`
-      : `${effect.icon} ${characterData.name} is now ${effectName}!`;
-    if (typeof postToChatIfOpener !== 'undefined') {
-      postToChatIfOpener(message);
-    }
+    // TODO: Add Owlbear Rodeo integration for effect announcements
 
     // Save to character data
     if (!characterData.activeEffects) {
@@ -564,13 +558,7 @@
     }
     debug.log(`🗑️ Effect removed: ${effectName} (${type})`);
 
-    // Announce to Roll20 chat
-    const message = type === 'positive'
-      ? `✅ ${characterData.name} loses ${effectName}`
-      : `✅ ${characterData.name} is no longer ${effectName}`;
-    if (typeof postToChatIfOpener !== 'undefined') {
-      postToChatIfOpener(message);
-    }
+    // TODO: Add Owlbear Rodeo integration for effect removal announcements
 
     // Save to character data
     if (!characterData.activeEffects) {

@@ -1,7 +1,7 @@
 /**
  * Action Announcements Module
  *
- * Handles announcing actions to Roll20 chat.
+ * Handles announcing actions to chat.
  * Loaded as a plain script (no ES6 modules) to export to globalThis.
  *
  * Functions exported to globalThis:
@@ -13,11 +13,11 @@
   'use strict';
 
   /**
-   * Announce the use of an action to Roll20 chat
+   * Announce the use of an action to chat
    * @param {Object} action - Action object with name, actionType, description, etc.
    */
   function announceAction(action) {
-    // Announce the use of an action (bonus action, reaction, etc.) to Roll20 chat
+    // TODO: Add Owlbear Rodeo integration for action announcements
     const colorBanner = getColoredBanner(characterData);
 
     // Determine action type emoji
@@ -58,43 +58,14 @@
       message += ` {{Uses=${usesText}}}`;
     }
 
-    // Send to Roll20 chat
-    const messageData = {
-      action: 'announceSpell',
-      message: message,
-      color: characterData.notificationColor
-    };
-
     // Get color emoji and character name for notification
     const colorEmoji = typeof getColorEmoji === 'function' ? getColorEmoji(characterData.notificationColor) : '';
     const notificationText = colorEmoji ? `${colorEmoji} ${characterData.name} used ${action.name}!` : `✨ ${characterData.name} used ${action.name}!`;
 
-    // Try window.opener first (Chrome)
-    if (window.opener && !window.opener.closed) {
-      try {
-        window.opener.postMessage(messageData, '*');
-        showNotification(notificationText);
-        debug.log('✅ Action announcement sent via window.opener');
-        return;
-      } catch (error) {
-        debug.warn('⚠️ Could not send via window.opener:', error.message);
-      }
-    }
+    showNotification(notificationText);
+    debug.log('✅ Action announcement displayed');
 
-    // Fallback: Use background script to relay to Roll20 (Firefox)
-    debug.log('📡 Using background script to relay action announcement to Roll20...');
-    browserAPI.runtime.sendMessage({
-      action: 'relayRollToRoll20',
-      roll: messageData
-    }, (response) => {
-      if (browserAPI.runtime.lastError) {
-        debug.error('❌ Error relaying action announcement:', browserAPI.runtime.lastError);
-        showNotification('❌ Failed to announce action');
-      } else if (response && response.success) {
-        debug.log('✅ Action announcement relayed to Roll20');
-        showNotification(notificationText);
-      }
-    });
+    // TODO: Add Owlbear Rodeo integration here to send action announcements to VTT
   }
 
   /**

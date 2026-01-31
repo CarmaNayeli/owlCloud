@@ -68,7 +68,7 @@
   }
 
   /**
-   * Send sync message to DiceCloud/Roll20
+   * Send sync message to DiceCloud
    */
   function sendSyncMessage() {
     // Requires characterData to be available from global scope
@@ -78,7 +78,6 @@
     }
 
     // Send sync message to DiceCloud if experimental sync is available
-    // Always send sync messages in experimental build - they'll be handled by Roll20 content script
     debug.log('🔄 Sending character data update to DiceCloud sync...');
 
     // Extract Channel Divinity from characterData.resources array (this has the current values after use)
@@ -133,7 +132,7 @@
       }
     };
 
-    // Try to send to Roll20 content script
+    // Try to send to DiceCloud sync
     window.postMessage(syncMessage, '*');
 
     // Also try to send via opener if available
@@ -149,22 +148,7 @@
       }, '*');
       debug.log('💾 Sent character data update to parent window');
 
-      // Also send player data to GM Panel for overview tracking
-      window.opener.postMessage({
-        action: 'updatePlayerData',
-        characterName: characterData.name,
-        data: {
-          hp: characterData.hp,
-          maxHp: characterData.maxHp,
-          ac: characterData.ac,
-          passivePerception: characterData.passivePerception || (10 + (characterData.perception || 0)),
-          initiative: characterData.initiative,
-          conditions: characterData.conditions || [],
-          concentrationSpell: characterData.concentrationSpell || null,
-          deathSaves: characterData.deathSaves || null
-        }
-      }, '*');
-      debug.log('👥 Sent player data update to GM Panel');
+      // TODO: Add Owlbear Rodeo integration for GM Panel player data tracking
     }
   }
 

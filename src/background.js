@@ -1,6 +1,6 @@
 /**
  * Background Script - Chrome & Firefox Support
- * Handles data storage, API authentication, and communication between Dice Cloud and Roll20
+ * Handles data storage, API authentication, and communication between Dice Cloud and Discord
  */
 
 // For service workers (Chrome) and event pages (Firefox), import utility modules
@@ -369,7 +369,7 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
 
         case 'fetchDiceCloudAPI': {
-          // Fetch from DiceCloud API (used by Roll20 content script)
+          // Fetch from DiceCloud API
           const fetchResult = await fetchFromDiceCloudAPI(request.url, request.token);
           response = fetchResult;
           break;
@@ -438,62 +438,6 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
           response = { success: true };
           break;
 
-        case 'rollResult':
-          // Forward roll result to Roll20 content script for popup forwarding
-          debug.log('🧬 Forwarding roll result to Roll20 for popup:', request);
-          
-          // Send to Roll20 content script to forward to popup
-          const roll20Tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
-          if (roll20Tabs.length > 0) {
-            await browserAPI.tabs.sendMessage(roll20Tabs[0].id, {
-              action: 'forwardToPopup',
-              rollResult: request.rollResult,
-              baseRoll: request.baseRoll,
-              characterName: request.characterName,
-              characterId: request.characterId
-            });
-            response = { success: true };
-          } else {
-            response = { success: false, error: 'No Roll20 tabs found' };
-          }
-          break;
-
-        case 'relayRollToRoll20': {
-          // Relay roll from popup-sheet to Roll20 content script
-          debug.log('🎲 Relaying roll to Roll20:', request.roll);
-
-          const r20Tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
-          if (r20Tabs.length > 0) {
-            for (const tab of r20Tabs) {
-              try {
-                await browserAPI.tabs.sendMessage(tab.id, {
-                  action: 'rollFromPopout',
-                  roll: request.roll,
-                  name: request.roll?.name,
-                  formula: request.roll?.formula,
-                  characterName: request.roll?.characterName
-                });
-                debug.log('✅ Roll relayed to Roll20 tab:', tab.id);
-              } catch (tabError) {
-                debug.warn('⚠️ Could not send to tab', tab.id, tabError.message);
-              }
-            }
-            response = { success: true };
-          } else {
-            debug.warn('⚠️ No Roll20 tabs found to relay roll');
-            response = { success: false, error: 'No Roll20 tabs found' };
-          }
-          break;
-        }
-
-        case 'postChatMessageFromPopup': {
-          // Post character broadcast or other messages to Roll20 chat
-          debug.log('📨 Posting chat message from popup:', request.message?.substring(0, 100));
-          await sendChatMessageToAllRoll20Tabs(request.message);
-          response = { success: true };
-          break;
-        }
-
         // Handle extractAuthToken with tabId and forward to content script
         case 'extractAuthToken': {
           if (request.tabId) {
@@ -519,14 +463,6 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
         case 'checkLoginStatus': {
           const loginStatus = await checkLoginStatus();
           response = { success: true, ...loginStatus };
-          break;
-        }
-
-        case 'toggleGMMode': {
-          // Forward GM Mode toggle to all Roll20 tabs
-          debug.log('👑 Received toggleGMMode request, forwarding to Roll20 tabs');
-          await sendGMModeToggleToRoll20Tabs(request.enabled);
-          response = { success: true };
           break;
         }
 
@@ -1887,31 +1823,6 @@ async function setActiveCharacter(characterId) {
       }
     }
 
-    // Notify Roll20 tabs about the character change for experimental sync
-    try {
-      const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
-      if (tabs.length > 0) {
-        // Get the character data to send the DiceCloud character ID
-        const result = await browserAPI.storage.local.get(['characterProfiles']);
-        const characterProfiles = result.characterProfiles || {};
-        const characterData = characterProfiles[characterId];
-
-        if (characterData && characterData.id) {
-          debug.log(`Broadcasting active character change to Roll20 tabs: ${characterData.id}`);
-          for (const tab of tabs) {
-            browserAPI.tabs.sendMessage(tab.id, {
-              action: 'activeCharacterChanged',
-              characterId: characterData.id,
-              slotId: characterId
-            }).catch(err => {
-              debug.warn(`Failed to notify tab ${tab.id} about character change:`, err);
-            });
-          }
-        }
-      }
-    } catch (error) {
-      debug.warn('Failed to broadcast character change to Roll20 tabs:', error);
-    }
   } catch (error) {
     debug.error('Failed to set active character:', error);
     throw error;
@@ -2110,13 +2021,13 @@ async function deleteCharacterFromCloud(characterId) {
 }
 
 /**
- * Rolls in Dice Cloud and forwards to Roll20
+ * Rolls in Dice Cloud
  */
 async function rollInDiceCloudAndForward(rollData) {
   try {
     // Find Dice Cloud tab
     const diceCloudTabs = await browserAPI.tabs.query({ url: '*://dicecloud.com/*' });
-    
+
     if (diceCloudTabs.length === 0) {
       throw new Error('No Dice Cloud tab found. Please open Dice Cloud first.');
     }
@@ -2132,117 +2043,10 @@ async function rollInDiceCloudAndForward(rollData) {
       throw new Error('Failed to roll in Dice Cloud');
     }
 
-    debug.log(' Roll initiated in Dice Cloud, will be forwarded automatically');
+    debug.log('Roll initiated in Dice Cloud');
     return response;
   } catch (error) {
     debug.error('Failed to roll in Dice Cloud:', error);
-    throw error;
-  }
-}
-
-/**
- * Sends a roll to all open Roll20 tabs
- */
-async function sendRollToAllRoll20Tabs(rollData) {
-  try {
-    // Query all tabs for Roll20
-    const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
-
-    if (tabs.length === 0) {
-      debug.warn('⚠️ No Roll20 tabs found - roll not sent');
-      return { success: false, error: 'No Roll20 tabs open. Please open Roll20 in a browser tab.' };
-    }
-
-    // Send roll to each Roll20 tab with individual error handling
-    let successCount = 0;
-    let failCount = 0;
-    const errors = [];
-
-    for (const tab of tabs) {
-      try {
-        await browserAPI.tabs.sendMessage(tab.id, {
-          action: 'postRollToChat',
-          roll: rollData
-        });
-        successCount++;
-      } catch (err) {
-        failCount++;
-        debug.warn(`Failed to send roll to tab ${tab.id}:`, err.message);
-        errors.push(`Tab ${tab.id}: ${err.message}`);
-      }
-    }
-
-    if (successCount > 0) {
-      debug.log(`✅ Roll sent to ${successCount}/${tabs.length} Roll20 tab(s)`);
-      return { success: true, tabsSent: successCount, tabsFailed: failCount };
-    } else {
-      debug.error(`❌ Failed to send roll to any Roll20 tabs. Errors: ${errors.join(', ')}`);
-      return { success: false, error: 'Failed to send roll to Roll20. Try refreshing the Roll20 page.' };
-    }
-  } catch (error) {
-    debug.error('Failed to send roll to Roll20 tabs:', error);
-    return { success: false, error: error.message };
-  }
-}
-
-/**
- * Sends GM Mode toggle to all open Roll20 tabs
- */
-async function sendGMModeToggleToRoll20Tabs(enabled) {
-  try {
-    // Query all tabs for Roll20
-    const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
-
-    if (tabs.length === 0) {
-      debug.warn('No Roll20 tabs found');
-      return;
-    }
-
-    // Send GM Mode toggle to each Roll20 tab
-    const promises = tabs.map(tab => {
-      return browserAPI.tabs.sendMessage(tab.id, {
-        action: 'toggleGMMode',
-        enabled: enabled
-      }).catch(err => {
-        debug.warn(`Failed to send GM Mode toggle to tab ${tab.id}:`, err);
-      });
-    });
-
-    await Promise.all(promises);
-    debug.log(`GM Mode toggle sent to ${tabs.length} Roll20 tab(s)`);
-  } catch (error) {
-    debug.error('Failed to send GM Mode toggle to Roll20 tabs:', error);
-    throw error;
-  }
-}
-
-/**
- * Sends chat message to all open Roll20 tabs
- */
-async function sendChatMessageToAllRoll20Tabs(message) {
-  try {
-    // Query all tabs for Roll20
-    const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
-
-    if (tabs.length === 0) {
-      debug.warn('No Roll20 tabs found');
-      return;
-    }
-
-    // Send chat message to each Roll20 tab
-    const promises = tabs.map(tab => {
-      return browserAPI.tabs.sendMessage(tab.id, {
-        action: 'postChatMessageFromPopup',
-        message: message
-      }).catch(err => {
-        debug.warn(`Failed to send chat message to tab ${tab.id}:`, err);
-      });
-    });
-
-    await Promise.all(promises);
-    debug.log(`Chat message sent to ${tabs.length} Roll20 tab(s)`);
-  } catch (error) {
-    debug.error('Failed to send chat message to Roll20 tabs:', error);
     throw error;
   }
 }
@@ -2446,7 +2250,7 @@ async function testDiscordWebhook(webhookUrl) {
         description: 'Discord webhook integration is working correctly.',
         color: 0x4ECDC4, // Teal color matching the extension theme
         footer: {
-          text: 'RollCloud - Dice Cloud → Roll20 Bridge'
+          text: 'RollCloud - Dice Cloud → Discord Bridge'
         },
         timestamp: new Date().toISOString()
       }]
@@ -3041,7 +2845,7 @@ async function storeCharacterToCloud(characterData, pairingCode = null) {
       resources: characterData.resources || [],
       conditions: characterData.conditions || [],
       notification_color: characterData.notificationColor || '#3498db',
-      // Mark character as active in Roll20 when synced
+      // Mark character as active when synced
       is_active: true,
       // Store the FULL parsed character object (but unwrap DB wrappers first)
       // The individual fields above are for Discord bot quick access
@@ -3444,7 +3248,7 @@ async function checkDiscordCharacterIntegration(characterName, characterId) {
 
 /**
  * Fetch data from DiceCloud API
- * Used by Roll20 content script to get character data
+ * Used to get character data
  */
 async function fetchFromDiceCloudAPI(url, token) {
   try {
@@ -3865,7 +3669,7 @@ async function getUserCharactersFromCloud(pairingId = null) {
 }
 
 // ============================================================================
-// Discord Command Realtime Subscription (Discord → Extension → Roll20)
+// Discord Command Realtime Subscription (Discord → Extension)
 // ============================================================================
 
 let commandRealtimeSocket = null;
@@ -4180,8 +3984,8 @@ async function executeCommand(command) {
 }
 
 /**
- * Execute a rollhere command (roll dice in Discord only, not Roll20)
- * Uses Roll20-style [XdY] or [XdY+X] format
+ * Execute a rollhere command (roll dice in Discord only)
+ * Uses [XdY] or [XdY+X] format
  */
 async function executeRollHereCommand(command) {
   const { action_name, command_data } = command;
@@ -4191,7 +3995,7 @@ async function executeRollHereCommand(command) {
   const rollName = action_name || command_data.roll_name || 'Roll';
   const characterName = command_data.character_name || 'Unknown';
 
-  debug.log('🎲 Rolling in Discord (not Roll20):', rollString, rollName);
+  debug.log('🎲 Rolling in Discord:', rollString, rollName);
 
   try {
     // Post the roll to Discord webhook with proper payload structure
@@ -4220,107 +4024,45 @@ async function executeRollHereCommand(command) {
 
 /**
  * Execute a roll command (e.g., attack roll, save, check)
+ * Note: This function is deprecated as Roll20 integration has been removed
  */
 async function executeRollCommand(command) {
-  const { action_name, command_data } = command;
+  const { action_name } = command;
+  const rollName = action_name || 'Discord Roll';
 
-  // Build roll data from command data
-  const rollString = command_data.roll_string || `/roll 1d20`;
-  const rollName = action_name || command_data.roll_name || 'Discord Roll';
-
-  // Build comprehensive roll data for Roll20
-  const rollData = {
-    formula: rollString,
-    name: rollName,
-    source: 'discord',
-    characterName: command_data.character_name,
-    characterId: command_data.character_id,
-    checkType: command_data.check_type,
-    advantage: command_data.advantage,
-    disadvantage: command_data.disadvantage,
-    count: command_data.count,
-    sides: command_data.sides,
-    modifier: command_data.modifier,
-    color: command_data.notification_color || '#3498db'  // Include character's notification color for colored announcements
-  };
-
-  // Send to Roll20
-  const result = await sendRollToAllRoll20Tabs(rollData);
-
-  if (!result || !result.success) {
-    const errorMsg = result?.error || 'Failed to send roll to Roll20';
-    debug.error('❌ Roll command failed:', errorMsg);
-    return { success: false, message: errorMsg };
-  }
-
-  return { success: true, message: `Rolled ${rollName}` };
+  debug.warn('❌ Roll command not supported - Roll20 integration removed');
+  return { success: false, message: `Roll command not supported: ${rollName}` };
 }
 
 /**
  * Execute an action/bonus action use command
+ * Note: This function is deprecated as Roll20 integration has been removed
  */
 async function executeUseActionCommand(command, actionType) {
-  const { action_name, command_data } = command;
+  const { action_name } = command;
 
-  // Send action use to Roll20 tabs
-  const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
-
-  for (const tab of tabs) {
-    try {
-      await browserAPI.tabs.sendMessage(tab.id, {
-        action: 'useActionFromDiscord',
-        actionType: actionType,
-        actionName: action_name,
-        commandData: command_data
-      });
-    } catch (err) {
-      debug.warn(`Failed to send action to tab ${tab.id}:`, err);
-    }
-  }
-
-  return { success: true, message: `Used ${actionType}: ${action_name}` };
+  debug.warn('❌ Use action command not supported - Roll20 integration removed');
+  return { success: false, message: `Use action command not supported: ${actionType} ${action_name}` };
 }
 
 /**
  * Execute end turn command
+ * Note: This function is deprecated as Roll20 integration has been removed
  */
 async function executeEndTurnCommand(command) {
-  const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
-
-  for (const tab of tabs) {
-    try {
-      await browserAPI.tabs.sendMessage(tab.id, {
-        action: 'endTurnFromDiscord'
-      });
-    } catch (err) {
-      debug.warn(`Failed to send end turn to tab ${tab.id}:`, err);
-    }
-  }
-
-  return { success: true, message: 'Turn ended' };
+  debug.warn('❌ End turn command not supported - Roll20 integration removed');
+  return { success: false, message: 'End turn command not supported' };
 }
 
 /**
  * Execute use ability command (spell, feature, etc.)
+ * Note: This function is deprecated as Roll20 integration has been removed
  */
 async function executeUseAbilityCommand(command) {
-  const { action_name, command_data } = command;
+  const { action_name } = command;
 
-  const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
-
-  for (const tab of tabs) {
-    try {
-      await browserAPI.tabs.sendMessage(tab.id, {
-        action: 'useAbilityFromDiscord',
-        abilityName: action_name,
-        abilityData: command_data
-      });
-    } catch (err) {
-      debug.warn(`Failed to send ability use to tab ${tab.id}:`, err);
-    }
-  }
-
-  return { success: true, message: `Used ability: ${action_name}` };
+  debug.warn('❌ Use ability command not supported - Roll20 integration removed');
+  return { success: false, message: `Use ability command not supported: ${action_name}` };
 }
 
 /**
@@ -4338,58 +4080,8 @@ async function executeCastCommand(command) {
       return { success: false, error: 'Character not found' };
     }
 
-    // Process metamagic using action-executor
-    // Note: executeDiscordCast should be available from content script context where action-executor is loaded
-    // For now, return basic data and let content script handle execution
-    const castResult = (typeof globalThis.executeDiscordCast === 'function')
-      ? globalThis.executeDiscordCast(command_data, characterData)
-      : { rolls: [], effects: [], text: '' }; // Fallback if not available
-
-    debug.log('🔮 Discord spell execution result:', castResult);
-
-    // Build enhanced spell data with all processed effects
-    const rolls = castResult.rolls || [];
-    // Handle both spell and spell_data field names (Discord bot uses 'spell', others may use 'spell_data')
-    const spellData = command_data.spell || command_data.spell_data || {};
-    const enhancedSpellData = {
-      ...command_data,
-      spell_data: spellData,
-      spell: spellData, // Include both for compatibility
-      // Apply metamagic modifications to damage rolls if any (at top level for content script)
-      damageRolls: rolls.map(roll => ({
-        damage: roll.formula,
-        damageType: roll.damageType || roll.type || 'damage',
-        name: roll.name
-      })),
-      // Include all processed effects for Roll20 display
-      metamagicUsed: castResult.metamagicUsed,
-      slotUsed: castResult.slotUsed,
-      effects: castResult.effects,
-      isCantrip: castResult.isCantrip,
-      isFreecast: castResult.isFreecast,
-      resourceChanges: castResult.resourceChanges,
-      executionResult: castResult,
-      // Upcasting information
-      isUpcast: castResult.embed?.isUpcast || false,
-      actualCastLevel: castResult.embed?.castLevel || parseInt(command_data.cast_level) || 0
-    };
-
-    // Send to all Roll20 tabs
-    const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
-
-    for (const tab of tabs) {
-      try {
-        await browserAPI.tabs.sendMessage(tab.id, {
-          action: 'castSpellFromDiscord',
-          spellName: action_name,
-          spellData: enhancedSpellData
-        });
-      } catch (err) {
-        debug.warn(`Failed to send cast to tab ${tab.id}:`, err);
-      }
-    }
-
-    return { success: true, message: `Cast spell: ${action_name}`, result: castResult };
+    debug.warn('❌ Cast spell command not supported - Roll20 integration removed');
+    return { success: false, message: `Cast spell command not supported: ${action_name}` };
   } catch (error) {
     debug.error('Error executing Discord cast command:', error);
     return { success: false, error: error.message };
@@ -4398,85 +4090,47 @@ async function executeCastCommand(command) {
 
 /**
  * Execute a heal command from Discord
+ * Note: This function is deprecated as Roll20 integration has been removed
  */
 async function executeHealCommand(command) {
   const { command_data } = command;
 
-  try {
-    const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
-
-    for (const tab of tabs) {
-      try {
-        await browserAPI.tabs.sendMessage(tab.id, {
-          action: 'healFromDiscord',
-          amount: command_data.amount,
-          isTemp: command_data.is_temp || false,
-          characterName: command_data.character_name
-        });
-      } catch (err) {
-        debug.warn(`Failed to send heal to tab ${tab.id}:`, err);
-      }
-    }
-
-    return {
-      success: true,
-      message: command_data.is_temp
-        ? `Added ${command_data.amount} temp HP`
-        : `Healed ${command_data.amount} HP`
-    };
-  } catch (error) {
-    debug.error('Error executing Discord heal command:', error);
-    return { success: false, error: error.message };
-  }
+  debug.warn('❌ Heal command not supported - Roll20 integration removed');
+  return {
+    success: false,
+    message: command_data.is_temp
+      ? `Temp HP command not supported`
+      : `Heal command not supported`
+  };
 }
 
 /**
  * Execute a take damage command from Discord
+ * Note: This function is deprecated as Roll20 integration has been removed
  */
 async function executeTakeDamageCommand(command) {
   const { command_data } = command;
 
-  try {
-    const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
-
-    for (const tab of tabs) {
-      try {
-        await browserAPI.tabs.sendMessage(tab.id, {
-          action: 'takeDamageFromDiscord',
-          amount: command_data.amount,
-          damageType: command_data.damage_type || 'untyped',
-          characterName: command_data.character_name
-        });
-      } catch (err) {
-        debug.warn(`Failed to send damage to tab ${tab.id}:`, err);
-      }
-    }
-
-    return {
-      success: true,
-      message: `Took ${command_data.amount} ${command_data.damage_type || ''} damage`.trim()
-    };
-  } catch (error) {
-    debug.error('Error executing Discord take damage command:', error);
-    return { success: false, error: error.message };
-  }
+  debug.warn('❌ Take damage command not supported - Roll20 integration removed');
+  return {
+    success: false,
+    message: `Take damage command not supported`
+  };
 }
 
 /**
  * Execute a rest command from Discord
+ * Note: This function is deprecated as Roll20 integration has been removed
  */
 async function executeRestCommand(command) {
   const { command_data } = command;
 
-  try {
-    const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
-
-    for (const tab of tabs) {
-      try {
-        await browserAPI.tabs.sendMessage(tab.id, {
-          action: 'restFromDiscord',
-          restType: command_data.rest_type,
-          characterName: command_data.character_name
+  debug.warn('❌ Rest command not supported - Roll20 integration removed');
+  return {
+    success: false,
+    message: `Rest command not supported`
+  };
+}
         });
       } catch (err) {
         debug.warn(`Failed to send rest to tab ${tab.id}:`, err);

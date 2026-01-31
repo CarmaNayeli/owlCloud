@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
-  "name": "RollCloud: Dice Cloud Integration for Roll20",
-  "version": "1.2.7",
-  "description": "Import D&D characters from DiceCloud to Roll20 with enhanced authentication, interactive character sheets, and GM combat tools",
+  "name": "RollCloud: DiceCloud + Owlbear Rodeo + Discord Integration",
+  "version": "2.0.0",
+  "description": "Sync DiceCloud V2 characters to Owlbear Rodeo with Discord integration via Pip 2",
   "permissions": [
     "storage",
     "activeTab",
@@ -10,8 +10,7 @@
     "https://gkfpxwvmumaylahtxqrk.supabase.co/*",
     "https://dicecloud.com/*",
     "https://*.dicecloud.com/*",
-    "https://app.roll20.net/*",
-    "https://roll20.net/*"
+    "https://www.owlbear.rodeo/*"
   ],
   "background": {
     "scripts": [
@@ -33,20 +32,6 @@
         "src/content/dicecloud.js"
       ],
       "run_at": "document_idle"
-    },
-    {
-      "matches": [
-        "https://app.roll20.net/*"
-      ],
-      "js": [
-        "src/common/browser-polyfill.js",
-        "src/common/debug.js",
-        "src/lib/meteor-ddp-client.js",
-        "src/lib/dicecloud-sync.js",
-        "src/content/roll20.js",
-        "src/content/character-sheet-overlay.js"
-      ],
-      "run_at": "document_idle"
     }
   ],
   "browser_action": {
@@ -66,8 +51,6 @@
     "128": "icons/icon128.png"
   },
   "web_accessible_resources": [
-    "src/popup-sheet.html",
-    "src/popup-sheet.js",
     "src/common/debug.js",
     "src/common/browser-polyfill.js",
     "src/common/theme-manager.js",
@@ -107,8 +90,6 @@
     "src/modules/spell-slots.js",
     "src/modules/ui-utilities.js",
     "src/modules/warlock-invocations.js",
-    "src/modules/window-management.js",
-    "src/lib/meteor-ddp-client.js",
-    "src/lib/dicecloud-sync.js"
+    "src/modules/window-management.js"
   ]
 }

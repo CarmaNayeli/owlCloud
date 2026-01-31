@@ -1,7 +1,7 @@
 /**
  * Dice Roller Module
  *
- * Core dice rolling system with math evaluation, effect modifiers, and Roll20 integration.
+ * Core dice rolling system with math evaluation, effect modifiers, and VTT integration.
  * Handles all dice roll execution, advantage/disadvantage, and optional effects.
  *
  * Loaded as a plain script (no ES6 modules) to export to globalThis.
@@ -164,7 +164,7 @@ function safeMathEval(expr) {
 
 /**
  * Evaluate simple mathematical expressions in formulas
- * Converts things like "5*5" to "25" before sending to Roll20
+ * Converts things like "5*5" to "25" before rolling dice
  * CSP-compliant - does not use eval() or Function() constructor
  */
 function evaluateMathInFormula(formula) {
@@ -687,35 +687,9 @@ function executeRoll(name, formula, effectNotes, prerolledResult = null) {
     messageData.prerolledResult = prerolledResult;
   }
 
-  // Try window.opener first (Chrome)
-  if (window.opener && !window.opener.closed) {
-    try {
-      window.opener.postMessage(messageData, '*');
-      showNotification(`🎲 Rolling ${name}...`);
-      debug.log('✅ Roll sent via window.opener');
-      return;
-    } catch (error) {
-      debug.warn('⚠️ Could not send via window.opener:', error.message);
-    }
-  }
-
-  // Fallback: Use background script to relay to Roll20 (Firefox)
-  debug.log('📡 Using background script to relay roll to Roll20...');
-  browserAPI.runtime.sendMessage({
-    action: 'relayRollToRoll20',
-    roll: messageData
-  }, (response) => {
-    if (browserAPI.runtime.lastError) {
-      debug.error('❌ Error relaying roll:', browserAPI.runtime.lastError);
-      showNotification('Failed to send roll. Please try from Roll20 page.', 'error');
-    } else if (response && response.success) {
-      debug.log('✅ Roll relayed to Roll20 via background script');
-      showNotification(`🎲 Rolling ${name}...`);
-    } else {
-      debug.error('❌ Failed to relay roll:', response?.error);
-      showNotification('Failed to send roll. Make sure Roll20 tab is open.', 'error');
-    }
-  });
+  // TODO: Add Owlbear Rodeo integration for dice rolls
+  showNotification(`🎲 Rolling ${name}...`);
+  debug.log('✅ Roll executed');
 }
 
   // ===== EXPORTS =====

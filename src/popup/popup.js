@@ -1255,13 +1255,14 @@ function initializePopup() {
       // Get current tab
       const [tab] = await browserAPI.tabs.query({ active: true, currentWindow: true });
 
-      // Check if we're on Roll20
-      if (!tab.url || !tab.url.includes('roll20.net')) {
-        showError('Please navigate to Roll20 first');
-        showSheetBtn.disabled = false;
-        showSheetBtn.textContent = '📋 Show Character Sheet';
-        return;
-      }
+      // TODO: Add Owlbear Rodeo integration
+      // Check if we're on Owlbear Rodeo
+      // if (!tab.url || !tab.url.includes('owlbear.rodeo')) {
+      //   showError('Please navigate to Owlbear Rodeo first');
+      //   showSheetBtn.disabled = false;
+      //   showSheetBtn.textContent = '📋 Show Character Sheet';
+      //   return;
+      // }
 
       // Check if there's any synced character data (excluding GM player data)
       const profilesResponse = await browserAPI.runtime.sendMessage({ action: 'getAllCharacterProfiles' });
@@ -1282,18 +1283,23 @@ function initializePopup() {
         }
       }
 
-      // Send message to Roll20 content script to show sheet
-      const response = await browserAPI.tabs.sendMessage(tab.id, { action: 'showCharacterSheet' });
+      // TODO: Add Owlbear Rodeo integration
+      // Send message to Owlbear Rodeo content script to show sheet
+      // const response = await browserAPI.tabs.sendMessage(tab.id, { action: 'showCharacterSheet' });
 
-      if (response && response.success) {
-        showSuccess('Character sheet opened!');
-      } else if (!hasCharacters) {
-        // If no characters, the GM mode was opened
-        showSuccess('GM mode opened!');
-      } else {
-        debug.error('Failed to open character sheet:', response);
-        showError('Failed to open character sheet');
-      }
+      // Temporary: Show not implemented message
+      showError('Character sheet display will be implemented with Owlbear Rodeo integration');
+
+      // TODO: Re-enable when Owlbear Rodeo integration is complete
+      // if (response && response.success) {
+      //   showSuccess('Character sheet opened!');
+      // } else if (!hasCharacters) {
+      //   // If no characters, the GM mode was opened
+      //   showSuccess('GM mode opened!');
+      // } else {
+      //   debug.error('Failed to open character sheet:', response);
+      //   showError('Failed to open character sheet');
+      // }
     } catch (error) {
       debug.error('Error showing character sheet:', error);
       showError('Error: ' + error.message);
@@ -1712,19 +1718,20 @@ function initializePopup() {
       // Save to storage
       await browserAPI.storage.local.set({ autoBackwardsSync: isEnabled });
 
-      // Notify Roll20 content script to enable/disable sync
-      const tabs = await browserAPI.tabs.query({ url: '*://app.roll20.net/*' });
-      for (const tab of tabs) {
-        try {
-          await browserAPI.tabs.sendMessage(tab.id, {
-            action: 'setAutoBackwardsSync',
-            enabled: isEnabled
-          });
-          debug.log('Sent auto backwards sync state to Roll20 tab:', tab.id, isEnabled);
-        } catch (error) {
-          debug.log('Could not send message to tab:', tab.id, error.message);
-        }
-      }
+      // TODO: Add Owlbear Rodeo integration
+      // Notify Owlbear Rodeo content script to enable/disable sync
+      // const tabs = await browserAPI.tabs.query({ url: '*://owlbear.rodeo/*' });
+      // for (const tab of tabs) {
+      //   try {
+      //     await browserAPI.tabs.sendMessage(tab.id, {
+      //       action: 'setAutoBackwardsSync',
+      //       enabled: isEnabled
+      //     });
+      //     debug.log('Sent auto backwards sync state to Owlbear Rodeo tab:', tab.id, isEnabled);
+      //   } catch (error) {
+      //     debug.log('Could not send message to tab:', tab.id, error.message);
+      //   }
+      // }
 
       debug.log('Auto backwards sync toggled:', isEnabled);
 

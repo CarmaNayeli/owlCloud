@@ -208,35 +208,7 @@
         showNotification(`${emoji} Inspiration gained!`);
       }
 
-      // Announce to Roll20
-      const colorBanner = typeof getColoredBanner !== 'undefined' ? getColoredBanner(characterData) : '';
-      const messageData = {
-        action: 'announceSpell',
-        message: `&{template:default} {{name=${colorBanner}${characterData.name} gains Inspiration}} {{${emoji}=You now have Inspiration!}}`,
-        color: characterData.notificationColor
-      };
-
-      // Send to Roll20
-      if (window.opener && !window.opener.closed) {
-        try {
-          window.opener.postMessage(messageData, '*');
-        } catch (error) {
-          debug.warn('⚠️ Could not send via window.opener:', error.message);
-          if (typeof browserAPI !== 'undefined') {
-            browserAPI.runtime.sendMessage({
-              action: 'relayRollToRoll20',
-              roll: messageData
-            });
-          }
-        }
-      } else {
-        if (typeof browserAPI !== 'undefined') {
-          browserAPI.runtime.sendMessage({
-            action: 'relayRollToRoll20',
-            roll: messageData
-          });
-        }
-      }
+      // TODO: Add Owlbear Rodeo integration for inspiration announcements
 
       if (typeof saveCharacterData !== 'undefined') saveCharacterData();
       if (typeof buildSheet !== 'undefined') buildSheet(characterData);
@@ -313,35 +285,7 @@
         showNotification(`${emoji} Inspiration used! Gain advantage on your next roll.`);
       }
 
-      // Announce to Roll20
-      const colorBanner = typeof getColoredBanner !== 'undefined' ? getColoredBanner(characterData) : '';
-      const messageData = {
-        action: 'announceSpell',
-        message: `&{template:default} {{name=${colorBanner}${characterData.name} uses Inspiration (2014)}} {{${emoji}=Gain advantage on your next attack roll, saving throw, or ability check!}}`,
-        color: characterData.notificationColor
-      };
-
-      // Send to Roll20
-      if (window.opener && !window.opener.closed) {
-        try {
-          window.opener.postMessage(messageData, '*');
-        } catch (error) {
-          debug.warn('⚠️ Could not send via window.opener:', error.message);
-          if (typeof browserAPI !== 'undefined') {
-            browserAPI.runtime.sendMessage({
-              action: 'relayRollToRoll20',
-              roll: messageData
-            });
-          }
-        }
-      } else {
-        if (typeof browserAPI !== 'undefined') {
-          browserAPI.runtime.sendMessage({
-            action: 'relayRollToRoll20',
-            roll: messageData
-          });
-        }
-      }
+      // TODO: Add Owlbear Rodeo integration for inspiration usage announcements
 
       if (typeof saveCharacterData !== 'undefined') saveCharacterData();
       if (typeof buildSheet !== 'undefined') buildSheet(characterData);
@@ -359,35 +303,7 @@
           showNotification(`${emoji} Inspiration used! Rerolling ${characterData.lastRoll.name}...`);
         }
 
-        // Announce to Roll20
-        const colorBanner = typeof getColoredBanner !== 'undefined' ? getColoredBanner(characterData) : '';
-        const messageData = {
-          action: 'announceSpell',
-          message: `&{template:default} {{name=${colorBanner}${characterData.name} uses Inspiration (2024)}} {{${emoji}=Rerolling: ${characterData.lastRoll.name}}}`,
-          color: characterData.notificationColor
-        };
-
-        // Send to Roll20
-        if (window.opener && !window.opener.closed) {
-          try {
-            window.opener.postMessage(messageData, '*');
-          } catch (error) {
-            debug.warn('⚠️ Could not send via window.opener:', error.message);
-            if (typeof browserAPI !== 'undefined') {
-              browserAPI.runtime.sendMessage({
-                action: 'relayRollToRoll20',
-                roll: messageData
-              });
-            }
-          }
-        } else {
-          if (typeof browserAPI !== 'undefined') {
-            browserAPI.runtime.sendMessage({
-              action: 'relayRollToRoll20',
-              roll: messageData
-            });
-          }
-        }
+        // TODO: Add Owlbear Rodeo integration for inspiration reroll announcements
 
         // Trigger reroll
         if (typeof roll !== 'undefined' && characterData.lastRoll) {
@@ -901,29 +817,7 @@
     // Roll a d20
     const luckyRoll = Math.floor(Math.random() * 20) + 1;
 
-    // Send the Lucky roll to Roll20 chat
-    const rollData = {
-      name: `🎖️ ${characterData.name} uses Lucky`,
-      formula: '1d20',
-      characterName: characterData.name
-    };
-
-    // Send the roll to Roll20
-    if (window.opener && !window.opener.closed) {
-      window.opener.postMessage({
-        action: 'rollFromPopout',
-        ...rollData
-      }, '*');
-      debug.log('🎖️ Lucky roll sent via window.opener');
-    } else {
-      // Fallback: send directly to Roll20 via background script
-      if (typeof browserAPI !== 'undefined') {
-        browserAPI.runtime.sendMessage({
-          action: 'relayRollToRoll20',
-          roll: rollData
-        });
-      }
-    }
+    // TODO: Add Owlbear Rodeo integration for Lucky rolls
 
     if (type === 'offensive') {
       if (typeof showNotification !== 'undefined') {
@@ -1075,35 +969,8 @@
 
       // Create roll description
       const effectText = type === 'heal' ? 'Healing' : `${damageType} Damage`;
-      const colorBanner = `<span style="color: ${color}; font-weight: bold;">`;
 
-      // Send the roll to Roll20
-      const messageData = {
-        action: 'sendRoll20Message',
-        message: `&{template:default} {{name=${colorBanner}${characterData.name} uses Divine Spark}} {{Effect=${effectText}}} {{Roll=[[${rollFormula}]]}} {{Channel Divinity=${channelDivinityResource.current}/${channelDivinityResource.max}}}`,
-        color: color
-      };
-
-      if (window.opener && !window.opener.closed) {
-        try {
-          window.opener.postMessage(messageData, '*');
-        } catch (error) {
-          debug.warn('⚠️ Could not send via window.opener:', error.message);
-          if (typeof browserAPI !== 'undefined') {
-            browserAPI.runtime.sendMessage({
-              action: 'relayRollToRoll20',
-              roll: messageData
-            });
-          }
-        }
-      } else {
-        if (typeof browserAPI !== 'undefined') {
-          browserAPI.runtime.sendMessage({
-            action: 'relayRollToRoll20',
-            roll: messageData
-          });
-        }
-      }
+      // TODO: Add Owlbear Rodeo integration for Divine Spark rolls
 
       // Show notification
       if (typeof showNotification !== 'undefined') {

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "RollCloud: DiceCloud + Roll20 + Discord Integration",
-  "version": "1.2.7",
-  "description": "Sync DiceCloud V2 characters to Roll20 with Discord turn notifications via Pip 2",
+  "name": "RollCloud: DiceCloud + Owlbear Rodeo + Discord Integration",
+  "version": "2.0.0",
+  "description": "Sync DiceCloud V2 characters to Owlbear Rodeo with Discord integration via Pip 2",
   "permissions": [
     "storage",
     "activeTab",
@@ -11,8 +11,7 @@
   "host_permissions": [
     "https://dicecloud.com/*",
     "https://*.dicecloud.com/*",
-    "https://app.roll20.net/*",
-    "https://roll20.net/*",
+    "https://www.owlbear.rodeo/*",
     "https://gkfpxwvmumaylahtxqrk.supabase.co/*"
   ],
   "background": {
@@ -28,20 +27,6 @@
         "src/common/browser-polyfill.js",
         "src/common/debug.js",
         "src/content/dicecloud.js"
-      ],
-      "run_at": "document_idle"
-    },
-    {
-      "matches": [
-        "https://app.roll20.net/*"
-      ],
-      "js": [
-        "src/common/browser-polyfill.js",
-        "src/common/debug.js",
-        "src/lib/meteor-ddp-client.js",
-        "src/lib/dicecloud-sync.js",
-        "src/content/roll20.js",
-        "src/content/character-sheet-overlay.js"
       ],
       "run_at": "document_idle"
     }
@@ -64,8 +49,6 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "src/popup-sheet.html",
-        "src/popup-sheet.js",
         "src/common/debug.js",
         "src/common/browser-polyfill.js",
         "src/common/theme-manager.js",
@@ -108,16 +91,7 @@
         "src/modules/window-management.js"
       ],
       "matches": [
-        "https://app.roll20.net/*"
-      ]
-    },
-    {
-      "resources": [
-        "src/lib/meteor-ddp-client.js",
-        "src/lib/dicecloud-sync.js"
-      ],
-      "matches": [
-        "<all_urls>"
+        "https://www.owlbear.rodeo/*"
       ]
     }
   ],

@@ -778,7 +778,7 @@ function formatSpellSummary(spell, castLevel) {
     desc += `**Attack:** ${spell.attackRoll}\n`;
   }
 
-  return desc || 'Spell sent to Roll20.';
+  return desc || 'Spell cast.';
 }
 
 /**
@@ -803,7 +803,7 @@ function formatActionSummary(action) {
   if (action.range) desc += `**Range:** ${action.range}\n`;
   if (action.duration && action.duration !== 'Instantaneous') desc += `**Duration:** ${action.duration}\n`;
 
-  return desc || 'Action sent to Roll20.';
+  return desc || 'Action used.';
 }
 
 // Expose all functions and constants to globalThis for importScripts usage
