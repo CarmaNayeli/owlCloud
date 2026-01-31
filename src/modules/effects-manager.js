@@ -685,10 +685,13 @@
 
   /**
    * Calculate total AC including active effects
+   * @param {Object} data - Character data object (optional, uses globalThis.characterData if not provided)
    * @returns {number} Total AC with effect modifiers applied
    */
-  function calculateTotalAC() {
-    const baseAC = characterData.armorClass || 10;
+  function calculateTotalAC(data) {
+    // Use provided data or fall back to global character data
+    const charData = data || globalThis.characterData;
+    const baseAC = charData?.armorClass || 10;
     let totalAC = baseAC;
 
     // Combine all active effects

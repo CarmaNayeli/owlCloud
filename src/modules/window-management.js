@@ -31,6 +31,12 @@
    * Save current window dimensions to storage
    */
   function saveWindowSize() {
+    // Check if browserAPI is available
+    if (typeof browserAPI === 'undefined' || !browserAPI) {
+      debug.log('⚠️ browserAPI not available, skipping window size save');
+      return;
+    }
+
     const width = window.outerWidth;
     const height = window.outerHeight;
 
@@ -45,6 +51,12 @@
    * Load and apply saved window dimensions
    */
   async function loadWindowSize() {
+    // Check if browserAPI is available
+    if (typeof browserAPI === 'undefined' || !browserAPI) {
+      debug.log('⚠️ browserAPI not available, skipping window size restore');
+      return;
+    }
+
     try {
       const result = await browserAPI.storage.local.get(['popupWindowSize']);
       if (result.popupWindowSize) {

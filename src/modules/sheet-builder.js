@@ -105,6 +105,9 @@
       return;
     }
 
+    // Store character data globally for other modules to access
+    globalThis.characterData = data;
+
     // Initialize concentration from saved data
     if (data.concentration) {
       if (typeof window.concentratingSpell !== 'undefined') {
@@ -248,7 +251,7 @@
     document.getElementById('char-hit-dice').textContent = `${data.hitDice.current || 0}/${data.hitDice.max || 0} ${data.hitDice.type || 'd6'}`;
 
     // Layer 2: AC, Speed, Proficiency, Death Saves, Inspiration
-    document.getElementById('char-ac').textContent = calculateTotalAC();
+    document.getElementById('char-ac').textContent = calculateTotalAC(data);
     document.getElementById('char-speed').textContent = `${data.speed || 30} ft`;
     document.getElementById('char-proficiency').textContent = `+${data.proficiencyBonus || 0}`;
 

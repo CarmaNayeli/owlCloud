@@ -419,6 +419,8 @@ function createCharacterSheetOverlay() {
   combatGrid.appendChild(createStatBox('Speed', charSpeed));
   combatGrid.appendChild(createStatBox('Proficiency', charProficiency));
   combatGrid.appendChild(createStatBox('Initiative', initiativeValue));
+  combatGrid.appendChild(createStatBox('Death Saves', deathSavesValue));
+  combatGrid.appendChild(createStatBox('Inspiration', inspirationValue));
 
   combatSection.appendChild(combatGrid);
 
