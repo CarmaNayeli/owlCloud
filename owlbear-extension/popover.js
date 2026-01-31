@@ -873,13 +873,15 @@ openChatWindowBtn.addEventListener('click', async () => {
     return;
   }
 
-  // Open chat as a modal in Owlbear
-  await OBR.modal.open({
+  // Open chat as a popover (similar to character sheet)
+  await OBR.popover.open({
     id: 'com.owlcloud.chat',
-    url: '/chat.html',
+    url: '/extension/chat.html',
     height: 600,
     width: 400,
-    fullScreen: false
+    anchorOrigin: { horizontal: 'RIGHT', vertical: 'CENTER' },
+    transformOrigin: { horizontal: 'LEFT', vertical: 'CENTER' },
+    disableClickAway: false
   });
 });
 
