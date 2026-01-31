@@ -10,7 +10,6 @@
     "icon": "/extension/icon.svg",
     "popover": "/extension/popover.html",
     "height": 600,
-    "width": 400,
-    "defaultPosition": "left-center"
+    "width": 400
   }
 }
