@@ -457,6 +457,12 @@ function createCharacterSheetOverlay() {
   `;
   skillsSection.appendChild(skillsGrid);
 
+  // Resources section
+  const resourcesSection = createSection('Resources');
+  const resourcesContainer = document.createElement('div');
+  resourcesContainer.id = 'resources-container';
+  resourcesSection.appendChild(resourcesContainer);
+
   // Actions section
   const actionsSection = createSection('Actions & Attacks');
   const actionsContainer = document.createElement('div');
@@ -500,6 +506,7 @@ function createCharacterSheetOverlay() {
   sheetContent.appendChild(abilitiesSection);
   sheetContent.appendChild(savesSection);
   sheetContent.appendChild(skillsSection);
+  sheetContent.appendChild(resourcesSection);
   sheetContent.appendChild(actionsSection);
   sheetContent.appendChild(spellsSection);
   sheetContent.appendChild(inventorySection);

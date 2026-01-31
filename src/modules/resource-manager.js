@@ -31,6 +31,11 @@
   function buildResourcesDisplay() {
     const container = document.getElementById('resources-container');
 
+    if (!container) {
+      debug.warn('⚠️ Resources container not found in DOM');
+      return;
+    }
+
     if (!characterData || !characterData.resources || characterData.resources.length === 0) {
       container.innerHTML = '<p style="text-align: center; color: #666;">No class resources available</p>';
       debug.log('⚠️ No resources in character data');
