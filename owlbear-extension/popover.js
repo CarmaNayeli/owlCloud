@@ -87,8 +87,8 @@ OBR.onReady(async () => {
   // Check for active character
   checkForActiveCharacter();
 
-  // Set up periodic check for character updates
-  setInterval(checkForActiveCharacter, 5000);
+  // Note: We don't auto-refresh character data because the local sheet state
+  // is the source of truth during gameplay. Only sync when user explicitly requests it.
 });
 
 // ============== Character Management ==============
@@ -246,30 +246,17 @@ window.switchToCharacter = async function(characterId) {
  * Display character information
  */
 function displayCharacter(character) {
+  // TODO: Save previous character's local state (HP, spell slots, etc.) before switching
+  // so that it persists when switching back. Could use a Map keyed by character ID
+  // or store in room metadata per character.
+
   currentCharacter = character;
 
   // Update UI
   characterSection.style.display = 'block';
   noCharacterSection.style.display = 'none';
 
-  // Populate character info in Settings tab
-  characterInfo.innerHTML = `
-    <div class="character-name">${character.name || 'Unknown Character'}</div>
-    <div class="character-detail">Level ${character.level || '?'} ${character.race || ''} ${character.class || ''}</div>
-    <div class="character-detail">HP: ${character.hitPoints?.current || 0} / ${character.hitPoints?.max || 0}</div>
-  `;
-
-  // Update character header for other tabs
-  const characterHeaderName = document.getElementById('character-header-name');
-  const characterHeaderDetails = document.getElementById('character-header-details');
-  const characterPortrait = document.getElementById('character-portrait');
-
-  if (characterHeaderName && characterHeaderDetails) {
-    characterHeaderName.textContent = character.name || 'Unknown Character';
-    characterHeaderDetails.textContent = `Level ${character.level || '?'} ${character.race || ''} ${character.class || ''}`;
-  }
-
-  // Set character portrait if available
+  // Get portrait URL for use in multiple places
   // Portrait data is stored in rawDiceCloudData.creature
   console.log('🖼️ Checking for portrait in character data:');
   console.log('  character.picture:', character.picture);
@@ -283,6 +270,29 @@ function displayCharacter(character) {
                       character.rawDiceCloudData?.creature?.picture ||
                       character.rawDiceCloudData?.creature?.avatarPicture;
 
+  // Populate character info in Settings tab
+  characterInfo.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 16px;">
+      ${portraitUrl ? `<img src="${portraitUrl}" alt="Character Portrait" style="width: 80px; height: 80px; border-radius: 50%; border: 3px solid #8B5CF6; object-fit: cover; box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);">` : ''}
+      <div style="flex: 1;">
+        <div class="character-name">${character.name || 'Unknown Character'}</div>
+        <div class="character-detail">Level ${character.level || '?'} ${character.race || ''} ${character.class || ''}</div>
+        <div class="character-detail">HP: ${character.hitPoints?.current || 0} / ${character.hitPoints?.max || 0}</div>
+      </div>
+    </div>
+  `;
+
+  // Update character header for other tabs
+  const characterHeaderName = document.getElementById('character-header-name');
+  const characterHeaderDetails = document.getElementById('character-header-details');
+  const characterPortrait = document.getElementById('character-portrait');
+
+  if (characterHeaderName && characterHeaderDetails) {
+    characterHeaderName.textContent = character.name || 'Unknown Character';
+    characterHeaderDetails.textContent = `Level ${character.level || '?'} ${character.race || ''} ${character.class || ''}`;
+  }
+
+  // Set character portrait if available
   if (characterPortrait) {
     if (portraitUrl) {
       characterPortrait.src = portraitUrl;
@@ -1164,6 +1174,43 @@ async function sendToChatWindow(type, data) {
   }
 }
 
+/**
+ * Add a message to the shared chat history
+ * This adds messages to the persistent chat that all players can see
+ * @param {string} text - Message text
+ * @param {string} type - Message type: 'system', 'roll', 'action', 'spell', 'combat', 'user'
+ * @param {string} author - Message author (optional)
+ */
+async function addChatMessage(text, type = 'system', author = null) {
+  if (!isOwlbearReady) return;
+
+  try {
+    const playerId = await OBR.player.getId();
+    const metadata = await OBR.room.getMetadata();
+    const messages = metadata['com.owlcloud.chat/messages'] || [];
+
+    const newMessage = {
+      id: Date.now() + Math.random(),
+      text: text,
+      type: type,
+      author: author || (currentCharacter ? currentCharacter.name : 'Character'),
+      playerId: playerId,
+      timestamp: Date.now()
+    };
+
+    // Keep last 100 messages
+    const updatedMessages = [...messages, newMessage].slice(-100);
+
+    await OBR.room.setMetadata({
+      'com.owlcloud.chat/messages': updatedMessages
+    });
+
+    console.log('📨 Chat message added:', text);
+  } catch (error) {
+    console.error('Error adding chat message:', error);
+  }
+}
+
 // ============== Dice Rolling System ==============
 
 /**
@@ -1198,63 +1245,59 @@ function rollDice(formula) {
 /**
  * Show roll result notification and send to chat
  */
-function showRollResult(name, result) {
+async function showRollResult(name, result) {
   const rollsText = result.rolls.join(' + ');
   const modText = result.modifier !== 0 ? ` ${result.modifier >= 0 ? '+' : ''}${result.modifier}` : '';
-  const message = `${name}: ${rollsText}${modText} = ${result.total}`;
+  const message = `🎲 ${name}: ${rollsText}${modText} = <strong>${result.total}</strong>`;
 
   if (isOwlbearReady) {
-    OBR.notification.show(`🎲 ${currentCharacter?.name || 'Character'}: ${message}`, 'INFO');
+    OBR.notification.show(`${currentCharacter?.name || 'Character'}: ${name} = ${result.total}`, 'INFO');
   }
   console.log('🎲', message);
 
-  // Send to chat window
-  sendToChatWindow('roll', {
-    name: name,
-    formula: result.formula,
-    rolls: result.rolls,
-    modifier: result.modifier,
-    total: result.total
-  });
+  // Send to persistent chat
+  await addChatMessage(message, 'roll', currentCharacter?.name);
 }
 
 /**
  * Roll ability check
  */
-window.rollAbilityCheck = function(abilityName, modifier) {
+window.rollAbilityCheck = async function(abilityName, modifier) {
   const result = rollDice('1d20');
   const total = result.total + modifier;
-  showRollResult(`${abilityName} Check (${modifier >= 0 ? '+' : ''}${modifier})`, {...result, total, modifier});
+  await showRollResult(`${abilityName} Check (${modifier >= 0 ? '+' : ''}${modifier})`, {...result, total, modifier});
 };
 
 /**
  * Roll saving throw
  */
-window.rollSavingThrow = function(abilityName, modifier) {
+window.rollSavingThrow = async function(abilityName, modifier) {
   const result = rollDice('1d20');
   const total = result.total + modifier;
-  showRollResult(`${abilityName} Save (${modifier >= 0 ? '+' : ''}${modifier})`, {...result, total, modifier});
+  await showRollResult(`${abilityName} Save (${modifier >= 0 ? '+' : ''}${modifier})`, {...result, total, modifier});
 };
 
 /**
  * Roll skill check
  */
-window.rollSkillCheck = function(skillName, bonus) {
+window.rollSkillCheck = async function(skillName, bonus) {
   const result = rollDice('1d20');
   const total = result.total + bonus;
-  showRollResult(`${skillName} (${bonus >= 0 ? '+' : ''}${bonus})`, {...result, total, modifier: bonus});
+  await showRollResult(`${skillName} (${bonus >= 0 ? '+' : ''}${bonus})`, {...result, total, modifier: bonus});
 };
 
 /**
  * Roll attack
  */
-window.rollAttack = function(actionName, attackBonus, damageFormula) {
+window.rollAttack = async function(actionName, attackBonus, damageFormula) {
   const attackRoll = rollDice('1d20');
   const attackTotal = attackRoll.total + (attackBonus || 0);
 
-  let message = `${actionName} Attack: ${attackRoll.rolls[0]}`;
+  let message = `⚔️ ${actionName} Attack: ${attackRoll.rolls[0]}`;
   if (attackBonus) {
-    message += ` + ${attackBonus} = ${attackTotal}`;
+    message += ` + ${attackBonus} = <strong>${attackTotal}</strong>`;
+  } else {
+    message += ` = <strong>${attackTotal}</strong>`;
   }
 
   let damageTotal = null;
@@ -1265,20 +1308,16 @@ window.rollAttack = function(actionName, attackBonus, damageFormula) {
     if (damageRoll.modifier) {
       message += ` + ${damageRoll.modifier}`;
     }
-    message += ` = ${damageRoll.total}`;
+    message += ` = <strong>${damageRoll.total}</strong>`;
   }
 
   if (isOwlbearReady) {
-    OBR.notification.show(`⚔️ ${currentCharacter?.name || 'Character'}: ${message}`, 'INFO');
+    OBR.notification.show(`${currentCharacter?.name || 'Character'}: ${actionName} = ${attackTotal}`, 'INFO');
   }
   console.log('⚔️', message);
 
-  // Send to chat window with better formatting
-  const details = `Attack: ${attackTotal}` + (damageTotal ? ` | Damage: ${damageTotal}` : '');
-  sendToChatWindow('action', {
-    actionName: actionName,
-    details: details
-  });
+  // Send to persistent chat
+  await addChatMessage(message, 'action', currentCharacter?.name);
 };
 
 // ============== Spell Casting ==============
@@ -1286,20 +1325,17 @@ window.rollAttack = function(actionName, attackBonus, damageFormula) {
 /**
  * Cast a spell
  */
-window.castSpell = function(spellName, level) {
+window.castSpell = async function(spellName, level) {
   const levelText = level === 0 ? 'Cantrip' : `Level ${level} Spell`;
-  const message = `${currentCharacter?.name || 'Character'} casts ${spellName} (${levelText})!`;
+  const message = `✨ Casts <strong>${spellName}</strong> (${levelText})`;
 
   if (isOwlbearReady) {
-    OBR.notification.show(`✨ ${message}`, 'INFO');
+    OBR.notification.show(`${currentCharacter?.name || 'Character'} casts ${spellName}`, 'INFO');
   }
   console.log('✨', message);
 
-  // Send to chat window
-  sendToChatWindow('spell', {
-    spellName: spellName,
-    level: level
-  });
+  // Send to persistent chat
+  await addChatMessage(message, 'spell', currentCharacter?.name);
 
   // TODO: Track spell slot usage
 };
@@ -1312,6 +1348,9 @@ window.castSpell = function(spellName, level) {
 window.adjustHP = async function() {
   if (!currentCharacter) return;
 
+  console.log('🩺 adjustHP called, current character:', currentCharacter.name);
+  console.log('  Current HP object:', currentCharacter.hitPoints);
+
   const currentHP = currentCharacter.hitPoints?.current || 0;
   const maxHP = currentCharacter.hitPoints?.max || 0;
 
@@ -1323,8 +1362,16 @@ window.adjustHP = async function() {
 
   const newHP = Math.max(0, Math.min(maxHP, currentHP + amount));
 
+  console.log(`  Adjustment: ${amount}, New HP: ${newHP}/${maxHP}`);
+
+  // Ensure hitPoints object exists
+  if (!currentCharacter.hitPoints) {
+    currentCharacter.hitPoints = { current: 0, max: 0 };
+  }
+
   // Update character data
   currentCharacter.hitPoints.current = newHP;
+  console.log('  Updated currentCharacter.hitPoints:', currentCharacter.hitPoints);
 
   // Show notification
   const message = amount > 0
@@ -1335,10 +1382,17 @@ window.adjustHP = async function() {
     OBR.notification.show(message, amount > 0 ? 'SUCCESS' : 'WARNING');
   }
 
+  // Send message to chat
+  console.log('  Sending message to chat:', message);
+  await addChatMessage(message, 'combat', currentCharacter.name);
+
   // Re-render stats tab
+  console.log('  Re-rendering stats tab with currentCharacter:', currentCharacter.hitPoints);
   populateStatsTab(currentCharacter);
 
-  // TODO: Save to Supabase
+  // Note: HP changes are kept local during gameplay. They persist in the extension state
+  // until the user syncs the character or switches characters. This avoids constantly
+  // hitting Supabase for every stat change during play.
 };
 
 // ============== Rest System ==============
