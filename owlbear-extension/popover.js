@@ -23,6 +23,7 @@ const characterInfo = document.getElementById('character-info');
 const openSheetBtn = document.getElementById('open-sheet-btn');
 const syncCharacterBtn = document.getElementById('sync-character-btn');
 const openExtensionBtn = document.getElementById('open-extension-btn');
+const linkExtensionBtn = document.getElementById('link-extension-btn');
 
 // ============== Owlbear SDK Initialization ==============
 
@@ -160,6 +161,70 @@ openExtensionBtn.addEventListener('click', () => {
   window.parent.postMessage(message, 'https://www.owlbear.rodeo');
 
   alert('Please click the OwlCloud extension icon in your browser toolbar to select a character.');
+});
+
+/**
+ * Link Owlbear player to browser extension characters
+ */
+linkExtensionBtn.addEventListener('click', async () => {
+  try {
+    if (!isOwlbearReady) {
+      alert('Owlbear SDK not ready. Please wait a moment and try again.');
+      return;
+    }
+
+    // Get Owlbear player ID
+    const playerId = await OBR.player.getId();
+    console.log('🔗 Linking player ID:', playerId);
+
+    // Prompt user for their DiceCloud user ID
+    const dicecloudUserId = prompt(
+      'Enter your DiceCloud User ID:\n\n' +
+      'You can find this in the OwlCloud extension popup after syncing a character.\n' +
+      'It looks like: aBcDeFgHiJkLmNoP1'
+    );
+
+    if (!dicecloudUserId || dicecloudUserId.trim() === '') {
+      return; // User cancelled
+    }
+
+    // Show loading state
+    linkExtensionBtn.textContent = '⏳ Linking...';
+    linkExtensionBtn.disabled = true;
+
+    // Call Supabase edge function to link
+    const response = await fetch(
+      'https://gkfpxwvmumaylahtxqrk.supabase.co/functions/v1/link-owlbear-player',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          owlbearPlayerId: playerId,
+          dicecloudUserId: dicecloudUserId.trim()
+        })
+      }
+    );
+
+    const result = await response.json();
+
+    if (response.ok && result.success) {
+      alert(`✅ Successfully linked! ${result.linkedCharacters} character(s) are now connected to Owlbear.`);
+
+      // Refresh character data
+      checkForActiveCharacter();
+    } else {
+      alert(`❌ Linking failed: ${result.error || 'Unknown error'}`);
+    }
+  } catch (error) {
+    console.error('Error linking to extension:', error);
+    alert(`❌ Error: ${error.message}`);
+  } finally {
+    // Restore button state
+    linkExtensionBtn.textContent = '🔗 Link to Browser Extension';
+    linkExtensionBtn.disabled = false;
+  }
 });
 
 // ============== Message Listener ==============

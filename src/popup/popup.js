@@ -986,7 +986,7 @@ function initializePopup() {
   /**
    * Displays character data in the popup
    */
-  function displayCharacterData(data) {
+  async function displayCharacterData(data) {
     statusIcon.textContent = '✅';
     statusText.textContent = 'Character data synced';
     characterInfo.classList.remove('hidden');
@@ -997,6 +997,30 @@ function initializePopup() {
     showSheetBtn.disabled = false;
     if (clearLocalBtn) clearLocalBtn.disabled = false;
     if (clearCloudBtn) clearCloudBtn.disabled = false;
+
+    // Display user ID for Owlbear linking
+    try {
+      const loginStatus = await browserAPI.runtime.sendMessage({ action: 'checkLoginStatus' });
+      if (loginStatus.userId) {
+        const userIdRow = document.getElementById('userIdRow');
+        const userIdDisplay = document.getElementById('userIdDisplay');
+        if (userIdRow && userIdDisplay) {
+          userIdDisplay.textContent = loginStatus.userId;
+          userIdDisplay.title = 'Click to copy';
+          userIdDisplay.style.cursor = 'pointer';
+          userIdDisplay.onclick = () => {
+            navigator.clipboard.writeText(loginStatus.userId);
+            userIdDisplay.textContent = '✅ Copied!';
+            setTimeout(() => {
+              userIdDisplay.textContent = loginStatus.userId;
+            }, 2000);
+          };
+          userIdRow.style.display = 'flex';
+        }
+      }
+    } catch (error) {
+      debug.log('Could not display user ID:', error);
+    }
   }
 
   /**
