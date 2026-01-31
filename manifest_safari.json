@@ -24,6 +24,11 @@
       "matches": ["https://dicecloud.com/*", "https://*.dicecloud.com/*"],
       "js": ["src/common/browser-polyfill.js", "src/common/debug.js", "src/content/dicecloud.js"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.owlbear.rodeo/*"],
+      "js": ["src/common/browser-polyfill.js", "src/common/debug.js", "src/content/owlbear.js"],
+      "run_at": "document_idle"
     }
   ],
   "browser_action": {
