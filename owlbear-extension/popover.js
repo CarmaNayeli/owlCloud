@@ -328,15 +328,20 @@ async function createCircularImage(imageUrl, size) {
     img.crossOrigin = 'anonymous'; // Handle CORS
 
     img.onload = () => {
-      // Create canvas
+      // Create canvas with extra space for border
+      const borderWidth = Math.max(8, size * 0.04); // 4% of size, minimum 8px
       const canvas = document.createElement('canvas');
       canvas.width = size;
       canvas.height = size;
       const ctx = canvas.getContext('2d');
 
-      // Draw circular clip
+      // Save context before clipping
+      ctx.save();
+
+      // Draw circular clip (slightly smaller to account for border)
+      const radius = (size / 2) - (borderWidth / 2);
       ctx.beginPath();
-      ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+      ctx.arc(size / 2, size / 2, radius, 0, Math.PI * 2);
       ctx.closePath();
       ctx.clip();
 
@@ -345,6 +350,16 @@ async function createCircularImage(imageUrl, size) {
       const x = (size / 2) - (img.width / 2) * scale;
       const y = (size / 2) - (img.height / 2) * scale;
       ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+
+      // Restore context to remove clipping
+      ctx.restore();
+
+      // Draw purple outline
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, radius, 0, Math.PI * 2);
+      ctx.strokeStyle = '#8B5CF6'; // Purple color matching OwlCloud theme
+      ctx.lineWidth = borderWidth;
+      ctx.stroke();
 
       // Convert to data URL
       resolve(canvas.toDataURL('image/png'));
