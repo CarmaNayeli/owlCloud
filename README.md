@@ -122,7 +122,7 @@ SOFTWARE.
 - **Documentation**: [Owlbear Rodeo Docs](https://docs.owlbear.rodeo)
 - **DiceCloud**: [dicecloud.com](https://dicecloud.com)
 - **Owlbear Rodeo**: [owlbear.rodeo](https://www.owlbear.rodeo)
-- **Report Issues**: [GitHub Issues](https://github.com/CarmaNayeli/owlCloud/issues)
+- **Report Issues**: [GitHub Issues](https://github.com/CarmaNayeli/owlCloud/issues) - or if all else fails contact @Carmabella on Discord and I'll try to help
 
 ---
 
