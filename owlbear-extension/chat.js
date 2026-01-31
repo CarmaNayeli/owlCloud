@@ -26,6 +26,14 @@ OBR.onReady(async () => {
 
   // Check for active character
   await checkForActiveCharacter();
+
+  // Listen for messages from character sheet
+  OBR.room.onMetadataChange((metadata) => {
+    const message = metadata['com.owlcloud.chat/latest-message'];
+    if (message && message.timestamp) {
+      handleCharacterSheetMessage(message);
+    }
+  });
 });
 
 // ============== Character Management ==============
@@ -54,6 +62,59 @@ async function checkForActiveCharacter() {
     }
   } catch (error) {
     console.error('Error checking for active character:', error);
+  }
+}
+
+// ============== Message Handling ==============
+
+let lastProcessedTimestamp = 0;
+
+/**
+ * Handle messages from character sheet
+ */
+function handleCharacterSheetMessage(message) {
+  // Prevent duplicate processing
+  if (message.timestamp <= lastProcessedTimestamp) {
+    return;
+  }
+  lastProcessedTimestamp = message.timestamp;
+
+  const characterName = message.character?.name || 'Character';
+
+  switch (message.type) {
+    case 'roll':
+      if (message.data) {
+        const { name, rolls, modifier, total } = message.data;
+        const rollsText = rolls.join(' + ');
+        const modText = modifier !== 0 ? ` ${modifier >= 0 ? '+' : ''}${modifier}` : '';
+        const text = `🎲 ${name}: ${rollsText}${modText} = <strong>${total}</strong>`;
+        addChatMessage(text, 'roll', characterName);
+      }
+      break;
+
+    case 'action':
+      if (message.data) {
+        const { actionName, details } = message.data;
+        addChatMessage(`⚔️ ${actionName} - ${details}`, 'action', characterName);
+      }
+      break;
+
+    case 'spell':
+      if (message.data) {
+        const { spellName, level } = message.data;
+        const levelText = level === 0 ? 'Cantrip' : `Level ${level}`;
+        addChatMessage(`✨ ${spellName} (${levelText})`, 'spell', characterName);
+      }
+      break;
+
+    case 'combat':
+      if (message.data && message.data.text) {
+        addChatMessage(message.data.text, 'combat', characterName);
+      }
+      break;
+
+    default:
+      console.warn('Unknown message type:', message.type);
   }
 }
 

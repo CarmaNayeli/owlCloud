@@ -1053,6 +1053,34 @@ window.addEventListener('message', (event) => {
   }
 });
 
+// ============== Chat Integration ==============
+
+/**
+ * Send message to chat window via OBR metadata
+ */
+async function sendToChatWindow(type, data) {
+  if (!isOwlbearReady || !currentCharacter) return;
+
+  try {
+    const message = {
+      type: type,
+      data: data,
+      character: {
+        name: currentCharacter.name,
+        id: currentCharacter.id
+      },
+      timestamp: Date.now()
+    };
+
+    // Store in room metadata for chat window to pick up
+    await OBR.room.setMetadata({
+      'com.owlcloud.chat/latest-message': message
+    });
+  } catch (error) {
+    console.error('Error sending to chat:', error);
+  }
+}
+
 // ============== Dice Rolling System ==============
 
 /**
@@ -1085,7 +1113,7 @@ function rollDice(formula) {
 }
 
 /**
- * Show roll result notification
+ * Show roll result notification and send to chat
  */
 function showRollResult(name, result) {
   const rollsText = result.rolls.join(' + ');
@@ -1096,6 +1124,15 @@ function showRollResult(name, result) {
     OBR.notification.show(`🎲 ${currentCharacter?.name || 'Character'}: ${message}`, 'INFO');
   }
   console.log('🎲', message);
+
+  // Send to chat window
+  sendToChatWindow('roll', {
+    name: name,
+    formula: result.formula,
+    rolls: result.rolls,
+    modifier: result.modifier,
+    total: result.total
+  });
 }
 
 /**
@@ -1137,8 +1174,10 @@ window.rollAttack = function(actionName, attackBonus, damageFormula) {
     message += ` + ${attackBonus} = ${attackTotal}`;
   }
 
+  let damageTotal = null;
   if (damageFormula) {
     const damageRoll = rollDice(damageFormula);
+    damageTotal = damageRoll.total;
     message += ` | Damage: ${damageRoll.rolls.join(' + ')}`;
     if (damageRoll.modifier) {
       message += ` + ${damageRoll.modifier}`;
@@ -1150,6 +1189,13 @@ window.rollAttack = function(actionName, attackBonus, damageFormula) {
     OBR.notification.show(`⚔️ ${currentCharacter?.name || 'Character'}: ${message}`, 'INFO');
   }
   console.log('⚔️', message);
+
+  // Send to chat window with better formatting
+  const details = `Attack: ${attackTotal}` + (damageTotal ? ` | Damage: ${damageTotal}` : '');
+  sendToChatWindow('action', {
+    actionName: actionName,
+    details: details
+  });
 };
 
 // ============== Spell Casting ==============
@@ -1165,6 +1211,12 @@ window.castSpell = function(spellName, level) {
     OBR.notification.show(`✨ ${message}`, 'INFO');
   }
   console.log('✨', message);
+
+  // Send to chat window
+  sendToChatWindow('spell', {
+    spellName: spellName,
+    level: level
+  });
 
   // TODO: Track spell slot usage
 };
