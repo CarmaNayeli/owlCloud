@@ -604,6 +604,25 @@ function populateFeaturesTab(character) {
 
       filteredFeatures.forEach((feature, index) => {
         const featureId = `feature-${index}`;
+
+        // Infer resource usage from feature name
+        let resourceName = null;
+        const featureName = (feature.name || '').toLowerCase();
+        if (featureName.includes('channel divinity')) {
+          resourceName = 'Channel Divinity';
+        } else if (featureName.includes('ki point') || featureName.includes('ki ')) {
+          resourceName = 'Ki Points';
+        } else if (featureName.includes('bardic inspiration')) {
+          resourceName = 'Bardic Inspiration';
+        } else if (featureName.includes('superiority')) {
+          resourceName = 'Superiority Dice';
+        } else if (featureName.includes('sorcery point')) {
+          resourceName = 'Sorcery Points';
+        }
+
+        const useButtonHtml = resourceName ?
+          `<button class="rest-btn" style="margin-top: 8px; width: 100%;" onclick="event.stopPropagation(); useFeature('${(feature.name || 'Feature').replace(/'/g, "\\'")}', '${resourceName}')">✨ Use</button>` : '';
+
         html += `
           <div class="feature-card">
             <div class="feature-header" onclick="toggleFeatureCard('${featureId}')" style="cursor: pointer;">
@@ -613,6 +632,7 @@ function populateFeaturesTab(character) {
             <div id="${featureId}" class="feature-details">
               ${feature.description ? `<div class="feature-description">${feature.description}</div>` : ''}
               ${feature.source ? `<div class="feature-metadata"><div class="feature-meta-item"><span class="feature-meta-label">Source:</span> ${feature.source}</div></div>` : ''}
+              ${useButtonHtml}
             </div>
           </div>
         `;
@@ -1426,6 +1446,30 @@ window.rollAttack = async function(actionName, attackBonus, damageFormula) {
  * Cast a spell
  */
 window.castSpell = async function(spellName, level) {
+  if (!currentCharacter) return;
+
+  // Cantrips don't use spell slots
+  if (level > 0) {
+    if (!currentCharacter.spellSlots) {
+      console.warn('No spell slots available on character');
+      return;
+    }
+
+    const slotKey = `level${level}SpellSlots`;
+    const current = currentCharacter.spellSlots[slotKey] || 0;
+
+    if (current === 0) {
+      if (isOwlbearReady) {
+        OBR.notification.show(`No Level ${level} spell slots remaining!`, 'ERROR');
+      }
+      return;
+    }
+
+    // Decrement spell slot
+    currentCharacter.spellSlots[slotKey] = current - 1;
+    populateStatsTab(currentCharacter);
+  }
+
   const levelText = level === 0 ? 'Cantrip' : `Level ${level} Spell`;
   const message = `✨ Casts <strong>${spellName}</strong> (${levelText})`;
 
@@ -1436,8 +1480,6 @@ window.castSpell = async function(spellName, level) {
 
   // Send to persistent chat
   await addChatMessage(message, 'spell', currentCharacter?.name);
-
-  // TODO: Track spell slot usage
 };
 
 // ============== HP & Resource Management ==============
@@ -1553,6 +1595,35 @@ window.adjustResource = function(resourceName) {
   if (isOwlbearReady) {
     const message = amount > 0 ? `Restored ${amount} ${resourceName}` : `Used ${Math.abs(amount)} ${resourceName}`;
     OBR.notification.show(message, 'INFO');
+  }
+};
+
+/**
+ * Use a feature or action (decrements uses or associated resource and announces in chat)
+ */
+window.useFeature = async function(featureName, resourceName = null) {
+  if (!currentCharacter) return;
+
+  // If it has an associated resource, decrement it
+  if (resourceName && currentCharacter.resources) {
+    const resource = currentCharacter.resources.find(r => r.name === resourceName);
+    if (resource && resource.current > 0) {
+      resource.current -= 1;
+      populateStatsTab(currentCharacter);
+    } else if (resource && resource.current === 0) {
+      if (isOwlbearReady) {
+        OBR.notification.show(`No ${resourceName} remaining!`, 'ERROR');
+      }
+      return;
+    }
+  }
+
+  // Announce in chat
+  const message = `✨ Uses <strong>${featureName}</strong>${resourceName ? ` (${resourceName})` : ''}`;
+  await addChatMessage(message, 'action', currentCharacter.name);
+
+  if (isOwlbearReady) {
+    OBR.notification.show(`${currentCharacter.name} uses ${featureName}`, 'INFO');
   }
 };
 
