@@ -282,7 +282,7 @@ function populateStatsTab(character) {
   // Build core stats section
   let html = `
     <div class="stat-grid">
-      <div class="stat-box" style="cursor: pointer;" title="Click to adjust HP">
+      <div class="stat-box" style="cursor: pointer;" onclick="adjustHP()" title="Click to adjust HP">
         <div class="stat-label">HP</div>
         <div class="stat-value">${hp.current || 0}</div>
         <div class="stat-modifier">/ ${hp.max || 0}</div>
@@ -425,10 +425,10 @@ function populateStatsTab(character) {
   // Rest Buttons
   html += `
     <div class="rest-buttons">
-      <button class="rest-btn" onclick="alert('Short rest functionality coming soon!')">
+      <button class="rest-btn" onclick="takeShortRest()">
         ⏸️ Short Rest
       </button>
-      <button class="rest-btn" onclick="alert('Long rest functionality coming soon!')">
+      <button class="rest-btn" onclick="takeLongRest()">
         🛌 Long Rest
       </button>
     </div>
@@ -456,13 +456,14 @@ function populateAbilitiesTab(character) {
     const modifier = character.attributeMods?.[abilityName] || Math.floor((score - 10) / 2);
     const saveMod = character.savingThrows?.[abilityName] || modifier;
     const isProficient = saveMod !== modifier;
+    const abilityLabel = abilityShortNames[abilityName];
 
     html += `
-      <div class="ability-box ${isProficient ? 'save-proficient' : ''}" title="${isProficient ? 'Proficient in this save' : ''}">
-        <div class="ability-name">${abilityShortNames[abilityName]}</div>
+      <div class="ability-box ${isProficient ? 'save-proficient' : ''}" onclick="rollAbilityCheck('${abilityLabel}', ${modifier})" title="Click to roll ${abilityLabel} check">
+        <div class="ability-name">${abilityLabel}</div>
         <div class="ability-modifier">${modifier >= 0 ? '+' : ''}${modifier}</div>
         <div class="ability-score">${score}</div>
-        ${isProficient ? `<div class="ability-score" style="color: #10B981;">Save: ${saveMod >= 0 ? '+' : ''}${saveMod}</div>` : ''}
+        ${isProficient ? `<div class="ability-score" style="color: #10B981; cursor: pointer;" onclick="event.stopPropagation(); rollSavingThrow('${abilityLabel}', ${saveMod});">Save: ${saveMod >= 0 ? '+' : ''}${saveMod}</div>` : ''}
       </div>
     `;
   });
@@ -508,7 +509,7 @@ function populateAbilitiesTab(character) {
       }
 
       html += `
-        <div class="skill-item ${proficiencyClass}">
+        <div class="skill-item ${proficiencyClass}" onclick="rollSkillCheck('${skillName}', ${bonus})" title="Click to roll ${skillName}">
           <span class="skill-name">${skillName}</span>
           <span class="skill-bonus">${bonus >= 0 ? '+' : ''}${bonus}</span>
         </div>
@@ -571,8 +572,23 @@ function populateActionsTab(character) {
       if (damage) actionDetails.push(`Damage: ${damage}`);
       if (uses && uses.value !== undefined) actionDetails.push(`Uses: ${uses.value}/${uses.max || uses.value}`);
 
+      // Parse attack bonus from attackRoll string (like "+5" or "1d20+5")
+      let attackBonus = 0;
+      if (attackRoll) {
+        const bonusMatch = attackRoll.match(/[+-](\d+)/);
+        if (bonusMatch) {
+          attackBonus = parseInt(bonusMatch[0]);
+        }
+      }
+
+      // Parse damage formula (like "1d8+3" or "2d6")
+      let damageFormula = damage;
+
+      const onclick = attackRoll || damage ? `onclick="rollAttack('${(action.name || 'Action').replace(/'/g, "\\'")}', ${attackBonus}, '${damageFormula}')"` : '';
+      const title = attackRoll || damage ? 'Click to roll attack' : 'Action';
+
       html += `
-        <div class="feature-card" style="cursor: pointer;" title="Click to use action">
+        <div class="feature-card" style="cursor: pointer;" ${onclick} title="${title}">
           <div class="feature-name">${action.name || 'Unknown Action'}</div>
           ${actionDetails.length > 0 ? `<div class="feature-description" style="color: #A78BFA;">${actionDetails.join(' • ')}</div>` : ''}
           ${action.description ? `<div class="feature-description">${action.description.substring(0, 100)}${action.description.length > 100 ? '...' : ''}</div>` : ''}
@@ -712,8 +728,9 @@ function populateSpellsTab(character) {
       if (castingTime) metaInfo.push(castingTime);
       if (range) metaInfo.push(range);
 
+      const spellLevel = parseInt(spell.level) || 0;
       html += `
-        <div class="spell-card ${isConcentration ? 'concentration' : ''}" title="Click to cast spell">
+        <div class="spell-card ${isConcentration ? 'concentration' : ''}" onclick="castSpell('${(spell.name || 'Unknown Spell').replace(/'/g, "\\'")}', ${spellLevel})" title="Click to cast spell">
           <div class="spell-card-header">
             <span class="spell-name">${spell.name || 'Unknown Spell'}</span>
             ${isConcentration ? '<span class="spell-concentration-badge">Concentration</span>' : ''}
@@ -1018,6 +1035,273 @@ window.addEventListener('message', (event) => {
     postRollToOwlbear(event.data.data);
   }
 });
+
+// ============== Dice Rolling System ==============
+
+/**
+ * Roll dice and return result
+ * @param {string} formula - Dice formula like "1d20+5" or "2d6"
+ * @returns {object} - {total, rolls, formula}
+ */
+function rollDice(formula) {
+  // Parse formula like "2d6+3" or "1d20"
+  const match = formula.match(/(\d+)?d(\d+)([+-]\d+)?/i);
+  if (!match) {
+    console.error('Invalid dice formula:', formula);
+    return {total: 0, rolls: [], formula};
+  }
+
+  const count = parseInt(match[1] || '1');
+  const sides = parseInt(match[2]);
+  const modifier = parseInt(match[3] || '0');
+
+  const rolls = [];
+  let total = modifier;
+
+  for (let i = 0; i < count; i++) {
+    const roll = Math.floor(Math.random() * sides) + 1;
+    rolls.push(roll);
+    total += roll;
+  }
+
+  return {total, rolls, modifier, formula, count, sides};
+}
+
+/**
+ * Show roll result notification
+ */
+function showRollResult(name, result) {
+  const rollsText = result.rolls.join(' + ');
+  const modText = result.modifier !== 0 ? ` ${result.modifier >= 0 ? '+' : ''}${result.modifier}` : '';
+  const message = `${name}: ${rollsText}${modText} = ${result.total}`;
+
+  if (isOwlbearReady) {
+    OBR.notification.show(`🎲 ${currentCharacter?.name || 'Character'}: ${message}`, 'INFO');
+  }
+  console.log('🎲', message);
+}
+
+/**
+ * Roll ability check
+ */
+window.rollAbilityCheck = function(abilityName, modifier) {
+  const result = rollDice('1d20');
+  const total = result.total + modifier;
+  showRollResult(`${abilityName} Check (${modifier >= 0 ? '+' : ''}${modifier})`, {...result, total, modifier});
+};
+
+/**
+ * Roll saving throw
+ */
+window.rollSavingThrow = function(abilityName, modifier) {
+  const result = rollDice('1d20');
+  const total = result.total + modifier;
+  showRollResult(`${abilityName} Save (${modifier >= 0 ? '+' : ''}${modifier})`, {...result, total, modifier});
+};
+
+/**
+ * Roll skill check
+ */
+window.rollSkillCheck = function(skillName, bonus) {
+  const result = rollDice('1d20');
+  const total = result.total + bonus;
+  showRollResult(`${skillName} (${bonus >= 0 ? '+' : ''}${bonus})`, {...result, total, modifier: bonus});
+};
+
+/**
+ * Roll attack
+ */
+window.rollAttack = function(actionName, attackBonus, damageFormula) {
+  const attackRoll = rollDice('1d20');
+  const attackTotal = attackRoll.total + (attackBonus || 0);
+
+  let message = `${actionName} Attack: ${attackRoll.rolls[0]}`;
+  if (attackBonus) {
+    message += ` + ${attackBonus} = ${attackTotal}`;
+  }
+
+  if (damageFormula) {
+    const damageRoll = rollDice(damageFormula);
+    message += ` | Damage: ${damageRoll.rolls.join(' + ')}`;
+    if (damageRoll.modifier) {
+      message += ` + ${damageRoll.modifier}`;
+    }
+    message += ` = ${damageRoll.total}`;
+  }
+
+  if (isOwlbearReady) {
+    OBR.notification.show(`⚔️ ${currentCharacter?.name || 'Character'}: ${message}`, 'INFO');
+  }
+  console.log('⚔️', message);
+};
+
+// ============== Spell Casting ==============
+
+/**
+ * Cast a spell
+ */
+window.castSpell = function(spellName, level) {
+  const levelText = level === 0 ? 'Cantrip' : `Level ${level} Spell`;
+  const message = `${currentCharacter?.name || 'Character'} casts ${spellName} (${levelText})!`;
+
+  if (isOwlbearReady) {
+    OBR.notification.show(`✨ ${message}`, 'INFO');
+  }
+  console.log('✨', message);
+
+  // TODO: Track spell slot usage
+};
+
+// ============== HP & Resource Management ==============
+
+/**
+ * Adjust HP
+ */
+window.adjustHP = async function() {
+  if (!currentCharacter) return;
+
+  const currentHP = currentCharacter.hitPoints?.current || 0;
+  const maxHP = currentCharacter.hitPoints?.max || 0;
+
+  const adjustment = prompt(`Current HP: ${currentHP}/${maxHP}\n\nEnter HP adjustment (negative for damage, positive for healing):`);
+  if (adjustment === null) return;
+
+  const amount = parseInt(adjustment);
+  if (isNaN(amount)) return;
+
+  const newHP = Math.max(0, Math.min(maxHP, currentHP + amount));
+
+  // Update character data
+  currentCharacter.hitPoints.current = newHP;
+
+  // Show notification
+  const message = amount > 0
+    ? `${currentCharacter.name} heals ${amount} HP (${newHP}/${maxHP})`
+    : `${currentCharacter.name} takes ${Math.abs(amount)} damage (${newHP}/${maxHP})`;
+
+  if (isOwlbearReady) {
+    OBR.notification.show(message, amount > 0 ? 'SUCCESS' : 'WARNING');
+  }
+
+  // Re-render stats tab
+  populateStatsTab(currentCharacter);
+
+  // TODO: Save to Supabase
+};
+
+// ============== Rest System ==============
+
+/**
+ * Take a short rest
+ */
+window.takeShortRest = async function() {
+  if (!currentCharacter) return;
+
+  const confirm = window.confirm(
+    'Take a Short Rest?\n\n' +
+    '• Spend Hit Dice to recover HP\n' +
+    '• Recover some class resources\n' +
+    '• Takes 1 hour'
+  );
+
+  if (!confirm) return;
+
+  // Allow spending hit dice
+  const hitDice = currentCharacter.hitDice;
+  if (hitDice && hitDice.current > 0) {
+    const spend = window.prompt(`You have ${hitDice.current}/${hitDice.max} Hit Dice (d${hitDice.type})\n\nHow many do you want to spend?`);
+    if (spend) {
+      const count = Math.min(parseInt(spend) || 0, hitDice.current);
+      if (count > 0) {
+        let totalHealing = 0;
+        for (let i = 0; i < count; i++) {
+          const roll = Math.floor(Math.random() * (hitDice.type)) + 1;
+          const conMod = currentCharacter.attributeMods?.constitution || 0;
+          totalHealing += roll + conMod;
+        }
+
+        const currentHP = currentCharacter.hitPoints?.current || 0;
+        const maxHP = currentCharacter.hitPoints?.max || 0;
+        const newHP = Math.min(maxHP, currentHP + totalHealing);
+
+        currentCharacter.hitPoints.current = newHP;
+        currentCharacter.hitDice.current -= count;
+
+        if (isOwlbearReady) {
+          OBR.notification.show(`Short Rest: Spent ${count} Hit Dice, recovered ${totalHealing} HP`, 'SUCCESS');
+        }
+      }
+    }
+  }
+
+  // Refresh tabs
+  populateStatsTab(currentCharacter);
+
+  // TODO: Recover short rest resources
+  // TODO: Save to Supabase
+};
+
+/**
+ * Take a long rest
+ */
+window.takeLongRest = async function() {
+  if (!currentCharacter) return;
+
+  const confirm = window.confirm(
+    'Take a Long Rest?\n\n' +
+    '• Recover all HP\n' +
+    '• Recover all spell slots\n' +
+    '• Recover half of total Hit Dice\n' +
+    '• Recover all resources\n' +
+    '• Takes 8 hours'
+  );
+
+  if (!confirm) return;
+
+  // Recover HP to max
+  const maxHP = currentCharacter.hitPoints?.max || 0;
+  currentCharacter.hitPoints.current = maxHP;
+
+  // Recover spell slots
+  if (currentCharacter.spellSlots) {
+    for (let level = 1; level <= 9; level++) {
+      const maxKey = `level${level}SpellSlotsMax`;
+      const currentKey = `level${level}SpellSlots`;
+      if (currentCharacter.spellSlots[maxKey]) {
+        currentCharacter.spellSlots[currentKey] = currentCharacter.spellSlots[maxKey];
+      }
+    }
+    // Pact magic
+    if (currentCharacter.spellSlots.pactMagicSlotsMax) {
+      currentCharacter.spellSlots.pactMagicSlots = currentCharacter.spellSlots.pactMagicSlotsMax;
+    }
+  }
+
+  // Recover hit dice (half of total)
+  if (currentCharacter.hitDice) {
+    const recovered = Math.max(1, Math.floor(currentCharacter.hitDice.max / 2));
+    currentCharacter.hitDice.current = Math.min(
+      currentCharacter.hitDice.max,
+      currentCharacter.hitDice.current + recovered
+    );
+  }
+
+  // Recover resources
+  if (currentCharacter.resources) {
+    currentCharacter.resources.forEach(resource => {
+      resource.current = resource.max;
+    });
+  }
+
+  if (isOwlbearReady) {
+    OBR.notification.show(`Long Rest: ${currentCharacter.name} is fully rested!`, 'SUCCESS');
+  }
+
+  // Refresh tabs
+  populateStatsTab(currentCharacter);
+
+  // TODO: Save to Supabase
+};
 
 // ============== Collapsible Sections ==============
 
