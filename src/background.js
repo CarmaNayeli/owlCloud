@@ -399,6 +399,12 @@ browserAPI.runtime.onMessage.addListener((request, sender, sendResponse) => {
           response = { success: true };
           break;
 
+        case 'getActiveCharacter': {
+          const character = await getActiveCharacter();
+          response = { success: true, character };
+          break;
+        }
+
         case 'clearCharacterData':
           await clearCharacterData(request.characterId);
           response = { success: true };
@@ -1826,6 +1832,35 @@ async function setActiveCharacter(characterId) {
   } catch (error) {
     debug.error('Failed to set active character:', error);
     throw error;
+  }
+}
+
+/**
+ * Get the currently active character
+ */
+async function getActiveCharacter() {
+  try {
+    const result = await browserAPI.storage.local.get(['characterProfiles', 'activeCharacterId']);
+    const activeCharacterId = result.activeCharacterId;
+
+    if (!activeCharacterId) {
+      debug.log('📋 No active character set');
+      return null;
+    }
+
+    const characterProfiles = result.characterProfiles || {};
+    const characterData = characterProfiles[activeCharacterId];
+
+    if (!characterData) {
+      debug.warn(`⚠️ Active character ${activeCharacterId} not found in profiles`);
+      return null;
+    }
+
+    debug.log(`🎯 Retrieved active character: ${characterData.name || characterData.character_name}`);
+    return characterData;
+  } catch (error) {
+    debug.error('Failed to get active character:', error);
+    return null;
   }
 }
 
