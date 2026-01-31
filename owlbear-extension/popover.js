@@ -875,8 +875,41 @@ function populateSpellsTab(character) {
       const components = spell.components || '';
       const duration = spell.duration || '';
       const spellLevel = parseInt(spell.level) || 0;
+      const attackRoll = spell.attackRoll || spell.attack || '';
+      const damage = spell.damage || '';
+      const healing = spell.healing || '';
 
-      const castButtonHtml = `<button class="rest-btn" style="margin-top: 8px; width: 100%; display: block;" onclick="event.stopPropagation(); castSpell('${(spell.name || 'Unknown Spell').replace(/'/g, "\\'")}', ${spellLevel})">✨ Cast Spell</button>`;
+      // Parse attack bonus from attackRoll string
+      let attackBonus = 0;
+      if (attackRoll) {
+        const bonusMatch = attackRoll.match(/[+-](\d+)/);
+        if (bonusMatch) {
+          attackBonus = parseInt(bonusMatch[0]);
+        }
+      }
+
+      // Create spell buttons - always include Cast, plus Attack/Damage/Healing as needed
+      let spellButtonsHtml = '<div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">';
+
+      // Cast button (always present)
+      spellButtonsHtml += `<button class="rest-btn" style="flex: 1; min-width: 100px;" onclick="event.stopPropagation(); castSpell('${(spell.name || 'Unknown Spell').replace(/'/g, "\\'")}', ${spellLevel})">✨ Cast</button>`;
+
+      // Attack button (if spell has attack roll)
+      if (attackRoll && attackRoll.trim()) {
+        spellButtonsHtml += `<button class="rest-btn" style="flex: 1; min-width: 100px;" onclick="event.stopPropagation(); rollAttackOnly('${(spell.name || 'Unknown Spell').replace(/'/g, "\\'")}', ${attackBonus})">🎯 Attack</button>`;
+      }
+
+      // Damage button (if spell has damage)
+      if (damage && damage.trim()) {
+        spellButtonsHtml += `<button class="rest-btn" style="flex: 1; min-width: 100px;" onclick="event.stopPropagation(); rollDamageOnly('${(spell.name || 'Unknown Spell').replace(/'/g, "\\'")}', '${damage}')">💥 Damage</button>`;
+      }
+
+      // Healing button (if spell has healing)
+      if (healing && healing.trim()) {
+        spellButtonsHtml += `<button class="rest-btn" style="flex: 1; min-width: 100px;" onclick="event.stopPropagation(); rollDamageOnly('${(spell.name || 'Unknown Spell').replace(/'/g, "\\'")}', '${healing}')">💚 Healing</button>`;
+      }
+
+      spellButtonsHtml += '</div>';
 
       // Combine summary and description
       let spellText = '';
@@ -905,9 +938,12 @@ function populateSpellsTab(character) {
               ${duration ? `<div class="feature-meta-item"><span class="feature-meta-label">Duration:</span> ${duration}</div>` : ''}
               ${isConcentration ? '<div class="feature-meta-item"><span class="feature-meta-label">Concentration:</span> Yes</div>' : ''}
               ${isRitual ? '<div class="feature-meta-item"><span class="feature-meta-label">Ritual:</span> Yes</div>' : ''}
+              ${attackRoll ? `<div class="feature-meta-item"><span class="feature-meta-label">Attack:</span> ${attackRoll}</div>` : ''}
+              ${damage ? `<div class="feature-meta-item"><span class="feature-meta-label">Damage:</span> ${damage}</div>` : ''}
+              ${healing ? `<div class="feature-meta-item"><span class="feature-meta-label">Healing:</span> ${healing}</div>` : ''}
             </div>
             ${spellText}
-            ${castButtonHtml}
+            ${spellButtonsHtml}
           </div>
         </div>
       `;
