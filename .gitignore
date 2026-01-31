@@ -31,3 +31,7 @@ node_modules/
 
 # build
 lib/
+dist/
+
+# Supabase migrations
+supabase/migrations/
