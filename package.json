@@ -6,6 +6,9 @@
   "license": "MIT",
   "scripts": {
     "build": "tsc --build",
+    "build-extension": "node build-scripts/build.js",
+    "release": "node build-scripts/prepare-release.js",
+    "release-dev": "node build-scripts/prepare-release.js --dev",
     "lint": "eslint . --ext .ts",
     "format": "prettier --config .prettierrc 'src/**/*.ts' --write",
     "prepare": "npm run build"

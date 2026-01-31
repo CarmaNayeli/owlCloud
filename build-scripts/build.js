@@ -337,35 +337,53 @@ function buildSafari() {
 function createZips() {
   console.log('\n📦 Creating zip archives...');
 
+  const suffix = isExperimental ? '-experimental' : '';
+  const distPath = isExperimental ? 'dist-experimental' : 'dist';
+  const isWindows = process.platform === 'win32';
+
   try {
-    // Check if zip command is available
-    execSync('which zip', { stdio: 'ignore' });
+    if (isWindows) {
+      // Use PowerShell Compress-Archive on Windows
+      const chromeZip = path.join(DIST, `owlcloud-chrome${suffix}.zip`);
+      const firefoxZip = path.join(DIST, `owlcloud-firefox${suffix}.zip`);
+      const safariZip = path.join(DIST, `owlcloud-safari${suffix}.zip`);
 
-    const suffix = isExperimental ? '-experimental' : '';
-    const distPath = isExperimental ? 'dist-experimental' : 'dist';
+      // Create Chrome zip
+      execSync(`powershell -Command "Compress-Archive -Path '${BUILD_CHROME}\\*' -DestinationPath '${chromeZip}' -Force"`, { stdio: 'inherit' });
+      console.log(`   ✅ Chrome zip: ${distPath}/owlcloud-chrome${suffix}.zip`);
 
-    // Create Chrome zip
-    process.chdir(BUILD_CHROME);
-    execSync(`zip -r ../owlcloud-chrome${suffix}.zip . -x "*.DS_Store"`, { stdio: 'inherit' });
-    console.log(`   ✅ Chrome zip: ${distPath}/owlcloud-chrome${suffix}.zip`);
+      // Create Firefox zip
+      execSync(`powershell -Command "Compress-Archive -Path '${BUILD_FIREFOX}\\*' -DestinationPath '${firefoxZip}' -Force"`, { stdio: 'inherit' });
+      console.log(`   ✅ Firefox zip: ${distPath}/owlcloud-firefox${suffix}.zip`);
 
-    // Create Firefox zip
-    process.chdir(BUILD_FIREFOX);
-    execSync(`zip -r ../owlcloud-firefox${suffix}.zip . -x "*.DS_Store"`, { stdio: 'inherit' });
-    console.log(`   ✅ Firefox zip: ${distPath}/owlcloud-firefox${suffix}.zip`);
+      // Create Safari zip
+      execSync(`powershell -Command "Compress-Archive -Path '${BUILD_SAFARI}\\*' -DestinationPath '${safariZip}' -Force"`, { stdio: 'inherit' });
+      console.log(`   ✅ Safari zip: ${distPath}/owlcloud-safari${suffix}.zip`);
+    } else {
+      // Use zip command on Unix-like systems
+      // Create Chrome zip
+      process.chdir(BUILD_CHROME);
+      execSync(`zip -r ../owlcloud-chrome${suffix}.zip . -x "*.DS_Store"`, { stdio: 'inherit' });
+      console.log(`   ✅ Chrome zip: ${distPath}/owlcloud-chrome${suffix}.zip`);
 
-    // Create Safari zip
-    process.chdir(BUILD_SAFARI);
-    execSync(`zip -r ../owlcloud-safari${suffix}.zip . -x "*.DS_Store"`, { stdio: 'inherit' });
-    console.log(`   ✅ Safari zip: ${distPath}/owlcloud-safari${suffix}.zip`);
+      // Create Firefox zip
+      process.chdir(BUILD_FIREFOX);
+      execSync(`zip -r ../owlcloud-firefox${suffix}.zip . -x "*.DS_Store"`, { stdio: 'inherit' });
+      console.log(`   ✅ Firefox zip: ${distPath}/owlcloud-firefox${suffix}.zip`);
 
-    process.chdir(ROOT);
+      // Create Safari zip
+      process.chdir(BUILD_SAFARI);
+      execSync(`zip -r ../owlcloud-safari${suffix}.zip . -x "*.DS_Store"`, { stdio: 'inherit' });
+      console.log(`   ✅ Safari zip: ${distPath}/owlcloud-safari${suffix}.zip`);
+
+      process.chdir(ROOT);
+    }
   } catch (error) {
-    console.log('   ⚠️  zip command not found, skipping zip creation');
+    console.log('   ⚠️  Failed to create zip archives:', error.message);
     console.log('   📁 You can manually zip the directories:');
-    console.log('      - dist/chrome/');
-    console.log('      - dist/firefox/');
-    console.log('      - dist/safari/');
+    console.log(`      - ${distPath}/chrome/`);
+    console.log(`      - ${distPath}/firefox/`);
+    console.log(`      - ${distPath}/safari/`);
   }
 }
 
