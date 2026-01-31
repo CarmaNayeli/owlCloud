@@ -55,6 +55,15 @@ async function checkForActiveCharacter() {
     // Post message to parent window (where the browser extension content script is)
     window.parent.postMessage(message, 'https://www.owlbear.rodeo');
 
+    // Set a timeout in case we don't get a response (content script not ready)
+    setTimeout(() => {
+      // If we still haven't received character data, show no character section
+      if (!currentCharacter && characterSection.style.display === 'none' && noCharacterSection.style.display === 'none') {
+        console.warn('⚠️ No response from browser extension, showing no character section');
+        showNoCharacter();
+      }
+    }, 3000);
+
     // The response will come via window message listener (set up below)
   } catch (error) {
     console.error('Error checking for active character:', error);
