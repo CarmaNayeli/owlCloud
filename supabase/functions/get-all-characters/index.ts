@@ -129,6 +129,9 @@ serve(async (req) => {
         hitPoints: characterData.hit_points || fullCharacterData.hitPoints || { current: 0, max: 0 },
         armorClass: characterData.armor_class || fullCharacterData.armorClass || 10,
         proficiencyBonus: characterData.proficiency_bonus || fullCharacterData.proficiencyBonus || 2,
+        // Ensure portrait fields are preserved from raw data
+        picture: fullCharacterData.picture,
+        avatarPicture: fullCharacterData.avatarPicture,
         updatedAt: characterData.updated_at,
         isActive: characterData.is_active || false,
         source: 'database'
