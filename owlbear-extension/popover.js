@@ -269,21 +269,26 @@ function displayCharacter(character) {
   }
 
   // Set character portrait if available
-  // Try multiple possible portrait field names from DiceCloud
-  const portraitUrl = character.picture ||
-                      character.avatarPicture ||
+  // Try Picture URL first (main image), then Avatar picture URL (fallback)
+  // DiceCloud stores these as pictureUrl and avatarPictureUrl
+  const portraitUrl = character.pictureUrl ||
+                      character.picture_url ||
                       character.picture?.url ||
+                      character.picture ||
+                      character.avatarPictureUrl ||
+                      character.avatar_picture_url ||
                       character.avatarPicture?.url ||
+                      character.avatarPicture ||
                       character.avatar;
 
   if (characterPortrait) {
     if (portraitUrl) {
       characterPortrait.src = portraitUrl;
       characterPortrait.style.display = 'block';
-      console.log('Portrait loaded:', portraitUrl);
+      console.log('Portrait loaded from:', portraitUrl);
     } else {
       characterPortrait.style.display = 'none';
-      console.log('No portrait found. Character data keys:', Object.keys(character).join(', '));
+      console.log('No portrait found. Available character fields:', Object.keys(character).join(', '));
     }
   }
 
