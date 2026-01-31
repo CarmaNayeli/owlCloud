@@ -542,23 +542,66 @@ async function loadSheetBuilderAndPopulate() {
       throw new Error('Cannot get extension URL');
     };
 
-    // Load required modules in order
+    // Load required modules in order (dependencies first)
     const modulesToLoad = [
-      'src/common/debug.js', // Load debug first - required by all other modules
-      'src/modules/color-utils.js', // Color utilities (getColorEmoji, getColoredBanner)
-      'src/modules/card-creator.js', // UI card creation (createCard)
-      'src/modules/ui-utilities.js', // UI utilities (createColorPalette, initColorPalette, expandSectionByContainerId, etc.)
-      'src/modules/dice-roller.js', // Dice rolling (roll)
-      'src/modules/hp-management.js', // HP and character stats (initializeHitDice, showHPModal, calculateTotalAC, etc.)
-      'src/modules/action-display.js',
-      'src/modules/spell-display.js',
-      'src/modules/inventory-manager.js',
-      'src/modules/companions-manager.js',
+      // Core utilities
+      'src/common/debug.js',
+
+      // UI and display utilities
+      'src/modules/color-utils.js',
+      'src/modules/card-creator.js',
+      'src/modules/ui-utilities.js',
+      'src/modules/dice-roller.js',
+      'src/modules/notification-system.js',
+      'src/modules/window-management.js',
+
+      // Data management
+      'src/modules/data-manager.js',
+      'src/modules/formula-resolver.js',
+
+      // Edge cases (must load before features that use them)
+      'src/modules/spell-edge-cases.js',
+      'src/modules/class-feature-edge-cases.js',
+      'src/modules/racial-feature-edge-cases.js',
+      'src/modules/combat-maneuver-edge-cases.js',
+      'src/modules/warlock-invocations.js',
+
+      // Character management
+      'src/modules/hp-management.js',
+      'src/modules/health-modals.js',
       'src/modules/resource-manager.js',
       'src/modules/spell-slots.js',
       'src/modules/effects-manager.js',
-      'src/modules/action-filters.js',
       'src/modules/concentration-tracker.js',
+
+      // Actions and combat
+      'src/modules/action-executor.js',
+      'src/modules/action-options.js',
+      'src/modules/action-announcements.js',
+      'src/modules/action-filters.js',
+      'src/modules/action-display.js',
+
+      // Spells
+      'src/modules/spell-cards.js',
+      'src/modules/spell-modals.js',
+      'src/modules/spell-macros.js',
+      'src/modules/spell-casting.js',
+      'src/modules/spell-display.js',
+
+      // Inventory and companions
+      'src/modules/inventory-manager.js',
+      'src/modules/companions-manager.js',
+
+      // Character traits and features
+      'src/modules/character-traits.js',
+      'src/modules/character-trait-popups.js',
+
+      // GM and status features
+      'src/modules/gm-mode.js',
+      'src/modules/status-bar-bridge.js',
+      'src/modules/macro-system.js',
+
+      // Sheet builder (must be last - depends on everything)
       'src/modules/sheet-builder.js'
     ];
 
