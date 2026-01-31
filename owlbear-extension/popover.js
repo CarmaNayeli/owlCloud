@@ -460,7 +460,7 @@ function populateStatsTab(character) {
 
       filteredResources.forEach(resource => {
         html += `
-          <div class="resource-card" style="cursor: pointer;" onclick="adjustResource('${resource.name.replace(/'/g, "\\'")}')  title="Click to adjust ${resource.name}">
+          <div class="resource-card" style="cursor: pointer;" onclick="adjustResource('${resource.name.replace(/'/g, "\\'")}') " title="Click to adjust ${resource.name}">
             <div class="resource-name">${resource.name}</div>
             <div class="resource-value">${resource.current || 0}</div>
             <div class="resource-max">/ ${resource.max || 0}</div>
