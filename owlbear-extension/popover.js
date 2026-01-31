@@ -12,6 +12,7 @@
 // ============== State ==============
 
 let currentCharacter = null;
+let allCharacters = [];
 let isOwlbearReady = false;
 
 // ============== DOM Elements ==============
@@ -32,6 +33,8 @@ const linkExtensionBtn = document.getElementById('link-extension-btn');
 function initializeTabs() {
   const tabButtons = document.querySelectorAll('.tab-button');
   const tabContents = document.querySelectorAll('.tab-content');
+  const brandingHeader = document.getElementById('branding-header');
+  const characterHeader = document.getElementById('character-header');
 
   tabButtons.forEach(button => {
     button.addEventListener('click', () => {
@@ -44,6 +47,15 @@ function initializeTabs() {
       // Add active class to clicked tab and corresponding content
       button.classList.add('active');
       document.getElementById(`tab-${tabName}`).classList.add('active');
+
+      // Toggle header based on tab
+      if (tabName === 'settings') {
+        brandingHeader.style.display = 'block';
+        characterHeader.style.display = 'none';
+      } else {
+        brandingHeader.style.display = 'none';
+        characterHeader.style.display = 'block';
+      }
 
       console.log(`📑 Switched to tab: ${tabName}`);
     });
@@ -94,6 +106,8 @@ async function checkForActiveCharacter() {
 
     if (data.success && data.character) {
       displayCharacter(data.character);
+      // Also fetch all available characters
+      await fetchAllCharacters();
     } else {
       showNoCharacter();
     }
@@ -102,6 +116,119 @@ async function checkForActiveCharacter() {
     showNoCharacter();
   }
 }
+
+/**
+ * Fetch all available characters for the current player
+ */
+async function fetchAllCharacters() {
+  try {
+    const playerId = await OBR.player.getId();
+
+    // Call Supabase Edge Function to get all characters
+    const response = await fetch(
+      `https://gkfpxwvmumaylahtxqrk.supabase.co/functions/v1/get-all-characters?owlbear_player_id=${encodeURIComponent(playerId)}`
+    );
+
+    if (!response.ok) {
+      console.error('Failed to get characters:', response.statusText);
+      return;
+    }
+
+    const data = await response.json();
+
+    if (data.success && data.characters && data.characters.length > 0) {
+      allCharacters = data.characters;
+      displayCharacterList();
+    }
+  } catch (error) {
+    console.error('Error fetching all characters:', error);
+  }
+}
+
+/**
+ * Display the character list in the Settings tab
+ */
+function displayCharacterList() {
+  const characterListSection = document.getElementById('character-list-section');
+  const characterList = document.getElementById('character-list');
+
+  if (!allCharacters || allCharacters.length <= 1) {
+    // Hide character list if there's only one or no characters
+    characterListSection.style.display = 'none';
+    return;
+  }
+
+  // Show character list
+  characterListSection.style.display = 'block';
+
+  let html = '';
+  allCharacters.forEach((character) => {
+    const isActive = currentCharacter && character.id === currentCharacter.id;
+    html += `
+      <div class="character-list-item ${isActive ? 'active' : ''}" onclick="switchToCharacter('${character.id}')">
+        <div class="character-list-item-name">${character.name || 'Unknown Character'}</div>
+        <div class="character-list-item-details">
+          Level ${character.level || '?'} ${character.race || ''} ${character.class || ''}
+          ${isActive ? '• Active' : ''}
+        </div>
+      </div>
+    `;
+  });
+
+  characterList.innerHTML = html;
+}
+
+/**
+ * Switch to a different character
+ */
+window.switchToCharacter = async function(characterId) {
+  try {
+    // Find the character in the list
+    const character = allCharacters.find(c => c.id === characterId);
+    if (!character) {
+      console.error('Character not found:', characterId);
+      return;
+    }
+
+    // Update active character in Supabase
+    const playerId = await OBR.player.getId();
+    const response = await fetch(
+      'https://gkfpxwvmumaylahtxqrk.supabase.co/functions/v1/set-active-character',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          owlbearPlayerId: playerId,
+          characterId: characterId
+        })
+      }
+    );
+
+    const result = await response.json();
+
+    if (response.ok && result.success) {
+      // Display the new character
+      displayCharacter(character);
+      displayCharacterList(); // Refresh the list to update active state
+
+      if (isOwlbearReady) {
+        OBR.notification.show(`Switched to ${character.name}`, 'SUCCESS');
+      }
+    } else {
+      console.error('Failed to switch character:', result.error);
+      if (isOwlbearReady) {
+        OBR.notification.show('Failed to switch character', 'ERROR');
+      }
+    }
+  } catch (error) {
+    console.error('Error switching character:', error);
+    if (isOwlbearReady) {
+      OBR.notification.show('Error switching character', 'ERROR');
+    }
+  }
+};
 
 /**
  * Display character information
@@ -120,9 +247,16 @@ function displayCharacter(character) {
     <div class="character-detail">HP: ${character.hitPoints?.current || 0} / ${character.hitPoints?.max || 0}</div>
   `;
 
+  // Update character header for other tabs
+  const characterHeaderName = document.getElementById('character-header-name');
+  const characterHeaderDetails = document.getElementById('character-header-details');
+  if (characterHeaderName && characterHeaderDetails) {
+    characterHeaderName.textContent = character.name || 'Unknown Character';
+    characterHeaderDetails.textContent = `Level ${character.level || '?'} ${character.race || ''} ${character.class || ''}`;
+  }
+
   // Populate other tabs
   populateStatsTab(character);
-  populateResourcesTab(character);
   populateAbilitiesTab(character);
   populateActionsTab(character);
   populateSpellsTab(character);
@@ -132,7 +266,7 @@ function displayCharacter(character) {
 }
 
 /**
- * Populate Stats/Overview tab
+ * Populate Stats & Resources tab (combined)
  */
 function populateStatsTab(character) {
   const statsContent = document.getElementById('stats-content');
@@ -146,13 +280,6 @@ function populateStatsTab(character) {
 
   // Build core stats section
   let html = `
-    <div class="character-name" style="margin-bottom: 8px;">
-      ${character.name || 'Unknown Character'}
-    </div>
-    <div class="character-detail" style="margin-bottom: 20px;">
-      Level ${character.level || '?'} ${character.race || ''} ${character.class || ''}
-    </div>
-
     <div class="stat-grid">
       <div class="stat-box" style="cursor: pointer;" title="Click to adjust HP">
         <div class="stat-label">HP</div>
@@ -222,16 +349,7 @@ function populateStatsTab(character) {
     `;
   }
 
-  statsContent.innerHTML = html;
-}
-
-/**
- * Populate Action Economy & Resources tab
- */
-function populateResourcesTab(character) {
-  const resourcesContent = document.getElementById('resources-content');
-
-  let html = '';
+  // === RESOURCES SECTION ===
 
   // Spell Slots Section
   const hasSpellSlots = character.spellSlots && Object.keys(character.spellSlots).some(key =>
@@ -315,12 +433,9 @@ function populateResourcesTab(character) {
     </div>
   `;
 
-  if (!hasSpellSlots && (!character.resources || character.resources.length === 0)) {
-    html = '<div class="empty-state">No resources or spell slots available</div>';
-  }
-
-  resourcesContent.innerHTML = html;
+  statsContent.innerHTML = html;
 }
+
 
 /**
  * Populate Abilities & Saves tab
@@ -415,10 +530,12 @@ function populateActionsTab(character) {
 
   // Features & Traits Section
   if (character.features && character.features.length > 0) {
-    html += '<div class="section-header">Features & Traits</div>';
+    const featuresId = 'features-list-' + Date.now();
+    html += `<div class="section-header collapsible" onclick="toggleCollapsible('${featuresId}')">Features & Traits (${character.features.length})</div>`;
+    html += `<div id="${featuresId}" class="collapsible-content">`;
     html += '<div class="feature-list">';
 
-    character.features.slice(0, 10).forEach(feature => {
+    character.features.forEach(feature => {
       html += `
         <div class="feature-card">
           <div class="feature-name">${feature.name || 'Unknown Feature'}</div>
@@ -428,19 +545,18 @@ function populateActionsTab(character) {
     });
 
     html += '</div>';
-
-    if (character.features.length > 10) {
-      html += `<div class="empty-state">...and ${character.features.length - 10} more features</div>`;
-    }
+    html += '</div>';
   }
 
   // Actions Section
   if (character.actions && character.actions.length > 0) {
-    html += '<div class="section-header">Actions & Attacks</div>';
-    html += '<div class="feature-list">';
-
     // Deduplicate and filter actions
     const deduplicatedActions = deduplicateActions(character.actions);
+
+    const actionsId = 'actions-list-' + Date.now();
+    html += `<div class="section-header collapsible" onclick="toggleCollapsible('${actionsId}')">Actions & Attacks (${deduplicatedActions.length})</div>`;
+    html += `<div id="${actionsId}" class="collapsible-content">`;
+    html += '<div class="feature-list">';
 
     deduplicatedActions.forEach(action => {
       const actionType = action.actionType || 'Action';
@@ -463,6 +579,7 @@ function populateActionsTab(character) {
       `;
     });
 
+    html += '</div>';
     html += '</div>';
   }
 
@@ -574,12 +691,15 @@ function populateSpellsTab(character) {
   // Order levels properly (Cantrips, then 1-9)
   const levelOrder = ['Cantrips', 'Level 1', 'Level 2', 'Level 3', 'Level 4', 'Level 5', 'Level 6', 'Level 7', 'Level 8', 'Level 9'];
 
-  levelOrder.forEach(levelKey => {
+  levelOrder.forEach((levelKey, index) => {
     if (!spellsByLevel[levelKey]) return;
 
     const spells = spellsByLevel[levelKey];
+    const spellLevelId = 'spell-level-' + index + '-' + Date.now();
+
     html += `<div class="spell-level-group">`;
-    html += `<div class="spell-level-header">${levelKey} (${spells.length})</div>`;
+    html += `<div class="spell-level-header collapsible" onclick="toggleCollapsible('${spellLevelId}')" style="cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center;">${levelKey} (${spells.length})<span style="font-size: 12px; transition: transform 0.2s ease;">▼</span></div>`;
+    html += `<div id="${spellLevelId}" class="collapsible-content">`;
     html += `<div class="spell-list">`;
 
     spells.forEach(spell => {
@@ -603,7 +723,7 @@ function populateSpellsTab(character) {
       `;
     });
 
-    html += `</div></div>`;
+    html += `</div></div></div>`;
   });
 
   spellsContent.innerHTML = html;
@@ -878,6 +998,28 @@ window.addEventListener('message', (event) => {
     postRollToOwlbear(event.data.data);
   }
 });
+
+// ============== Collapsible Sections ==============
+
+/**
+ * Toggle a collapsible section
+ */
+window.toggleCollapsible = function(elementId) {
+  const element = document.getElementById(elementId);
+  const header = element.previousElementSibling;
+
+  if (element && header) {
+    element.classList.toggle('collapsed');
+    header.classList.toggle('collapsed');
+
+    // Handle arrow rotation for spell level headers
+    const arrow = header.querySelector('span[style*="transition"]');
+    if (arrow) {
+      const isCollapsed = element.classList.contains('collapsed');
+      arrow.style.transform = isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
+    }
+  }
+};
 
 // ============== Initialization ==============
 

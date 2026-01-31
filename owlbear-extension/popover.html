@@ -23,6 +23,7 @@
     }
 
     .container {
+      position: relative;
       background: rgba(26, 26, 46, 0.8);
       border-radius: 12px;
       padding: 24px;
@@ -118,6 +119,39 @@
       font-size: 14px;
       color: #A78BFA;
       margin-bottom: 4px;
+    }
+
+    .character-list-item {
+      background: rgba(138, 92, 246, 0.1);
+      border: 2px solid rgba(138, 92, 246, 0.2);
+      border-radius: 8px;
+      padding: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .character-list-item:hover {
+      background: rgba(138, 92, 246, 0.2);
+      border-color: rgba(138, 92, 246, 0.4);
+      transform: translateX(4px);
+    }
+
+    .character-list-item.active {
+      background: rgba(138, 92, 246, 0.25);
+      border-color: #8B5CF6;
+      box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+    }
+
+    .character-list-item-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: #e0e0e0;
+      margin-bottom: 4px;
+    }
+
+    .character-list-item-details {
+      font-size: 12px;
+      color: #A78BFA;
     }
 
     .loading {
@@ -301,6 +335,39 @@
       margin: 20px 0 12px 0;
       padding-bottom: 8px;
       border-bottom: 1px solid rgba(138, 92, 246, 0.2);
+    }
+
+    .section-header.collapsible {
+      cursor: pointer;
+      user-select: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.2s ease;
+    }
+
+    .section-header.collapsible:hover {
+      color: #C4B5FD;
+    }
+
+    .section-header.collapsible::after {
+      content: '▼';
+      font-size: 12px;
+      transition: transform 0.2s ease;
+    }
+
+    .section-header.collapsible.collapsed::after {
+      transform: rotate(-90deg);
+    }
+
+    .collapsible-content {
+      max-height: 1000px;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+
+    .collapsible-content.collapsed {
+      max-height: 0;
     }
 
     .skill-list {
@@ -638,9 +705,9 @@
 
     /* Floating Chat Interface */
     .chat-toggle-btn {
-      position: fixed;
+      position: absolute;
       bottom: 20px;
-      right: 20px;
+      right: -80px;
       width: 60px;
       height: 60px;
       border-radius: 50%;
@@ -667,13 +734,11 @@
     }
 
     .chat-container {
-      position: fixed;
-      bottom: 100px;
-      right: 20px;
+      position: absolute;
+      top: 0;
+      right: -420px;
       width: 400px;
-      max-width: calc(100vw - 40px);
-      height: 500px;
-      max-height: calc(100vh - 140px);
+      height: 100%;
       background: rgba(26, 26, 46, 0.95);
       border-radius: 12px;
       border: 1px solid rgba(138, 92, 246, 0.3);
@@ -682,17 +747,17 @@
       z-index: 10000;
       display: flex;
       flex-direction: column;
-      animation: slideUp 0.3s ease;
+      animation: slideIn 0.3s ease;
     }
 
-    @keyframes slideUp {
+    @keyframes slideIn {
       from {
         opacity: 0;
-        transform: translateY(20px);
+        transform: translateX(20px);
       }
       to {
         opacity: 1;
-        transform: translateY(0);
+        transform: translateX(0);
       }
     }
 
@@ -885,15 +950,21 @@
 </head>
 <body>
   <div class="container">
-    <h1>🎲 OwlCloud</h1>
-    <p class="subtitle">DiceCloud → Owlbear Rodeo</p>
+    <div id="branding-header">
+      <h1>🎲 OwlCloud</h1>
+      <p class="subtitle">DiceCloud → Owlbear Rodeo</p>
+    </div>
+
+    <div id="character-header" style="display: none;">
+      <h1 id="character-header-name">Character Name</h1>
+      <p class="subtitle" id="character-header-details">Level ? Class</p>
+    </div>
 
     <div class="tabs-container">
       <!-- Tab Navigation -->
       <div class="tabs-nav">
         <button class="tab-button active" data-tab="settings">⚙️ Settings</button>
-        <button class="tab-button" data-tab="stats">📊 Stats</button>
-        <button class="tab-button" data-tab="resources">⚡ Resources</button>
+        <button class="tab-button" data-tab="stats">📊 Stats & Resources</button>
         <button class="tab-button" data-tab="abilities">🎯 Abilities</button>
         <button class="tab-button" data-tab="actions">⚔️ Actions</button>
         <button class="tab-button" data-tab="spells">✨ Spells</button>
@@ -916,6 +987,15 @@
             <!-- Character info will be populated here -->
           </div>
 
+          <div id="character-list-section" style="margin-top: 20px; display: none;">
+            <div style="color: #A78BFA; font-weight: 600; margin-bottom: 12px; font-size: 14px;">
+              Switch Character
+            </div>
+            <div id="character-list" style="display: grid; gap: 8px;">
+              <!-- Character list will be populated here -->
+            </div>
+          </div>
+
           <button class="button button-secondary" id="sync-character-btn">
             🔄 Sync from DiceCloud
           </button>
@@ -936,20 +1016,11 @@
         </div>
       </div>
 
-      <!-- Stats/Overview Tab -->
+      <!-- Stats & Resources Tab -->
       <div class="tab-content" id="tab-stats">
         <div id="stats-content">
           <p style="color: #c0c0c0; text-align: center; padding: 40px;">
-            Select a character to view stats
-          </p>
-        </div>
-      </div>
-
-      <!-- Action Economy & Resources Tab -->
-      <div class="tab-content" id="tab-resources">
-        <div id="resources-content">
-          <p style="color: #c0c0c0; text-align: center; padding: 40px;">
-            Select a character to view resources
+            Select a character to view stats & resources
           </p>
         </div>
       </div>
