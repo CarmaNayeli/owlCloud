@@ -475,10 +475,11 @@ document.head.appendChild(style);
 
 // ============== Initialization ==============
 
-// Wait for Owlbear to load, then inject button
+// Wait for Owlbear to load
 waitForOwlbear().then(() => {
   isOwlbearReady = true;
-  injectOwlCloudButton();
+  // Note: Using Owlbear extension popover instead of injected button
+  // injectOwlCloudButton();
   debug.log('🦉 OwlCloud initialized on Owlbear Rodeo');
 });
 
