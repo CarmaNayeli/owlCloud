@@ -19,7 +19,8 @@
       "Bash(xargs:*)",
       "Bash(npx supabase functions deploy update-character-hp)",
       "Bash(chmod:*)",
-      "Bash(npm run release:*)"
+      "Bash(npm run release:*)",
+      "WebFetch(domain:github.com)"
     ]
   }
 }

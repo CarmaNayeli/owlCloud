@@ -320,6 +320,43 @@ function displayCharacter(character) {
 }
 
 /**
+ * Upload circular token image to Supabase Storage and return public URL
+ */
+async function uploadCircularTokenToSupabase(dataUrl, characterId) {
+  try {
+    // Convert data URL to blob
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
+
+    // Create unique filename
+    const filename = `token-${characterId}-${Date.now()}.png`;
+
+    // Upload to Supabase Storage
+    const formData = new FormData();
+    formData.append('file', blob, filename);
+    formData.append('characterId', characterId);
+
+    const uploadResponse = await fetch(
+      'https://gkfpxwvmumaylahtxqrk.supabase.co/functions/v1/upload-token-image',
+      {
+        method: 'POST',
+        body: formData
+      }
+    );
+
+    if (!uploadResponse.ok) {
+      throw new Error(`Upload failed: ${uploadResponse.statusText}`);
+    }
+
+    const data = await uploadResponse.json();
+    return data.url;
+  } catch (error) {
+    console.error('Failed to upload token image:', error);
+    throw error;
+  }
+}
+
+/**
  * Create a circular version of an image using Canvas
  */
 async function createCircularImage(imageUrl, size) {
@@ -419,10 +456,12 @@ function setupPortraitDrag(portraitElement, character, portraitUrl) {
       // Get grid DPI for sizing (1 grid square)
       const dpi = await OBR.scene.grid.getDpi();
 
-      // Temporarily use original URL - Owlbear may not accept data URLs
-      console.log('🎨 Using original portrait URL (circular processing disabled)');
-      const circularImageUrl = portraitUrl;
-      // const circularImageUrl = await createCircularImage(portraitUrl, dpi * 2);
+      // Create circular version and upload to Supabase
+      console.log('🎨 Creating circular token image...');
+      const circularDataUrl = await createCircularImage(portraitUrl, dpi * 2); // 2x for quality
+
+      console.log('📤 Uploading to Supabase...');
+      const circularImageUrl = await uploadCircularTokenToSupabase(circularDataUrl, character.id);
 
       // Get current player ID to set ownership
       const playerId = await OBR.player.getId();
