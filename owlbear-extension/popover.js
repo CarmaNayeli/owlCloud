@@ -402,7 +402,18 @@ function populateAbilitiesTab(character) {
     html += '</div>';
   }
 
-  // Features Section
+  abilitiesContent.innerHTML = html;
+}
+
+/**
+ * Populate Actions & Attacks tab
+ */
+function populateActionsTab(character) {
+  const actionsContent = document.getElementById('actions-content');
+
+  let html = '';
+
+  // Features & Traits Section
   if (character.features && character.features.length > 0) {
     html += '<div class="section-header">Features & Traits</div>';
     html += '<div class="feature-list">';
@@ -423,21 +434,106 @@ function populateAbilitiesTab(character) {
     }
   }
 
-  abilitiesContent.innerHTML = html;
+  // Actions Section
+  if (character.actions && character.actions.length > 0) {
+    html += '<div class="section-header">Actions & Attacks</div>';
+    html += '<div class="feature-list">';
+
+    // Deduplicate and filter actions
+    const deduplicatedActions = deduplicateActions(character.actions);
+
+    deduplicatedActions.forEach(action => {
+      const actionType = action.actionType || 'Action';
+      const damage = action.damage || '';
+      const attackRoll = action.attackRoll || '';
+      const uses = action.uses;
+
+      let actionDetails = [];
+      if (actionType) actionDetails.push(actionType);
+      if (attackRoll) actionDetails.push(`Attack: ${attackRoll}`);
+      if (damage) actionDetails.push(`Damage: ${damage}`);
+      if (uses && uses.value !== undefined) actionDetails.push(`Uses: ${uses.value}/${uses.max || uses.value}`);
+
+      html += `
+        <div class="feature-card" style="cursor: pointer;" title="Click to use action">
+          <div class="feature-name">${action.name || 'Unknown Action'}</div>
+          ${actionDetails.length > 0 ? `<div class="feature-description" style="color: #A78BFA;">${actionDetails.join(' • ')}</div>` : ''}
+          ${action.description ? `<div class="feature-description">${action.description.substring(0, 100)}${action.description.length > 100 ? '...' : ''}</div>` : ''}
+        </div>
+      `;
+    });
+
+    html += '</div>';
+  }
+
+  if (!character.features && !character.actions) {
+    html = '<div class="empty-state">No features or actions available</div>';
+  }
+
+  actionsContent.innerHTML = html;
 }
 
 /**
- * Populate Actions & Attacks tab
+ * Deduplicate actions by normalized name
  */
-function populateActionsTab(character) {
-  const actionsContent = document.getElementById('actions-content');
+function deduplicateActions(actions) {
+  const normalizeActionName = (name) => {
+    if (!name) return '';
+    const suffixPatterns = [
+      /\s*\(free\)$/i,
+      /\s*\(free action\)$/i,
+      /\s*\(bonus action\)$/i,
+      /\s*\(bonus\)$/i,
+      /\s*\(reaction\)$/i,
+      /\s*\(action\)$/i,
+      /\s*\(no spell slot\)$/i,
+      /\s*\(at will\)$/i
+    ];
 
-  // TODO: Get actual actions from character data
-  actionsContent.innerHTML = `
-    <div style="color: #c0c0c0; text-align: center; padding: 40px;">
-      Actions and attacks will be displayed here
-    </div>
-  `;
+    let normalized = name.trim();
+    for (const pattern of suffixPatterns) {
+      normalized = normalized.replace(pattern, '');
+    }
+    return normalized.trim();
+  };
+
+  const deduplicatedActions = [];
+  const actionsByNormalizedName = {};
+
+  // Sort actions: prefer shorter names (base versions)
+  const sortedActions = [...actions].sort((a, b) => {
+    const normA = normalizeActionName(a.name || '');
+    const normB = normalizeActionName(b.name || '');
+    if (normA !== normB) return normA.localeCompare(normB);
+    return (a.name || '').length - (b.name || '').length;
+  });
+
+  sortedActions.forEach(action => {
+    const normalizedName = normalizeActionName(action.name || '');
+    if (!normalizedName) return;
+
+    // Filter out duplicate Divine Smite variants
+    const actionLower = (action.name || '').toLowerCase();
+    if (actionLower.includes('divine smite') && actionLower !== 'divine smite') {
+      return;
+    }
+
+    if (!actionsByNormalizedName[normalizedName]) {
+      actionsByNormalizedName[normalizedName] = action;
+      deduplicatedActions.push(action);
+    } else {
+      // Merge duplicate action properties
+      const existing = actionsByNormalizedName[normalizedName];
+      if (action.source && !existing.source?.includes(action.source)) {
+        existing.source = existing.source ? existing.source + '; ' + action.source : action.source;
+      }
+      if (action.damage && !existing.damage) existing.damage = action.damage;
+      if (action.attackRoll && !existing.attackRoll) existing.attackRoll = action.attackRoll;
+      if (action.uses && !existing.uses) existing.uses = action.uses;
+    }
+  });
+
+  return deduplicatedActions;
 }
 
 /**
