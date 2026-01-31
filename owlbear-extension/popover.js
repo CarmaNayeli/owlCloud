@@ -419,9 +419,10 @@ function setupPortraitDrag(portraitElement, character, portraitUrl) {
       // Get grid DPI for sizing (1 grid square)
       const dpi = await OBR.scene.grid.getDpi();
 
-      // Create circular version of the portrait
-      console.log('🎨 Creating circular image...');
-      const circularImageUrl = await createCircularImage(portraitUrl, dpi * 2); // Use 2x size for better quality
+      // Temporarily use original URL - Owlbear may not accept data URLs
+      console.log('🎨 Using original portrait URL (circular processing disabled)');
+      const circularImageUrl = portraitUrl;
+      // const circularImageUrl = await createCircularImage(portraitUrl, dpi * 2);
 
       // Get current player ID to set ownership
       const playerId = await OBR.player.getId();
