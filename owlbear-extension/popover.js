@@ -377,14 +377,14 @@ function setupPortraitDrag(portraitElement, character, portraitUrl) {
         },
         {
           dpi: dpi,
-          offset: { x: 0, y: 0 },
-          shape: 'CIRCLE'
+          offset: { x: 0, y: 0 }
         }
       )
         .layer('CHARACTER')
         .locked(false)
         .name(character.name || 'Character')
         .plainText(character.name || 'Character')
+        .grid({ dpi: dpi, offset: { x: 0, y: 0 }, shape: 'CIRCLE' })
         .metadata({
           owlcloud: {
             characterId: character.id,
