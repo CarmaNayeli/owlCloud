@@ -73,11 +73,9 @@ OBR.onReady(async () => {
   console.log('🦉 Owlbear SDK ready');
   statusText.textContent = 'Connected to Owlbear Rodeo';
 
-  // Resize character sheet to half of available vertical space
-  const viewportHeight = window.innerHeight;
-  const muiBoxHeight = 60; // Approximate height of bottom action bar
-  const availableHeight = viewportHeight - muiBoxHeight;
-  const sheetHeight = Math.floor(availableHeight / 2);
+  // Set character sheet height to half viewport minus action bar
+  // Standard height that works well on most screens
+  const sheetHeight = 460;
 
   try {
     await OBR.popover.setHeight(sheetHeight);
@@ -271,11 +269,22 @@ function displayCharacter(character) {
   }
 
   // Set character portrait if available
-  if (characterPortrait && character.picture) {
-    characterPortrait.src = character.picture;
-    characterPortrait.style.display = 'block';
-  } else if (characterPortrait) {
-    characterPortrait.style.display = 'none';
+  // Try multiple possible portrait field names from DiceCloud
+  const portraitUrl = character.picture ||
+                      character.avatarPicture ||
+                      character.picture?.url ||
+                      character.avatarPicture?.url ||
+                      character.avatar;
+
+  if (characterPortrait) {
+    if (portraitUrl) {
+      characterPortrait.src = portraitUrl;
+      characterPortrait.style.display = 'block';
+      console.log('Portrait loaded:', portraitUrl);
+    } else {
+      characterPortrait.style.display = 'none';
+      console.log('No portrait found. Character data keys:', Object.keys(character).join(', '));
+    }
   }
 
   // Populate other tabs
@@ -947,12 +956,8 @@ openChatWindowBtn.addEventListener('click', async () => {
     isChatOpen = false;
     openChatWindowBtn.textContent = '💬 Open Chat Window';
   } else {
-    // Calculate available height (viewport height - approximate mui box height and padding)
-    // The mui box (action bar at bottom) is approximately 60px with padding
-    const viewportHeight = window.innerHeight;
-    const muiBoxHeight = 60; // Approximate height of bottom action bar
-    const availableHeight = viewportHeight - muiBoxHeight;
-    const chatHeight = Math.floor(availableHeight / 2);
+    // Set chat height to match sheet height (half viewport minus action bar)
+    const chatHeight = 460;
 
     // Open chat as a persistent popover at bottom-left
     await OBR.popover.open({
