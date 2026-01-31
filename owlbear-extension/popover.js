@@ -1298,7 +1298,7 @@ async function sendToChatWindow(type, data) {
  * @param {string} type - Message type: 'system', 'roll', 'action', 'spell', 'combat', 'user'
  * @param {string} author - Message author (optional)
  */
-async function addChatMessage(text, type = 'system', author = null) {
+async function addChatMessage(text, type = 'system', author = null, details = null) {
   if (!isOwlbearReady) return;
 
   try {
@@ -1312,7 +1312,8 @@ async function addChatMessage(text, type = 'system', author = null) {
       type: type,
       author: author || (currentCharacter ? currentCharacter.name : 'Character'),
       playerId: playerId,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      details: details // Optional expandable details
     };
 
     // Keep last 100 messages
@@ -1582,13 +1583,16 @@ window.castSpell = async function(spellName, level) {
   const levelText = level === 0 ? 'Cantrip' : `Level ${level} Spell`;
   const message = `✨ Casts <strong>${spellName}</strong> (${levelText})`;
 
+  // Create expandable details
+  const details = `<strong>${spellName}</strong><br>${levelText}<br><em>Click message to see full details in future updates</em>`;
+
   if (isOwlbearReady) {
     OBR.notification.show(`${currentCharacter?.name || 'Character'} casts ${spellName}`, 'INFO');
   }
   console.log('✨', message);
 
-  // Send to persistent chat
-  await addChatMessage(message, 'spell', currentCharacter?.name);
+  // Send to persistent chat with details
+  await addChatMessage(message, 'spell', currentCharacter?.name, details);
 };
 
 // ============== HP & Resource Management ==============

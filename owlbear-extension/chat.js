@@ -142,7 +142,7 @@ async function loadChatHistory() {
 
     if (messages && Array.isArray(messages)) {
       messages.forEach(msg => {
-        displayChatMessage(msg.text, msg.type, msg.author, msg.timestamp);
+        displayChatMessage(msg.text, msg.type, msg.author, msg.timestamp, msg.details);
         lastLoadedMessageId = msg.id;
       });
       scrollChatToBottom();
@@ -163,7 +163,7 @@ function loadNewMessages(messages) {
   );
 
   newMessages.forEach(msg => {
-    displayChatMessage(msg.text, msg.type, msg.author, msg.timestamp);
+    displayChatMessage(msg.text, msg.type, msg.author, msg.timestamp, msg.details);
     lastLoadedMessageId = msg.id;
   });
 
@@ -190,15 +190,18 @@ function scrollChatToBottom() {
  * @param {string} author - Message author (optional)
  * @param {number} timestamp - Message timestamp (optional)
  */
-function displayChatMessage(text, type = 'system', author = null, timestamp = null) {
+function displayChatMessage(text, type = 'system', author = null, timestamp = null, details = null) {
   const messageDiv = document.createElement('div');
   messageDiv.className = `chat-message ${type}`;
 
   const now = timestamp ? new Date(timestamp) : new Date();
   const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
+  // Build message HTML
+  let messageHTML = '';
+
   if (author) {
-    messageDiv.innerHTML = `
+    messageHTML = `
       <div class="chat-message-header">
         <span class="chat-message-author">${author}</span>
         <span class="chat-message-time">${timeStr}</span>
@@ -206,11 +209,32 @@ function displayChatMessage(text, type = 'system', author = null, timestamp = nu
       <div class="chat-message-text">${text}</div>
     `;
   } else {
-    messageDiv.innerHTML = `
-      <div class="chat-message-text">${text}</div>
-    `;
+    messageHTML = `<div class="chat-message-text">${text}</div>`;
   }
 
+  // Add expandable details if present
+  if (details) {
+    const detailsHTML = typeof details === 'string' ? details : JSON.stringify(details, null, 2);
+    messageHTML += `
+      <div class="chat-message-details" style="display: none; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(138, 92, 246, 0.2); font-size: 12px; color: #aaa;">
+        ${detailsHTML}
+      </div>
+    `;
+
+    // Make message clickable to toggle details
+    messageDiv.style.cursor = 'pointer';
+    messageDiv.title = 'Click to expand details';
+    messageDiv.onclick = function() {
+      const detailsEl = this.querySelector('.chat-message-details');
+      if (detailsEl) {
+        const isHidden = detailsEl.style.display === 'none';
+        detailsEl.style.display = isHidden ? 'block' : 'none';
+        this.title = isHidden ? 'Click to collapse' : 'Click to expand details';
+      }
+    };
+  }
+
+  messageDiv.innerHTML = messageHTML;
   chatMessages.appendChild(messageDiv);
 
   // Limit chat history to last 100 messages
