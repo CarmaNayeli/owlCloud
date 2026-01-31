@@ -4325,14 +4325,14 @@
     const critical = detectCritical(rollData);
     const advantage = detectAdvantageDisadvantage(rollData);
 
-    let bgGradient = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+    let bgGradient = 'linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%)';
     let icon = '🎲';
 
     if (critical === 'critical-success') {
-      bgGradient = 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)';
+      bgGradient = 'linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%)';
       icon = '⭐';
     } else if (critical === 'critical-failure') {
-      bgGradient = 'linear-gradient(135deg, #4e54c8 0%, #8f94fb 100%)';
+      bgGradient = 'linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%)';
       icon = '💀';
     }
 
@@ -4515,7 +4515,7 @@
     style.textContent = `
       #dc-roll-history .history-header {
         padding: 16px 20px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%);
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -4574,7 +4574,7 @@
         border-radius: 12px;
         margin-bottom: 8px;
         animation: slide-in-history 0.4s ease-out;
-        border-left: 4px solid #667eea;
+        border-left: 4px solid #8B5CF6;
         transition: all 0.2s;
       }
 
@@ -4584,12 +4584,12 @@
       }
 
       #dc-roll-history .history-item.critical-success {
-        border-left-color: #f5576c;
+        border-left-color: #A78BFA;
         background: linear-gradient(135deg, rgba(245, 87, 108, 0.2) 0%, rgba(240, 147, 251, 0.1) 100%);
       }
 
       #dc-roll-history .history-item.critical-failure {
-        border-left-color: #4e54c8;
+        border-left-color: #8B5CF6;
         background: linear-gradient(135deg, rgba(78, 84, 200, 0.2) 0%, rgba(143, 148, 251, 0.1) 100%);
       }
 
@@ -4780,7 +4780,7 @@
     style.textContent = `
       #dc-roll-stats .stats-header {
         padding: 16px 20px;
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        background: linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%);
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -4839,7 +4839,7 @@
       #dc-roll-stats .stat-value {
         font-size: 24px;
         font-weight: bold;
-        color: #667eea;
+        color: #8B5CF6;
       }
     `;
 
@@ -4985,7 +4985,7 @@
     style.textContent = `
       #dc-roll-settings .settings-header {
         padding: 16px 20px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%);
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -5062,8 +5062,8 @@
       }
 
       #dc-roll-settings .toggle-btn.active {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border-color: #667eea;
+        background: linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%);
+        border-color: #8B5CF6;
         box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
       }
 
@@ -5414,7 +5414,7 @@
       title.style.cssText = `
         margin: 0;
         font-size: 24px;
-        color: #4ECDC4;
+        color: #8B5CF6;
       `;
 
       const closeBtn = document.createElement('button');
@@ -5473,7 +5473,7 @@
           const slotCard = document.createElement('div');
           slotCard.style.cssText = `
             background: ${existingChar ? '#3a3a3a' : '#252525'};
-            border: 2px solid ${existingChar ? '#4ECDC4' : '#404040'};
+            border: 2px solid ${existingChar ? '#8B5CF6' : '#404040'};
             border-radius: 8px;
             padding: 16px;
             cursor: pointer;
@@ -5481,13 +5481,13 @@
           `;
 
           slotCard.addEventListener('mouseenter', () => {
-            slotCard.style.borderColor = '#4ECDC4';
+            slotCard.style.borderColor = '#8B5CF6';
             slotCard.style.transform = 'translateY(-2px)';
             slotCard.style.boxShadow = '0 4px 12px rgba(78, 205, 196, 0.3)';
           });
 
           slotCard.addEventListener('mouseleave', () => {
-            slotCard.style.borderColor = existingChar ? '#4ECDC4' : '#404040';
+            slotCard.style.borderColor = existingChar ? '#8B5CF6' : '#404040';
             slotCard.style.transform = 'translateY(0)';
             slotCard.style.boxShadow = 'none';
           });
@@ -5520,7 +5520,7 @@
             padding: 4px 8px;
             border-radius: 4px;
             background: ${existingChar ? 'rgba(78, 205, 196, 0.2)' : 'rgba(255, 255, 255, 0.1)'};
-            color: ${existingChar ? '#4ECDC4' : '#999'};
+            color: ${existingChar ? '#8B5CF6' : '#999'};
           `;
 
           slotHeader.appendChild(slotNumber);
@@ -5577,7 +5577,7 @@
       position: fixed;
       bottom: 20px;
       left: 20px;
-      background: linear-gradient(135deg, #4ECDC4 0%, #44A08D 100%);
+      background: linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%);
       color: white;
       border: none;
       padding: 12px 20px;
