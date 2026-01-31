@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Background Script - Chrome & Firefox Support
  * Handles data storage, API authentication, and communication between Dice Cloud and Discord
  */
@@ -4130,21 +4130,6 @@ async function executeRestCommand(command) {
     success: false,
     message: `Rest command not supported`
   };
-}
-        });
-      } catch (err) {
-        debug.warn(`Failed to send rest to tab ${tab.id}:`, err);
-      }
-    }
-
-    return {
-      success: true,
-      message: `Took a ${command_data.rest_type} rest`
-    };
-  } catch (error) {
-    debug.error('Error executing Discord rest command:', error);
-    return { success: false, error: error.message };
-  }
 }
 
 /**
