@@ -909,24 +909,35 @@ openExtensionBtn.addEventListener('click', () => {
 });
 
 /**
- * Open chat window
+ * Toggle chat window
  */
+let isChatOpen = false;
+
 openChatWindowBtn.addEventListener('click', async () => {
   if (!isOwlbearReady) {
     alert('Owlbear SDK not ready. Please wait a moment and try again.');
     return;
   }
 
-  // Open chat as a popover (similar to character sheet)
-  await OBR.popover.open({
-    id: 'com.owlcloud.chat',
-    url: '/extension/chat.html',
-    height: 600,
-    width: 400,
-    anchorOrigin: { horizontal: 'RIGHT', vertical: 'CENTER' },
-    transformOrigin: { horizontal: 'LEFT', vertical: 'CENTER' },
-    disableClickAway: false
-  });
+  if (isChatOpen) {
+    // Close the chat window
+    await OBR.popover.close('com.owlcloud.chat');
+    isChatOpen = false;
+    openChatWindowBtn.textContent = '💬 Open Chat Window';
+  } else {
+    // Open chat as a persistent popover
+    await OBR.popover.open({
+      id: 'com.owlcloud.chat',
+      url: '/extension/chat.html',
+      height: 600,
+      width: 400,
+      anchorOrigin: { horizontal: 'RIGHT', vertical: 'CENTER' },
+      transformOrigin: { horizontal: 'LEFT', vertical: 'CENTER' },
+      disableClickAway: true
+    });
+    isChatOpen = true;
+    openChatWindowBtn.textContent = '💬 Close Chat Window';
+  }
 });
 
 /**
