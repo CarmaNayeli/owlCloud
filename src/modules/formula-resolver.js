@@ -30,6 +30,12 @@
 
     debug.log(`🔧 resolveVariablesInFormula called with: "${formula}"`);
 
+    // Check if characterData is available
+    if (typeof characterData === 'undefined' || !characterData) {
+      debug.warn('⚠️ characterData not available for formula resolution');
+      return formula;
+    }
+
     // Check if characterData has otherVariables
     if (!characterData.otherVariables || typeof characterData.otherVariables !== 'object') {
       debug.log('⚠️ No otherVariables available for formula resolution');
