@@ -134,24 +134,33 @@ serve(async (req) => {
       )
     }
 
-    // Return character data
+    // Return character data - include full raw data if available
+    let fullCharacterData: any = {}
+
+    // If raw_dicecloud_data exists, use it as the base (contains all character details)
+    if (characterData.raw_dicecloud_data && typeof characterData.raw_dicecloud_data === 'object') {
+      fullCharacterData = characterData.raw_dicecloud_data
+    }
+
+    // Overlay/ensure basic fields are present (for backward compatibility and non-raw sources)
+    fullCharacterData = {
+      ...fullCharacterData,
+      id: characterData.dicecloud_character_id,
+      name: characterData.character_name,
+      class: characterData.class,
+      race: characterData.race,
+      level: characterData.level,
+      hitPoints: characterData.hit_points || fullCharacterData.hitPoints || { current: 0, max: 0 },
+      armorClass: characterData.armor_class || fullCharacterData.armorClass || 10,
+      proficiencyBonus: characterData.proficiency_bonus || fullCharacterData.proficiencyBonus || 2,
+      updatedAt: characterData.updated_at,
+      source: 'database'
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
-        character: {
-          id: characterData.dicecloud_character_id,
-          name: characterData.character_name,
-          class: characterData.class,
-          race: characterData.race,
-          level: characterData.level,
-          hitPoints: {
-            current: characterData.hp_current,
-            max: characterData.hp_max
-          },
-          armorClass: characterData.ac,
-          proficiencyBonus: characterData.proficiency_bonus,
-          updatedAt: characterData.updated_at
-        }
+        character: fullCharacterData
       }),
       {
         status: 200,

@@ -141,7 +141,6 @@ function initializePopup() {
   const showSheetBtn = document.getElementById('showSheetBtn');
   const clearLocalBtn = document.getElementById('clearLocalBtn');
   const clearCloudBtn = document.getElementById('clearCloudBtn');
-  const syncCharacterToCloudBtn = document.getElementById('syncCharacterToCloudBtn');
   const howToBtn = document.getElementById('howToBtn');
   const settingsBtn = document.getElementById('settingsBtn');
   const settingsMenu = document.getElementById('settingsMenu');
@@ -301,10 +300,6 @@ function initializePopup() {
 
   if (howToBtn) {
     howToBtn.addEventListener('click', handleHowTo);
-  }
-
-  if (syncCharacterToCloudBtn) {
-    syncCharacterToCloudBtn.addEventListener('click', handleSyncCharacterToCloud);
   }
 
   if (clearLocalBtn) {
@@ -914,17 +909,9 @@ function initializePopup() {
 
         // Always show character selector when characters exist
         characterSelector.classList.remove('hidden');
-
-        // Show sync character button if there's an active character
-        if (activeCharacter) {
-          syncCharacterToCloudBtn.classList.remove('hidden');
-        } else {
-          syncCharacterToCloudBtn.classList.add('hidden');
-        }
       } else {
         characterSelect.innerHTML = '<option value="">No characters synced</option>';
         characterSelector.classList.add('hidden');
-        syncCharacterToCloudBtn.classList.add('hidden');
       }
 
       // Display active character data
@@ -946,13 +933,8 @@ function initializePopup() {
     try {
       const selectedId = characterSelect.value;
       if (!selectedId) {
-        // Hide sync character button when no character is selected
-        syncCharacterToCloudBtn.classList.add('hidden');
         return;
       }
-
-      // Show sync character button when a character is selected
-      syncCharacterToCloudBtn.classList.remove('hidden');
 
       // If this is a database character (db- prefix), copy it to local storage first
       if (selectedId.startsWith('db-')) {
@@ -1046,26 +1028,73 @@ function initializePopup() {
   async function handleSync() {
     try {
       syncBtn.disabled = true;
-      syncBtn.textContent = '⏳ Refreshing...';
+      syncBtn.textContent = '⏳ Syncing...';
       statusIcon.textContent = '⏳';
-      statusText.textContent = 'Refreshing characters...';
+      statusText.textContent = 'Syncing characters...';
 
       // First, refresh from local storage
       await refreshFromLocalStorage();
-      
+
       // Then, refresh from database/cloud
       await refreshFromDatabase();
-      
+
       // Finally, reload character data to update UI
       await loadCharacterData();
-      
-      showSuccess('Characters refreshed successfully!');
+
+      // If there's a selected character, sync it to cloud
+      const selectedId = characterSelect.value;
+      if (selectedId) {
+        statusText.textContent = 'Syncing to cloud...';
+
+        // Get character data
+        const profilesResponse = await browserAPI.runtime.sendMessage({ action: 'getAllCharacterProfiles' });
+        const profiles = profilesResponse.success ? profilesResponse.profiles : {};
+        let characterData = profiles[selectedId];
+
+        if (characterData) {
+          // For database profiles (db- prefix), extract full character data from _fullData.raw_dicecloud_data
+          if (characterData.source === 'database' && characterData._fullData) {
+            const fullData = characterData._fullData.raw_dicecloud_data;
+            if (fullData && typeof fullData === 'object') {
+              debug.log('📦 Using full character data from database raw_dicecloud_data');
+              characterData = {
+                ...fullData,
+                source: 'database',
+                lastUpdated: characterData.lastUpdated || characterData._fullData.updated_at
+              };
+            }
+          }
+
+          // Get DiceCloud user ID from login status
+          const loginStatus = await browserAPI.runtime.sendMessage({ action: 'checkLoginStatus' });
+          const dicecloudUserId = loginStatus.userId;
+
+          // Sync character to cloud
+          const result = await browserAPI.runtime.sendMessage({
+            action: 'syncCharacterToCloud',
+            characterData: {
+              ...characterData,
+              id: selectedId,
+              dicecloudUserId: dicecloudUserId,
+              userId: dicecloudUserId
+            }
+          });
+
+          if (result.success) {
+            showSuccess('Character synced successfully!');
+          } else {
+            showError('Cloud sync failed: ' + (result.error || 'Unknown error'));
+          }
+        }
+      } else {
+        showSuccess('Characters refreshed successfully!');
+      }
     } catch (error) {
-      debug.error('Error refreshing characters:', error);
+      debug.error('Error syncing characters:', error);
       showError('Error: ' + error.message);
     } finally {
       syncBtn.disabled = false;
-      syncBtn.textContent = '🔄 Refresh Characters';
+      syncBtn.textContent = '🔄 Sync Character';
     }
   }
 
@@ -1360,102 +1389,6 @@ function initializePopup() {
   /**
    * Handles sync character to cloud button click
    */
-  async function handleSyncCharacterToCloud() {
-    try {
-      syncCharacterToCloudBtn.disabled = true;
-      syncCharacterToCloudBtn.textContent = '⏳ Syncing...';
-
-      // Get currently selected character ID
-      const selectedId = characterSelect.value;
-
-      if (!selectedId) {
-        showError('No character selected');
-        return;
-      }
-
-      // Get character data
-      const profilesResponse = await browserAPI.runtime.sendMessage({ action: 'getAllCharacterProfiles' });
-      const profiles = profilesResponse.success ? profilesResponse.profiles : {};
-      let characterData = profiles[selectedId];
-
-      if (!characterData) {
-        showError('Character data not found');
-        return;
-      }
-
-      // For database profiles (db- prefix), extract full character data from _fullData.raw_dicecloud_data
-      // Database profiles only contain a summary at the top level, while the full data is nested
-      if (characterData.source === 'database' && characterData._fullData) {
-        const fullData = characterData._fullData.raw_dicecloud_data;
-        if (fullData && typeof fullData === 'object') {
-          debug.log('📦 Using full character data from database raw_dicecloud_data');
-          // Merge the full data with metadata
-          characterData = {
-            ...fullData,
-            source: 'database',
-            lastUpdated: characterData.lastUpdated || characterData._fullData.updated_at
-          };
-        } else {
-          debug.warn('⚠️ Database profile missing raw_dicecloud_data, using summary only');
-        }
-      }
-
-      // Get DiceCloud user ID from login status
-      const loginStatus = await browserAPI.runtime.sendMessage({ action: 'checkLoginStatus' });
-      const dicecloudUserId = loginStatus.userId; // This is the DiceCloud Meteor ID
-
-      debug.log('🎭 Syncing character to cloud:', {
-        characterId: selectedId,
-        characterName: characterData.name,
-        dicecloudUserId: dicecloudUserId
-      });
-
-      // Use background script's syncCharacterToCloud which has all the linking logic
-      const result = await browserAPI.runtime.sendMessage({
-        action: 'syncCharacterToCloud',
-        characterData: {
-          ...characterData,
-          id: selectedId,
-          dicecloudUserId: dicecloudUserId, // Include DiceCloud user ID
-          userId: dicecloudUserId // Also as userId for backwards compatibility
-        }
-      });
-
-      if (result.success) {
-        showSuccess('Character synced to cloud!');
-      } else {
-        showError('Cloud sync failed: ' + (result.error || 'Unknown error'));
-      }
-      
-      // If sync was successful, remove highlights and update Discord button
-      if (result && result.success) {
-        // Remove highlight effects from character selector and sync button
-        const characterSelector = document.getElementById('characterSelector');
-        const syncBtn = document.getElementById('syncBtn');
-        
-        if (characterSelector) {
-          characterSelector.style.border = '';
-          characterSelector.style.boxShadow = '';
-        }
-        
-        if (syncBtn) {
-          syncBtn.style.border = '';
-          syncBtn.style.boxShadow = '';
-        }
-        
-        // Update Discord button state
-        await showDiscordNotConnected();
-        
-        showSuccess('Character synced successfully! You can now set up Discord.');
-      }
-    } catch (error) {
-      debug.error('Error syncing character to cloud:', error);
-      showError('Cloud sync error: ' + error.message);
-    } finally {
-      syncCharacterToCloudBtn.disabled = false;
-      syncCharacterToCloudBtn.textContent = '☁️ Sync Character to Cloud';
-    }
-  }
 
   /**
    * Handles clear local data button click
@@ -2141,7 +2074,7 @@ function initializePopup() {
           // Re-sync character to cloud with the new Discord user ID
           debug.log('🔄 Re-syncing character to cloud with Discord user ID');
           try {
-            await handleSyncCharacterToCloud();
+            await handleSync();
           } catch (e) {
             debug.warn('Could not re-sync character after Discord link:', e);
           }

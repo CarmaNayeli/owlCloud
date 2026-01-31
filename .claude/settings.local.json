@@ -1,4 +1,4 @@
-﻿{
+{
   "permissions": {
     "allow": [
       "Bash(git add:*)",
@@ -13,7 +13,9 @@
       "Bash(do echo \"Fixing $cmd.js...\")",
       "Bash(powershell -Command:*)",
       "Bash(git merge:*)",
-      "Read(//c/Users/c_dow/owlCloud/**)"
+      "Read(//c/Users/c_dow/owlCloud/**)",
+      "Bash(bash:*)",
+      "Bash(git reset:*)"
     ]
   }
 }

@@ -156,6 +156,82 @@ async function openCharacterSheet() {
 }
 
 /**
+ * Helper function to create a label-value pair
+ */
+function createLabelValue(label, valueElement) {
+  const container = document.createElement('div');
+  container.style.cssText = 'display: flex; gap: 5px;';
+
+  const labelSpan = document.createElement('span');
+  labelSpan.textContent = label;
+  labelSpan.style.fontWeight = '600';
+
+  container.appendChild(labelSpan);
+  container.appendChild(valueElement);
+  return container;
+}
+
+/**
+ * Helper function to create a stat box
+ */
+function createStatBox(label, valueElement) {
+  const box = document.createElement('div');
+  box.style.cssText = `
+    background: #f8f9fa;
+    border-radius: 6px;
+    padding: 12px;
+    text-align: center;
+  `;
+
+  const labelDiv = document.createElement('div');
+  labelDiv.textContent = label;
+  labelDiv.style.cssText = `
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 8px;
+    font-weight: 600;
+    text-transform: uppercase;
+  `;
+
+  valueElement.style.cssText = `
+    font-size: 18px;
+    color: #333;
+    font-weight: 700;
+  `;
+
+  box.appendChild(labelDiv);
+  box.appendChild(valueElement);
+  return box;
+}
+
+/**
+ * Helper function to create a section container
+ */
+function createSection(title) {
+  const section = document.createElement('div');
+  section.style.cssText = `
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  `;
+
+  const heading = document.createElement('h3');
+  heading.textContent = title;
+  heading.style.cssText = `
+    margin: 0 0 15px 0;
+    color: #333;
+    font-size: 18px;
+    border-bottom: 2px solid #667eea;
+    padding-bottom: 8px;
+  `;
+
+  section.appendChild(heading);
+  return section;
+}
+
+/**
  * Create character sheet overlay in the page
  */
 function createCharacterSheetOverlay() {
@@ -247,21 +323,190 @@ function createCharacterSheetOverlay() {
     flex: 1;
     overflow-y: auto;
     padding: 20px;
+    background: #f8f9fa;
   `;
 
-  // TODO: Load actual character sheet using extension's popup modules
-  // For now, show placeholder
-  content.innerHTML = `
-    <div style="text-align: center; padding: 40px;">
-      <h3 style="color: #667eea; margin-bottom: 16px;">Character Sheet Integration</h3>
-      <p style="color: #666; margin-bottom: 20px;">
-        This will display your DiceCloud character sheet using the OwlCloud extension modules.
-      </p>
-      <p style="color: #999; font-size: 14px;">
-        TODO: Integrate popup modules (sheet-builder.js, action-display.js, etc.)
-      </p>
-    </div>
+  // Create character sheet structure that sheet-builder.js expects
+  const sheetContent = document.createElement('div');
+  sheetContent.className = 'character-sheet';
+  sheetContent.style.cssText = `
+    max-width: 900px;
+    margin: 0 auto;
   `;
+
+  // Character header section
+  const headerSection = document.createElement('div');
+  headerSection.style.cssText = `
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  `;
+
+  const charName = document.createElement('h2');
+  charName.id = 'char-name';
+  charName.style.cssText = `
+    font-size: 24px;
+    margin-bottom: 10px;
+    color: #333;
+  `;
+
+  const charDetails = document.createElement('div');
+  charDetails.style.cssText = `
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    color: #666;
+  `;
+
+  const charClass = document.createElement('span');
+  charClass.id = 'char-class';
+  const charLevel = document.createElement('span');
+  charLevel.id = 'char-level';
+  const charRace = document.createElement('span');
+  charRace.id = 'char-race';
+  const charHitDice = document.createElement('span');
+  charHitDice.id = 'char-hit-dice';
+
+  charDetails.appendChild(createLabelValue('Class:', charClass));
+  charDetails.appendChild(createLabelValue('Level:', charLevel));
+  charDetails.appendChild(createLabelValue('Race:', charRace));
+  charDetails.appendChild(createLabelValue('Hit Dice:', charHitDice));
+
+  headerSection.appendChild(charName);
+  headerSection.appendChild(charDetails);
+
+  // Combat stats section
+  const combatSection = document.createElement('div');
+  combatSection.style.cssText = `
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  `;
+
+  const combatGrid = document.createElement('div');
+  combatGrid.style.cssText = `
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+  `;
+
+  // Create combat stat elements
+  const hpValue = document.createElement('div');
+  hpValue.id = 'hp-value';
+  const charAC = document.createElement('div');
+  charAC.id = 'char-ac';
+  const charSpeed = document.createElement('div');
+  charSpeed.id = 'char-speed';
+  const charProficiency = document.createElement('div');
+  charProficiency.id = 'char-proficiency';
+  const initiativeValue = document.createElement('div');
+  initiativeValue.id = 'initiative-value';
+  const deathSavesDisplay = document.createElement('div');
+  deathSavesDisplay.id = 'death-saves-display';
+  const deathSavesValue = document.createElement('div');
+  deathSavesValue.id = 'death-saves-value';
+  const inspirationDisplay = document.createElement('div');
+  inspirationDisplay.id = 'inspiration-display';
+  const inspirationValue = document.createElement('div');
+  inspirationValue.id = 'inspiration-value';
+
+  combatGrid.appendChild(createStatBox('Hit Points', hpValue));
+  combatGrid.appendChild(createStatBox('Armor Class', charAC));
+  combatGrid.appendChild(createStatBox('Speed', charSpeed));
+  combatGrid.appendChild(createStatBox('Proficiency', charProficiency));
+  combatGrid.appendChild(createStatBox('Initiative', initiativeValue));
+
+  combatSection.appendChild(combatGrid);
+
+  // Abilities section
+  const abilitiesSection = createSection('Ability Scores');
+  const abilitiesGrid = document.createElement('div');
+  abilitiesGrid.id = 'abilities-grid';
+  abilitiesGrid.style.cssText = `
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 10px;
+  `;
+  abilitiesSection.appendChild(abilitiesGrid);
+
+  // Saves section
+  const savesSection = createSection('Saving Throws');
+  const savesGrid = document.createElement('div');
+  savesGrid.id = 'saves-grid';
+  savesGrid.style.cssText = `
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px;
+  `;
+  savesSection.appendChild(savesGrid);
+
+  // Skills section
+  const skillsSection = createSection('Skills');
+  const skillsGrid = document.createElement('div');
+  skillsGrid.id = 'skills-grid';
+  skillsGrid.style.cssText = `
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+  `;
+  skillsSection.appendChild(skillsGrid);
+
+  // Actions section
+  const actionsSection = createSection('Actions & Attacks');
+  const actionsContainer = document.createElement('div');
+  actionsContainer.id = 'actions-container';
+  actionsSection.appendChild(actionsContainer);
+
+  // Spells section
+  const spellsSection = createSection('Spells');
+  const spellsContainer = document.createElement('div');
+  spellsContainer.id = 'spells-container';
+  spellsSection.appendChild(spellsContainer);
+
+  // Inventory section
+  const inventorySection = createSection('Inventory');
+  const inventoryContainer = document.createElement('div');
+  inventoryContainer.id = 'inventory-container';
+  inventorySection.appendChild(inventoryContainer);
+
+  // Companions section
+  const companionsSection = createSection('Companions');
+  const companionsContainer = document.createElement('div');
+  companionsContainer.id = 'companions-container';
+  companionsSection.appendChild(companionsContainer);
+
+  // Color system elements (hidden but required by sheet-builder)
+  const colorEmoji = document.createElement('span');
+  colorEmoji.id = 'color-emoji';
+  colorEmoji.style.display = 'none';
+  const colorPalette = document.createElement('div');
+  colorPalette.id = 'color-palette';
+  colorPalette.style.display = 'none';
+
+  // Loading overlay (required by sheet-builder)
+  const loadingOverlay = document.createElement('div');
+  loadingOverlay.id = 'loading-overlay';
+  loadingOverlay.style.display = 'none';
+
+  // Assemble the sheet
+  sheetContent.appendChild(headerSection);
+  sheetContent.appendChild(combatSection);
+  sheetContent.appendChild(abilitiesSection);
+  sheetContent.appendChild(savesSection);
+  sheetContent.appendChild(skillsSection);
+  sheetContent.appendChild(actionsSection);
+  sheetContent.appendChild(spellsSection);
+  sheetContent.appendChild(inventorySection);
+  sheetContent.appendChild(companionsSection);
+  sheetContent.appendChild(colorEmoji);
+  sheetContent.appendChild(colorPalette);
+  sheetContent.appendChild(loadingOverlay);
+
+  content.appendChild(sheetContent);
 
   sheetContainer.appendChild(header);
   sheetContainer.appendChild(content);
@@ -275,6 +520,86 @@ function createCharacterSheetOverlay() {
   });
 
   document.body.appendChild(overlay);
+
+  // Load sheet-builder module and populate the sheet
+  loadSheetBuilderAndPopulate();
+}
+
+/**
+ * Dynamically load sheet-builder.js and dependencies, then populate the sheet
+ */
+async function loadSheetBuilderAndPopulate() {
+  try {
+    debug.log('📦 Loading sheet builder modules...');
+
+    // Get the extension URL for loading modules
+    const getModuleUrl = (path) => {
+      if (typeof browserAPI !== 'undefined' && browserAPI.runtime && browserAPI.runtime.getURL) {
+        return browserAPI.runtime.getURL(path);
+      } else if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getURL) {
+        return chrome.runtime.getURL(path);
+      }
+      throw new Error('Cannot get extension URL');
+    };
+
+    // Load required modules in order
+    const modulesToLoad = [
+      'src/modules/action-display.js',
+      'src/modules/spell-display.js',
+      'src/modules/inventory-manager.js',
+      'src/modules/companions-manager.js',
+      'src/modules/resource-manager.js',
+      'src/modules/spell-slots.js',
+      'src/modules/effects-manager.js',
+      'src/modules/action-filters.js',
+      'src/modules/concentration-tracker.js',
+      'src/modules/sheet-builder.js'
+    ];
+
+    // Load each module sequentially
+    for (const modulePath of modulesToLoad) {
+      await loadScript(getModuleUrl(modulePath));
+      debug.log(`✅ Loaded: ${modulePath}`);
+    }
+
+    // Call buildSheet if it's available
+    if (typeof globalThis.buildSheet === 'function') {
+      debug.log('🎨 Calling buildSheet with character data...');
+      globalThis.buildSheet(currentCharacter);
+    } else {
+      debug.error('❌ buildSheet function not found on globalThis');
+    }
+  } catch (error) {
+    debug.error('❌ Error loading sheet builder:', error);
+    // Display error to user
+    const errorDiv = document.createElement('div');
+    errorDiv.style.cssText = `
+      background: #fee;
+      border: 1px solid #f88;
+      color: #c00;
+      padding: 15px;
+      margin: 20px;
+      border-radius: 8px;
+    `;
+    errorDiv.textContent = `Error loading character sheet: ${error.message}`;
+    const content = document.querySelector('#owlcloud-character-sheet .character-sheet');
+    if (content) {
+      content.prepend(errorDiv);
+    }
+  }
+}
+
+/**
+ * Load a script dynamically and wait for it to complete
+ */
+function loadScript(url) {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = url;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error(`Failed to load script: ${url}`));
+    document.head.appendChild(script);
+  });
 }
 
 // ============== Dice Rolling Integration ==============
