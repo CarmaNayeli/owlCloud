@@ -24,7 +24,7 @@ const characterInfo = document.getElementById('character-info');
 const syncCharacterBtn = document.getElementById('sync-character-btn');
 const openExtensionBtn = document.getElementById('open-extension-btn');
 const linkExtensionBtn = document.getElementById('link-extension-btn');
-const toggleChatTabBtn = document.getElementById('toggle-chat-tab-btn');
+const openChatWindowBtn = document.getElementById('open-chat-window-btn');
 
 // ============== Tab Management ==============
 
@@ -65,48 +65,6 @@ function initializeTabs() {
 
 // Initialize tabs when DOM is ready
 initializeTabs();
-
-// ============== Chat Tab Toggle ==============
-
-let isChatTabEnabled = localStorage.getItem('owlcloud-chat-tab-enabled') === 'true';
-
-/**
- * Update chat tab visibility
- */
-function updateChatTabVisibility() {
-  const chatTabButton = document.querySelector('[data-tab="chat"]');
-  const toggleBtn = document.getElementById('toggle-chat-tab-btn');
-
-  if (chatTabButton && toggleBtn) {
-    if (isChatTabEnabled) {
-      chatTabButton.style.display = 'block';
-      toggleBtn.textContent = '💬 Disable Chat Tab';
-    } else {
-      chatTabButton.style.display = 'none';
-      toggleBtn.textContent = '💬 Enable Chat Tab';
-
-      // If chat tab is currently active, switch to settings
-      const chatTab = document.getElementById('tab-chat');
-      if (chatTab && chatTab.classList.contains('active')) {
-        document.querySelector('[data-tab="settings"]').click();
-      }
-    }
-  }
-}
-
-/**
- * Toggle chat tab visibility
- */
-function toggleChatTab() {
-  isChatTabEnabled = !isChatTabEnabled;
-  localStorage.setItem('owlcloud-chat-tab-enabled', isChatTabEnabled);
-  updateChatTabVisibility();
-}
-
-// Initialize chat tab visibility on load
-setTimeout(() => {
-  updateChatTabVisibility();
-}, 100);
 
 // ============== Owlbear SDK Initialization ==============
 
@@ -582,7 +540,7 @@ function populateActionsTab(character) {
       html += `
         <div class="feature-card">
           <div class="feature-name">${feature.name || 'Unknown Feature'}</div>
-          ${feature.description ? `<div class="feature-description">${feature.description.substring(0, 150)}${feature.description.length > 150 ? '...' : ''}</div>` : ''}
+          ${feature.description ? `<div class="feature-description">${feature.description}</div>` : ''}
         </div>
       `;
     });
@@ -890,10 +848,22 @@ openExtensionBtn.addEventListener('click', () => {
 });
 
 /**
- * Toggle chat tab
+ * Open chat window
  */
-toggleChatTabBtn.addEventListener('click', () => {
-  toggleChatTab();
+openChatWindowBtn.addEventListener('click', async () => {
+  if (!isOwlbearReady) {
+    alert('Owlbear SDK not ready. Please wait a moment and try again.');
+    return;
+  }
+
+  // Open chat as a modal in Owlbear
+  await OBR.modal.open({
+    id: 'com.owlcloud.chat',
+    url: '/chat.html',
+    height: 600,
+    width: 400,
+    fullScreen: false
+  });
 });
 
 /**
@@ -1083,130 +1053,4 @@ setTimeout(() => {
   }
 }, 1000);
 
-// ============== Chat System ==============
-
-const chatMessages = document.getElementById('chat-messages');
-const chatInput = document.getElementById('chat-input');
-const chatSendBtn = document.getElementById('chat-send-btn');
-
-/**
- * Scroll chat to bottom
- */
-function scrollChatToBottom() {
-  setTimeout(() => {
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-  }, 100);
-}
-
-/**
- * Add a message to the chat
- * @param {string} text - Message text
- * @param {string} type - Message type: 'system', 'roll', 'action', 'spell', 'combat', 'user'
- * @param {string} author - Message author (optional)
- */
-function addChatMessage(text, type = 'system', author = null) {
-  const messageDiv = document.createElement('div');
-  messageDiv.className = `chat-message ${type}`;
-
-  const now = new Date();
-  const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-
-  if (author) {
-    messageDiv.innerHTML = `
-      <div class="chat-message-header">
-        <span class="chat-message-author">${author}</span>
-        <span class="chat-message-time">${timeStr}</span>
-      </div>
-      <div class="chat-message-text">${text}</div>
-    `;
-  } else {
-    messageDiv.innerHTML = `
-      <div class="chat-message-text">${text}</div>
-    `;
-  }
-
-  chatMessages.appendChild(messageDiv);
-  scrollChatToBottom();
-
-  // Limit chat history to last 100 messages
-  const messages = chatMessages.querySelectorAll('.chat-message');
-  if (messages.length > 100) {
-    messages[0].remove();
-  }
-}
-
-/**
- * Send a user message
- */
-function sendChatMessage() {
-  const text = chatInput.value.trim();
-  if (!text) return;
-
-  // Add user message to chat
-  const characterName = currentCharacter?.name || 'You';
-  addChatMessage(text, 'user', characterName);
-
-  // Send message to Owlbear via notification (placeholder - you can customize this)
-  if (isOwlbearReady) {
-    OBR.notification.show(`${characterName}: ${text}`, 'INFO');
-  }
-
-  // Clear input
-  chatInput.value = '';
-}
-
-/**
- * Add a dice roll announcement to chat
- */
-function announceDiceRoll(rollName, formula, result) {
-  const characterName = currentCharacter?.name || 'Character';
-  const text = `🎲 ${rollName}: ${formula} = <strong>${result}</strong>`;
-  addChatMessage(text, 'roll', characterName);
-}
-
-/**
- * Add an action announcement to chat
- */
-function announceAction(actionName, details = '') {
-  const characterName = currentCharacter?.name || 'Character';
-  const text = details ? `⚔️ ${actionName} - ${details}` : `⚔️ ${actionName}`;
-  addChatMessage(text, 'action', characterName);
-}
-
-/**
- * Add a spell announcement to chat
- */
-function announceSpell(spellName, level, details = '') {
-  const characterName = currentCharacter?.name || 'Character';
-  const levelText = level === 0 ? 'Cantrip' : `Level ${level}`;
-  const text = details ? `✨ ${spellName} (${levelText}) - ${details}` : `✨ ${spellName} (${levelText})`;
-  addChatMessage(text, 'spell', characterName);
-}
-
-/**
- * Add a combat log entry to chat
- */
-function announceCombat(text) {
-  const characterName = currentCharacter?.name || 'Character';
-  addChatMessage(text, 'combat', characterName);
-}
-
-// Event Listeners
-chatSendBtn.addEventListener('click', sendChatMessage);
-
-chatInput.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') {
-    sendChatMessage();
-  }
-});
-
-// Expose chat functions globally for use by other modules
-window.owlcloudChat = {
-  addMessage: addChatMessage,
-  announceRoll: announceDiceRoll,
-  announceAction: announceAction,
-  announceSpell: announceSpell,
-  announceCombat: announceCombat
-};
-
-console.log('💬 Chat system initialized');
+console.log('🎲 OwlCloud popover initialized');

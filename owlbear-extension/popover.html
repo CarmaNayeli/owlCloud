@@ -513,6 +513,7 @@
       border-radius: 8px;
       padding: 12px;
       transition: all 0.2s ease;
+      cursor: pointer;
     }
 
     .feature-card:hover {
@@ -520,8 +521,12 @@
       transform: translateX(4px);
     }
 
+    .feature-card.expanded .feature-description {
+      max-height: none;
+      overflow: visible;
+    }
+
     .feature-card[title*="Click"] {
-      cursor: pointer;
       border-left: 3px solid #8B5CF6;
     }
 
@@ -703,159 +708,6 @@
       line-height: 1.3;
     }
 
-    /* Chat Interface */
-    #tab-chat {
-      display: flex;
-      flex-direction: column;
-      height: 500px;
-    }
-
-    .chat-messages {
-      flex: 1;
-      overflow-y: auto;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      background: rgba(26, 26, 46, 0.3);
-      border-radius: 8px;
-      margin-bottom: 12px;
-      scrollbar-width: thin;
-      scrollbar-color: rgba(138, 92, 246, 0.3) transparent;
-    }
-
-    .chat-messages::-webkit-scrollbar {
-      width: 6px;
-    }
-
-    .chat-messages::-webkit-scrollbar-track {
-      background: transparent;
-    }
-
-    .chat-messages::-webkit-scrollbar-thumb {
-      background: rgba(138, 92, 246, 0.3);
-      border-radius: 3px;
-    }
-
-    .chat-message {
-      padding: 10px 12px;
-      border-radius: 8px;
-      border-left: 3px solid;
-      animation: messageSlideIn 0.3s ease;
-    }
-
-    @keyframes messageSlideIn {
-      from {
-        opacity: 0;
-        transform: translateX(20px);
-      }
-      to {
-        opacity: 1;
-        transform: translateX(0);
-      }
-    }
-
-    .chat-message.system {
-      background: rgba(59, 130, 246, 0.1);
-      border-left-color: #3B82F6;
-    }
-
-    .chat-message.roll {
-      background: rgba(245, 158, 11, 0.1);
-      border-left-color: #F59E0B;
-    }
-
-    .chat-message.action {
-      background: rgba(139, 92, 246, 0.1);
-      border-left-color: #8B5CF6;
-    }
-
-    .chat-message.spell {
-      background: rgba(59, 130, 246, 0.1);
-      border-left-color: #60A5FA;
-    }
-
-    .chat-message.combat {
-      background: rgba(239, 68, 68, 0.1);
-      border-left-color: #EF4444;
-    }
-
-    .chat-message.user {
-      background: rgba(16, 185, 129, 0.1);
-      border-left-color: #10B981;
-    }
-
-    .chat-message-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 4px;
-    }
-
-    .chat-message-author {
-      font-weight: 600;
-      font-size: 12px;
-      color: #A78BFA;
-    }
-
-    .chat-message-time {
-      font-size: 10px;
-      color: #888;
-    }
-
-    .chat-message-text {
-      color: #e0e0e0;
-      font-size: 13px;
-      line-height: 1.4;
-      word-wrap: break-word;
-    }
-
-    .chat-input-container {
-      display: flex;
-      gap: 8px;
-    }
-
-    .chat-input {
-      flex: 1;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(138, 92, 246, 0.3);
-      border-radius: 6px;
-      padding: 10px 12px;
-      color: #e0e0e0;
-      font-size: 14px;
-      font-family: inherit;
-    }
-
-    .chat-input:focus {
-      outline: none;
-      border-color: #8B5CF6;
-      background: rgba(255, 255, 255, 0.08);
-    }
-
-    .chat-input::placeholder {
-      color: #888;
-    }
-
-    .chat-send-btn {
-      background: linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%);
-      border: none;
-      border-radius: 6px;
-      padding: 10px 20px;
-      color: white;
-      font-weight: 600;
-      font-size: 14px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .chat-send-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 16px rgba(139, 92, 246, 0.4);
-    }
-
-    .chat-send-btn:active {
-      transform: translateY(0);
-    }
   </style>
 </head>
 <body>
@@ -879,7 +731,6 @@
         <button class="tab-button" data-tab="actions">⚔️ Actions</button>
         <button class="tab-button" data-tab="spells">✨ Spells</button>
         <button class="tab-button" data-tab="inventory">🎒 Inventory</button>
-        <button class="tab-button" data-tab="chat">💬 Chat</button>
       </div>
 
       <!-- Tab Contents -->
@@ -911,11 +762,9 @@
             🔄 Sync from DiceCloud
           </button>
 
-          <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(138, 92, 246, 0.2);">
-            <button class="button button-secondary" id="toggle-chat-tab-btn">
-              💬 Enable Chat Tab
-            </button>
-          </div>
+          <button class="button button-secondary" id="open-chat-window-btn" style="margin-top: 12px;">
+            💬 Open Chat Window
+          </button>
         </div>
 
         <div id="no-character-section" style="display: none;">
@@ -975,19 +824,6 @@
           <p style="color: #c0c0c0; text-align: center; padding: 40px;">
             Select a character to view inventory
           </p>
-        </div>
-      </div>
-
-      <!-- Chat Tab -->
-      <div class="tab-content" id="tab-chat">
-        <div id="chat-messages" class="chat-messages">
-          <div class="chat-message system">
-            <span class="chat-message-text">Chat connected. Ready to send messages!</span>
-          </div>
-        </div>
-        <div class="chat-input-container">
-          <input type="text" id="chat-input" class="chat-input" placeholder="Type a message..." />
-          <button id="chat-send-btn" class="chat-send-btn">Send</button>
         </div>
       </div>
 
