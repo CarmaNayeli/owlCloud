@@ -74,7 +74,7 @@
             enabled: !isActive
           }, '*');
           debug.log(`👑 GM Mode ${!isActive ? 'enabled' : 'disabled'}`);
-        } else {
+        } else if (typeof browserAPI !== 'undefined' && browserAPI) {
           // Try via background script
           browserAPI.runtime.sendMessage({
             action: 'toggleGMMode',
@@ -158,7 +158,7 @@
 
             showNotification(`👑 ${characterData.name} shared with GM!`, 'success');
             debug.log('👑 Character broadcast sent to GM:', characterData.name);
-          } else {
+          } else if (typeof browserAPI !== 'undefined' && browserAPI) {
             // Try via background script
             browserAPI.runtime.sendMessage({
               action: 'postChatMessageFromPopup',
@@ -170,6 +170,8 @@
               debug.error('❌ Failed to send character broadcast:', err);
               showNotification('❌ Failed to share with GM', 'error');
             });
+          } else {
+            showNotification('⚠️ Unable to share with GM (no connection)', 'warning');
           }
         } catch (error) {
           debug.error('❌ Error creating character broadcast:', error);
