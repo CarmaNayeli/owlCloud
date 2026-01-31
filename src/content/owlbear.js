@@ -563,12 +563,18 @@ async function loadSheetBuilderAndPopulate() {
       debug.log(`✅ Loaded: ${modulePath}`);
     }
 
-    // Call buildSheet if it's available (check window, as scripts run in page context)
-    if (typeof window.buildSheet === 'function') {
+    // Call buildSheet if it's available (access page's window via wrappedJSObject for Firefox)
+    const pageWindow = window.wrappedJSObject || window;
+    if (typeof pageWindow.buildSheet === 'function') {
       debug.log('🎨 Calling buildSheet with character data...');
-      window.buildSheet(currentCharacter);
+      // Clone character data into page context for Firefox security model
+      const characterDataForPage = typeof cloneInto !== 'undefined'
+        ? cloneInto(currentCharacter, pageWindow)
+        : currentCharacter;
+      pageWindow.buildSheet(characterDataForPage);
     } else {
-      debug.error('❌ buildSheet function not found on window');
+      debug.error('❌ buildSheet function not found on page window');
+      debug.log('Available properties on pageWindow:', Object.keys(pageWindow).filter(k => k.includes('build')));
     }
   } catch (error) {
     debug.error('❌ Error loading sheet builder:', error);
