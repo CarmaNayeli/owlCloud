@@ -370,49 +370,52 @@ function setupPortraitDrag(portraitElement, character, portraitUrl) {
       // Get current player ID to set ownership
       const playerId = await OBR.player.getId();
 
-      // Build the token using Owlbear's buildImage helper
-      const token = await OBR.scene.items.buildImage({
-        height: dpi,
-        width: dpi,
-        url: portraitUrl,
-        mime: 'image/png'
-      })
-        .position(position)
-        .layer('CHARACTER')
-        .locked(false)
-        .visible(true)
-        .name(character.name || 'Character')
-        .disableHit(false)
-        .disableAttachmentBehavior(['VISIBLE', 'LOCKED', 'LAYER'])
-        .metadata({
+      // Create token object directly
+      const tokenId = `owlcloud-${character.id}-${Date.now()}`;
+      const token = {
+        id: tokenId,
+        type: 'IMAGE',
+        position,
+        scale: { x: 1, y: 1 },
+        rotation: 0,
+        layer: 'CHARACTER',
+        locked: false,
+        visible: true,
+        disableHit: false,
+        disableAttachmentBehavior: ['VISIBLE', 'LOCKED', 'LAYER'],
+        image: {
+          url: portraitUrl,
+          width: dpi,
+          height: dpi,
+          mime: 'image/png'
+        },
+        text: {
+          plainText: character.name || 'Character',
+          type: 'PLAIN',
+          style: {
+            fillColor: '#FFFFFF',
+            fillOpacity: 1,
+            strokeColor: '#000000',
+            strokeOpacity: 1,
+            strokeWidth: 2,
+            textAlign: 'CENTER',
+            textAlignVertical: 'BOTTOM',
+            fontWeight: 700,
+            fontSize: 48,
+            padding: 8
+          }
+        },
+        metadata: {
           owlcloud: {
             characterId: character.id,
             characterName: character.name,
             diceCloudId: character.diceCloudId,
             playerId: playerId
           }
-        })
-        .build();
-
-      // Add text label
-      token.text = {
-        plainText: character.name || 'Character',
-        type: 'PLAIN',
-        style: {
-          fillColor: '#FFFFFF',
-          fillOpacity: 1,
-          strokeColor: '#000000',
-          strokeOpacity: 1,
-          strokeWidth: 2,
-          textAlign: 'CENTER',
-          textAlignVertical: 'BOTTOM',
-          fontWeight: 700,
-          fontSize: 48,
-          padding: 8
         }
       };
 
-      console.log('🎨 Token built:', token);
+      console.log('🎨 Token created:', token);
 
       // Add to scene
       await OBR.scene.items.addItems([token]);
