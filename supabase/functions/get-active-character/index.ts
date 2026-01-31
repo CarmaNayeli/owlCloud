@@ -51,7 +51,12 @@ serve(async (req) => {
         .eq('is_active', true)
         .order('updated_at', { ascending: false })
         .limit(1)
-        .single()
+        .maybeSingle()
+
+      // Only throw if there's a real error, not just "no rows found"
+      if (error && error.code !== 'PGRST116') {
+        throw error
+      }
 
       characterData = data
     } else if (pairingCode) {
@@ -61,9 +66,9 @@ serve(async (req) => {
         .select('discord_user_id')
         .eq('pairing_code', pairingCode)
         .eq('status', 'connected')
-        .single()
+        .maybeSingle()
 
-      if (pairingError || !pairing) {
+      if ((pairingError && pairingError.code !== 'PGRST116') || !pairing) {
         return new Response(
           JSON.stringify({ error: 'Invalid or disconnected pairing code' }),
           {
@@ -81,7 +86,12 @@ serve(async (req) => {
         .eq('is_active', true)
         .order('updated_at', { ascending: false })
         .limit(1)
-        .single()
+        .maybeSingle()
+
+      // Only throw if there's a real error, not just "no rows found"
+      if (error && error.code !== 'PGRST116') {
+        throw error
+      }
 
       characterData = data
     } else {
@@ -93,7 +103,12 @@ serve(async (req) => {
         .eq('is_active', true)
         .order('updated_at', { ascending: false })
         .limit(1)
-        .single()
+        .maybeSingle()
+
+      // Only throw if there's a real error, not just "no rows found"
+      if (error && error.code !== 'PGRST116') {
+        throw error
+      }
 
       characterData = data
     }

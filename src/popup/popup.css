@@ -201,15 +201,15 @@ main {
 }
 
 footer {
-  background: #f5f5f5;
+  background: rgba(26, 26, 46, 0.8);
   padding: 10px;
   text-align: center;
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid rgba(138, 92, 246, 0.3);
 }
 
 .version {
   font-size: 12px;
-  color: #999;
+  color: #A78BFA;
 }
 
 /* Login Form Styles */
@@ -225,7 +225,7 @@ footer {
 
 .help-text {
   font-size: 13px;
-  color: #666;
+  color: #A78BFA;
   margin-bottom: 20px;
   line-height: 1.4;
 }
@@ -297,27 +297,28 @@ footer {
 /* Character Selector Styles */
 .character-selector {
   padding: 12px;
-  background: #e3f2fd;
+  background: rgba(139, 92, 246, 0.1);
   border-radius: 6px;
   margin-bottom: 15px;
-  border-left: 4px solid #2196f3;
+  border-left: 4px solid #8B5CF6;
 }
 
 .character-selector label {
   display: block;
   font-size: 12px;
   font-weight: 600;
-  color: #1565c0;
+  color: #A78BFA;
   margin-bottom: 8px;
 }
 
 .character-dropdown {
   width: 100%;
   padding: 10px;
-  border: 1px solid #90caf9;
+  border: 1px solid rgba(138, 92, 246, 0.3);
   border-radius: 4px;
   font-size: 14px;
-  background: white;
+  background: rgba(26, 26, 46, 0.6);
+  color: #e0e0e0;
   cursor: pointer;
   transition: border-color 0.3s;
   appearance: auto;
@@ -328,11 +329,11 @@ footer {
 
 .character-dropdown:focus {
   outline: none;
-  border-color: #2196f3;
+  border-color: #8B5CF6;
 }
 
 .character-dropdown:hover {
-  border-color: #2196f3;
+  border-color: #8B5CF6;
 }
 
 /* Instructions Styles */

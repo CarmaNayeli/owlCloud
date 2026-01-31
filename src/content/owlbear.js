@@ -323,10 +323,11 @@ browserAPI.runtime.onMessage.addListener(async (request, sender, sendResponse) =
     case 'characterSelected': {
       // Character was selected in popup - send to Supabase with Owlbear player ID
       try {
-        // Dynamically import OBR SDK if not already loaded
+        // Check if OBR SDK is available (it should be on Owlbear pages)
         if (typeof OBR === 'undefined') {
-          const OBRModule = await import('https://esm.sh/@owlbear-rodeo/sdk@3.1.0');
-          window.OBR = OBRModule.default;
+          console.error('❌ OBR SDK not available on this page');
+          sendResponse({ success: false, error: 'OBR SDK not available' });
+          break;
         }
 
         await OBR.onReady();
@@ -376,9 +377,10 @@ browserAPI.runtime.onMessage.addListener(async (request, sender, sendResponse) =
 window.addEventListener('message', async (event) => {
   console.log('🔍 OwlCloud received message:', { origin: event.origin, data: event.data });
 
-  // Only accept messages from Owlbear Rodeo domain
-  if (event.origin !== 'https://www.owlbear.rodeo') {
-    console.log('❌ OwlCloud rejected: wrong origin');
+  // Only accept messages from Owlbear Rodeo domain or OwlCloud popover
+  const allowedOrigins = ['https://www.owlbear.rodeo', 'https://owlcloud.vercel.app'];
+  if (!allowedOrigins.includes(event.origin)) {
+    console.log('❌ OwlCloud rejected: wrong origin', event.origin);
     return;
   }
 
