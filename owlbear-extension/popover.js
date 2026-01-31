@@ -543,11 +543,18 @@ function populateFeaturesTab(character) {
     if (filteredFeatures.length > 0) {
       html += '<div class="feature-list">';
 
-      filteredFeatures.forEach(feature => {
+      filteredFeatures.forEach((feature, index) => {
+        const featureId = `feature-${index}`;
         html += `
-          <div class="feature-card">
-            <div class="feature-name">${feature.name || 'Unknown Feature'}</div>
-            ${feature.description ? `<div class="feature-description">${feature.description}</div>` : ''}
+          <div class="feature-card" onclick="toggleFeatureCard('${featureId}')">
+            <div class="feature-header">
+              <div class="feature-name">${feature.name || 'Unknown Feature'}</div>
+              <span class="expand-icon">▼</span>
+            </div>
+            <div id="${featureId}" class="feature-details">
+              ${feature.description ? `<div class="feature-description">${feature.description}</div>` : ''}
+              ${feature.source ? `<div class="feature-metadata"><div class="feature-meta-item"><span class="feature-meta-label">Source:</span> ${feature.source}</div></div>` : ''}
+            </div>
           </div>
         `;
       });
@@ -578,17 +585,12 @@ function populateActionsTab(character) {
 
     html += '<div class="feature-list">';
 
-    deduplicatedActions.forEach(action => {
+    deduplicatedActions.forEach((action, index) => {
+      const actionId = `action-${index}`;
       const actionType = action.actionType || 'Action';
       const damage = action.damage || '';
       const attackRoll = action.attackRoll || '';
       const uses = action.uses;
-
-      let actionDetails = [];
-      if (actionType) actionDetails.push(actionType);
-      if (attackRoll) actionDetails.push(`Attack: ${attackRoll}`);
-      if (damage) actionDetails.push(`Damage: ${damage}`);
-      if (uses && uses.value !== undefined) actionDetails.push(`Uses: ${uses.value}/${uses.max || uses.value}`);
 
       // Parse attack bonus from attackRoll string (like "+5" or "1d20+5")
       let attackBonus = 0;
@@ -602,14 +604,25 @@ function populateActionsTab(character) {
       // Parse damage formula (like "1d8+3" or "2d6")
       let damageFormula = damage;
 
-      const onclick = attackRoll || damage ? `onclick="rollAttack('${(action.name || 'Action').replace(/'/g, "\\'")}', ${attackBonus}, '${damageFormula}')"` : '';
-      const title = attackRoll || damage ? 'Click to roll attack' : 'Action';
+      const hasRollAction = attackRoll || damage;
+      const rollButtonHtml = hasRollAction ? `<button class="rest-btn" style="margin-top: 8px; width: 100%;" onclick="event.stopPropagation(); rollAttack('${(action.name || 'Action').replace(/'/g, "\\'")}', ${attackBonus}, '${damageFormula}')">🎲 Roll Attack</button>` : '';
 
       html += `
-        <div class="feature-card" style="cursor: pointer;" ${onclick} title="${title}">
-          <div class="feature-name">${action.name || 'Unknown Action'}</div>
-          ${actionDetails.length > 0 ? `<div class="feature-description" style="color: #A78BFA;">${actionDetails.join(' • ')}</div>` : ''}
-          ${action.description ? `<div class="feature-description">${action.description.substring(0, 100)}${action.description.length > 100 ? '...' : ''}</div>` : ''}
+        <div class="feature-card" onclick="toggleFeatureCard('${actionId}')">
+          <div class="feature-header">
+            <div class="feature-name">${action.name || 'Unknown Action'}</div>
+            <span class="expand-icon">▼</span>
+          </div>
+          <div id="${actionId}" class="feature-details">
+            <div class="feature-metadata">
+              ${actionType ? `<div class="feature-meta-item"><span class="feature-meta-label">Type:</span> ${actionType}</div>` : ''}
+              ${attackRoll ? `<div class="feature-meta-item"><span class="feature-meta-label">Attack:</span> ${attackRoll}</div>` : ''}
+              ${damage ? `<div class="feature-meta-item"><span class="feature-meta-label">Damage:</span> ${damage}</div>` : ''}
+              ${uses && uses.value !== undefined ? `<div class="feature-meta-item"><span class="feature-meta-label">Uses:</span> ${uses.value}/${uses.max || uses.value}</div>` : ''}
+            </div>
+            ${action.description ? `<div class="feature-description">${action.description}</div>` : ''}
+            ${rollButtonHtml}
+          </div>
         </div>
       `;
     });
@@ -734,24 +747,40 @@ function populateSpellsTab(character) {
     html += `<div id="${spellLevelId}" class="collapsible-content">`;
     html += `<div class="spell-list">`;
 
-    spells.forEach(spell => {
+    spells.forEach((spell, spellIndex) => {
+      const spellCardId = `spell-${index}-${spellIndex}`;
       const isConcentration = spell.concentration || false;
+      const isRitual = spell.ritual || false;
       const castingTime = spell.castingTime || '';
       const range = spell.range || '';
-
-      let metaInfo = [];
-      if (castingTime) metaInfo.push(castingTime);
-      if (range) metaInfo.push(range);
-
+      const components = spell.components || '';
+      const duration = spell.duration || '';
       const spellLevel = parseInt(spell.level) || 0;
+
+      const castButtonHtml = `<button class="rest-btn" style="margin-top: 8px; width: 100%;" onclick="event.stopPropagation(); castSpell('${(spell.name || 'Unknown Spell').replace(/'/g, "\\'")}', ${spellLevel})">✨ Cast Spell</button>`;
+
       html += `
-        <div class="spell-card ${isConcentration ? 'concentration' : ''}" onclick="castSpell('${(spell.name || 'Unknown Spell').replace(/'/g, "\\'")}', ${spellLevel})" title="Click to cast spell">
+        <div class="spell-card ${isConcentration ? 'concentration' : ''} ${isRitual ? 'ritual' : ''}" onclick="toggleFeatureCard('${spellCardId}')">
           <div class="spell-card-header">
             <span class="spell-name">${spell.name || 'Unknown Spell'}</span>
-            ${isConcentration ? '<span class="spell-concentration-badge">Concentration</span>' : ''}
+            <div class="spell-badges">
+              ${isConcentration ? '<span class="spell-concentration-badge">C</span>' : ''}
+              ${isRitual ? '<span class="spell-ritual-badge">R</span>' : ''}
+              <span class="expand-icon">▼</span>
+            </div>
           </div>
-          ${metaInfo.length > 0 ? `<div class="spell-meta">${metaInfo.join(' • ')}</div>` : ''}
-          ${spell.description ? `<div class="spell-description">${spell.description.substring(0, 100)}${spell.description.length > 100 ? '...' : ''}</div>` : ''}
+          <div id="${spellCardId}" class="spell-details">
+            <div class="feature-metadata">
+              ${castingTime ? `<div class="feature-meta-item"><span class="feature-meta-label">Casting Time:</span> ${castingTime}</div>` : ''}
+              ${range ? `<div class="feature-meta-item"><span class="feature-meta-label">Range:</span> ${range}</div>` : ''}
+              ${components ? `<div class="feature-meta-item"><span class="feature-meta-label">Components:</span> ${components}</div>` : ''}
+              ${duration ? `<div class="feature-meta-item"><span class="feature-meta-label">Duration:</span> ${duration}</div>` : ''}
+              ${isConcentration ? '<div class="feature-meta-item"><span class="feature-meta-label">Concentration:</span> Yes</div>' : ''}
+              ${isRitual ? '<div class="feature-meta-item"><span class="feature-meta-label">Ritual:</span> Yes</div>' : ''}
+            </div>
+            ${spell.description ? `<div class="spell-description">${spell.description}</div>` : ''}
+            ${castButtonHtml}
+          </div>
         </div>
       `;
     });
@@ -1391,6 +1420,20 @@ window.toggleCollapsible = function(elementId) {
       const isCollapsed = element.classList.contains('collapsed');
       arrow.style.transform = isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)';
     }
+  }
+};
+
+/**
+ * Toggle expansion of a feature/action/spell card
+ */
+window.toggleFeatureCard = function(cardId) {
+  const card = document.getElementById(cardId);
+  if (!card) return;
+
+  // Find the parent card element
+  const parentCard = card.parentElement;
+  if (parentCard) {
+    parentCard.classList.toggle('expanded');
   }
 };
 

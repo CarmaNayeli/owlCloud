@@ -538,9 +538,9 @@
       transform: translateX(4px);
     }
 
-    .feature-card.expanded .feature-description {
-      max-height: none;
-      overflow: visible;
+    .feature-card.expanded {
+      background: rgba(138, 92, 246, 0.2);
+      box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
     }
 
     .feature-card[title*="Click"] {
@@ -552,17 +552,72 @@
       box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
     }
 
+    .feature-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
     .feature-name {
       color: #e0e0e0;
       font-weight: 600;
       font-size: 14px;
-      margin-bottom: 4px;
+      flex: 1;
+    }
+
+    .feature-summary {
+      color: #A78BFA;
+      font-size: 12px;
+      margin-top: 4px;
+      line-height: 1.3;
+    }
+
+    .feature-details {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+      margin-top: 0;
+    }
+
+    .feature-card.expanded .feature-details {
+      max-height: 1000px;
+      margin-top: 8px;
     }
 
     .feature-description {
       color: #c0c0c0;
       font-size: 12px;
       line-height: 1.4;
+      margin-top: 8px;
+    }
+
+    .feature-metadata {
+      display: grid;
+      gap: 4px;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(138, 92, 246, 0.2);
+    }
+
+    .feature-meta-item {
+      color: #A78BFA;
+      font-size: 11px;
+    }
+
+    .feature-meta-label {
+      font-weight: 600;
+      color: #8B5CF6;
+    }
+
+    .expand-icon {
+      color: #A78BFA;
+      font-size: 12px;
+      transition: transform 0.2s ease;
+      margin-left: 8px;
+    }
+
+    .feature-card.expanded .expand-icon {
+      transform: rotate(180deg);
     }
 
     /* Inventory */
@@ -687,21 +742,36 @@
       box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
     }
 
+    .spell-card.expanded {
+      background: rgba(59, 130, 246, 0.2);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+
     .spell-card.concentration {
       border-left-color: #F59E0B;
+    }
+
+    .spell-card.ritual {
+      border-right: 3px solid #A78BFA;
     }
 
     .spell-card-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 4px;
     }
 
     .spell-name {
       color: #e0e0e0;
       font-weight: 600;
       font-size: 13px;
+      flex: 1;
+    }
+
+    .spell-badges {
+      display: flex;
+      gap: 4px;
+      align-items: center;
     }
 
     .spell-concentration-badge {
@@ -713,16 +783,38 @@
       font-weight: 600;
     }
 
+    .spell-ritual-badge {
+      background: rgba(167, 139, 250, 0.2);
+      color: #C4B5FD;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
     .spell-meta {
       color: #60A5FA;
       font-size: 11px;
-      margin-bottom: 2px;
+      margin-top: 4px;
+    }
+
+    .spell-details {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+      margin-top: 0;
+    }
+
+    .spell-card.expanded .spell-details {
+      max-height: 1000px;
+      margin-top: 8px;
     }
 
     .spell-description {
       color: #c0c0c0;
       font-size: 11px;
-      line-height: 1.3;
+      line-height: 1.4;
+      margin-top: 8px;
     }
 
   </style>
