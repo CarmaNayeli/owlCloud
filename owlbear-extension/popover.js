@@ -24,6 +24,7 @@ const characterInfo = document.getElementById('character-info');
 const syncCharacterBtn = document.getElementById('sync-character-btn');
 const openExtensionBtn = document.getElementById('open-extension-btn');
 const linkExtensionBtn = document.getElementById('link-extension-btn');
+const toggleChatTabBtn = document.getElementById('toggle-chat-tab-btn');
 
 // ============== Tab Management ==============
 
@@ -64,6 +65,48 @@ function initializeTabs() {
 
 // Initialize tabs when DOM is ready
 initializeTabs();
+
+// ============== Chat Tab Toggle ==============
+
+let isChatTabEnabled = localStorage.getItem('owlcloud-chat-tab-enabled') === 'true';
+
+/**
+ * Update chat tab visibility
+ */
+function updateChatTabVisibility() {
+  const chatTabButton = document.querySelector('[data-tab="chat"]');
+  const toggleBtn = document.getElementById('toggle-chat-tab-btn');
+
+  if (chatTabButton && toggleBtn) {
+    if (isChatTabEnabled) {
+      chatTabButton.style.display = 'block';
+      toggleBtn.textContent = '💬 Disable Chat Tab';
+    } else {
+      chatTabButton.style.display = 'none';
+      toggleBtn.textContent = '💬 Enable Chat Tab';
+
+      // If chat tab is currently active, switch to settings
+      const chatTab = document.getElementById('tab-chat');
+      if (chatTab && chatTab.classList.contains('active')) {
+        document.querySelector('[data-tab="settings"]').click();
+      }
+    }
+  }
+}
+
+/**
+ * Toggle chat tab visibility
+ */
+function toggleChatTab() {
+  isChatTabEnabled = !isChatTabEnabled;
+  localStorage.setItem('owlcloud-chat-tab-enabled', isChatTabEnabled);
+  updateChatTabVisibility();
+}
+
+// Initialize chat tab visibility on load
+setTimeout(() => {
+  updateChatTabVisibility();
+}, 100);
 
 // ============== Owlbear SDK Initialization ==============
 
@@ -847,6 +890,13 @@ openExtensionBtn.addEventListener('click', () => {
 });
 
 /**
+ * Toggle chat tab
+ */
+toggleChatTabBtn.addEventListener('click', () => {
+  toggleChatTab();
+});
+
+/**
  * Link Owlbear player to browser extension characters
  */
 linkExtensionBtn.addEventListener('click', async () => {
@@ -1035,26 +1085,9 @@ setTimeout(() => {
 
 // ============== Chat System ==============
 
-const chatContainer = document.getElementById('chat-container');
-const chatToggleBtn = document.getElementById('chat-toggle-btn');
-const chatCloseBtn = document.getElementById('chat-close-btn');
 const chatMessages = document.getElementById('chat-messages');
 const chatInput = document.getElementById('chat-input');
 const chatSendBtn = document.getElementById('chat-send-btn');
-
-let isChatOpen = false;
-
-/**
- * Toggle chat visibility
- */
-function toggleChat() {
-  isChatOpen = !isChatOpen;
-  chatContainer.style.display = isChatOpen ? 'flex' : 'none';
-  if (isChatOpen) {
-    chatInput.focus();
-    scrollChatToBottom();
-  }
-}
 
 /**
  * Scroll chat to bottom
@@ -1159,9 +1192,6 @@ function announceCombat(text) {
 }
 
 // Event Listeners
-chatToggleBtn.addEventListener('click', toggleChat);
-chatCloseBtn.addEventListener('click', toggleChat);
-
 chatSendBtn.addEventListener('click', sendChatMessage);
 
 chatInput.addEventListener('keypress', (e) => {
@@ -1176,8 +1206,7 @@ window.owlcloudChat = {
   announceRoll: announceDiceRoll,
   announceAction: announceAction,
   announceSpell: announceSpell,
-  announceCombat: announceCombat,
-  toggle: toggleChat
+  announceCombat: announceCombat
 };
 
 console.log('💬 Chat system initialized');

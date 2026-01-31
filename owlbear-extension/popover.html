@@ -703,100 +703,11 @@
       line-height: 1.3;
     }
 
-    /* Floating Chat Interface */
-    .chat-toggle-btn {
-      position: absolute;
-      bottom: 20px;
-      right: -80px;
-      width: 60px;
-      height: 60px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, #8B5CF6 0%, #A78BFA 100%);
-      border: none;
-      color: white;
-      font-size: 28px;
-      cursor: pointer;
-      box-shadow: 0 8px 20px rgba(139, 92, 246, 0.5);
-      transition: all 0.3s ease;
-      z-index: 9999;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .chat-toggle-btn:hover {
-      transform: scale(1.1);
-      box-shadow: 0 12px 28px rgba(139, 92, 246, 0.6);
-    }
-
-    .chat-toggle-btn:active {
-      transform: scale(0.95);
-    }
-
-    .chat-container {
-      position: absolute;
-      top: 0;
-      right: -420px;
-      width: 400px;
-      height: 100%;
-      background: rgba(26, 26, 46, 0.95);
-      border-radius: 12px;
-      border: 1px solid rgba(138, 92, 246, 0.3);
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
-      backdrop-filter: blur(10px);
-      z-index: 10000;
+    /* Chat Interface */
+    #tab-chat {
       display: flex;
       flex-direction: column;
-      animation: slideIn 0.3s ease;
-    }
-
-    @keyframes slideIn {
-      from {
-        opacity: 0;
-        transform: translateX(20px);
-      }
-      to {
-        opacity: 1;
-        transform: translateX(0);
-      }
-    }
-
-    .chat-header {
-      padding: 16px;
-      background: rgba(139, 92, 246, 0.2);
-      border-bottom: 1px solid rgba(138, 92, 246, 0.3);
-      border-radius: 12px 12px 0 0;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .chat-title {
-      color: #e0e0e0;
-      font-weight: 600;
-      font-size: 16px;
-    }
-
-    .chat-close-btn {
-      background: transparent;
-      border: none;
-      color: #c0c0c0;
-      font-size: 32px;
-      line-height: 24px;
-      cursor: pointer;
-      padding: 0;
-      width: 32px;
-      height: 32px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 4px;
-      transition: all 0.2s ease;
-    }
-
-    .chat-close-btn:hover {
-      background: rgba(255, 255, 255, 0.1);
-      color: #e0e0e0;
+      height: 500px;
     }
 
     .chat-messages {
@@ -806,6 +717,9 @@
       display: flex;
       flex-direction: column;
       gap: 12px;
+      background: rgba(26, 26, 46, 0.3);
+      border-radius: 8px;
+      margin-bottom: 12px;
       scrollbar-width: thin;
       scrollbar-color: rgba(138, 92, 246, 0.3) transparent;
     }
@@ -897,10 +811,6 @@
     }
 
     .chat-input-container {
-      padding: 16px;
-      background: rgba(139, 92, 246, 0.1);
-      border-top: 1px solid rgba(138, 92, 246, 0.3);
-      border-radius: 0 0 12px 12px;
       display: flex;
       gap: 8px;
     }
@@ -969,6 +879,7 @@
         <button class="tab-button" data-tab="actions">⚔️ Actions</button>
         <button class="tab-button" data-tab="spells">✨ Spells</button>
         <button class="tab-button" data-tab="inventory">🎒 Inventory</button>
+        <button class="tab-button" data-tab="chat">💬 Chat</button>
       </div>
 
       <!-- Tab Contents -->
@@ -999,6 +910,12 @@
           <button class="button button-secondary" id="sync-character-btn">
             🔄 Sync from DiceCloud
           </button>
+
+          <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(138, 92, 246, 0.2);">
+            <button class="button button-secondary" id="toggle-chat-tab-btn">
+              💬 Enable Chat Tab
+            </button>
+          </div>
         </div>
 
         <div id="no-character-section" style="display: none;">
@@ -1061,30 +978,21 @@
         </div>
       </div>
 
-    </div>
-  </div>
-
-  <!-- Floating Chat Interface -->
-  <div id="chat-container" class="chat-container" style="display: none;">
-    <div class="chat-header">
-      <span class="chat-title">🎲 OwlCloud Chat</span>
-      <button id="chat-close-btn" class="chat-close-btn">×</button>
-    </div>
-    <div id="chat-messages" class="chat-messages">
-      <div class="chat-message system">
-        <span class="chat-message-text">Chat connected. Ready to send messages!</span>
+      <!-- Chat Tab -->
+      <div class="tab-content" id="tab-chat">
+        <div id="chat-messages" class="chat-messages">
+          <div class="chat-message system">
+            <span class="chat-message-text">Chat connected. Ready to send messages!</span>
+          </div>
+        </div>
+        <div class="chat-input-container">
+          <input type="text" id="chat-input" class="chat-input" placeholder="Type a message..." />
+          <button id="chat-send-btn" class="chat-send-btn">Send</button>
+        </div>
       </div>
-    </div>
-    <div class="chat-input-container">
-      <input type="text" id="chat-input" class="chat-input" placeholder="Type a message..." />
-      <button id="chat-send-btn" class="chat-send-btn">Send</button>
+
     </div>
   </div>
-
-  <!-- Chat Toggle Button -->
-  <button id="chat-toggle-btn" class="chat-toggle-btn" title="Open Chat">
-    💬
-  </button>
 
   <!-- Load Owlbear SDK -->
   <script type="module">
